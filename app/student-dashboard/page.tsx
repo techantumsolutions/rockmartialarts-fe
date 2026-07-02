@@ -27,6 +27,8 @@ import {
 import { getBackendApiUrl } from "@/lib/config"
 import { formatRegisteredDateTime } from "@/lib/formatRegisteredDate"
 import { getEnrollmentUiStatus, formatEnrollmentUiStatusLabel } from "@/lib/student-enrollment-status"
+import { TokenManager } from "@/lib/tokenManager"
+import { requireStudentSession } from "@/lib/sessionAuth"
 
 export default function StudentDashboard() {
   const router = useRouter()
@@ -45,11 +47,11 @@ export default function StudentDashboard() {
   const [achievementsLoading, setAchievementsLoading] = useState(false)
 
   useEffect(() => {
-    // Check if user is logged in
-    const token = localStorage.getItem("token")
-    const user = localStorage.getItem("user")
+    const token = requireStudentSession(router, "/student-dashboard")
+    if (!token) return
 
-    if (!token) {
+    const user = TokenManager.getUser()
+    if (!user) {
       router.push("/login")
       return
     }
@@ -60,22 +62,19 @@ export default function StudentDashboard() {
         setLoading(true)
         setError(null)
 
-        let userData: any = {}
-        let profileData: any = null
+        const userData = user
 
-        if (user) {
-          userData = JSON.parse(user)
-
-          // Check if user is actually a student
-          if (userData.role !== "student") {
-            if (userData.role === "coach") {
-              router.push("/coach-dashboard")
-            } else {
-              router.push("/dashboard")
-            }
-            return
+        // Check if user is actually a student
+        if (userData.role !== "student") {
+          if (userData.role === "coach") {
+            router.push("/coach-dashboard")
+          } else {
+            router.push("/dashboard")
           }
+          return
         }
+
+        let profileData: any = null
 
         const headers = {
           'Authorization': `Bearer ${token}`,
@@ -93,8 +92,6 @@ export default function StudentDashboard() {
         if (profileResponse.ok) {
           const profileResult = await profileResponse.json()
           profileData = profileResult.profile
-
-          console.log("✅ Profile data received:", profileData)
 
           setStudentData({
             name: profileData.full_name || `${profileData.first_name} ${profileData.last_name}` || "Student",
@@ -141,6 +138,10 @@ export default function StudentDashboard() {
               .catch(() => setMyAchievements([]))
               .finally(() => setAchievementsLoading(false))
           }
+        } else if (profileResponse.status === 401) {
+          TokenManager.clearAuthData()
+          router.push("/login?session=expired&returnUrl=/student-dashboard")
+          return
         } else {
           console.error("❌ Profile API failed:", profileResponse.status, profileResponse.statusText)
           throw new Error(`Failed to fetch profile: ${profileResponse.status}`)
@@ -227,13 +228,11 @@ export default function StudentDashboard() {
         console.error("Error loading dashboard data:", error)
         setError(error.message || "Failed to load dashboard data")
 
-        // Set minimal fallback from localStorage (no hardcoded values)
         if (user) {
-          const userData = JSON.parse(user)
           setStudentData({
-            name: userData.full_name || `${userData.first_name} ${userData.last_name}` || "Student",
-            email: userData.email || "",
-            studentId: userData.id || "",
+            name: user.full_name || `${user.first_name} ${user.last_name}` || "Student",
+            email: user.email || "",
+            studentId: user.id || "",
             joinDate: "",
             course: ""
           })
@@ -247,8 +246,7 @@ export default function StudentDashboard() {
   }, [router])
 
   const handleLogout = () => {
-    localStorage.removeItem("token")
-    localStorage.removeItem("user")
+    TokenManager.clearAuthData()
     router.push("/login")
   }
 

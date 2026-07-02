@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import StudentDashboardLayout from "@/components/student-dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -40,6 +40,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { TokenManager } from "@/lib/tokenManager"
+import {
+  getSessionErrorMessage,
+  isSessionExpiredError,
+  requireStudentSession,
+  SESSION_EXPIRED_PAYMENT_MESSAGE,
+} from "@/lib/sessionAuth"
 
 type TenureOption = {
   id: string
@@ -102,6 +109,7 @@ function durationKeyMatchesEnrollment(option: TenureOption, durationId: string |
 
 export default function StudentPaymentsPage() {
   const router = useRouter()
+  const pathname = usePathname()
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -120,32 +128,31 @@ export default function StudentPaymentsPage() {
   const [tenurePricesLoading, setTenurePricesLoading] = useState(false)
 
   useEffect(() => {
-    const token = localStorage.getItem("token")
-    const user = localStorage.getItem("user")
+    const token = requireStudentSession(router, pathname || "/student-dashboard/payments")
+    if (!token) return
 
-    if (!token) {
+    const user = TokenManager.getUser()
+    if (!user) {
       router.push("/login")
       return
     }
 
-    if (user) {
-      const userData = JSON.parse(user)
-      if (userData.role !== "student") {
-        if (userData.role === "coach") {
-          router.push("/coach-dashboard")
-        } else {
-          router.push("/dashboard")
-        }
-        return
+    if (user.role !== "student") {
+      if (user.role === "coach") {
+        router.push("/coach-dashboard")
+      } else {
+        router.push("/dashboard")
       }
-      setStudentData({
-        name: userData.full_name || userData.name || "Student",
-        email: userData.email || ""
-      })
+      return
     }
 
+    setStudentData({
+      name: user.full_name || user.name || "Student",
+      email: user.email || "",
+    })
+
     loadPaymentData(token)
-  }, [router])
+  }, [router, pathname])
 
   // When tenure modal opens, fetch price for each duration
   useEffect(() => {
@@ -156,8 +163,8 @@ export default function StudentPaymentsPage() {
       return
     }
     setTenurePricesLoading(true)
-    const token = localStorage.getItem("token")
-    if (!token) {
+    const token = TokenManager.getToken()
+    if (!token || !TokenManager.isAuthenticated()) {
       setTenurePricesLoading(false)
       return
     }
@@ -356,16 +363,15 @@ export default function StudentPaymentsPage() {
     tenure: { months: number; id: string }
   ) => {
     setTenureModal(null)
-    const token = localStorage.getItem("token")
-    const user = localStorage.getItem("user")
+    const token = requireStudentSession(router, pathname || "/student-dashboard/payments")
+    const user = TokenManager.getUser()
     if (!token || !user) {
-      router.push("/login")
       return
     }
     setPaymentProcessingId(enrollment.id)
     setError(null)
     try {
-      const userData = JSON.parse(user)
+      const userData = user
 
       const prepRes = await fetch(getBackendApiUrl("payments/prepare-student-checkout"), {
         method: "POST",
@@ -385,6 +391,10 @@ export default function StudentPaymentsPage() {
           typeof prepJson?.detail === "string"
             ? prepJson.detail
             : prepJson?.detail?.[0]?.msg || prepJson?.message || "Could not start checkout"
+        if (prepRes.status === 401 || isSessionExpiredError(msg)) {
+          TokenManager.clearAuthData()
+          throw new Error(SESSION_EXPIRED_PAYMENT_MESSAGE)
+        }
         throw new Error(msg)
       }
 
@@ -406,7 +416,13 @@ export default function StudentPaymentsPage() {
         const msg =
           typeof orderJson?.error === "string"
             ? orderJson.error
-            : "Payment failed, please try again"
+            : typeof orderJson?.detail === "string"
+              ? orderJson.detail
+              : "Payment failed, please try again"
+        if (orderRes.status === 401 || isSessionExpiredError(msg)) {
+          TokenManager.clearAuthData()
+          throw new Error(SESSION_EXPIRED_PAYMENT_MESSAGE)
+        }
         throw new Error(msg)
       }
       const order = orderJson.order as { id?: string; amount?: number; currency?: string }
@@ -448,11 +464,16 @@ export default function StudentPaymentsPage() {
         onSuccess: async (response: RazorpayPaymentResponse) => {
           try {
             setError(null)
+            const activeToken = TokenManager.isAuthenticated() ? TokenManager.getToken() : null
+            if (!activeToken) {
+              TokenManager.clearAuthData()
+              throw new Error(SESSION_EXPIRED_PAYMENT_MESSAGE)
+            }
             const verifyRes = await fetch("/api/payments/verify", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
+                Authorization: `Bearer ${activeToken}`,
               },
               body: JSON.stringify({
                 razorpay_order_id: response.razorpay_order_id,
@@ -463,12 +484,22 @@ export default function StudentPaymentsPage() {
             })
             const data = await verifyRes.json().catch(() => ({}))
             if (!verifyRes.ok) {
+              if (verifyRes.status === 401 || isSessionExpiredError(data?.detail || data?.error)) {
+                TokenManager.clearAuthData()
+                throw new Error(SESSION_EXPIRED_PAYMENT_MESSAGE)
+              }
               throw new Error(data?.error ?? data?.detail ?? "Verification failed")
             }
-            await loadPaymentData(token)
+            await loadPaymentData(activeToken)
             window.location.reload()
           } catch (e) {
-            setError(e instanceof Error ? e.message : "Payment verification failed")
+            const message = getSessionErrorMessage(e, true)
+            if (message === SESSION_EXPIRED_PAYMENT_MESSAGE) {
+              TokenManager.clearAuthData()
+              router.push(`/login?session=expired&returnUrl=${encodeURIComponent(pathname || "/student-dashboard/payments")}`)
+            } else {
+              setError(message)
+            }
           } finally {
             setPaymentProcessingId(null)
           }
@@ -476,8 +507,11 @@ export default function StudentPaymentsPage() {
         onDismiss: () => setPaymentProcessingId(null),
       })
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Payment could not be started"
-      if (msg.includes("Razorpay Key ID not configured")) {
+      const msg = getSessionErrorMessage(e, true)
+      if (msg === SESSION_EXPIRED_PAYMENT_MESSAGE) {
+        TokenManager.clearAuthData()
+        router.push(`/login?session=expired&returnUrl=${encodeURIComponent(pathname || "/student-dashboard/payments")}`)
+      } else if (msg.includes("Razorpay Key ID not configured")) {
         setError(
           "Razorpay is not configured. Add NEXT_PUBLIC_RAZORPAY_KEY_ID to .env.local and restart the dev server (npm run dev)."
         )

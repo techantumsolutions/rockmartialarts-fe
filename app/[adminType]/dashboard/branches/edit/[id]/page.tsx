@@ -1,7 +1,7 @@
 "use client"
 
 import { getBackendApiUrl } from "@/lib/config"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -21,6 +21,9 @@ import {
   normalizeAssignmentsCourses,
   buildCourseSchedulePayload,
   BATCH_COACH_UNASSIGNED,
+  enrichAssignmentsCoursesWithDurationPricing,
+  lookupDurationMapValue,
+  type MasterDuration,
 } from "@/lib/branchCourseSchedule"
 
 // Interfaces for form data
@@ -34,6 +37,12 @@ interface Course {
   pricing: {
     currency: string
     amount: number
+    fee_per_duration?: Record<string, number | string>
+    branch_prices?: Array<{
+      branch_id?: string
+      fee_per_duration?: Record<string, number | string>
+      amount?: number
+    }>
   }
   student_requirements: {
     max_students: number
@@ -158,7 +167,8 @@ export default function EditBranch() {
   const [categories, setCategories] = useState<Category[]>([])
   const [isLoadingCategories, setIsLoadingCategories] = useState(true)
   const [coaches, setCoaches] = useState<{ id: string; name: string }[]>([])
-  const [masterDurations, setMasterDurations] = useState<{ id: string; name: string; code: string; duration_months: number }[]>([])
+  const [masterDurations, setMasterDurations] = useState<MasterDuration[]>([])
+  const pricingHydratedRef = useRef(false)
   const [isLoadingCoaches, setIsLoadingCoaches] = useState(true)
   const [locations, setLocations] = useState<{ id: string; name: string; state: string }[]>([])
   const [isLoadingLocations, setIsLoadingLocations] = useState(true)
@@ -311,7 +321,7 @@ export default function EditBranch() {
     const loadData = async () => {
       // Fetch existing branch data first
       try {
-        const token = localStorage.getItem("token")
+        const token = TokenManager.getToken()
         if (!token) {
           throw new Error("No authentication token found")
         }
@@ -420,12 +430,40 @@ export default function EditBranch() {
     fetch(getBackendApiUrl("durations/public/all"))
       .then((res) => res.ok ? res.json() : { durations: [] })
       .then((data) => {
-        setMasterDurations((data.durations || []).map((d: any) => ({
-          id: d.id, name: d.name, code: d.code, duration_months: d.duration_months
+        setMasterDurations((data.durations || []).map((d: MasterDuration) => ({
+          id: d.id,
+          name: d.name,
+          code: d.code,
+          duration_months: d.duration_months,
         })))
       })
       .catch(() => {})
   }, [])
+
+  // Hydrate per-duration pricing from batch_fee / course branch fees once branch + catalog + durations load
+  useEffect(() => {
+    if (
+      masterDurations.length === 0 ||
+      isLoading ||
+      isLoadingCourses ||
+      pricingHydratedRef.current
+    ) {
+      return
+    }
+    pricingHydratedRef.current = true
+    setFormData((prev) => ({
+      ...prev,
+      assignments: {
+        ...prev.assignments,
+        courses: enrichAssignmentsCoursesWithDurationPricing(
+          prev.assignments.courses,
+          masterDurations,
+          courses,
+          branchId
+        ),
+      },
+    }))
+  }, [masterDurations, isLoading, isLoadingCourses, courses, branchId])
 
   const loadCountries = async () => {
     try {
@@ -1259,8 +1297,13 @@ export default function EditBranch() {
                                         const fpd = batch.fee_per_duration || {}
                                         const ptd = batch.pricing_type_per_duration || {}
                                         const epd = batch.enabled_per_duration || {}
-                                        const pricingType = ptd[dur.id] || "monthly"
-                                        const isEnabled = epd[dur.id] !== false
+                                        const feeValue =
+                                          lookupDurationMapValue(fpd, dur, masterDurations) ?? ""
+                                        const pricingType =
+                                          (lookupDurationMapValue(ptd, dur, masterDurations) as string) ||
+                                          "monthly"
+                                        const enabledVal = lookupDurationMapValue(epd, dur, masterDurations)
+                                        const isEnabled = enabledVal !== false
                                         const updateBatchField = (field: string, value: any) => {
                                           const newCourses = formData.assignments.courses.map((c: any) => {
                                             if (c.course_id !== course.id) return c
@@ -1296,7 +1339,7 @@ export default function EditBranch() {
                                               type="text"
                                               inputMode="decimal"
                                               placeholder={pricingType === "flat" ? "Flat price" : "Monthly fee"}
-                                              value={fpd[dur.id] ?? ""}
+                                              value={feeValue}
                                               disabled={!isEnabled}
                                               onChange={(e) => {
                                                 updateBatchField("fee_per_duration", {
@@ -1304,7 +1347,7 @@ export default function EditBranch() {
                                                   [dur.id]: e.target.value
                                                 })
                                               }}
-                                              className="h-7 w-28 text-sm"
+                                              className="h-7 w-28 text-sm text-gray-900 bg-white border-gray-300"
                                             />
                                             <div className="flex items-center gap-1 shrink-0">
                                               <button
@@ -1334,12 +1377,12 @@ export default function EditBranch() {
                                                 Flat
                                               </button>
                                             </div>
-                                            {fpd[dur.id] && pricingType === "monthly" && dur.duration_months > 1 && (
+                                            {feeValue && pricingType === "monthly" && (dur.duration_months ?? 0) > 1 && (
                                               <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                                = ₹{(parseFloat(fpd[dur.id]) * dur.duration_months).toLocaleString("en-IN")} total
+                                                = ₹{(parseFloat(String(feeValue)) * (dur.duration_months ?? 1)).toLocaleString("en-IN")} total
                                               </span>
                                             )}
-                                            {fpd[dur.id] && pricingType === "flat" && (
+                                            {feeValue && pricingType === "flat" && (
                                               <span className="text-xs text-green-600 whitespace-nowrap">Fixed price</span>
                                             )}
                                             {!isEnabled && (

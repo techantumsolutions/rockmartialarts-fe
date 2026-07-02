@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getBackendApiUrl } from '@/lib/config'
 import { isEnrollmentExpiredByDate } from '@/lib/student-enrollment-status'
+import { TokenManager } from '@/lib/tokenManager'
+import { buildLoginUrl } from '@/lib/sessionAuth'
 
 export interface SubscriptionStatus {
   isActive: boolean
@@ -26,8 +28,18 @@ export function useStudentSubscription() {
   useEffect(() => {
     const checkSubscriptionStatus = async () => {
       try {
-        const token = localStorage.getItem('token')
-        const user = localStorage.getItem('user')
+        if (!TokenManager.isAuthenticated()) {
+          TokenManager.clearAuthData()
+          setStatus({
+            isActive: false,
+            hasActiveEnrollment: false,
+            loading: false
+          })
+          return
+        }
+
+        const token = TokenManager.getToken()
+        const user = TokenManager.getUser()
 
         if (!token || !user) {
           setStatus({
@@ -38,10 +50,8 @@ export function useStudentSubscription() {
           return
         }
 
-        const userData = JSON.parse(user)
-
         // Only check for students
-        if (userData.role !== 'student') {
+        if (user.role !== 'student') {
           setStatus({
             isActive: true,
             hasActiveEnrollment: true,
@@ -58,6 +68,17 @@ export function useStudentSubscription() {
             'Content-Type': 'application/json'
           }
         })
+
+        if (response.status === 401) {
+          TokenManager.clearAuthData()
+          router.replace(buildLoginUrl({ session: 'expired', returnUrl: '/student-dashboard' }))
+          setStatus({
+            isActive: false,
+            hasActiveEnrollment: false,
+            loading: false
+          })
+          return
+        }
 
         if (response.ok) {
           const result = await response.json()

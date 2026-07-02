@@ -89,6 +89,11 @@ interface EnrollmentHistory {
   grade?: string
   is_active?: boolean
   payment_status?: string
+  fee_amount?: number
+  batch_ref?: string
+  course_id?: string
+  branch_id?: string
+  duration_id?: string
   updated_at?: string
   created_at?: string
 }
@@ -224,6 +229,11 @@ export default function StudentDetailPage() {
           grade: enrollment.grade,
           is_active: enrollment.is_active,
           payment_status: enrollment.payment_status,
+          fee_amount: enrollment.fee_amount,
+          batch_ref: enrollment.batch_ref,
+          course_id: enrollment.course_id,
+          branch_id: enrollment.branch_id,
+          duration_id: enrollment.duration_id,
           updated_at: enrollment.updated_at,
           created_at: enrollment.created_at,
         }))
@@ -829,6 +839,15 @@ export default function StudentDetailPage() {
                                   month: "short",
                                   day: "numeric",
                                 })}
+                              </span>
+                            </div>
+                          )}
+                          {enrollment.is_active !== false && enrollment.fee_amount != null && enrollment.fee_amount > 0 && (
+                            <div className="flex items-center space-x-1">
+                              <CreditCard className="w-4 h-4 text-blue-600" />
+                              <span className="font-medium">Next renewal:</span>
+                              <span className="font-semibold text-blue-700">
+                                ₹{Number(enrollment.fee_amount).toLocaleString("en-IN")}
                               </span>
                             </div>
                           )}

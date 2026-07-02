@@ -5,6 +5,8 @@ import { usePathname, useRouter } from "next/navigation"
 import { useStudentSubscription } from "@/hooks/use-student-subscription"
 import SubscriptionExpiredModal from "@/components/subscription-expired-modal"
 import { Loader2 } from "lucide-react"
+import { TokenManager } from "@/lib/tokenManager"
+import { buildLoginUrl } from "@/lib/sessionAuth"
 
 interface StudentRouteGuardProps {
   children: React.ReactNode
@@ -25,6 +27,18 @@ export default function StudentRouteGuard({ children }: StudentRouteGuardProps) 
   const isPaymentPage = pathname.startsWith('/student-dashboard/payments')
   const isCoursesPage = pathname.startsWith('/student-dashboard/courses')
   const isSubscriptionAccessPage = isPaymentPage || isCoursesPage
+
+  useEffect(() => {
+    if (!TokenManager.isAuthenticated()) {
+      TokenManager.clearAuthData()
+      router.replace(
+        buildLoginUrl({
+          session: "expired",
+          returnUrl: pathname || "/student-dashboard",
+        })
+      )
+    }
+  }, [pathname, router])
 
   useEffect(() => {
     // Wait for loading to complete

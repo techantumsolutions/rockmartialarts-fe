@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,6 +21,8 @@ function SuperAdminLoginFormContent() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const router = useRouter();
+  const searchParams = useSearchParams()
+  const sessionExpired = searchParams.get("session") === "expired"
   const { getToken, resetRecaptcha, isEnabled } = useReCaptcha()
 
   const validateEmail = (email: string): boolean => {
@@ -30,11 +32,16 @@ function SuperAdminLoginFormContent() {
   // Redirect to dashboard if already logged in as superadmin
   useEffect(() => {
     if (typeof window !== "undefined") {
+      if (sessionExpired) {
+        setError("Your session has expired. Please log in again.")
+      }
       if (SuperAdminAuth.isAuthenticated()) {
         router.replace("/super-admin/dashboard");
+      } else if (localStorage.getItem("token")) {
+        SuperAdminAuth.clearAuthData()
       }
     }
-  }, [router]);
+  }, [router, sessionExpired]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,6 +1,7 @@
 // Base API configuration utility
 import { apiConfig, getBackendApiUrl } from './config'
 import { TokenManager } from './tokenManager'
+import { handleSessionExpiredFromDetail } from './sessionAuth'
 
 /** Build full URL for an endpoint (e.g. /api/dashboard/stats). Uses proxy in browser or when NEXT_PUBLIC_USE_BACKEND_PROXY=true. */
 function buildRequestUrl(endpoint: string): string {
@@ -109,6 +110,11 @@ export class BaseAPI {
       if (!response.ok) {
         const errorMessage = result.error || result.detail || result.message || `Request failed: ${response.status} ${response.statusText}`
         console.error('❌ API Error:', errorMessage)
+
+        if (response.status === 401) {
+          handleSessionExpiredFromDetail(errorMessage)
+        }
+
         throw new Error(errorMessage)
       }
 

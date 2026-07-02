@@ -31,37 +31,19 @@ function CoachLoginFormContent() {
   // Redirect to dashboard if already logged in as coach
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const token = localStorage.getItem("access_token");
-      const coachData = localStorage.getItem("coach");
-      const tokenExpiration = localStorage.getItem("token_expiration");
-      
-      if (token && coachData && tokenExpiration) {
-        try {
-          const coach = JSON.parse(coachData);
-          const expirationTime = parseInt(tokenExpiration);
-          
-          // Check if token is still valid and user is a coach
-          if (coach.role === "coach" && Date.now() < expirationTime) {
-            console.log("Valid coach session found, redirecting to dashboard");
-            router.replace("/coach-dashboard");
-          } else {
-            // Clear expired or invalid session
-            console.log("Coach session expired or invalid, clearing data");
-            localStorage.removeItem("access_token");
-            localStorage.removeItem("token_type");
-            localStorage.removeItem("expires_in");
-            localStorage.removeItem("token_expiration");
-            localStorage.removeItem("coach");
-            localStorage.removeItem("user");
-          }
-        } catch (error) {
-          console.error("Error parsing coach data:", error);
-          // Clear corrupted data
-          localStorage.removeItem("access_token");
-          localStorage.removeItem("coach");
-          localStorage.removeItem("user");
-        }
+      const sessionExpired = new URLSearchParams(window.location.search).get("session") === "expired"
+      if (sessionExpired) {
+        setError("Your session has expired. Please log in again.")
       }
+
+      const auth = (async () => {
+        const { checkCoachAuth } = await import("@/lib/coachAuth")
+        const result = checkCoachAuth()
+        if (result.isAuthenticated) {
+          router.replace("/coach-dashboard")
+        }
+      })()
+      void auth
     }
   }, [router]);
 

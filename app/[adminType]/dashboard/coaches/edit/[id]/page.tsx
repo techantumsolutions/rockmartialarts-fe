@@ -324,11 +324,15 @@ export default function EditCoachPage() {
       if (response.ok) {
         const data = await response.json()
         console.log('Designations data received:', data)
-        // Direct array response
-        setDesignations(data.filter((opt: any) => opt.is_active).map((opt: any) => opt.value))
+        const values = data.filter((opt: any) => opt.is_active).map((opt: any) => opt.value)
+        if (!values.includes("Founder")) {
+          values.unshift("Founder")
+        }
+        setDesignations(values)
       } else {
         console.warn('Failed to load designations, using defaults')
         setDesignations([
+          "Founder",
           "Chief Instructor",
           "Senior Instructor",
           "Instructor",
@@ -341,6 +345,7 @@ export default function EditCoachPage() {
     } catch (error) {
       console.error('Error loading designations:', error)
       setDesignations([
+        "Founder",
         "Chief Instructor",
         "Senior Instructor",
         "Instructor",

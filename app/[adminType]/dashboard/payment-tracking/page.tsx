@@ -334,10 +334,23 @@ export default function PaymentTrackingPage() {
     }
   }
 
-  const describePayment = (payment: Payment) => {
-    const source = paymentAPI.formatPaymentSource(payment)
-    const tid = payment.transaction_id || "N/A"
-    return `${source} · ${tid}`
+  const formatDateTime = (dateString: string | null | undefined) => {
+    if (!dateString) return "N/A"
+    try {
+      return new Date(dateString).toLocaleString("en-IN", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    } catch {
+      return "Invalid Date"
+    }
+  }
+
+  const describePaymentSource = (payment: Payment) => {
+    return paymentAPI.formatPaymentSource(payment)
   }
 
   const handleExport = async () => {
@@ -629,16 +642,7 @@ export default function PaymentTrackingPage() {
                   Course enrolled
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-[#000] uppercase tracking-wider">
-                  Invoice Amount
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-[#000] uppercase tracking-wider">
-                  Paid Amount
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-[#000] uppercase tracking-wider">
-                  Payment date
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-[#000] uppercase tracking-wider">
-                  Payment source
+                  Payment details
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-[#000] uppercase tracking-wider">
                   Status
@@ -653,7 +657,7 @@ export default function PaymentTrackingPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan={isSuperAdmin ? 8 : 7} className="px-6 py-8 text-center">
+                  <td colSpan={isSuperAdmin ? 5 : 4} className="px-6 py-8 text-center">
                     <div className="flex items-center justify-center">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
                       <span className="ml-2 text-gray-500">Loading payments...</span>
@@ -662,7 +666,7 @@ export default function PaymentTrackingPage() {
                 </tr>
               ) : pagedPayments.length === 0 ? (
                 <tr>
-                  <td colSpan={isSuperAdmin ? 8 : 7} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={isSuperAdmin ? 5 : 4} className="px-6 py-8 text-center text-gray-500">
                     No payments found
                   </td>
                 </tr>
@@ -674,19 +678,26 @@ export default function PaymentTrackingPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {payment.student_name || "Unknown Student"}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {payment.course_name || "N/A"}
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      <div className="font-medium">{payment.course_name || "N/A"}</div>
+                      {payment.branch_name && (
+                        <div className="text-xs text-gray-500 mt-0.5">{payment.branch_name}</div>
+                      )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ₹{payment.amount?.toLocaleString() || "0"}
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      <div className="font-semibold text-base">
+                        {formatCurrency(Number(payment.amount) || 0)}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {formatDateTime(payment.payment_date || payment.created_at)}
+                      </div>
+                      <div className="text-xs text-gray-600 mt-0.5">
+                        {describePaymentSource(payment)}
+                        {payment.transaction_id ? (
+                          <span className="text-gray-400"> · {payment.transaction_id}</span>
+                        ) : null}
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ₹{payment.amount?.toLocaleString() || "0"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(payment.payment_date || payment.created_at)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600 max-w-xs">{describePayment(payment)}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Badge
                         className={

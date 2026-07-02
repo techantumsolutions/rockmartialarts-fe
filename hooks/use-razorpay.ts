@@ -1,6 +1,11 @@
 import { useState, useCallback } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
 import { loadRazorpayScript } from '@/lib/razorpay'
+import { TokenManager } from '@/lib/tokenManager'
+import {
+  getSessionErrorMessage,
+  isSessionExpiredError,
+  SESSION_EXPIRED_PAYMENT_MESSAGE,
+} from '@/lib/sessionAuth'
 
 interface RazorpayOptions {
   /** @deprecated Amount is derived from the enrollment on the server when creating the Razorpay order. */
@@ -19,14 +24,21 @@ declare global {
 
 export function useRazorpay() {
   const [loading, setLoading] = useState(false)
-  const { access_token } = useAuth()
-  // Prefer context token; fallback to localStorage (e.g. student login stores "token")
-  const token = access_token ?? (typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null)
 
   const initiatePayment = useCallback(async (options: RazorpayOptions) => {
     setLoading(true)
     
     try {
+      if (!TokenManager.isAuthenticated()) {
+        TokenManager.clearAuthData()
+        throw new Error(SESSION_EXPIRED_PAYMENT_MESSAGE)
+      }
+
+      const token = TokenManager.getToken()
+      if (!token) {
+        throw new Error(SESSION_EXPIRED_PAYMENT_MESSAGE)
+      }
+
       const loaded = await loadRazorpayScript()
       if (!loaded || typeof window === 'undefined' || !window.Razorpay) {
         throw new Error('Failed to load Razorpay. Please refresh and try again.')
@@ -41,7 +53,7 @@ export function useRazorpay() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ enrollment_id: enrollmentId }),
       })
@@ -50,6 +62,12 @@ export function useRazorpay() {
         const err = await orderResponse.json().catch(() => ({}))
         const msg = err?.error || err?.detail || 'Failed to create order'
         console.error('[useRazorpay] create-order failed', orderResponse.status, err)
+
+        if (orderResponse.status === 401 || isSessionExpiredError(msg)) {
+          TokenManager.clearAuthData()
+          throw new Error(SESSION_EXPIRED_PAYMENT_MESSAGE)
+        }
+
         throw new Error(typeof msg === 'string' ? msg : 'Payment failed, please try again')
       }
 
@@ -70,23 +88,34 @@ export function useRazorpay() {
         order_id: order.id,
         handler: async function (response: any) {
           try {
-            if (!token) throw new Error('Not logged in. Please log in and try again.')
+            const activeToken = TokenManager.isAuthenticated()
+              ? TokenManager.getToken()
+              : null
+            if (!activeToken) {
+              TokenManager.clearAuthData()
+              throw new Error(SESSION_EXPIRED_PAYMENT_MESSAGE)
+            }
+
             // Verify payment on backend
             const verifyResponse = await fetch('/api/payments/verify', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+                Authorization: `Bearer ${activeToken}`,
               },
               body: JSON.stringify({
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
-                enrollmentData: options.enrollmentData
-              })
+                enrollmentData: options.enrollmentData,
+              }),
             })
 
             if (!verifyResponse.ok) {
+              if (verifyResponse.status === 401) {
+                TokenManager.clearAuthData()
+                throw new Error(SESSION_EXPIRED_PAYMENT_MESSAGE)
+              }
               throw new Error('Payment verification failed')
             }
 
@@ -99,10 +128,10 @@ export function useRazorpay() {
         prefill: {
           name: options.enrollmentData.student_name || '',
           email: options.enrollmentData.student_email || '',
-          contact: options.enrollmentData.student_phone || ''
+          contact: options.enrollmentData.student_phone || '',
         },
         theme: {
-          color: '#f59e0b'
+          color: '#f59e0b',
         },
         modal: {
           ondismiss: function () {
@@ -124,13 +153,10 @@ export function useRazorpay() {
 
     } catch (error) {
       setLoading(false)
-      const friendly =
-        error instanceof Error && error.message
-          ? error.message
-          : 'Payment failed, please try again'
+      const friendly = getSessionErrorMessage(error, true)
       options.onFailure(error instanceof Error ? error : new Error(friendly))
     }
-  }, [token])
+  }, [])
 
   return { initiatePayment, loading }
 }

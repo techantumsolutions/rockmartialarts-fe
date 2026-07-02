@@ -1,4 +1,5 @@
 // Unified token management utility for consistent authentication across the app
+import { isTokenExpired } from "@/lib/sessionAuth"
 
 export interface TokenData {
   access_token: string
@@ -147,10 +148,9 @@ export class TokenManager {
     const token = this.getToken()
     const expirationStr = localStorage.getItem(this.TOKEN_EXPIRATION_KEY)
     
-    if (!token || !expirationStr) return false
-    
-    const expirationTime = parseInt(expirationStr)
-    return Date.now() < expirationTime
+    if (!token) return false
+
+    return !isTokenExpired(token, expirationStr)
   }
 
   /**

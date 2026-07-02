@@ -1,5 +1,6 @@
 // Branch Manager Authentication utility
 import { getBackendApiUrl } from "@/lib/config"
+import { isTokenExpired } from "@/lib/sessionAuth"
 
 export interface BranchManagerUser {
   id: string
@@ -117,10 +118,7 @@ export const BranchManagerAuth = {
     const token = localStorage.getItem("access_token") || localStorage.getItem("token")
     const expirationStr = localStorage.getItem("token_expiration")
 
-    if (!token || !expirationStr) return false
-
-    const expirationTime = parseInt(expirationStr)
-    return Date.now() < expirationTime
+    return !isTokenExpired(token, expirationStr)
   },
 
   // Get authorization headers for API requests

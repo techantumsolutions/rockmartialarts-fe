@@ -1,4 +1,5 @@
 // Authentication utility for different backend API formats
+import { isTokenExpired } from "@/lib/sessionAuth"
 export interface AuthConfig {
   tokenType: 'Bearer' | 'API-Key' | 'Token' | 'Custom'
   headerName: string
@@ -115,11 +116,7 @@ export const SuperAdminAuth = {
     if (typeof window === "undefined") return false
     const token = localStorage.getItem("token")
     const expirationStr = localStorage.getItem("token_expiration")
-    
-    if (!token || !expirationStr) return false
-    
-    const expirationTime = parseInt(expirationStr)
-    return Date.now() < expirationTime
+    return !isTokenExpired(token, expirationStr)
   },
 
   // Get authorization headers for API requests

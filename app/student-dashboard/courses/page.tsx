@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRazorpay } from "@/hooks/use-razorpay"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import StudentDashboardLayout from "@/components/student-dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -49,6 +49,13 @@ import { branchAPI } from "@/lib/branchAPI"
 import { getBackendApiUrl } from "@/lib/config"
 import { isEnrollmentActivePaid, isEnrollmentExpiredByDate } from "@/lib/student-enrollment-status"
 import { mergeEnrollmentsByCourseBranch } from "@/lib/merge-enrollment-groups"
+import { TokenManager } from "@/lib/tokenManager"
+import {
+  getSessionErrorMessage,
+  isSessionExpiredError,
+  requireStudentSession,
+  SESSION_EXPIRED_PAYMENT_MESSAGE,
+} from "@/lib/sessionAuth"
 
 const fetchOpts = (token: string) => ({
   headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -387,6 +394,7 @@ function mergeDuplicateEnrollments(items: EnrolledCourse[]): EnrolledCourse[] {
 
 export default function StudentCoursesPage() {
   const router = useRouter()
+  const pathname = usePathname()
   const { initiatePayment, loading: paymentLoading } = useRazorpay()
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -427,33 +435,31 @@ export default function StudentCoursesPage() {
   const [requestingChange, setRequestingChange] = useState(false)
 
   useEffect(() => {
-    const token = localStorage.getItem("token")
-    const user = localStorage.getItem("user")
+    const token = requireStudentSession(router, pathname || "/student-dashboard/courses")
+    if (!token) return
 
-    if (!token) {
+    const user = TokenManager.getUser()
+    if (!user) {
       router.push("/login")
       return
     }
 
-    if (user) {
-      const userData = JSON.parse(user)
-      if (userData.role !== "student") {
-        if (userData.role === "coach") {
-          router.push("/coach-dashboard")
-        } else {
-          router.push("/dashboard")
-        }
-        return
+    if (user.role !== "student") {
+      if (user.role === "coach") {
+        router.push("/coach-dashboard")
+      } else {
+        router.push("/dashboard")
       }
-      setStudentData({
-        id: userData.id || userData.student_id,
-        name: userData.full_name || userData.name || "Student",
-        email: userData.email || ""
-      })
+      return
     }
 
+    setStudentData({
+      name: user.full_name || user.name || "Student",
+      email: user.email || "",
+    })
+
     loadData(token)
-  }, [router])
+  }, [router, pathname])
 
   const loadData = async (token: string) => {
     try {
@@ -633,7 +639,7 @@ export default function StudentCoursesPage() {
 
   const handleRefresh = async () => {
     setRefreshing(true)
-    const token = localStorage.getItem("token")
+    const token = requireStudentSession(router, pathname || "/student-dashboard/courses")
     if (token) {
       await loadData(token)
     }
@@ -641,9 +647,7 @@ export default function StudentCoursesPage() {
   }
 
   const handleLogout = () => {
-    localStorage.removeItem("token")
-    localStorage.removeItem("user")
-    localStorage.removeItem("auth_data")
+    TokenManager.clearAuthData()
     router.push("/login")
   }
 
@@ -1048,7 +1052,7 @@ export default function StudentCoursesPage() {
     setEnrolling(true)
 
     try {
-      const token = localStorage.getItem("token")
+      const token = requireStudentSession(router, pathname || "/student-dashboard/courses")
       if (!token) {
         setEnrolling(false)
         return
@@ -1093,6 +1097,10 @@ export default function StudentCoursesPage() {
           typeof prepJson?.detail === "string"
             ? prepJson.detail
             : prepJson?.detail?.[0]?.msg || prepJson?.message || "Could not start checkout"
+        if (prepRes.status === 401 || isSessionExpiredError(msg)) {
+          TokenManager.clearAuthData()
+          throw new Error(SESSION_EXPIRED_PAYMENT_MESSAGE)
+        }
         throw new Error(msg)
       }
 
@@ -1125,12 +1133,24 @@ export default function StudentCoursesPage() {
         onFailure: (error: any) => {
           console.error('Payment failed:', error)
           setEnrolling(false)
-          alert(`Payment failed: ${error.message || 'Unknown error'}`)
+          const message = getSessionErrorMessage(error, true)
+          if (message === SESSION_EXPIRED_PAYMENT_MESSAGE) {
+            TokenManager.clearAuthData()
+            router.push(`/login?session=expired&returnUrl=${encodeURIComponent(pathname || "/student-dashboard/courses")}`)
+            return
+          }
+          alert(`Payment failed: ${message}`)
         }
       })
     } catch (error: any) {
       console.error('Enrollment failed:', error)
-      alert(`Enrollment failed: ${error.message}`)
+      const message = getSessionErrorMessage(error, true)
+      if (message === SESSION_EXPIRED_PAYMENT_MESSAGE) {
+        TokenManager.clearAuthData()
+        router.push(`/login?session=expired&returnUrl=${encodeURIComponent(pathname || "/student-dashboard/courses")}`)
+      } else {
+        alert(`Enrollment failed: ${message}`)
+      }
       setEnrolling(false)
     }
   }

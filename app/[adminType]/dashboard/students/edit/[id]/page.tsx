@@ -19,6 +19,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { TokenManager } from "@/lib/tokenManager"
 import { dropdownAPI } from "@/lib/dropdownAPI"
 import { useToast } from "@/hooks/use-toast"
+import paymentAPI from "@/lib/paymentAPI"
 
 const DEFAULT_DURATION_OPTIONS: Array<{ id: string; name: string; code?: string }> = [
   { id: "1-month", name: "1 Month", code: "1-month" },
@@ -51,6 +52,12 @@ interface Branch {
   email?: string
   location?: string
   location_id?: string
+}
+
+type BatchOption = {
+  batch_ref: string
+  label: string
+  name?: string | null
 }
 
 interface Course {
@@ -93,6 +100,10 @@ export default function EditStudent() {
   const [durationOptions, setDurationOptions] =
     useState<Array<{ id: string; name: string; code?: string }>>(DEFAULT_DURATION_OPTIONS)
   const [studentLevelOptions, setStudentLevelOptions] = useState<{ value: string; label: string }[]>([])
+  const [batchOptions, setBatchOptions] = useState<BatchOption[]>([])
+  const [isLoadingBatches, setIsLoadingBatches] = useState(false)
+  const [nextRenewalAmount, setNextRenewalAmount] = useState<number | null>(null)
+  const [renewalLoading, setRenewalLoading] = useState(false)
 
   const { toast } = useToast()
 
@@ -135,6 +146,7 @@ export default function EditStudent() {
     category: "",
     course: "",
     duration: "",
+    batch: "",
     
     // Emergency Contact
     emergencyContactName: "",
@@ -397,6 +409,10 @@ export default function EditStudent() {
           studentData.course_duration ||
           primaryEnrollment?.duration_id ||
           ""
+        const batchRaw =
+          studentData.course?.batch_ref ||
+          primaryEnrollment?.batch_ref ||
+          ""
 
         const branchSelectValue =
           branchId && branchesForLocation.some((b) => b.id === branchId)
@@ -424,6 +440,7 @@ export default function EditStudent() {
           category: findOptionByIdentifier(categoriesData, categoryId),
           course: findOptionByIdentifier(coursesData, courseId, ['title', 'code', 'name']),
           duration: resolveDurationSelectValue(durationRaw, durationList),
+          batch: batchRaw || "",
           emergencyContactName: studentData.emergency_contact?.name || "",
           emergencyContactPhone: studentData.emergency_contact?.phone || "",
           emergencyContactRelation: studentData.emergency_contact?.relationship || "",
@@ -520,8 +537,94 @@ export default function EditStudent() {
     }
   }, [branches, formData.branch, formData.location])
 
+  // Load batch options when branch + course are selected
+  useEffect(() => {
+    const loadBatches = async () => {
+      if (!formData.branch || !formData.course) {
+        setBatchOptions([])
+        return
+      }
+
+      setIsLoadingBatches(true)
+      try {
+        const token = TokenManager.getToken()
+        const res = await fetch(getBackendApiUrl(`branches/${encodeURIComponent(formData.branch)}`), {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        })
+        if (!res.ok) {
+          setBatchOptions([])
+          return
+        }
+        const branchData = await res.json()
+        const schedule = branchData?.assignments?.course_schedule || []
+        const entry = schedule.find(
+          (row: { course_id?: string }) => String(row?.course_id || "") === String(formData.course)
+        )
+        const batches = Array.isArray(entry?.batches) ? entry.batches : []
+        const options: BatchOption[] = batches.map((b: Record<string, unknown>, i: number) => {
+          const batchRef = String(b.batch_id || b.id || `__index:${i}__`).trim()
+          const days = Array.isArray(b.days) ? (b.days as string[]).join(", ") : ""
+          const st = String(b.start_time || b.startTime || "").trim()
+          const et = String(b.end_time || b.endTime || "").trim()
+          const bname = String(b.batch_name || b.name || "").trim()
+          const timePart = st && et ? `${st} – ${et}` : st || et
+          const label = [bname, days, timePart].filter(Boolean).join(" · ") || `Batch ${i + 1}`
+          return { batch_ref: batchRef, label, name: bname || null }
+        })
+        setBatchOptions(options)
+        if (options.length === 1 && !formData.batch) {
+          setFormData((prev) => ({ ...prev, batch: options[0].batch_ref }))
+        } else if (
+          formData.batch &&
+          options.length > 0 &&
+          !options.some((o) => o.batch_ref === formData.batch)
+        ) {
+          setFormData((prev) => ({ ...prev, batch: "" }))
+        }
+      } catch {
+        setBatchOptions([])
+      } finally {
+        setIsLoadingBatches(false)
+      }
+    }
+
+    void loadBatches()
+  }, [formData.branch, formData.course])
+
+  // Quote next renewal amount from batch-aware pricing
+  useEffect(() => {
+    const quoteRenewal = async () => {
+      if (!formData.branch || !formData.course || !formData.duration) {
+        setNextRenewalAmount(null)
+        return
+      }
+      setRenewalLoading(true)
+      try {
+        const info = await paymentAPI.getCoursePaymentInfo(
+          formData.course,
+          formData.branch,
+          formData.duration,
+          formData.batch || undefined
+        )
+        const fee = Number(info?.pricing?.course_fee ?? info?.pricing?.total_amount)
+        setNextRenewalAmount(Number.isFinite(fee) ? fee : null)
+      } catch {
+        setNextRenewalAmount(null)
+      } finally {
+        setRenewalLoading(false)
+      }
+    }
+    void quoteRenewal()
+  }, [formData.branch, formData.course, formData.duration, formData.batch])
+
   const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
+    setFormData((prev) => {
+      const next = { ...prev, [field]: value }
+      if (field === "branch" || field === "course") {
+        next.batch = ""
+      }
+      return next
+    })
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: "" }))
     }
@@ -596,7 +699,8 @@ export default function EditStudent() {
         course: formData.course ? {
           category_id: formData.category || "martial-arts",
           course_id: formData.course,
-          duration: formData.duration || "3-months"
+          duration: formData.duration || "3-months",
+          ...(formData.batch ? { batch_ref: formData.batch } : {}),
         } : undefined,
         branch: formData.branch ? {
           location_id: formData.location || "hyderabad",
@@ -1045,6 +1149,63 @@ export default function EditStudent() {
                       </Select>
                       {errors.branch && <p className="text-red-500 text-sm mt-1">{errors.branch}</p>}
                     </div>
+
+                    {formData.branch && formData.course && (
+                      <div>
+                        <Label className="block text-sm font-medium mb-2">Batch</Label>
+                        <Select
+                          value={formData.batch || undefined}
+                          onValueChange={(value) => handleInputChange("batch", value)}
+                          disabled={isLoadingBatches || batchOptions.length === 0}
+                        >
+                          <SelectTrigger className="!w-full !h-14 !pl-12 !text-base !bg-gray-50 !border-gray-200 !rounded-xl">
+                            <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10 pointer-events-none">
+                              <ClockIcon className="w-5 h-5 text-gray-400" />
+                            </div>
+                            <SelectValue
+                              placeholder={
+                                isLoadingBatches
+                                  ? "Loading batches..."
+                                  : batchOptions.length === 0
+                                    ? "No batches at this branch"
+                                    : "Select batch"
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {batchOptions.map((b) => (
+                              <SelectItem key={b.batch_ref} value={b.batch_ref}>
+                                {b.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {formData.branch && !formData.course && (
+                      <div className="md:col-span-2">
+                        <p className="text-sm text-gray-500">
+                          Select a course above to see available batches for this branch.
+                        </p>
+                      </div>
+                    )}
+
+                    {(nextRenewalAmount != null || renewalLoading) && formData.branch && (
+                      <div className="md:col-span-2">
+                        <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+                          <p className="text-sm font-medium text-blue-900">Next renewal amount</p>
+                          <p className="text-lg font-semibold text-blue-800 mt-1">
+                            {renewalLoading
+                              ? "Calculating..."
+                              : paymentAPI.formatCurrency(nextRenewalAmount ?? 0)}
+                          </p>
+                          <p className="text-xs text-blue-700 mt-1">
+                            Based on selected batch and duration (course fee only — no admission on renewal).
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

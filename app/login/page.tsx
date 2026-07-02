@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { PasswordInput } from "@/components/ui/password-input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ReCaptchaWrapper, useReCaptcha, ReCaptchaComponent } from "@/components/recaptcha"
+import { TokenManager } from "@/lib/tokenManager"
 
 // Create a separate component for the login form content
 function LoginFormContent() {
@@ -22,30 +23,31 @@ function LoginFormContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const passwordJustReset = searchParams.get("reset") === "success"
+  const sessionExpired = searchParams.get("session") === "expired"
+  const returnUrl = searchParams.get("returnUrl")
   const { getToken, resetRecaptcha, isEnabled } = useReCaptcha()
 
   const validateEmail = (email: string): boolean => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
   }
 
-  // Redirect to dashboard if already logged in
+  // Redirect to dashboard if already logged in with a valid session
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const token = localStorage.getItem("token");
-      const user = localStorage.getItem("user");
-      
-      if (token && user) {
-        try {
-          const userData = JSON.parse(user);
-          if (userData.role === "student") {
-            router.replace("/student-dashboard");
-          }
-        } catch (error) {
-          console.error("Error parsing user data:", error);
+      if (sessionExpired) {
+        setError("Your session has expired. Please log in again.")
+      }
+
+      if (TokenManager.isAuthenticated()) {
+        const user = TokenManager.getUser()
+        if (user?.role === "student") {
+          router.replace(returnUrl || "/student-dashboard")
         }
+      } else if (localStorage.getItem("token")) {
+        TokenManager.clearAuthData()
       }
     }
-  }, [router]);
+  }, [router, returnUrl, sessionExpired]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

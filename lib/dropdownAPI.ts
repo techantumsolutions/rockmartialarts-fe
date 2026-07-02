@@ -123,6 +123,7 @@ export class DropdownAPI extends BaseAPI {
         { value: 'Australia', label: 'Australia', is_active: true, order: 5 },
       ],
       designations: [
+        { value: 'Founder', label: 'Founder', is_active: true, order: 0 },
         { value: 'Senior Coach', label: 'Senior Coach', is_active: true, order: 1 },
         { value: 'Coach Instructor', label: 'Coach Instructor', is_active: true, order: 2 },
         { value: 'Senior Instructor', label: 'Senior Instructor', is_active: true, order: 3 },

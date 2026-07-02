@@ -408,6 +408,11 @@ export default function StudentProfilePage() {
                             <div>
                               <h4 className="font-semibold text-gray-900">{enrollment.course_name}</h4>
                               <p className="text-sm text-gray-600">Branch: {enrollment.branch_name}</p>
+                              {enrollment.fee_amount != null && Number(enrollment.fee_amount) > 0 && (
+                                <p className="text-sm text-blue-700 mt-1">
+                                  Next renewal: ₹{Number(enrollment.fee_amount).toLocaleString("en-IN")}
+                                </p>
+                              )}
                               <div className="flex items-center space-x-2 mt-1">
                                 <Badge variant="outline" className="text-xs capitalize">
                                   {enrollment.payment_status}

@@ -1,6 +1,207 @@
 /** Radix Select value must match a SelectItem — use when no coach is chosen. */
 export const BATCH_COACH_UNASSIGNED = "__batch_coach_unassigned__"
 
+export type MasterDuration = {
+  id: string
+  name?: string
+  code?: string
+  duration_months?: number
+}
+
+/** Resolve a duration-keyed map value (DB may store id, code, or legacy slug). */
+export function lookupDurationMapValue<T>(
+  map: Record<string, T> | undefined,
+  dur: MasterDuration,
+  masterDurations: MasterDuration[] = []
+): T | undefined {
+  if (!map) return undefined
+  if (map[dur.id] != null) return map[dur.id]
+  if (dur.code && map[dur.code] != null) return map[dur.code]
+  for (const [key, value] of Object.entries(map)) {
+    if (value == null) continue
+    const match = masterDurations.find((d) => d.id === key || d.code === key)
+    if (match && match.id === dur.id) return value
+  }
+  return undefined
+}
+
+/** Remap batch fee/pricing maps to master duration ids for edit-form display. */
+export function normalizeBatchDurationMaps(
+  batch: NormalizedCourseAssignment["batches"][number],
+  masterDurations: MasterDuration[]
+): NormalizedCourseAssignment["batches"][number] {
+  if (!masterDurations.length) return batch
+
+  const feeSrc = batch.fee_per_duration || {}
+  const typeSrc = batch.pricing_type_per_duration || {}
+  const enabledSrc = batch.enabled_per_duration || {}
+
+  const fee_per_duration: Record<string, string> = {}
+  const pricing_type_per_duration: Record<string, string> = {}
+  const enabled_per_duration: Record<string, boolean> = {}
+
+  for (const dur of masterDurations) {
+    const feeVal = lookupDurationMapValue(feeSrc, dur, masterDurations)
+    if (feeVal != null && String(feeVal).trim() !== "") {
+      fee_per_duration[dur.id] = String(feeVal)
+    }
+    const typeVal = lookupDurationMapValue(typeSrc, dur, masterDurations)
+    if (typeVal != null && String(typeVal).trim() !== "") {
+      pricing_type_per_duration[dur.id] = String(typeVal)
+    }
+    const enabledVal = lookupDurationMapValue(enabledSrc, dur, masterDurations)
+    enabled_per_duration[dur.id] = enabledVal !== false
+  }
+
+  return {
+    ...batch,
+    fee_per_duration: Object.keys(fee_per_duration).length ? fee_per_duration : batch.fee_per_duration,
+    pricing_type_per_duration:
+      Object.keys(pricing_type_per_duration).length
+        ? pricing_type_per_duration
+        : batch.pricing_type_per_duration,
+    enabled_per_duration:
+      Object.keys(enabled_per_duration).length ? enabled_per_duration : batch.enabled_per_duration,
+  }
+}
+
+export function normalizeAssignmentsCoursesWithDurations(
+  courses: NormalizedCourseAssignment[],
+  masterDurations: MasterDuration[]
+): NormalizedCourseAssignment[] {
+  if (!masterDurations.length) return courses
+  return courses.map((course) => ({
+    ...course,
+    batches: course.batches.map((batch) => normalizeBatchDurationMaps(batch, masterDurations)),
+  }))
+}
+
+export type CoursePricingSource = {
+  id: string
+  pricing?: {
+    fee_per_duration?: Record<string, number | string>
+    branch_prices?: Array<{
+      branch_id?: string
+      fee_per_duration?: Record<string, number | string>
+      amount?: number
+    }>
+  }
+}
+
+/** Branch-specific fee_per_duration from course catalog (falls back to course-wide map). */
+export function getCourseBranchFeePerDuration(
+  course: CoursePricingSource | undefined,
+  branchId: string
+): Record<string, string> | undefined {
+  if (!course?.pricing || !branchId) return undefined
+  const branchEntry = course.pricing.branch_prices?.find((bp) => bp.branch_id === branchId)
+  const raw = branchEntry?.fee_per_duration ?? course.pricing.fee_per_duration
+  if (!raw || typeof raw !== "object") return undefined
+  const out: Record<string, string> = {}
+  for (const [key, value] of Object.entries(raw)) {
+    if (value != null && String(value).trim() !== "") {
+      out[key] = String(value)
+    }
+  }
+  return Object.keys(out).length ? out : undefined
+}
+
+function defaultPricingTypeForDuration(dur: MasterDuration): string {
+  return (dur.duration_months ?? 1) <= 1 ? "flat" : "monthly"
+}
+
+function batchHasExplicitDurationFees(
+  batch: NormalizedCourseAssignment["batches"][number]
+): boolean {
+  const fpd = batch.fee_per_duration
+  if (!fpd) return false
+  return Object.values(fpd).some((v) => v != null && String(v).trim() !== "")
+}
+
+/** Fill fee_per_duration from legacy batch_fee or course branch pricing when missing. */
+export function hydrateBatchDurationPricing(
+  batch: NormalizedCourseAssignment["batches"][number],
+  masterDurations: MasterDuration[],
+  courseFeePerDuration?: Record<string, string>
+): NormalizedCourseAssignment["batches"][number] {
+  const normalized = normalizeBatchDurationMaps(batch, masterDurations)
+  if (batchHasExplicitDurationFees(normalized) || !masterDurations.length) {
+    return normalized
+  }
+
+  const fee_per_duration: Record<string, string> = { ...(normalized.fee_per_duration || {}) }
+  const pricing_type_per_duration: Record<string, string> = {
+    ...(normalized.pricing_type_per_duration || {}),
+  }
+  const enabled_per_duration: Record<string, boolean> = {
+    ...(normalized.enabled_per_duration || {}),
+  }
+
+  const legacyBatchFee =
+    normalized.batch_fee != null && String(normalized.batch_fee).trim() !== ""
+      ? String(normalized.batch_fee).trim()
+      : ""
+
+  const applyFee = (dur: MasterDuration, fee: string) => {
+    fee_per_duration[dur.id] = fee
+    if (!pricing_type_per_duration[dur.id]) {
+      pricing_type_per_duration[dur.id] = defaultPricingTypeForDuration(dur)
+    }
+    if (enabled_per_duration[dur.id] === undefined) {
+      enabled_per_duration[dur.id] = true
+    }
+  }
+
+  if (legacyBatchFee) {
+    for (const dur of masterDurations) {
+      applyFee(dur, legacyBatchFee)
+    }
+  } else if (courseFeePerDuration) {
+    for (const dur of masterDurations) {
+      const feeVal = lookupDurationMapValue(courseFeePerDuration, dur, masterDurations)
+      if (feeVal != null && String(feeVal).trim() !== "") {
+        applyFee(dur, String(feeVal))
+      }
+    }
+  }
+
+  if (!Object.keys(fee_per_duration).length) {
+    return normalized
+  }
+
+  return {
+    ...normalized,
+    fee_per_duration,
+    pricing_type_per_duration: Object.keys(pricing_type_per_duration).length
+      ? pricing_type_per_duration
+      : normalized.pricing_type_per_duration,
+    enabled_per_duration: Object.keys(enabled_per_duration).length
+      ? enabled_per_duration
+      : normalized.enabled_per_duration,
+  }
+}
+
+/** Normalize duration keys and hydrate pricing from DB (batch_fee / course branch fees). */
+export function enrichAssignmentsCoursesWithDurationPricing(
+  courses: NormalizedCourseAssignment[],
+  masterDurations: MasterDuration[],
+  courseCatalog: CoursePricingSource[],
+  branchId: string
+): NormalizedCourseAssignment[] {
+  if (!masterDurations.length) return courses
+  const catalogById = new Map(courseCatalog.map((c) => [c.id, c]))
+  return courses.map((assignment) => {
+    const courseDef = catalogById.get(assignment.course_id)
+    const branchFpd = getCourseBranchFeePerDuration(courseDef, branchId)
+    return {
+      ...assignment,
+      batches: assignment.batches.map((batch) =>
+        hydrateBatchDurationPricing(batch, masterDurations, branchFpd)
+      ),
+    }
+  })
+}
+
 export interface NormalizedCourseAssignment {
   course_id: string
   batches: {
