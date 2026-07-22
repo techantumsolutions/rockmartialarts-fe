@@ -17,6 +17,7 @@ import {
   UserPlus,
   MessageSquare,
   Trophy,
+  FileText,
   type LucideIcon
 } from "lucide-react"
 
@@ -69,6 +70,7 @@ const SUPER_ADMIN_MENU: NavItem[] = [
   { label: "Payment Tracking", path: `${SUPER_ADMIN_BASE}/payment-tracking`, icon: CreditCard },
   { label: "Leads", path: `${SUPER_ADMIN_BASE}/leads`, icon: UserPlus, overflowOnly: true },
   { label: "Testimonials", path: `${SUPER_ADMIN_BASE}/testimonials`, icon: MessageSquare, overflowOnly: true },
+  { label: "Registration Forms", path: `${SUPER_ADMIN_BASE}/registration-forms`, icon: FileText, overflowOnly: true },
   {
     label: "Settings",
     path: `${SUPER_ADMIN_BASE}/settings`,
@@ -98,6 +100,7 @@ const BRANCH_ADMIN_MENU: NavItem[] = [
   },
   { label: "Reports", path: `${BRANCH_ADMIN_BASE}/reports`, icon: BarChart },
   { label: "Testimonials", path: `${BRANCH_ADMIN_BASE}/testimonials`, icon: MessageSquare, overflowOnly: true },
+  { label: "Registration Forms", path: `${BRANCH_ADMIN_BASE}/registration-forms`, icon: FileText, overflowOnly: true },
 ]
 
 const STUDENT_MENU: NavItem[] = [

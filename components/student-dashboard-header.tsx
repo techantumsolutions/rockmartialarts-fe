@@ -10,6 +10,8 @@ import { usePermissions } from "@/hooks/use-permissions"
 import NotificationDropdown from "@/components/notification-dropdown"
 import { useCMS } from "@/contexts/CMSContext"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
+import { getBackendApiUrl } from "@/lib/config"
+import { TokenManager } from "@/lib/tokenManager"
 import {
   Menu,
   Home,
@@ -19,6 +21,7 @@ import {
   Medal,
   CreditCard,
   MessageSquare,
+  FileText,
   LogOut,
   ChevronDown,
   Loader2
@@ -41,6 +44,7 @@ export default function StudentDashboardHeader({
   const [isNavigating, setIsNavigating] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [profileImage, setProfileImage] = useState<string>("")
+  const [hasRegistrationForms, setHasRegistrationForms] = useState(false)
   const { cms } = useCMS()
 
   const readProfileImage = () => {
@@ -68,6 +72,30 @@ export default function StudentDashboardHeader({
     window.addEventListener("student-profile-image-updated", onUpdate)
     return () => window.removeEventListener("student-profile-image-updated", onUpdate)
   }, [pathname, studentName])
+
+  useEffect(() => {
+    const token = TokenManager.getToken()
+    if (!token) return
+    ;(async () => {
+      try {
+        const res = await fetch(getBackendApiUrl("registration-forms/student"), {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        })
+        if (!res.ok) {
+          setHasRegistrationForms(false)
+          return
+        }
+        const data = await res.json()
+        const list = Array.isArray(data.registration_forms) ? data.registration_forms : []
+        setHasRegistrationForms(list.length > 0)
+      } catch {
+        setHasRegistrationForms(false)
+      }
+    })()
+  }, [pathname])
 
   const isActivePath = (path: string) => {
     if (!mounted) return false
@@ -170,6 +198,18 @@ export default function StudentDashboardHeader({
       description: "View payment history",
       permissionId: "payments"
     },
+    ...(hasRegistrationForms
+      ? [
+          {
+            name: "Registration Form",
+            path: "/student-dashboard/registration-forms",
+            icon: FileText,
+            exact: false,
+            description: "Download registration form PDF",
+            permissionId: "registration_forms",
+          },
+        ]
+      : []),
   ]
 
   // Filter navigation items based on permissions

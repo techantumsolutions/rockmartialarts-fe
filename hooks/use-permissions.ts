@@ -155,6 +155,7 @@ function getDefaultPermissions(role: string): Permission[] {
       { id: "profile", name: "Profile", description: "View and edit own profile", enabled: true },
       { id: "settings", name: "Settings", description: "Access personal settings", enabled: true },
       { id: "payments", name: "Payments", description: "View payment history", enabled: true },
+      { id: "registration_forms", name: "Registration Forms", description: "Download registration form PDFs", enabled: true },
       { id: "reports", name: "Reports", description: "View performance reports", enabled: false },
       { id: "coaches", name: "Coaches", description: "View assigned coaches", enabled: true },
       { id: "branches", name: "Branches", description: "View branch information", enabled: false },

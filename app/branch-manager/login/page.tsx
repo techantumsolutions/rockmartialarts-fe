@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -340,7 +340,9 @@ function BranchManagerLoginFormContent() {
 export default function BranchManagerLoginPage() {
   return (
     <ReCaptchaWrapper>
-      <BranchManagerLoginFormContent />
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading…</div>}>
+        <BranchManagerLoginFormContent />
+      </Suspense>
     </ReCaptchaWrapper>
   )
 }

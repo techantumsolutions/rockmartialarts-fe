@@ -22,7 +22,8 @@ import {
   Target,
   Zap,
   Star,
-  AlertCircle
+  AlertCircle,
+  FileText
 } from "lucide-react"
 import { getBackendApiUrl } from "@/lib/config"
 import { formatRegisteredDateTime } from "@/lib/formatRegisteredDate"
@@ -216,13 +217,44 @@ export default function StudentDashboard() {
         // Set upcoming events - empty, no static data
         setUpcomingEvents([])
 
+        // Check for applicable registration forms
+        let registrationFormsAvailable = false
+        try {
+          const regFormsRes = await fetch(getBackendApiUrl("registration-forms/student"), {
+            method: "GET",
+            headers,
+          })
+          if (regFormsRes.ok) {
+            const regFormsData = await regFormsRes.json()
+            const regForms = Array.isArray(regFormsData.registration_forms)
+              ? regFormsData.registration_forms
+              : []
+            registrationFormsAvailable = regForms.length > 0
+          } else {
+            /* no forms */
+          }
+        } catch {
+          /* ignore */
+        }
+
         // Set quick actions
-        setQuickActions([
+        const actions = [
           { id: 1, title: "View Courses", description: "See all enrolled courses", icon: BookOpen, href: "/student-dashboard/courses", color: "blue" },
           { id: 2, title: "Check Attendance", description: "View attendance record", icon: Calendar, href: "/student-dashboard/attendance", color: "green" },
           { id: 3, title: "Track Progress", description: "Monitor your development", icon: TrendingUp, href: "/student-dashboard/progress", color: "purple" },
           { id: 4, title: "Make Payment", description: "Pay fees and dues", icon: CreditCard, href: "/student-dashboard/payments", color: "orange" }
-        ])
+        ]
+        if (registrationFormsAvailable) {
+          actions.push({
+            id: 5,
+            title: "Download Registration Form",
+            description: "Get your registration form PDF",
+            icon: FileText,
+            href: "/student-dashboard/registration-forms",
+            color: "orange",
+          })
+        }
+        setQuickActions(actions)
 
       } catch (error: any) {
         console.error("Error loading dashboard data:", error)

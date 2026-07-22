@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -373,7 +373,9 @@ function SuperAdminLoginFormContent() {
 export default function SuperAdminLoginPage() {
   return (
     <ReCaptchaWrapper>
-      <SuperAdminLoginFormContent />
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading…</div>}>
+        <SuperAdminLoginFormContent />
+      </Suspense>
     </ReCaptchaWrapper>
   )
 }
