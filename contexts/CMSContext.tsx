@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
+import type { PopupFormSettings } from "@/lib/popupForm"
 
 interface SEOSettings {
   meta_title?: string
@@ -26,6 +27,7 @@ interface HomepageSection {
   cta_subtitle?: string
   registration_media_url?: string
   registration_media_type?: string
+  popup_form?: PopupFormSettings
 }
 
 interface FooterContent {
@@ -80,8 +82,20 @@ export function CMSProvider({ children }: { children: ReactNode }) {
       headers: { "Cache-Control": "no-cache" },
     })
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
+      .then(async (data) => {
         if (cancelled || !data) return
+        try {
+          const popupRes = await fetch(`/api/cms/popup-form?t=${Date.now()}`, { cache: "no-store" })
+          if (popupRes.ok) {
+            const pj = await popupRes.json().catch(() => ({}))
+            if (pj?.popup_form) {
+              data.homepage = { ...(data.homepage || {}), popup_form: pj.popup_form }
+            }
+          }
+        } catch {
+          // keep CMS without popup_form (defaults apply)
+        }
+        if (cancelled) return
         setCms(data)
 
         // Dynamic favicon

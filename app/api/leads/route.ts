@@ -7,6 +7,12 @@ export const runtime = "nodejs"
 const DEFAULT_PLACEHOLDER_EMAIL =
   process.env.LEAD_CAPTURE_PLACEHOLDER_EMAIL?.trim() || "website-popup@example.com"
 
+/**
+ * Proxies public lead capture to FastAPI POST /api/leads.
+ * Forwards optional name/phone/branch and `verification_token` from lead OTP
+ * (POST /api/leads/verify-otp). Backend must persist homepage.popup_form and
+ * expire OTPs using LEAD_OTP_EXPIRY_SECONDS.
+ */
 function normalizeLeadPayload(raw: unknown): Record<string, string | undefined> {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     throw new Error("Invalid JSON body")
@@ -23,13 +29,14 @@ function normalizeLeadPayload(raw: unknown): Record<string, string | undefined> 
     email = DEFAULT_PLACEHOLDER_EMAIL
   }
   return {
-    name: str(b.name),
-    phone: str(b.phone),
+    name: opt(b.name),
+    phone: opt(b.phone),
     email,
     course: opt(b.course) ?? "",
     source: opt(b.source) ?? "website_popup",
     branch_id: opt(b.branch_id),
     branch_name: opt(b.branch_name),
+    verification_token: opt(b.verification_token),
   }
 }
 
