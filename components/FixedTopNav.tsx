@@ -12,6 +12,7 @@ import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 
 const navLinks = [
   { label: "Store", href: "/store" },
+  { label: "Residential Camp", href: "/residential-camp" },
 ]
 
 export function FixedTopNav() {

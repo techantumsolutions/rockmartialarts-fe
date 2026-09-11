@@ -15,5 +15,6 @@ export function FixedTopNavWrapper() {
   const pathname = usePathname()
   const isDashboard = pathname != null && DASHBOARD_PREFIXES.some((p) => pathname.startsWith(p))
   if (isDashboard) return null
+  if (pathname === "/residential-camp") return null
   return <FixedTopNav />
 }

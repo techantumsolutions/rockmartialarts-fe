@@ -10,10 +10,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, Save, Globe, FileText, Image, Home, Search } from "lucide-react"
+import { Loader2, Save, Globe, FileText, Image, Home, Search, MapPin } from "lucide-react"
 import { TokenManager } from "@/lib/tokenManager"
 import { getBackendApiUrl } from "@/lib/config"
 import { normalizePopupFormForCms, type PopupFormSettings } from "@/lib/popupForm"
+import { ResidentialCampCmsFields } from "@/components/cms/ResidentialCampCmsFields"
+import {
+  DEFAULT_RESIDENTIAL_CAMP,
+  campEventPayload,
+  mergeResidentialCamp,
+  type ResidentialCampContent,
+} from "@/lib/residentialCamp"
 
 interface SEOSettings {
   meta_title?: string
@@ -89,21 +96,47 @@ export default function CMSPage() {
     image: "",
   })
   const [savingAbout, setSavingAbout] = useState(false)
+  const [residentialCamp, setResidentialCamp] = useState<ResidentialCampContent>(DEFAULT_RESIDENTIAL_CAMP)
+  const [startingNewEvent, setStartingNewEvent] = useState(false)
 
   useEffect(() => {
     fetchCMSContent()
   }, [])
 
+  useEffect(() => {
+    if (activeTab !== "residential-camp" || loading) return
+    const token = TokenManager.getToken()
+    ;(async () => {
+      try {
+        const campRes = await fetch(getBackendApiUrl("cms/residential-camp"), {
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          cache: "no-store",
+        })
+        let campJson = campRes.ok ? await campRes.json().catch(() => null) : null
+        if (!campJson) {
+          const pubRes = await fetch(getBackendApiUrl("cms/public/residential-camp"), { cache: "no-store" })
+          campJson = pubRes.ok ? await pubRes.json().catch(() => null) : null
+        }
+        if (campJson) setResidentialCamp(mergeResidentialCamp(campJson))
+      } catch {
+        /* keep current form values */
+      }
+    })()
+  }, [activeTab, loading])
+
   const fetchCMSContent = async () => {
     try {
       setLoading(true)
       const token = TokenManager.getToken()
-      const [cmsRes, aboutRes, popupRes] = await Promise.all([
+      const [cmsRes, aboutRes, popupRes, campRes] = await Promise.all([
         fetch(getBackendApiUrl("cms"), {
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         }),
         fetch(getBackendApiUrl("homepage/public")),
         fetch("/api/cms/popup-form", { cache: "no-store" }),
+        fetch(getBackendApiUrl("cms/residential-camp"), {
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        }),
       ])
       if (!cmsRes.ok) throw new Error("Failed to fetch CMS content")
       const data = await cmsRes.json()
@@ -125,6 +158,16 @@ export default function CMSPage() {
           content: a.content ?? "",
           image: a.image ?? "",
         })
+      }
+      if (campRes.ok) {
+        const campJson = await campRes.json().catch(() => null)
+        if (campJson) setResidentialCamp(mergeResidentialCamp(campJson))
+      } else {
+        const pubRes = await fetch(getBackendApiUrl("cms/public/residential-camp"), { cache: "no-store" })
+        if (pubRes.ok) {
+          const campJson = await pubRes.json().catch(() => null)
+          if (campJson) setResidentialCamp(mergeResidentialCamp(campJson))
+        }
       }
     } catch (error) {
       console.error("Error fetching CMS content:", error)
@@ -195,7 +238,17 @@ export default function CMSPage() {
       delete homepageForSave.testimonials
       // FastAPI HomepageSection has no popup_form — sending it is stripped (or can 422).
       delete homepageForSave.popup_form
-      const [res, popupRes] = await Promise.all([
+      const {
+        id: _campId,
+        created_at: _createdAt,
+        updated_at: _updatedAt,
+        ...campPayload
+      } = residentialCamp as ResidentialCampContent & {
+        id?: string
+        created_at?: unknown
+        updated_at?: unknown
+      }
+      const [res, popupRes, campRes] = await Promise.all([
         fetch(getBackendApiUrl("cms"), {
           method: "PUT",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -211,9 +264,15 @@ export default function CMSPage() {
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
           body: JSON.stringify({ popup_form: popupForSave }),
         }),
+        fetch(getBackendApiUrl("cms/residential-camp"), {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify(campPayload),
+        }),
       ])
       if (!res.ok) throw new Error("Failed to save CMS content")
       if (!popupRes.ok) throw new Error("Failed to save popup form settings")
+      if (!campRes.ok) throw new Error("Failed to save residential camp page")
       const data = await res.json()
       const savedHp = (data.homepage || {}) as HomepageSection
       const popupJson = await popupRes.json().catch(() => ({}))
@@ -224,6 +283,8 @@ export default function CMSPage() {
       setFooter(data.footer || {})
       setBranding(data.branding || {})
       setPageSeo(data.page_seo || {})
+      const campJson = await campRes.json().catch(() => null)
+      if (campJson) setResidentialCamp(mergeResidentialCamp(campJson))
       toast({ title: "Success", description: "CMS content saved successfully" })
     } catch (error) {
       console.error("Error saving CMS content:", error)
@@ -267,6 +328,102 @@ export default function CMSPage() {
     } catch (error) {
       console.error("Upload error:", error)
       toast({ title: "Error", description: "Failed to upload file", variant: "destructive" })
+    }
+  }
+
+  const handleCampHeroUpload = async (file: File) => {
+    try {
+      const token = TokenManager.getToken()
+      const formData = new FormData()
+      formData.append("file", file)
+      const uploadRes = await fetch(getBackendApiUrl("uploads"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      if (!uploadRes.ok) throw new Error("Upload failed")
+      const uploadData = await uploadRes.json()
+      const fileUrl = uploadData.file_url || uploadData.url || uploadData.image_url || ""
+      setResidentialCamp((prev) => ({ ...prev, hero: { ...prev.hero, hero_image: fileUrl } }))
+      toast({ title: "Uploaded", description: "Residential camp hero image uploaded" })
+    } catch (error) {
+      console.error("Upload error:", error)
+      toast({ title: "Error", description: "Failed to upload image", variant: "destructive" })
+    }
+  }
+
+  const handleCampLogoUpload = async (file: File) => {
+    try {
+      const token = TokenManager.getToken()
+      const formData = new FormData()
+      formData.append("file", file)
+      const uploadRes = await fetch(getBackendApiUrl("uploads"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      if (!uploadRes.ok) throw new Error("Upload failed")
+      const uploadData = await uploadRes.json()
+      const fileUrl = uploadData.file_url || uploadData.url || uploadData.image_url || ""
+      setResidentialCamp((prev) => ({ ...prev, nav: { ...prev.nav, logo: fileUrl } }))
+      toast({ title: "Uploaded", description: "Residential camp navbar logo uploaded" })
+    } catch (error) {
+      console.error("Upload error:", error)
+      toast({ title: "Error", description: "Failed to upload image", variant: "destructive" })
+    }
+  }
+
+  const handleCampIconUpload = async (index: number, file: File) => {
+    try {
+      const token = TokenManager.getToken()
+      const formData = new FormData()
+      formData.append("file", file)
+      const uploadRes = await fetch(getBackendApiUrl("uploads"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      if (!uploadRes.ok) throw new Error("Upload failed")
+      const uploadData = await uploadRes.json()
+      const fileUrl = uploadData.file_url || uploadData.url || uploadData.image_url || ""
+      setResidentialCamp((prev) => ({
+        ...prev,
+        camp: {
+          ...prev.camp,
+          cards: prev.camp.cards.map((card, i) => (i === index ? { ...card, icon_image: fileUrl } : card)),
+        },
+      }))
+      toast({ title: "Uploaded", description: "Camp card icon uploaded" })
+    } catch (error) {
+      console.error("Upload error:", error)
+      toast({ title: "Error", description: "Failed to upload image", variant: "destructive" })
+    }
+  }
+
+  const handleStartNewCampEvent = async () => {
+    try {
+      setStartingNewEvent(true)
+      const token = TokenManager.getToken()
+      const res = await fetch(getBackendApiUrl("cms/residential-camp/new-event"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(campEventPayload(residentialCamp)),
+      })
+      if (!res.ok) throw new Error("Could not start a new event")
+      const data = await res.json()
+      setResidentialCamp(mergeResidentialCamp(data))
+      toast({
+        title: "New camp event started",
+        description: "A new Event ID is active. Event details are saved already. Registrations will link to this event.",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Could not start a new event",
+        variant: "destructive",
+      })
+    } finally {
+      setStartingNewEvent(false)
     }
   }
 
@@ -332,7 +489,7 @@ export default function CMSPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4 bg-gray-100">
+        <TabsList className="flex w-full flex-wrap h-auto gap-1 bg-gray-100 p-1">
           <TabsTrigger value="homepage" className="flex items-center gap-2 data-[state=active]:bg-white">
             <Home className="w-4 h-4" /> Homepage
           </TabsTrigger>
@@ -344,6 +501,9 @@ export default function CMSPage() {
           </TabsTrigger>
           <TabsTrigger value="seo" className="flex items-center gap-2 data-[state=active]:bg-white">
             <Search className="w-4 h-4" /> Page SEO
+          </TabsTrigger>
+          <TabsTrigger value="residential-camp" className="flex items-center gap-2 data-[state=active]:bg-white">
+            <MapPin className="w-4 h-4" /> Residential Camp Page
           </TabsTrigger>
         </TabsList>
 
@@ -900,6 +1060,18 @@ export default function CMSPage() {
               </CardContent>
             </Card>
           ))}
+        </TabsContent>
+
+        <TabsContent value="residential-camp" className="space-y-6 mt-6">
+          <ResidentialCampCmsFields
+            value={residentialCamp}
+            onChange={setResidentialCamp}
+            onHeroUpload={handleCampHeroUpload}
+            onLogoUpload={handleCampLogoUpload}
+            onCampIconUpload={handleCampIconUpload}
+            onStartNewEvent={handleStartNewCampEvent}
+            startingNewEvent={startingNewEvent}
+          />
         </TabsContent>
       </Tabs>
     </div>
