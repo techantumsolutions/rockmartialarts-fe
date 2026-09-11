@@ -8,14 +8,29 @@
  * Lead OTP: FastAPI POST /api/leads/send-otp and /verify-otp (collection lead_popup_otp,
  * JWT scope lead_popup). Expiry: LEAD_OTP_EXPIRY_SECONDS (backend) and
  * NEXT_PUBLIC_LEAD_OTP_EXPIRY_SECONDS (UI countdown).
+ * Device send cap: NEXT_PUBLIC_LEAD_OTP_MAX_SENDS_PER_DEVICE and
+ * NEXT_PUBLIC_LEAD_OTP_LIMIT_RESET_MINUTES.
  */
 
 export const DEFAULT_LEAD_OTP_EXPIRY_SECONDS = 300
+export const DEFAULT_LEAD_OTP_MAX_SENDS_PER_DEVICE = 3
+export const DEFAULT_LEAD_OTP_LIMIT_RESET_MINUTES = 30
+
+function positiveIntEnv(raw: string | undefined, fallback: number): number {
+  const n = raw ? parseInt(raw, 10) : fallback
+  return Number.isFinite(n) && n > 0 ? n : fallback
+}
 
 export function getLeadOtpExpirySeconds(): number {
-  const raw = process.env.NEXT_PUBLIC_LEAD_OTP_EXPIRY_SECONDS
-  const n = raw ? parseInt(raw, 10) : DEFAULT_LEAD_OTP_EXPIRY_SECONDS
-  return Number.isFinite(n) && n > 0 ? n : DEFAULT_LEAD_OTP_EXPIRY_SECONDS
+  return positiveIntEnv(process.env.NEXT_PUBLIC_LEAD_OTP_EXPIRY_SECONDS, DEFAULT_LEAD_OTP_EXPIRY_SECONDS)
+}
+
+export function getLeadOtpMaxSendsPerDevice(): number {
+  return positiveIntEnv(process.env.NEXT_PUBLIC_LEAD_OTP_MAX_SENDS_PER_DEVICE, DEFAULT_LEAD_OTP_MAX_SENDS_PER_DEVICE)
+}
+
+export function getLeadOtpLimitResetMinutes(): number {
+  return positiveIntEnv(process.env.NEXT_PUBLIC_LEAD_OTP_LIMIT_RESET_MINUTES, DEFAULT_LEAD_OTP_LIMIT_RESET_MINUTES)
 }
 
 export type PopupFormSettings = {

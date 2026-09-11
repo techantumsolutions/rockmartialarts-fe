@@ -7,6 +7,11 @@ import { Input } from "@/components/ui/input"
 import { CheckCircle2 } from "lucide-react"
 import { formatApiErrorPayload } from "@/lib/formatApiError"
 import { getLeadOtpExpirySeconds } from "@/lib/popupForm"
+import {
+  incrementLeadOtpDeviceSend,
+  isLeadOtpDeviceBlocked,
+  LEAD_OTP_DEVICE_LIMIT_MESSAGE,
+} from "@/lib/leadOtpDeviceLimit"
 
 function otpRequestError(status: number, data: unknown): string {
   if (status === 405 || status === 404) {
@@ -45,18 +50,46 @@ export function LeadPhoneOtpSection({
   const [err, setErr] = useState<string | null>(null)
   const [expiresIn, setExpiresIn] = useState(0)
   const [otpSent, setOtpSent] = useState(false)
+  const [sendBlocked, setSendBlocked] = useState(false)
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
   const masked =
     normalizedMobile.length >= 4 ? `******${normalizedMobile.slice(-4)}` : normalizedMobile
 
+  const refreshSendBlock = () => {
+    const blocked = isLeadOtpDeviceBlocked()
+    setSendBlocked(blocked)
+    return blocked
+  }
+
   useEffect(() => {
     setOtp(Array(DIGITS).fill(""))
     setMsg(null)
-    setErr(null)
     setExpiresIn(0)
     setOtpSent(false)
+    if (isLeadOtpDeviceBlocked()) {
+      setSendBlocked(true)
+      setErr(LEAD_OTP_DEVICE_LIMIT_MESSAGE)
+    } else {
+      setSendBlocked(false)
+      setErr(null)
+    }
   }, [apiPhone])
+
+  useEffect(() => {
+    refreshSendBlock()
+  }, [])
+
+  useEffect(() => {
+    if (!sendBlocked) return
+    const t = setInterval(() => {
+      if (!isLeadOtpDeviceBlocked()) {
+        setSendBlocked(false)
+        setErr((current) => (current === LEAD_OTP_DEVICE_LIMIT_MESSAGE ? null : current))
+      }
+    }, 1000)
+    return () => clearInterval(t)
+  }, [sendBlocked])
 
   useEffect(() => {
     if (expiresIn <= 0) return
@@ -65,14 +98,18 @@ export function LeadPhoneOtpSection({
   }, [expiresIn])
 
   useEffect(() => {
-    if (isVerified || sendBusy) return
+    if (isVerified || sendBusy || sendBlocked) return
     if (otpSent && expiresIn === 0) {
       setErr("OTP expired. Please resend.")
     }
-  }, [otpSent, expiresIn, isVerified, sendBusy])
+  }, [otpSent, expiresIn, isVerified, sendBusy, sendBlocked])
 
   const sendOtp = async () => {
     if (!readyForOtp || !apiPhone) return
+    if (refreshSendBlock()) {
+      setErr(LEAD_OTP_DEVICE_LIMIT_MESSAGE)
+      return
+    }
     setSendBusy(true)
     setErr(null)
     setMsg(null)
@@ -87,6 +124,8 @@ export function LeadPhoneOtpSection({
         setErr(otpRequestError(res.status, data))
         return
       }
+      incrementLeadOtpDeviceSend()
+      if (refreshSendBlock()) setErr(LEAD_OTP_DEVICE_LIMIT_MESSAGE)
       setMsg("OTP sent. Check your SMS.")
       setOtp(Array(DIGITS).fill(""))
       setOtpSent(true)
@@ -183,7 +222,7 @@ export function LeadPhoneOtpSection({
           variant="outline"
           size="sm"
           onClick={() => void sendOtp()}
-          disabled={sendBusy}
+          disabled={sendBusy || sendBlocked}
           className="shrink-0"
         >
           {sendBusy ? "Sending…" : expiresIn > 0 ? "Resend OTP" : "Send OTP"}
