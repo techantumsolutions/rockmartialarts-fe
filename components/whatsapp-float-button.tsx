@@ -19,6 +19,7 @@ const HIDE_WHATSAPP_PATH_PREFIXES = [
 
 function shouldHideWhatsApp(pathname: string | null): boolean {
   if (!pathname) return true
+  if (pathname === "/residential-camp") return true
   if (HIDE_WHATSAPP_PATH_PREFIXES.some((p) => pathname.startsWith(p))) return true
   if (pathname.startsWith("/coach/")) return true
   /* e.g. /super-admin/dashboard, /coach-admin/dashboard */

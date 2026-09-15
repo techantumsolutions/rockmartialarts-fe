@@ -69,6 +69,7 @@ const SUPER_ADMIN_MENU: NavItem[] = [
   { label: "Reports", path: `${SUPER_ADMIN_BASE}/reports`, icon: BarChart },
   { label: "Payment Tracking", path: `${SUPER_ADMIN_BASE}/payment-tracking`, icon: CreditCard },
   { label: "Leads", path: `${SUPER_ADMIN_BASE}/leads`, icon: UserPlus, overflowOnly: true },
+  { label: "Camp Registrations", path: `${SUPER_ADMIN_BASE}/camp-registrations`, icon: Trophy, overflowOnly: true },
   { label: "Testimonials", path: `${SUPER_ADMIN_BASE}/testimonials`, icon: MessageSquare, overflowOnly: true },
   { label: "Registration Forms", path: `${SUPER_ADMIN_BASE}/registration-forms`, icon: FileText, overflowOnly: true },
   {

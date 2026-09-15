@@ -28,6 +28,9 @@ pnpm-debug.log*
 .cache/
 *.tsbuildinfo
 
+# Local CMS popup settings (FastAPI homepage schema does not store popup_form)
+data/cms-popup-form.json
+
 # OS files
 .DS_Store
 Thumbs.db

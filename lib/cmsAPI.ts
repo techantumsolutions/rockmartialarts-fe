@@ -1,4 +1,7 @@
 import { BaseAPI } from './baseAPI'
+import type { PopupFormSettings } from '@/lib/popupForm'
+
+export type { PopupFormSettings }
 
 export interface SEOSettings {
   meta_title?: string
@@ -18,6 +21,7 @@ export interface HomepageSection {
   testimonials_subtitle?: string
   cta_title?: string
   cta_subtitle?: string
+  popup_form?: PopupFormSettings
 }
 
 export interface FooterContent {
