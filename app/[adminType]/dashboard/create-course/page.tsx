@@ -62,6 +62,7 @@ export default function CreateCoursePage() {
     courseCode: "",
     description: "",
     category: "",
+    subcategory: "",
     difficultyLevel: "",
     duration: "",
     maxStudents: "",
@@ -90,7 +91,7 @@ export default function CreateCoursePage() {
       try {
         setIsLoadingCategories(true)
         const token = TokenManager.getToken()
-        const response = await fetch(getBackendApiUrl('categories?active_only=true'), {
+        const response = await fetch(getBackendApiUrl('categories?active_only=true&limit=200'), {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -302,6 +303,7 @@ export default function CreateCoursePage() {
         description: formData.description,
         difficulty_level: formData.difficultyLevel,
         category_id: formData.category,
+        sub_category: formData.subcategory || null,
         // Add required fields with default values
         martial_art_style_id: 'style-default', // Will be configurable later
         instructor_id: user?.id && user.id.includes('instructor-') ? user.id : 'instructor-default',
@@ -464,6 +466,10 @@ export default function CreateCoursePage() {
     }
   }
 
+  const childCategories = allCategories.filter(
+    (cat: any) => cat.parent_category_id && cat.parent_category_id === formData.category
+  )
+
   const handleSuccessOk = () => {
     setShowSuccessPopup(false)
     router.push(`${basePath}/courses`)
@@ -538,7 +544,7 @@ export default function CreateCoursePage() {
                       <Label htmlFor="category">Category *</Label>
                       <Select
                         value={formData.category}
-                        onValueChange={(value) => setFormData({ ...formData, category: value })}
+                        onValueChange={(value) => setFormData({ ...formData, category: value, subcategory: "" })}
                       >
                         <SelectTrigger className="h-10 px-3 w-full">
                           <SelectValue placeholder="Select category" />
@@ -550,6 +556,26 @@ export default function CreateCoursePage() {
                         </SelectContent>
                       </Select>
                     </div>
+
+                    {childCategories.length > 0 && (
+                      <div className="space-y-2">
+                        <Label htmlFor="subcategory">Subcategory (optional)</Label>
+                        <Select
+                          value={formData.subcategory || "none"}
+                          onValueChange={(value) => setFormData({ ...formData, subcategory: value === "none" ? "" : value })}
+                        >
+                          <SelectTrigger className="h-10 px-3 w-full">
+                            <SelectValue placeholder="Select subcategory (optional)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            {childCategories.map((cat) => (
+                              <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">

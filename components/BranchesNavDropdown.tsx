@@ -98,6 +98,17 @@ export function BranchesNavDropdown({ variant = "desktop", onNavigate }: Branche
           }
           onMouseLeave={isMobile ? undefined : () => setOpen(false)}
         >
+          <Link
+            href="/branches"
+            onClick={() => {
+              setOpen(false)
+              onNavigate?.()
+            }}
+            className="flex items-center gap-2 px-4 py-3 hover:bg-white/10 transition-colors text-left border-b border-gray-700 min-h-11"
+          >
+            <Building2 className="h-4 w-4 text-[#FFB70F] flex-shrink-0" />
+            <span className="font-medium text-white">View all branches</span>
+          </Link>
           {loading ? (
             <div className="flex items-center justify-center gap-2 px-4 py-6 text-gray-400">
               <Loader2 className="h-5 w-5 animate-spin" />

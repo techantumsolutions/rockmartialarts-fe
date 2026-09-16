@@ -23,6 +23,7 @@ import { courseAPI } from "@/lib/courseAPI"
 import { useToast } from "@/hooks/use-toast"
 import { TokenManager } from "@/lib/tokenManager"
 import { dropdownAPI } from "@/lib/dropdownAPI"
+import { useGeographyDropdowns } from "@/hooks/use-geography-dropdowns"
 
 interface Branch {
   id: string
@@ -77,6 +78,7 @@ export default function CreateStudent() {
   const [branches, setBranches] = useState<Branch[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const [locations, setLocations] = useState<any[]>([])
+  const geography = useGeographyDropdowns()
   const [categories, setCategories] = useState<any[]>([])
   const [coaches, setCoaches] = useState<Coach[]>([])
   const [filteredCourses, setFilteredCourses] = useState<Course[]>([])
@@ -205,70 +207,18 @@ export default function CreateStudent() {
     { id: "weekend-evening", name: "Weekend Evening" }
   ]
 
+  useEffect(() => {
+    setLocations(geography.hasStates && geography.selectedStateId ? geography.cities : geography.allCities)
+    setIsLoadingLocations(geography.isLoading)
+  }, [geography.hasStates, geography.selectedStateId, geography.cities, geography.allCities, geography.isLoading])
+
   // Load locations, branches and courses on component mount
   useEffect(() => {
     const loadData = async () => {
       // Using public APIs - no authentication required
 
-      try {
-        // Load locations: try locations API first, then master data (dropdown) so Hyderabad etc. show
-        setIsLoadingLocations(true)
-        const locationsResponse = await fetch(getBackendApiUrl('locations/public/details?active_only=true'))
-        if (locationsResponse.ok) {
-          const data = await locationsResponse.json()
-          const list = data.locations || []
-          if (list.length > 0) {
-            setLocations(list)
-          } else {
-            const token = TokenManager.getToken()
-            const locationOptions = await dropdownAPI.getCategoryOptions('locations', token || undefined)
-            const fromMaster = (locationOptions || [])
-              .filter((opt: { is_active: boolean }) => opt.is_active !== false)
-              .map((opt: { value: string; label: string }) => ({ id: opt.value, name: opt.label, code: opt.value, state: opt.label }))
-            if (fromMaster.length > 0) setLocations(fromMaster)
-          }
-        } else {
-          const token = TokenManager.getToken()
-          const locationOptions = await dropdownAPI.getCategoryOptions('locations', token || undefined)
-          const fromMaster = (locationOptions || [])
-            .filter((opt: { is_active: boolean }) => opt.is_active !== false)
-            .map((opt: { value: string; label: string }) => ({ id: opt.value, name: opt.label, code: opt.value, state: opt.label }))
-          if (fromMaster.length > 0) setLocations(fromMaster)
-        }
-      } catch (error) {
-        console.error('Error loading locations:', error)
-        toast({
-          title: "Error",
-          description: "Failed to load locations. Please try again.",
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoadingLocations(false)
-      }
-
       // Branches will be loaded dynamically when location is selected
       setIsLoadingBranches(false)
-
-      try {
-        // Load courses
-        setIsLoadingCourses(true)
-        const coursesResponse = await fetch(getBackendApiUrl('courses/public/all'))
-        if (coursesResponse.ok) {
-          const coursesData = await coursesResponse.json()
-          const allCourses = coursesData.courses || []
-          setCourses(allCourses)
-          setFilteredCourses(allCourses)
-        }
-      } catch (error) {
-        console.error('Error loading courses:', error)
-        toast({
-          title: "Error",
-          description: "Failed to load courses. Please try again.",
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoadingCourses(false)
-      }
 
       try {
         // Load categories
@@ -421,6 +371,47 @@ export default function CreateStudent() {
 
     loadBranchesForLocation()
   }, [formData.location])
+
+  // Load only courses available at the selected branch
+  useEffect(() => {
+    const loadCoursesForBranch = async () => {
+      if (!formData.branch) {
+        setCourses([])
+        setFilteredCourses([])
+        setFormData((prev) => (prev.course ? { ...prev, course: "" } : prev))
+        setIsLoadingCourses(false)
+        return
+      }
+      try {
+        setIsLoadingCourses(true)
+        const coursesResponse = await fetch(
+          getBackendApiUrl(`courses/public/by-branch/${encodeURIComponent(formData.branch)}`)
+        )
+        if (coursesResponse.ok) {
+          const coursesData = await coursesResponse.json()
+          const list = coursesData.courses || []
+          setCourses(list)
+          setFilteredCourses(list)
+          setFormData((prev) => {
+            if (prev.course && !list.some((c: Course) => c.id === prev.course)) {
+              return { ...prev, course: "" }
+            }
+            return prev
+          })
+        } else {
+          setCourses([])
+          setFilteredCourses([])
+        }
+      } catch (error) {
+        console.error("Error loading courses for branch:", error)
+        setCourses([])
+        setFilteredCourses([])
+      } finally {
+        setIsLoadingCourses(false)
+      }
+    }
+    loadCoursesForBranch()
+  }, [formData.branch])
 
   // Clear branch selection when location changes
   useEffect(() => {
@@ -949,13 +940,13 @@ export default function CreateStudent() {
                         <Select
                           value={formData.course}
                           onValueChange={(value) => handleInputChange("course", value)}
-                          disabled={isLoadingCourses}
+                          disabled={isLoadingCourses || !formData.branch}
                         >
                           <SelectTrigger className={cn(
                             "!w-full !h-14 !pl-12 !pr-4 !py-4 !text-base !bg-gray-50 !border-gray-200 !rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent !min-h-14",
                             errors.course ? "!border-red-500 !bg-red-50" : ""
                           )}>
-                            <SelectValue placeholder={isLoadingCourses ? "Loading courses..." : "Choose Course"} className="text-gray-500" />
+                            <SelectValue placeholder={!formData.branch ? "Select a branch first" : isLoadingCourses ? "Loading courses..." : "Choose Course"} className="text-gray-500" />
                           </SelectTrigger>
                           <SelectContent className="rounded-xl border border-gray-200 bg-white shadow-lg max-h-60">
                             {filteredCourses.length > 0 ? (
@@ -1159,6 +1150,36 @@ export default function CreateStudent() {
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-[#4F5077] border-b border-gray-200 pb-2">Location Information</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-[#7D8592]">
+
+                    {geography.hasStates && (
+                    <div>
+                      <Label className="block text-sm font-medium mb-2">
+                        State <span className="text-red-500">*</span>
+                      </Label>
+                      <Select
+                        value={geography.selectedStateId}
+                        onValueChange={(value) => {
+                          geography.setSelectedStateId(value)
+                          handleInputChange("location", "")
+                          handleInputChange("branch", "")
+                        }}
+                        disabled={isLoadingLocations}
+                      >
+                        <SelectTrigger className={cn(
+                          "!w-full !h-14 !pl-4 !pr-4 !py-4 !text-base !bg-gray-50 !border-gray-200 !rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent !min-h-14"
+                        )}>
+                          <SelectValue placeholder={isLoadingLocations ? "Loading locations..." : "Select State"} className="text-gray-500" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl border border-gray-200 bg-white shadow-lg max-h-60">
+                          {geography.states.map((state) => (
+                            <SelectItem key={state.id} value={state.id} className="!py-3 !pl-3 pr-8 text-base hover:bg-gray-50 rounded-lg cursor-pointer">
+                              {state.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    )}
                     
                     {/* Location */}
                     <div>
@@ -1171,8 +1192,11 @@ export default function CreateStudent() {
                         </div>
                         <Select
                           value={formData.location}
-                          onValueChange={(value) => handleInputChange("location", value)}
-                          disabled={isLoadingLocations}
+                          onValueChange={(value) => {
+                            geography.setSelectedCityId(value)
+                            handleInputChange("location", value)
+                          }}
+                          disabled={isLoadingLocations || (geography.hasStates && !geography.selectedStateId)}
                         >
                           <SelectTrigger className={cn(
                             "!w-full !h-14 !pl-12 !pr-4 !py-4 !text-base !bg-gray-50 !border-gray-200 !rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent !min-h-14",

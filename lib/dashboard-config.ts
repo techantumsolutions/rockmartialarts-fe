@@ -79,6 +79,8 @@ const SUPER_ADMIN_MENU: NavItem[] = [
     children: [
       { label: "General Settings", path: `${SUPER_ADMIN_BASE}/settings` },
       { label: "Dropdown Settings", path: `${SUPER_ADMIN_BASE}/settings/dropdown-settings` },
+      { label: "Discount Rules", path: `${SUPER_ADMIN_BASE}/discount-rules` },
+      { label: "State & City", path: `${SUPER_ADMIN_BASE}/settings/geography` },
     ],
   },
 ]

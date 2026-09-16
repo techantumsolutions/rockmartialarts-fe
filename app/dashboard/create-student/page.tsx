@@ -226,27 +226,6 @@ export default function CreateStudent() {
       setIsLoadingBranches(false)
 
       try {
-        // Load courses
-        setIsLoadingCourses(true)
-        const coursesResponse = await fetch(getBackendApiUrl('courses/public/all'))
-        if (coursesResponse.ok) {
-          const coursesData = await coursesResponse.json()
-          const allCourses = coursesData.courses || []
-          setCourses(allCourses)
-          setFilteredCourses(allCourses)
-        }
-      } catch (error) {
-        console.error('Error loading courses:', error)
-        toast({
-          title: "Error",
-          description: "Failed to load courses. Please try again.",
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoadingCourses(false)
-      }
-
-      try {
         // Load categories
         setIsLoadingCategories(true)
         const categoriesResponse = await fetch(getBackendApiUrl('categories/public/details?active_only=true'))
@@ -397,6 +376,46 @@ export default function CreateStudent() {
 
     loadBranchesForLocation()
   }, [formData.location])
+
+  useEffect(() => {
+    const loadCoursesForBranch = async () => {
+      if (!formData.branch) {
+        setCourses([])
+        setFilteredCourses([])
+        setFormData((prev) => (prev.course ? { ...prev, course: "" } : prev))
+        setIsLoadingCourses(false)
+        return
+      }
+      try {
+        setIsLoadingCourses(true)
+        const coursesResponse = await fetch(
+          getBackendApiUrl(`courses/public/by-branch/${encodeURIComponent(formData.branch)}`)
+        )
+        if (coursesResponse.ok) {
+          const coursesData = await coursesResponse.json()
+          const list = coursesData.courses || []
+          setCourses(list)
+          setFilteredCourses(list)
+          setFormData((prev) => {
+            if (prev.course && !list.some((c: Course) => c.id === prev.course)) {
+              return { ...prev, course: "" }
+            }
+            return prev
+          })
+        } else {
+          setCourses([])
+          setFilteredCourses([])
+        }
+      } catch (error) {
+        console.error("Error loading courses for branch:", error)
+        setCourses([])
+        setFilteredCourses([])
+      } finally {
+        setIsLoadingCourses(false)
+      }
+    }
+    loadCoursesForBranch()
+  }, [formData.branch])
 
   // Clear branch selection when location changes
   useEffect(() => {
@@ -895,13 +914,13 @@ export default function CreateStudent() {
                         <Select
                           value={formData.course}
                           onValueChange={(value) => handleInputChange("course", value)}
-                          disabled={isLoadingCourses}
+                          disabled={isLoadingCourses || !formData.branch}
                         >
                           <SelectTrigger className={cn(
                             "!w-full !h-14 !pl-12 !pr-4 !py-4 !text-base !bg-gray-50 !border-gray-200 !rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent !min-h-14",
                             errors.course ? "!border-red-500 !bg-red-50" : ""
                           )}>
-                            <SelectValue placeholder={isLoadingCourses ? "Loading courses..." : "Choose Course"} className="text-gray-500" />
+                            <SelectValue placeholder={!formData.branch ? "Select a branch first" : isLoadingCourses ? "Loading courses..." : "Choose Course"} className="text-gray-500" />
                           </SelectTrigger>
                           <SelectContent className="rounded-xl border border-gray-200 bg-white shadow-lg max-h-60">
                             {filteredCourses.length > 0 ? (

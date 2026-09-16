@@ -3,17 +3,12 @@
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { ChevronDown, GraduationCap, Loader2 } from "lucide-react"
+import { toCategoryHref } from "@/lib/category-slug"
 
-export type CourseItem = {
+export type CategoryNavItem = {
   id: string
-  title?: string
   name?: string
-  code?: string
-}
-
-function toCourseSlug(c: CourseItem): string {
-  const raw = (c.code ?? c.title ?? c.name ?? c.id ?? "").toString().trim()
-  return raw.toLowerCase().replace(/\s+/g, "-").replace(/_/g, "-").replace(/[^a-z0-9-]/g, "") || "course"
+  slug?: string
 }
 
 type CoursesNavDropdownProps = {
@@ -22,41 +17,50 @@ type CoursesNavDropdownProps = {
 }
 
 export function CoursesNavDropdown({ variant = "desktop", onNavigate }: CoursesNavDropdownProps) {
-  const [courses, setCourses] = useState<CourseItem[]>([])
+  const [categories, setCategories] = useState<CategoryNavItem[]>([])
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
   const isMobile = variant === "mobile"
 
-  const fetchCourses = async () => {
-    if (courses.length > 0) return
+  const fetchCategories = async () => {
+    if (categories.length > 0) return
     setLoading(true)
     try {
-      const res = await fetch("/api/backend/courses/public/all", { headers: { "Content-Type": "application/json" } })
+      const res = await fetch("/api/backend/categories/public/nav", {
+        headers: { "Content-Type": "application/json" },
+      })
       const data = await res.json().catch(() => ({}))
-      const list = data.courses ?? data ?? []
-      setCourses(Array.isArray(list) ? list : [])
+      const list = data.categories ?? []
+      setCategories(Array.isArray(list) ? list : [])
     } catch {
-      setCourses([])
+      setCategories([])
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    if (open) fetchCourses()
+    if (open) fetchCategories()
   }, [open])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false)
+    }
     document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
+    document.addEventListener("keydown", handleEscape)
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+      document.removeEventListener("keydown", handleEscape)
+    }
   }, [])
 
-  const displayName = (c: CourseItem) => c.title || c.name || c.code || "Course"
+  const displayName = (c: CategoryNavItem) => c.name || "Category"
 
   return (
     <div ref={ref} className={isMobile ? "w-full" : "relative"}>
@@ -66,11 +70,12 @@ export function CoursesNavDropdown({ variant = "desktop", onNavigate }: CoursesN
         onMouseEnter={isMobile ? undefined : () => setOpen(true)}
         className={
           isMobile
-            ? "flex w-full items-center justify-between text-lg font-medium uppercase tracking-wide text-white py-2 hover:text-[#FFB70F] transition-colors"
+            ? "flex w-full items-center justify-between text-lg font-medium uppercase tracking-wide text-white py-2 hover:text-[#FFB70F] transition-colors min-h-11"
             : "flex items-center gap-1 text-sm font-medium uppercase tracking-wide text-white hover:text-[#FFB70F] transition-colors"
         }
         aria-expanded={open}
-        aria-haspopup="true"
+        aria-haspopup="menu"
+        aria-label="Courses categories"
       >
         Courses
         <ChevronDown
@@ -80,6 +85,7 @@ export function CoursesNavDropdown({ variant = "desktop", onNavigate }: CoursesN
 
       {open && (
         <div
+          role="menu"
           className={
             isMobile
               ? "mt-2 w-full rounded-lg border border-gray-700 bg-[#171A26] py-2 shadow-xl z-50"
@@ -89,11 +95,12 @@ export function CoursesNavDropdown({ variant = "desktop", onNavigate }: CoursesN
         >
           <Link
             href="/courses"
+            role="menuitem"
             onClick={() => {
               setOpen(false)
               onNavigate?.()
             }}
-            className="flex items-center gap-2 px-4 py-3 hover:bg-white/10 transition-colors text-left border-b border-gray-700"
+            className="flex items-center gap-2 px-4 py-3 hover:bg-white/10 transition-colors text-left border-b border-gray-700 min-h-11"
           >
             <GraduationCap className="h-4 w-4 text-[#FFB70F] flex-shrink-0" />
             <span className="font-medium text-white">View all courses</span>
@@ -101,23 +108,24 @@ export function CoursesNavDropdown({ variant = "desktop", onNavigate }: CoursesN
           {loading ? (
             <div className="flex items-center justify-center gap-2 px-4 py-6 text-gray-400">
               <Loader2 className="h-5 w-5 animate-spin" />
-              <span className="text-sm">Loading courses...</span>
+              <span className="text-sm">Loading categories...</span>
             </div>
-          ) : courses.length === 0 ? (
+          ) : categories.length === 0 ? (
             <div className="px-4 py-4 text-center text-gray-400 text-sm">
-              No courses available
+              No categories available
             </div>
           ) : (
             <ul className="max-h-[70vh] overflow-y-auto">
-              {courses.map((c) => (
+              {categories.map((c) => (
                 <li key={c.id}>
                   <Link
-                    href={`/courses/${toCourseSlug(c)}`}
+                    href={toCategoryHref(c)}
+                    role="menuitem"
                     onClick={() => {
                       setOpen(false)
                       onNavigate?.()
                     }}
-                    className="flex items-start gap-2 px-4 py-3 hover:bg-white/10 transition-colors text-left"
+                    className="flex items-start gap-2 px-4 py-3 hover:bg-white/10 transition-colors text-left min-h-11"
                   >
                     <GraduationCap className="h-4 w-4 text-[#FFB70F] mt-0.5 flex-shrink-0" />
                     <span className="block font-medium text-white truncate">

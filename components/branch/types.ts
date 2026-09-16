@@ -97,6 +97,19 @@ export interface BranchData {
   operational_details?: OperationalDetails
   assignments?: BranchAssignments
   is_active?: boolean
+  slug?: string
+  courses?: Array<{
+    id: string
+    title?: string
+    name?: string
+    code?: string
+    slug?: string
+    description?: string
+    difficulty_level?: string
+    media_resources?: { course_image_url?: string }
+    pricing?: Record<string, unknown>
+    available_durations?: Array<{ id?: string; code?: string; name?: string; duration_months?: number }>
+  }>
   /** Optional: if backend adds later */
   description?: string
   gallery_images?: string[]
