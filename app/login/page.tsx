@@ -11,6 +11,7 @@ import { PasswordInput } from "@/components/ui/password-input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ReCaptchaWrapper, useReCaptcha, ReCaptchaComponent } from "@/components/recaptcha"
 import { TokenManager } from "@/lib/tokenManager"
+import { safeStudentReturnUrl } from "@/lib/sessionAuth"
 
 // Create a separate component for the login form content
 function LoginFormContent() {
@@ -41,7 +42,7 @@ function LoginFormContent() {
       if (TokenManager.isAuthenticated()) {
         const user = TokenManager.getUser()
         if (user?.role === "student") {
-          router.replace(returnUrl || "/student-dashboard")
+          router.replace(safeStudentReturnUrl(returnUrl))
         }
       } else if (localStorage.getItem("token")) {
         TokenManager.clearAuthData()
@@ -166,9 +167,7 @@ function LoginFormContent() {
         expires_in: data.expires_in
       });
       
-      // Redirect to student dashboard
-      console.log("Redirecting to student dashboard");
-      router.push("/student-dashboard");
+      router.push(safeStudentReturnUrl(returnUrl))
     } catch (err) {
       console.error("Student login error:", err);
       const msg = err instanceof Error ? err.message : String(err);
