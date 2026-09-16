@@ -98,6 +98,27 @@ export function clearAuthForRole(role?: string | null): void {
   }
 }
 
+export const DEFAULT_STUDENT_DASHBOARD = "/student-dashboard"
+
+/** Allow only in-app student-dashboard paths as post-login redirects. */
+export function safeStudentReturnUrl(raw?: string | null): string {
+  if (!raw) return DEFAULT_STUDENT_DASHBOARD
+  let path = raw.trim()
+  try {
+    path = decodeURIComponent(path)
+  } catch {
+    return DEFAULT_STUDENT_DASHBOARD
+  }
+  if (!path.startsWith("/") || path.startsWith("//") || path.includes("://") || path.includes("\\")) {
+    return DEFAULT_STUDENT_DASHBOARD
+  }
+  const pathnameOnly = path.split("?")[0].split("#")[0]
+  if (pathnameOnly === DEFAULT_STUDENT_DASHBOARD || pathnameOnly.startsWith(`${DEFAULT_STUDENT_DASHBOARD}/`)) {
+    return pathnameOnly
+  }
+  return DEFAULT_STUDENT_DASHBOARD
+}
+
 export function buildLoginUrl(options?: {
   role?: string | null
   session?: "expired"
@@ -106,7 +127,7 @@ export function buildLoginUrl(options?: {
   const loginPath = getLoginPathForRole(options?.role)
   const params = new URLSearchParams()
   if (options?.session === "expired") params.set("session", "expired")
-  if (options?.returnUrl) params.set("returnUrl", options.returnUrl)
+  if (options?.returnUrl) params.set("returnUrl", safeStudentReturnUrl(options.returnUrl))
   const qs = params.toString()
   return qs ? `${loginPath}?${qs}` : loginPath
 }

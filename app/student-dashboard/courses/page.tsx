@@ -699,6 +699,14 @@ export default function StudentCoursesPage() {
     const branchId =
       lockedBranchId || course.branch_id || branches[0]?.id || ""
     if (course.is_enrolled) {
+      if (
+        !isEnrollmentExpiredByDate({
+          endDate: course.enrollment?.end_date,
+          paymentStatus: course.enrollment?.payment_status,
+        })
+      ) {
+        return
+      }
       if (course.enrollment) {
         handleRenewEnrollment(course.enrollment)
       } else {
@@ -1463,7 +1471,10 @@ export default function StudentCoursesPage() {
                             Complete Payment
                           </Button>
                         )}
-                        {(course.payment_status === 'paid' || course.payment_status === 'expired' || !course.is_active) && (
+                        {isEnrollmentExpiredByDate({
+                          endDate: course.end_date,
+                          paymentStatus: course.payment_status,
+                        }) && (
                           <Button
                             size="sm"
                             onClick={() => handleRenewEnrollment(course)}
@@ -1529,6 +1540,12 @@ export default function StudentCoursesPage() {
                         {course.is_enrolled ? (
                           <Button
                             className="w-full bg-emerald-700 hover:bg-emerald-800"
+                            disabled={
+                              !isEnrollmentExpiredByDate({
+                                endDate: course.enrollment?.end_date,
+                                paymentStatus: course.enrollment?.payment_status,
+                              })
+                            }
                             onClick={() => handleEnrollClick(course)}
                           >
                             <RefreshCw className="h-4 w-4 mr-2" />

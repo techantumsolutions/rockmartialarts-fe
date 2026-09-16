@@ -111,31 +111,44 @@ useEffect(() => {
         return
       }
 
-      // 🔹 Step 3: Fetch Branch Managers (use proxy in browser to avoid CORS / 405)
-      const managersUrl = getBackendApiUrl("branch-managers")
-      console.log("📡 Fetching managers:", managersUrl)
-
-      const managersResponse = await fetch(managersUrl, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (!managersResponse.ok) {
-        const errorData = await managersResponse.json().catch(() => ({ detail: "Unknown error" }))
-        throw new Error(
-          errorData.detail ||
-            errorData.message ||
-            `Failed to fetch branch managers (${managersResponse.status})`
+      // 🔹 Step 3: Fetch all Branch Managers (active and inactive)
+      const allManagers: BranchManager[] = []
+      let skip = 0
+      const pageSize = 100
+      let totalCount = Infinity
+      while (skip < totalCount) {
+        const managersUrl = getBackendApiUrl(
+          `branch-managers?active_only=false&skip=${skip}&limit=${pageSize}`
         )
+        console.log("📡 Fetching managers:", managersUrl)
+
+        const managersResponse = await fetch(managersUrl, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        })
+
+        if (!managersResponse.ok) {
+          const errorData = await managersResponse.json().catch(() => ({ detail: "Unknown error" }))
+          throw new Error(
+            errorData.detail ||
+              errorData.message ||
+              `Failed to fetch branch managers (${managersResponse.status})`
+          )
+        }
+
+        const managersData = await managersResponse.json()
+        const batch = managersData.branch_managers || []
+        totalCount = typeof managersData.total_count === "number" ? managersData.total_count : skip + batch.length
+        allManagers.push(...batch)
+        if (batch.length < pageSize) break
+        skip += pageSize
       }
 
-      const managersData = await managersResponse.json()
-      const branchManagersList = managersData.branch_managers || managersData || []
-      setBranchManagers(branchManagersList)
-      console.log("✅ Branch managers fetched:", branchManagersList)
+      setBranchManagers(allManagers)
+      console.log("✅ Branch managers fetched:", allManagers)
 
       // 🔹 Step 4: Fetch Branches (Authenticated)
       const branchesUrl = getBackendApiUrl("branches?skip=0&limit=50")
@@ -674,9 +687,9 @@ const filteredManagers = branchManagers.filter((manager) => {
                             title={manager.is_active ? "Deactivate" : "Activate"}
                           >
                             {manager.is_active ? (
-                              <ToggleLeft className="w-4 h-4 text-orange-600" />
-                            ) : (
                               <ToggleRight className="w-4 h-4 text-green-600" />
+                            ) : (
+                              <ToggleLeft className="w-4 h-4 text-orange-600" />
                             )}
                           </Button>
 

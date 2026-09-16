@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { getBackendApiUrl } from '@/lib/config'
 import { isEnrollmentExpiredByDate } from '@/lib/student-enrollment-status'
 import { TokenManager } from '@/lib/tokenManager'
-import { buildLoginUrl } from '@/lib/sessionAuth'
+import { buildLoginUrl, safeStudentReturnUrl } from '@/lib/sessionAuth'
 
 export interface SubscriptionStatus {
   isActive: boolean
@@ -19,6 +19,7 @@ export interface SubscriptionStatus {
  */
 export function useStudentSubscription() {
   const router = useRouter()
+  const pathname = usePathname()
   const [status, setStatus] = useState<SubscriptionStatus>({
     isActive: true, // Default to true to avoid flash
     hasActiveEnrollment: true,
@@ -30,11 +31,6 @@ export function useStudentSubscription() {
       try {
         if (!TokenManager.isAuthenticated()) {
           TokenManager.clearAuthData()
-          setStatus({
-            isActive: false,
-            hasActiveEnrollment: false,
-            loading: false
-          })
           return
         }
 
@@ -42,11 +38,7 @@ export function useStudentSubscription() {
         const user = TokenManager.getUser()
 
         if (!token || !user) {
-          setStatus({
-            isActive: false,
-            hasActiveEnrollment: false,
-            loading: false
-          })
+          TokenManager.clearAuthData()
           return
         }
 
@@ -71,12 +63,12 @@ export function useStudentSubscription() {
 
         if (response.status === 401) {
           TokenManager.clearAuthData()
-          router.replace(buildLoginUrl({ session: 'expired', returnUrl: '/student-dashboard' }))
-          setStatus({
-            isActive: false,
-            hasActiveEnrollment: false,
-            loading: false
-          })
+          router.replace(
+            buildLoginUrl({
+              session: 'expired',
+              returnUrl: safeStudentReturnUrl(pathname),
+            })
+          )
           return
         }
 
@@ -137,7 +129,7 @@ export function useStudentSubscription() {
     }
 
     checkSubscriptionStatus()
-  }, [router])
+  }, [router, pathname])
 
   return status
 }
