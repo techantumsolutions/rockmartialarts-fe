@@ -20,6 +20,7 @@ import { stripUuidFromPriceDisplay } from "@/lib/priceDisplay"
 import { ShowcaseAchievementCard, type ShowcaseAchievementItem } from "@/components/testimonials"
 import { SafeImage, DEFAULT_IMAGE_PLACEHOLDER } from "@/components/ui/safe-image"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
+import { AddToCartModal } from "@/components/cart/AddToCartModal"
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -200,6 +201,7 @@ function CourseDetailPageInner() {
   const [error, setError] = useState<string | null>(null)
   const [testimonialIdx, setTestimonialIdx] = useState(0)
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null)
+  const [cartModalOpen, setCartModalOpen] = useState(false)
   const [selectedDurationKey, setSelectedDurationKey] = useState<string | null>(null)
   const [branchPricingInfo, setBranchPricingInfo] = useState<BranchPricingInfo | null>(null)
   const [branchPricingLoading, setBranchPricingLoading] = useState(false)
@@ -650,6 +652,15 @@ function CourseDetailPageInner() {
               >
                 {hero.cta_text?.trim() || "Join Now"}
               </Link>
+              {course?.id && effectiveLocationId && durations.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setCartModalOpen(true)}
+                  className="inline-flex items-center justify-center rounded-lg border-2 border-white px-8 py-4 text-base font-bold text-white hover:bg-white hover:text-[#F73322] transition-colors"
+                >
+                  Add to cart
+                </button>
+              ) : null}
               <Link href="/courses" className="inline-flex items-center gap-2 text-white font-semibold hover:text-[#FFB70F] transition-colors">
                 <ArrowLeft className="w-4 h-4" /> View All Courses
               </Link>
@@ -944,6 +955,23 @@ function CourseDetailPageInner() {
           </div>
         </section>
       )}
+
+      {course?.id && effectiveLocationId ? (
+        <AddToCartModal
+          open={cartModalOpen}
+          onOpenChange={setCartModalOpen}
+          courseId={course.id}
+          courseName={displayTitle}
+          branchId={effectiveLocationId}
+          branchName={selectedBranch?.branch_name || "Branch"}
+          durations={durations
+            .map((d) => ({
+              id: (d.id || d.code || "").trim(),
+              name: (d.name || d.code || "Duration").trim(),
+            }))
+            .filter((d) => d.id)}
+        />
+      ) : null}
     </main>
   )
 }
