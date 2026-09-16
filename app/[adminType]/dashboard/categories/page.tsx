@@ -133,7 +133,7 @@ export default function CategoriesManagementPage() {
         router.push("/superadmin/login")
         return
       }
-      const response = await fetch(getBackendApiUrl(`categories?active_only=${showActiveOnly}`), {
+      const response = await fetch(getBackendApiUrl(`categories?active_only=${showActiveOnly}&limit=200`), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -705,7 +705,7 @@ export default function CategoriesManagementPage() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">No Parent (Root Category)</SelectItem>
-                          {categories
+                          {parentCategories
                             .filter(cat => cat.id !== editingCategory?.id)
                             .map(category => (
                               <SelectItem key={category.id} value={category.id}>

@@ -1,5 +1,6 @@
 import PathBasedDashboardResolver from "@/components/layout/PathBasedDashboardResolver"
 
+/** Role-specific dashboard shell for /super-admin and /branch-admin routes. Includes settings/geography. */
 export default async function Layout({
   children,
   params,

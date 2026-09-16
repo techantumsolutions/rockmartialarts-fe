@@ -18,6 +18,7 @@ import { useRouter, useParams, useSearchParams } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 import { TokenManager } from "@/lib/tokenManager"
 import { dropdownAPI } from "@/lib/dropdownAPI"
+import { useGeographyDropdowns } from "@/hooks/use-geography-dropdowns"
 import { useToast } from "@/hooks/use-toast"
 import paymentAPI from "@/lib/paymentAPI"
 
@@ -95,6 +96,18 @@ export default function EditStudent() {
   const [branches, setBranches] = useState<Branch[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const [locations, setLocations] = useState<any[]>([])
+  const [locationSeed, setLocationSeed] = useState("")
+  const geography = useGeographyDropdowns({ initialCityId: locationSeed })
+
+  useEffect(() => {
+    setLocations(geography.hasStates && geography.selectedStateId ? geography.cities : geography.allCities)
+    setIsLoadingLocations(geography.isLoading)
+    if (geography.selectedCityId) {
+      setFormData((prev) => (
+        prev.location === geography.selectedCityId ? prev : { ...prev, location: geography.selectedCityId }
+      ))
+    }
+  }, [geography.hasStates, geography.selectedStateId, geography.cities, geography.allCities, geography.isLoading, geography.selectedCityId])
   const [categories, setCategories] = useState<any[]>([])
   const [filteredCourses, setFilteredCourses] = useState<Course[]>([])
   const [durationOptions, setDurationOptions] =
@@ -203,42 +216,8 @@ export default function EditStudent() {
         const primaryEnrollment =
           enrollmentList.find((e) => e && e.is_active !== false) || enrollmentList[0] || null
 
-        // Load locations, courses, categories, durations (branch list loaded after we know location)
-        const [locationsData, coursesData, categoriesData, durationsRaw] = await Promise.all([
-          (async () => {
-            try {
-              setIsLoadingLocations(true)
-              const locationsResponse = await fetch(getBackendApiUrl('locations/public/details?active_only=true'))
-              if (locationsResponse.ok) {
-                const data = await locationsResponse.json()
-                const locations = data.locations || []
-                if (locations.length > 0) {
-                  setLocations(locations)
-                  return locations
-                }
-              }
-              const locationOptions = await dropdownAPI.getCategoryOptions('locations', token || undefined)
-              const fromMaster = (locationOptions || [])
-                .filter((opt: { is_active: boolean }) => opt.is_active !== false)
-                .map((opt: { value: string; label: string }) => ({
-                  id: opt.value,
-                  name: opt.label,
-                  code: opt.value,
-                  state: opt.label
-                }))
-              if (fromMaster.length > 0) {
-                setLocations(fromMaster)
-                return fromMaster
-              }
-              return []
-            } catch (error) {
-              console.error('Error loading locations:', error)
-              return []
-            } finally {
-              setIsLoadingLocations(false)
-            }
-          })(),
-
+        // Load courses, categories, durations (locations come from geography master)
+        const [coursesData, categoriesData, durationsRaw] = await Promise.all([
           (async () => {
             try {
               setIsLoadingCourses(true)
@@ -347,6 +326,7 @@ export default function EditStudent() {
             /* ignore */
           }
         }
+        setLocationSeed(locationId)
 
         let branchesForLocation: Branch[] = []
         if (locationId) {
@@ -435,7 +415,7 @@ export default function EditStudent() {
           state: studentData.address?.state || "",
           zipCode: studentData.address?.pincode || "",
           country: studentData.address?.country || "India",
-          location: findOptionByIdentifier(locationsData, locationId),
+          location: locationId,
           branch: branchSelectValue || branchId,
           category: findOptionByIdentifier(categoriesData, categoryId),
           course: findOptionByIdentifier(coursesData, courseId, ['title', 'code', 'name']),
@@ -1061,12 +1041,38 @@ export default function EditStudent() {
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-[#4D5077] border-b border-gray-200 pb-2">Location Information</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-[#7F8592]">
+                    {geography.hasStates && (
+                    <div>
+                      <Label className="block text-sm font-medium mb-2">State <span className="text-red-500">*</span></Label>
+                      <Select
+                        value={geography.selectedStateId}
+                        onValueChange={(value) => {
+                          geography.setSelectedStateId(value)
+                          handleInputChange("location", "")
+                          handleInputChange("branch", "")
+                        }}
+                        disabled={isLoadingLocations}
+                      >
+                        <SelectTrigger className="!w-full !h-14 !pl-4 !text-base !bg-gray-50 !border-gray-200 !rounded-xl">
+                          <SelectValue placeholder={isLoadingLocations ? "Loading locations..." : "Select State"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {geography.states.map((state) => (
+                            <SelectItem key={state.id} value={state.id}>{state.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    )}
                     <div>
                       <Label className="block text-sm font-medium mb-2">Location <span className="text-red-500">*</span></Label>
                       <Select
                         value={formData.location}
-                        onValueChange={(value) => handleInputChange("location", value)}
-                        disabled={isLoadingLocations}
+                        onValueChange={(value) => {
+                          geography.setSelectedCityId(value)
+                          handleInputChange("location", value)
+                        }}
+                        disabled={isLoadingLocations || (geography.hasStates && !geography.selectedStateId)}
                       >
                         <SelectTrigger className={cn(
                           "!w-full !h-14 !pl-12 !text-base !bg-gray-50 !border-gray-200 !rounded-xl",

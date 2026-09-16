@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react"
 import { BookOpen, IndianRupee, Loader2 } from "lucide-react"
 import Image from "next/image"
+import Link from "next/link"
+import { toCourseSlug } from "@/lib/course-slug"
 import { stripUuidFromPriceDisplay } from "@/lib/priceDisplay"
 import { formatCoursePriceLabel } from "@/lib/registrationPricing"
 import { BranchData, getBranchName } from "./types"
@@ -14,6 +16,7 @@ export interface BranchCourseItem {
   title?: string
   name?: string
   code?: string
+  slug?: string
   description?: string
   difficulty_level?: string
   media_resources?: { course_image_url?: string; promo_video_url?: string }
@@ -48,7 +51,8 @@ function getCourseName(course: BranchCourseItem): string {
 }
 
 /**
- * Courses at this branch: fetches /api/courses/by-branch/:id (branch-specific list and pricing).
+ * Courses at this branch: uses the public detail payload when present,
+ * otherwise fetches /api/courses/by-branch/:id.
  */
 export function BranchCourses({ branch }: { branch: BranchData }) {
   const [branchCourses, setBranchCourses] = useState<BranchCourseItem[]>([])
@@ -63,6 +67,12 @@ export function BranchCourses({ branch }: { branch: BranchData }) {
   useEffect(() => {
     if (!branch?.id) {
       setLoading(false)
+      return
+    }
+    if (Array.isArray(branch.courses)) {
+      setBranchCourses(branch.courses as BranchCourseItem[])
+      setLoading(false)
+      setError(false)
       return
     }
     let cancelled = false
@@ -90,7 +100,7 @@ export function BranchCourses({ branch }: { branch: BranchData }) {
     return () => {
       cancelled = true
     }
-  }, [branch?.id])
+  }, [branch?.id, branch.courses])
 
   function openModal(course: BranchCourseItem) {
     setModalCourse({
@@ -210,6 +220,12 @@ export function BranchCourses({ branch }: { branch: BranchData }) {
                   >
                     More Info
                   </button>
+                  <Link
+                    href={`/courses/${encodeURIComponent(toCourseSlug(course))}`}
+                    className="mt-2 text-center text-sm text-[#FFB70F] hover:text-white transition-colors"
+                  >
+                    View course page
+                  </Link>
                 </div>
               </div>
             ))}

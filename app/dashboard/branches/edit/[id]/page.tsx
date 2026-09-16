@@ -71,6 +71,7 @@ interface CourseBatch {
 
 interface SelectedCourse {
   course_id: string
+  is_available?: boolean
   batches: CourseBatch[]
 }
 
@@ -492,6 +493,7 @@ export default function EditBranch() {
             ...formData.assignments.courses,
             {
               course_id: courseId,
+              is_available: true,
               batches: [{
                 id: `batch-${Date.now()}`,
                 start_time: "",
@@ -1265,6 +1267,27 @@ export default function EditBranch() {
                               <p className="text-xs text-gray-500">{course.code}</p>
                             </div>
                           </div>
+                          {isSelected && selectedCourse && (
+                            <label className="flex items-center gap-1.5 text-xs text-gray-600 shrink-0">
+                              <Checkbox
+                                checked={selectedCourse.is_available !== false}
+                                onCheckedChange={(checked) => {
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    assignments: {
+                                      ...prev.assignments,
+                                      courses: prev.assignments.courses.map((c) =>
+                                        c.course_id === course.id
+                                          ? { ...c, is_available: checked === true }
+                                          : c
+                                      ),
+                                    },
+                                  }))
+                                }}
+                              />
+                              Available
+                            </label>
+                          )}
                         </div>
 
                         {/* Batches for selected course */}

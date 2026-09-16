@@ -256,28 +256,6 @@ export default function CreateStudent() {
       }
 
       try {
-        // Load courses
-        setIsLoadingCourses(true)
-        const coursesResponse = await fetch(getBackendApiUrl('courses/public/all?active_only=true'))
-        if (coursesResponse.ok) {
-          const coursesData = await coursesResponse.json()
-          console.log('Courses loaded:', coursesData)
-          setCourses(coursesData.courses || [])
-        } else {
-          console.error('Failed to load courses:', coursesResponse.status, coursesResponse.statusText)
-        }
-      } catch (error) {
-        console.error('Error loading courses:', error)
-        toast({
-          title: "Error",
-          description: "Failed to load courses. Please try again.",
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoadingCourses(false)
-      }
-
-      try {
         // Load coaches
         setIsLoadingCoaches(true)
         const token = BranchManagerAuth.getToken()
@@ -328,6 +306,42 @@ export default function CreateStudent() {
     console.log('No location selected, returning all branches:', branches.length)
     return branches
   }, [formData.location, branches])
+
+  useEffect(() => {
+    const loadCoursesForBranch = async () => {
+      if (!formData.branch) {
+        setCourses([])
+        setFilteredCourses([])
+        setIsLoadingCourses(false)
+        return
+      }
+      try {
+        setIsLoadingCourses(true)
+        const coursesResponse = await fetch(
+          getBackendApiUrl(`courses/public/by-branch/${encodeURIComponent(formData.branch)}`)
+        )
+        if (coursesResponse.ok) {
+          const coursesData = await coursesResponse.json()
+          const list = coursesData.courses || []
+          setCourses(list)
+          setFormData((prev) => {
+            if (prev.course && !list.some((c: Course) => c.id === prev.course)) {
+              return { ...prev, course: "", assignedCoach: "" }
+            }
+            return prev
+          })
+        } else {
+          setCourses([])
+        }
+      } catch (error) {
+        console.error("Error loading courses for branch:", error)
+        setCourses([])
+      } finally {
+        setIsLoadingCourses(false)
+      }
+    }
+    loadCoursesForBranch()
+  }, [formData.branch])
 
   // Filter courses based on selected category
   useEffect(() => {
@@ -835,13 +849,13 @@ export default function CreateStudent() {
                         <Select
                           value={formData.course}
                           onValueChange={(value) => handleInputChange("course", value)}
-                          disabled={isLoadingCourses}
+                          disabled={isLoadingCourses || !formData.branch}
                         >
                           <SelectTrigger className={cn(
                             "w-full h-14 pl-12 pr-4 py-4 text-base bg-gray-50 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent min-h-14",
                             errors.course ? "border-red-500 bg-red-50" : ""
                           )}>
-                            <SelectValue placeholder={isLoadingCourses ? "Loading courses..." : "Choose Course"} className="text-gray-500" />
+                            <SelectValue placeholder={!formData.branch ? "Select a branch first" : isLoadingCourses ? "Loading courses..." : "Choose Course"} className="text-gray-500" />
                           </SelectTrigger>
                           <SelectContent className="rounded-xl border border-gray-200 bg-white shadow-lg max-h-60">
                             {filteredCourses.length > 0 ? (

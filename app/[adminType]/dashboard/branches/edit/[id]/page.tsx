@@ -16,6 +16,7 @@ import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
 import { dropdownAPI, DropdownOption } from "@/lib/dropdownAPI"
+import { useGeographyDropdowns } from "@/hooks/use-geography-dropdowns"
 import { WEEKDAY_CHECKLIST_ORDER, formatWeekdayRanges } from "@/lib/formatWeekdayRanges"
 import {
   normalizeAssignmentsCourses,
@@ -97,6 +98,7 @@ interface CourseBatch {
 
 interface SelectedCourse {
   course_id: string
+  is_available?: boolean
   batches: CourseBatch[]
 }
 
@@ -170,8 +172,8 @@ export default function EditBranch() {
   const [masterDurations, setMasterDurations] = useState<MasterDuration[]>([])
   const pricingHydratedRef = useRef(false)
   const [isLoadingCoaches, setIsLoadingCoaches] = useState(true)
-  const [locations, setLocations] = useState<{ id: string; name: string; state: string }[]>([])
-  const [isLoadingLocations, setIsLoadingLocations] = useState(true)
+  const [formLocationId, setFormLocationId] = useState("")
+  const geography = useGeographyDropdowns({ initialCityId: formLocationId })
   const [countries, setCountries] = useState<DropdownOption[]>([])
   const [isLoadingCountries, setIsLoadingCountries] = useState(true)
   const [banks, setBanks] = useState<DropdownOption[]>([])
@@ -342,6 +344,7 @@ export default function EditBranch() {
         const branchData = await branchResponse.json()
         
         // Populate form with existing data
+        setFormLocationId(branchData.location_id || "")
         setFormData({
           location_id: branchData.location_id || "",
           branch: {
@@ -417,7 +420,6 @@ export default function EditBranch() {
       }
 
       await loadBranchManagers()
-      await loadLocations()
       await loadCountries()
       await loadBanks()
     }
@@ -491,31 +493,6 @@ export default function EditBranch() {
     }
   }
 
-  const loadLocations = async () => {
-    try {
-      setIsLoadingLocations(true)
-      const token = TokenManager.getToken()
-      const locationOptions = await dropdownAPI.getCategoryOptions('locations', token || undefined)
-      
-      const transformedLocations = locationOptions
-        .filter(opt => opt.is_active)
-        .map(opt => {
-          const parts = opt.label.split(',').map(p => p.trim())
-          return {
-            id: opt.value,
-            name: parts[0] || opt.label,
-            state: parts[1] || ''
-          }
-        })
-      
-      setLocations(transformedLocations)
-    } catch (error) {
-      console.error('Error loading locations:', error)
-    } finally {
-      setIsLoadingLocations(false)
-    }
-  }
-
   const handleCategoryChange = (categoryId: string) => {
     setSelectedCategoryId(categoryId)
     setFilteredCourses(filterCoursesForParentCategory(courses, categoryId, categories))
@@ -544,6 +521,7 @@ export default function EditBranch() {
             ...formData.assignments.courses,
             {
               course_id: courseId,
+              is_available: true,
               batches: [{
                 id: `batch-${Date.now()}`,
                 start_time: "",
@@ -967,12 +945,45 @@ export default function EditBranch() {
                 </div>
               </div>
 
+              {geography.hasStates && (
+                <div className="space-y-2">
+                  <Label htmlFor="state">State *</Label>
+                  <Select
+                    value={geography.selectedStateId}
+                    onValueChange={(value) => {
+                      geography.setSelectedStateId(value)
+                      setFormData({
+                        ...formData,
+                        location_id: "",
+                        branch: {
+                          ...formData.branch,
+                          address: { ...formData.branch.address, city: "", state: geography.states.find((s) => s.id === value)?.name || "" }
+                        }
+                      })
+                    }}
+                    disabled={geography.isLoadingStates}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={geography.isLoadingStates ? "Loading..." : "Select state"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {geography.states.map((state) => (
+                        <SelectItem key={state.id} value={state.id}>
+                          {state.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="location">Location *</Label>
                 <Select
                   value={formData.location_id}
                   onValueChange={(value) => {
-                    const selectedLocation = locations.find(l => l.id === value)
+                    geography.setSelectedCityId(value)
+                    const selectedLocation = geography.allCities.find(l => l.id === value)
                     setFormData({
                       ...formData,
                       location_id: value,
@@ -981,20 +992,20 @@ export default function EditBranch() {
                         address: {
                           ...formData.branch.address,
                           city: selectedLocation?.name || '',
-                          state: selectedLocation?.state || ''
+                          state: selectedLocation?.state_name || selectedLocation?.state || formData.branch.address.state
                         }
                       }
                     })
                   }}
-                  disabled={isLoadingLocations}
+                  disabled={geography.isLoadingCities || (geography.hasStates && !geography.selectedStateId)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={isLoadingLocations ? "Loading..." : "Select location"} />
+                    <SelectValue placeholder={geography.isLoadingCities ? "Loading..." : geography.hasStates && !geography.selectedStateId ? "Select state first" : "Select location"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {locations.map((location) => (
+                    {geography.cities.map((location) => (
                       <SelectItem key={location.id} value={location.id}>
-                        {location.name}, {location.state}
+                        {location.name}{location.state || location.state_name ? `, ${location.state_name || location.state}` : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1187,6 +1198,27 @@ export default function EditBranch() {
                               <p className="text-xs text-gray-500">{course.code}</p>
                             </div>
                           </div>
+                          {isSelected && selectedCourse && (
+                            <label className="flex items-center gap-1.5 text-xs text-gray-600 shrink-0">
+                              <Checkbox
+                                checked={selectedCourse.is_available !== false}
+                                onCheckedChange={(checked) => {
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    assignments: {
+                                      ...prev.assignments,
+                                      courses: prev.assignments.courses.map((c) =>
+                                        c.course_id === course.id
+                                          ? { ...c, is_available: checked === true }
+                                          : c
+                                      ),
+                                    },
+                                  }))
+                                }}
+                              />
+                              Available
+                            </label>
+                          )}
                         </div>
 
                         {/* Batches for selected course */}

@@ -204,6 +204,7 @@ export function enrichAssignmentsCoursesWithDurationPricing(
 
 export interface NormalizedCourseAssignment {
   course_id: string
+  is_available?: boolean
   batches: {
     id: string
     start_time: string
@@ -238,6 +239,7 @@ export function normalizeAssignmentsCourses(
         )
         return {
           course_id,
+          is_available: c.is_available !== false,
           batches: (Array.isArray(c.batches) ? c.batches : []).map(
             (b: Record<string, unknown>, i: number) => {
               const start =
@@ -318,6 +320,7 @@ export function normalizeAssignmentsCourses(
     .filter((id): id is string => typeof id === "string" && id.length > 0)
     .map((course_id) => ({
       course_id,
+      is_available: true,
       batches: [
         {
           id: `batch-${course_id}-0`,
@@ -340,6 +343,7 @@ export function normalizeAssignmentsCourses(
     .filter((x) => x && typeof x.course_id === "string")
     .map((x) => ({
       course_id: x.course_id!,
+      is_available: (x as { is_available?: boolean }).is_available !== false,
       batches: [
         {
           id: `batch-${x.course_id}-0`,
@@ -364,6 +368,7 @@ export function buildCourseSchedulePayload(
   courses: NormalizedCourseAssignment[]
 ): {
   course_id: string
+  is_available?: boolean
   batches: {
     batch_id: string
     start_time: string
@@ -379,6 +384,7 @@ export function buildCourseSchedulePayload(
 }[] {
   return courses.map((c) => ({
     course_id: c.course_id,
+    is_available: c.is_available !== false,
     batches: c.batches.map((b) => {
       const fee = _batchFeeForPayload(b.batch_fee)
       const row: {

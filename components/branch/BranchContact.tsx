@@ -67,7 +67,7 @@ export function BranchContact({ branch }: BranchContactProps) {
             Register now
           </Link>
           <Link
-            href="/contact"
+            href="/branches"
             className="inline-block rounded-lg border-2 border-white px-8 py-4 text-lg font-semibold text-white hover:bg-white hover:text-black transition-colors duration-300"
           >
             All branches

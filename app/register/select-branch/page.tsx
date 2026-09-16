@@ -10,12 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useRegistration } from "@/contexts/RegistrationContext"
 import { useCMS } from "@/contexts/CMSContext"
 import { useToast } from "@/hooks/use-toast"
-import { dropdownAPI } from "@/lib/dropdownAPI"
+import { useGeographyDropdowns } from "@/hooks/use-geography-dropdowns"
+import { branchMatchesLocation } from "@/lib/branchMatchesLocation"
 
 interface Branch {
   id: string
   name: string
   code: string
+  location_id?: string
   address: {
     area?: string
     city: string
@@ -29,54 +31,16 @@ export default function SelectBranchPage() {
   const { registrationData, updateRegistrationData } = useRegistration()
   const { cms } = useCMS()
 
-  const [selectedLocation, setSelectedLocation] = useState("")
   const [branch_id, setBranchId] = useState(registrationData.branch_id || "")
   const [allBranches, setAllBranches] = useState<Branch[]>([])
   const [filteredBranches, setFilteredBranches] = useState<Branch[]>([])
-  const [locations, setLocations] = useState<{ id: string; name: string; state: string }[]>([])
+  const [selectedLocation, setSelectedLocation] = useState("")
+  const geography = useGeographyDropdowns()
   const [isLoadingBranches, setIsLoadingBranches] = useState(false)
-  const [isLoadingLocations, setIsLoadingLocations] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
-  // Fetch locations from dropdown settings master data
-  useEffect(() => {
-    const fetchLocations = async () => {
-      try {
-        setIsLoadingLocations(true)
-        setError(null)
-
-        const locationOptions = await dropdownAPI.getCategoryOptions('locations')
-        
-        const transformedLocations = locationOptions
-          .filter(opt => opt.is_active)
-          .map(opt => {
-            const parts = opt.label.split(',').map(p => p.trim())
-            return {
-              id: opt.value,
-              name: parts[0] || opt.label,
-              state: parts[1] || ''
-            }
-          })
-        
-        setLocations(transformedLocations)
-        console.log(`Loaded ${transformedLocations.length} locations from master data`)
-
-      } catch (err) {
-        console.error('Error fetching locations:', err)
-        setError('Failed to load locations.')
-        toast({
-          title: "Error",
-          description: "Failed to load locations.",
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoadingLocations(false)
-      }
-    }
-
-    fetchLocations()
-  }, [toast])
+  const isLoadingLocations = geography.isLoading
 
   // Fetch branches directly from backend API
   useEffect(() => {
@@ -99,6 +63,7 @@ export default function SelectBranchPage() {
           id: branch.id,
           name: branch.branch?.name || branch.name,
           code: branch.branch?.code || branch.code || '',
+          location_id: branch.location_id || '',
           address: {
             area: branch.branch?.address?.area || branch.address?.area || '',
             city: branch.branch?.address?.city || branch.address?.city || '',
@@ -131,27 +96,28 @@ export default function SelectBranchPage() {
   // Filter branches when location changes
   useEffect(() => {
     if (!selectedLocation) {
-      // No location selected yet: hide branch list
       setFilteredBranches([])
       setBranchId("")
     } else if (selectedLocation === 'all') {
-      // "All Locations" selected: show all branches
-      setFilteredBranches(allBranches)
+      if (geography.selectedStateId) {
+        setFilteredBranches(allBranches.filter((branch) =>
+          geography.cities.some((city) => branchMatchesLocation(branch, city, city.id))
+        ))
+      } else {
+        setFilteredBranches(allBranches)
+      }
     } else {
-      const filtered = allBranches.filter(branch => {
-        const locationMatch = 
-          branch.address?.city?.toLowerCase() === selectedLocation.toLowerCase() ||
-          branch.name?.toLowerCase().includes(selectedLocation.toLowerCase())
-        return locationMatch
-      })
+      const selectedCity = geography.allCities.find((c) => c.id === selectedLocation)
+      const filtered = allBranches.filter((branch) =>
+        branchMatchesLocation(branch, selectedCity, selectedLocation)
+      )
       setFilteredBranches(filtered)
-      console.log(`Filtered to ${filtered.length} branches for location: ${selectedLocation}`)
       
       if (branch_id && !filtered.find(b => b.id === branch_id)) {
         setBranchId("")
       }
     }
-  }, [selectedLocation, allBranches, branch_id])
+  }, [selectedLocation, allBranches, branch_id, geography.selectedStateId, geography.states, geography.cities, geography.allCities])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -241,25 +207,51 @@ export default function SelectBranchPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {geography.hasStates && (
+              <div>
+                <Select
+                  value={geography.selectedStateId}
+                  onValueChange={(value) => {
+                    geography.setSelectedStateId(value)
+                    setSelectedLocation("")
+                    setBranchId("")
+                    if (fieldErrors.location) setFieldErrors(prev => ({ ...prev, location: '' }))
+                  }}
+                  disabled={isLoadingLocations}
+                >
+                  <SelectTrigger className={`!w-full !h-14 !pl-6 !pr-10 !py-4 !text-[14px] bg-[#F9F8FF] !border-0 !rounded-xl data-[placeholder]:text-black focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent !min-h-14 ${fieldErrors.location ? '!border !border-red-500' : ''}`}>
+                    <SelectValue placeholder={isLoadingLocations ? "Loading locations..." : "Select State"} className="text-gray-500" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl border border-gray-200 bg-white shadow-lg max-h-60">
+                    {geography.states.map((state) => (
+                      <SelectItem key={state.id} value={state.id} className="!py-3 !pl-3 pr-8 text-base hover:bg-gray-50 rounded-lg cursor-pointer">
+                        {state.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div>
               <Select
                 value={selectedLocation}
                 onValueChange={(value) => {
                   setSelectedLocation(value)
+                  if (value !== "all") geography.setSelectedCityId(value)
                   if (fieldErrors.location) setFieldErrors(prev => ({ ...prev, location: '' }))
                 }}
-                disabled={isLoadingLocations}
+                disabled={isLoadingLocations || (geography.hasStates && !geography.selectedStateId)}
               >
                 <SelectTrigger className={`!w-full !h-14 !pl-6 !pr-10 !py-4 !text-[14px] bg-[#F9F8FF] !border-0 !rounded-xl data-[placeholder]:text-black focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent !min-h-14 ${fieldErrors.location ? '!border !border-red-500' : ''}`}>
-                  <SelectValue placeholder={isLoadingLocations ? "Loading locations..." : "Select Location"} className="text-gray-500" />
+                  <SelectValue placeholder={isLoadingLocations ? "Loading locations..." : geography.hasStates && !geography.selectedStateId ? "Select state first" : "Select Location"} className="text-gray-500" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl border border-gray-200 bg-white shadow-lg max-h-60">
                   <SelectItem value="all" className="!py-3 !pl-3 pr-8 text-base hover:bg-gray-50 rounded-lg cursor-pointer">
                     All Locations
                   </SelectItem>
-                  {locations.map((location) => (
+                  {geography.cities.map((location) => (
                     <SelectItem key={location.id} value={location.id} className="!py-3 !pl-3 pr-8 text-base hover:bg-gray-50 rounded-lg cursor-pointer">
-                      {location.name} {location.state && `(${location.state})`}
+                      {location.name} {(location.state_name || location.state) && `(${location.state_name || location.state})`}
                     </SelectItem>
                   ))}
                 </SelectContent>

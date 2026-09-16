@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { getBackendApiUrl } from "@/lib/config"
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -78,6 +78,7 @@ export default function EditCoursePage() {
     courseCode: "",
     description: "",
     category: "",
+    subcategory: "",
     difficultyLevel: "",
     duration: "",
     maxStudents: "",
@@ -97,6 +98,7 @@ export default function EditCoursePage() {
     tags: [] as string[]
   })
   const [pageContent, setPageContent] = useState<PageContent>({})
+  const loadedHierarchyRef = useRef<{ categoryId?: string; subCategory?: string } | null>(null)
   const [seoData, setSeoData] = useState({
     meta_title: "",
     meta_description: "",
@@ -177,11 +179,16 @@ export default function EditCoursePage() {
         setAddedTenures(defaultAdded)
         setFeeByDurationId(feeByDur)
         const durationRaw = course.duration?.toString() || ""
+        loadedHierarchyRef.current = {
+          categoryId: course.category_id || course.category || "",
+          subCategory: course.sub_category || "",
+        }
         setFormData({
           courseTitle: course.title || course.course_name || "",
           courseCode: course.code || "",
           description: course.description || "",
           category: course.category_id || course.category || "",
+          subcategory: course.sub_category || "",
           difficultyLevel: course.difficulty_level || course.difficultyLevel || "",
           duration: durationRaw,
           maxStudents: course.max_students?.toString() || course.student_requirements?.max_students?.toString() || "",
@@ -238,7 +245,7 @@ export default function EditCoursePage() {
       try {
         setIsLoadingCategories(true)
         const token = getDashboardAccessToken()
-        const response = await fetch(getBackendApiUrl('categories?active_only=true'), {
+        const response = await fetch(getBackendApiUrl('categories?active_only=true&limit=200'), {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -364,17 +371,27 @@ export default function EditCoursePage() {
     }
     fetchDurations()
   }, [])
-  // Legacy: course may have category_id set to a sub-category row — normalize to parent for the single category dropdown
+  // Legacy: course may have category_id set to a sub-category row — show parent + subcategory
   useEffect(() => {
-    if (allCategories.length === 0) return
-    setFormData((prev) => {
-      const cid = prev.category
-      if (!cid) return prev
-      const cat = allCategories.find((c: any) => c.id === cid)
-      if (!cat?.parent_category_id) return prev
-      return { ...prev, category: cat.parent_category_id }
-    })
-  }, [allCategories, formData.category])
+    const loaded = loadedHierarchyRef.current
+    if (!loaded || allCategories.length === 0) return
+    const cid = loaded.categoryId || ""
+    const sub = loaded.subCategory || ""
+    const cat = allCategories.find((c: any) => c.id === cid)
+    if (cat?.parent_category_id) {
+      setFormData((prev) => ({
+        ...prev,
+        category: cat.parent_category_id,
+        subcategory: cid,
+      }))
+      return
+    }
+    setFormData((prev) => ({
+      ...prev,
+      category: cid,
+      subcategory: sub,
+    }))
+  }, [allCategories])
 
   // Auto-generate course code from title
   useEffect(() => {
@@ -704,7 +721,7 @@ export default function EditCoursePage() {
         difficulty_level: formData.difficultyLevel,
         duration: formData.duration || undefined,
         category_id: formData.category,
-        sub_category: null,
+        sub_category: formData.subcategory || null,
         martial_art_style_id: 'style-default',
         instructor_id: user?.id && user.id.includes('instructor-') ? user.id : 'instructor-default',
         student_requirements: {
@@ -880,6 +897,10 @@ export default function EditCoursePage() {
     }
   }
 
+  const childCategories = allCategories.filter(
+    (cat: any) => cat.parent_category_id && cat.parent_category_id === formData.category
+  )
+
   const handleSuccessOk = () => {
     setShowSuccessPopup(false)
     router.push(`${coursesBasePath}/courses`)
@@ -1015,7 +1036,7 @@ export default function EditCoursePage() {
                       <Label htmlFor="category">Category *</Label>
                       <Select
                         value={formData.category}
-                        onValueChange={(value) => setFormData({ ...formData, category: value })}
+                        onValueChange={(value) => setFormData({ ...formData, category: value, subcategory: "" })}
                       >
                         <SelectTrigger className="h-10 px-3 w-full">
                           <SelectValue placeholder="Enter category" />
@@ -1027,6 +1048,26 @@ export default function EditCoursePage() {
                         </SelectContent>
                       </Select>
                     </div>
+
+                    {childCategories.length > 0 && (
+                      <div className="space-y-2">
+                        <Label htmlFor="subcategory">Subcategory (optional)</Label>
+                        <Select
+                          value={formData.subcategory || "none"}
+                          onValueChange={(value) => setFormData({ ...formData, subcategory: value === "none" ? "" : value })}
+                        >
+                          <SelectTrigger className="h-10 px-3 w-full">
+                            <SelectValue placeholder="Select subcategory (optional)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            {childCategories.map((cat) => (
+                              <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
