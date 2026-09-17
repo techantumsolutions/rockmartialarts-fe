@@ -16,6 +16,15 @@ export interface UserData {
   [key: string]: any // Allow additional user properties
 }
 
+export interface LinkedStudentProfile {
+  id: string
+  full_name: string
+  first_name?: string
+  last_name?: string
+  relationship?: string
+  profile_image?: string
+}
+
 export interface AuthData {
   access_token: string
   token_type: string
@@ -34,6 +43,9 @@ export class TokenManager {
   private static readonly TOKEN_EXPIRATION_KEY = 'token_expiration'
   private static readonly USER_KEY = 'user'
   private static readonly AUTH_DATA_KEY = 'auth_data'
+  private static readonly PROFILES_KEY = 'linked_profiles'
+  private static readonly ACCOUNT_ID_KEY = 'account_id'
+  private static readonly ACTIVE_STUDENT_KEY = 'active_student_id'
 
   /**
    * Store authentication data consistently across all login types
@@ -46,6 +58,9 @@ export class TokenManager {
     user?: UserData
     admin?: UserData // Support superadmin format
     coach?: UserData // Support coach format
+    profiles?: LinkedStudentProfile[]
+    account_id?: string
+    active_student_id?: string
   }): UserData {
     // Normalize token field
     const token = authData.access_token || authData.token
@@ -86,6 +101,17 @@ export class TokenManager {
       user: userData
     }
     localStorage.setItem(this.AUTH_DATA_KEY, JSON.stringify(unifiedAuthData))
+
+    if (Array.isArray(authData.profiles)) {
+      this.setProfiles(authData.profiles)
+    }
+    if (authData.account_id) {
+      localStorage.setItem(this.ACCOUNT_ID_KEY, authData.account_id)
+    }
+    const activeId = authData.active_student_id || userData.id
+    if (activeId) {
+      localStorage.setItem(this.ACTIVE_STUDENT_KEY, activeId)
+    }
 
     console.log('✅ Authentication data stored successfully:', {
       user_id: userData.id,
@@ -191,6 +217,9 @@ export class TokenManager {
     localStorage.removeItem(this.TOKEN_EXPIRATION_KEY)
     localStorage.removeItem(this.USER_KEY)
     localStorage.removeItem(this.AUTH_DATA_KEY)
+    localStorage.removeItem(this.PROFILES_KEY)
+    localStorage.removeItem(this.ACCOUNT_ID_KEY)
+    localStorage.removeItem(this.ACTIVE_STUDENT_KEY)
     
     // Clear legacy token keys for backward compatibility
     localStorage.removeItem('token')
@@ -244,6 +273,33 @@ export class TokenManager {
     const timeUntilExpiration = this.getTimeUntilExpiration()
     return timeUntilExpiration > 0 && timeUntilExpiration < 5 * 60 * 1000 // 5 minutes
   }
+
+  static getProfiles(): LinkedStudentProfile[] {
+    if (typeof window === 'undefined') return []
+    try {
+      const raw = localStorage.getItem(this.PROFILES_KEY)
+      if (!raw) return []
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  }
+
+  static setProfiles(profiles: LinkedStudentProfile[]): void {
+    if (typeof window === 'undefined') return
+    localStorage.setItem(this.PROFILES_KEY, JSON.stringify(profiles || []))
+  }
+
+  static getAccountId(): string | null {
+    if (typeof window === 'undefined') return null
+    return localStorage.getItem(this.ACCOUNT_ID_KEY)
+  }
+
+  static getActiveStudentId(): string | null {
+    if (typeof window === 'undefined') return null
+    return localStorage.getItem(this.ACTIVE_STUDENT_KEY) || this.getUser()?.id || null
+  }
 }
 
 // Export convenience functions
@@ -258,5 +314,9 @@ export const {
   clearAuthData,
   refreshToken,
   getTimeUntilExpiration,
-  isTokenExpiringSoon
+  isTokenExpiringSoon,
+  getProfiles,
+  setProfiles,
+  getAccountId,
+  getActiveStudentId,
 } = TokenManager
