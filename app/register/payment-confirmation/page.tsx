@@ -52,10 +52,37 @@ export default function PaymentConfirmationPage() {
 
   // Build payment info from registration context
   const durationLabel = registrationData.duration_name || `${registrationData.duration_months || 1} month${(registrationData.duration_months || 1) > 1 ? 's' : ''}`
+  const isFamily =
+    registrationData.accountType === "family" &&
+    Array.isArray(registrationData.familyStudents) &&
+    registrationData.familyStudents.length > 0
+  const familyStudents = registrationData.familyStudents || []
 
   // Fetch payment info on component mount (same API as payment page)
   useEffect(() => {
     const fetchPaymentInfo = async () => {
+      if (isFamily) {
+        const total = familyStudents.reduce((sum, s) => sum + (s.amount || 0), 0)
+        const courseFee = familyStudents.reduce((sum, s) => sum + (s.course_price || 0), 0)
+        const first = familyStudents[0]
+        setPaymentInfo({
+          course_id: first.course_id,
+          course_name: `Family registration (${familyStudents.length} students)`,
+          category_name: first.category_name || "Family",
+          branch_name: first.branch_name,
+          duration: "Combined",
+          pricing: {
+            course_fee: courseFee,
+            admission_fee: Math.max(0, total - courseFee),
+            total_amount: total,
+            currency: registrationData.course_currency || "INR",
+            duration_multiplier: 1,
+          },
+        })
+        setLoadingPaymentInfo(false)
+        return
+      }
+
       if (!registrationData.course_id || !registrationData.branch_id || !registrationData.duration) {
         setPaymentInfo(null)
         setLoadingPaymentInfo(false)
@@ -126,6 +153,21 @@ export default function PaymentConfirmationPage() {
         payment_method: 'digital_wallet',
         payment_id: registrationData.paymentId,
         order_id: registrationData.orderId,
+        family_students: isFamily
+          ? familyStudents.map((s) => ({
+              first_name: s.firstName,
+              last_name: s.lastName,
+              date_of_birth: s.dob || undefined,
+              gender: s.gender || undefined,
+              relationship: s.relationship || "self",
+              course_id: s.course_id,
+              branch_id: s.branch_id,
+              category_id: s.category_id,
+              duration: s.duration,
+              duration_months: s.duration_months || undefined,
+              batch_ref: s.batch_ref?.trim() || undefined,
+            }))
+          : undefined,
       }
 
       console.log('Sending payment data:' , JSON.stringify(paymentData, null, 2))
@@ -249,7 +291,24 @@ export default function PaymentConfirmationPage() {
               {/* Course Information */}
               {paymentInfo && (
                 <div className="border-b border-gray-100 pb-3">
-                  <h4 className="font-semibold text-gray-800 mb-2">Course Details</h4>
+                  <h4 className="font-semibold text-gray-800 mb-2">
+                    {isFamily ? "Students" : "Course Details"}
+                  </h4>
+                  {isFamily ? (
+                    <div className="space-y-2 text-sm">
+                      {familyStudents.map((s) => (
+                        <div key={s.id} className="flex justify-between gap-3">
+                          <span className="text-gray-800">
+                            {s.firstName} {s.lastName}
+                            <span className="block text-xs text-gray-500">
+                              {s.course_name} · {s.branch_name}
+                            </span>
+                          </span>
+                          <span className="text-gray-800 shrink-0">₹{(s.amount || 0).toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Course:</span>
@@ -268,6 +327,7 @@ export default function PaymentConfirmationPage() {
                       <span className="text-gray-800">{paymentInfo.duration}</span>
                     </div>
                   </div>
+                  )}
                 </div>
               )}
 

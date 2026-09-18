@@ -297,3 +297,58 @@ export function campRegPretty(value: string | boolean | undefined | null): strin
   if (!text) return "—"
   return text
 }
+
+export const CAMP_TICKET_ASSETS = [
+  "/campaign/logo.png",
+  "/campaign/header1.png",
+  "/campaign/bannerleft.png",
+  "/campaign/secondsection.png",
+  "/campaign/payment-summary-brush.png",
+  "/campaign/bg.png",
+  "/campaign/01_basic_stances.png",
+  "/campaign/02_kungfu_forms.png",
+  "/campaign/03_self_defense.png",
+  "/campaign/04_strength_fitness.png",
+  "/campaign/05_discipline_focus.png",
+] as const
+
+export function campRegistrationDisplayCode(registrationId?: string, fallbackId?: string) {
+  const code = (registrationId || "").trim()
+  if (code) return code
+  const year = new Date().getFullYear()
+  const tail = (fallbackId || "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .slice(-5)
+    .toUpperCase()
+    .padStart(5, "0")
+  return `RC-${year}-${tail}`
+}
+
+export function preloadCampTicketAssets() {
+  if (typeof window === "undefined") return Promise.resolve()
+  return Promise.all(
+    CAMP_TICKET_ASSETS.map(
+      (src) =>
+        new Promise<void>((resolve) => {
+          const img = new Image()
+          img.onload = () => resolve()
+          img.onerror = () => resolve()
+          img.src = src
+        }),
+    ),
+  ).then(() => undefined)
+}
+
+export async function waitForTicketImages(root: HTMLElement) {
+  const imgs = Array.from(root.querySelectorAll("img"))
+  await Promise.all(
+    imgs.map((img) => {
+      if (img.complete && img.naturalWidth > 0) return Promise.resolve()
+      return new Promise<void>((resolve) => {
+        img.onload = () => resolve()
+        img.onerror = () => resolve()
+      })
+    }),
+  )
+  await Promise.all(imgs.map((img) => (img.decode ? img.decode().catch(() => undefined) : Promise.resolve())))
+}

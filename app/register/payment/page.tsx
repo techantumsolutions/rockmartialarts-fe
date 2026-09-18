@@ -48,6 +48,11 @@ export default function PaymentPage() {
     `${registrationData.duration_months || 1} month${(registrationData.duration_months || 1) > 1 ? "s" : ""}`
 
   const batchLabel = (registrationData.batch_display_label || "").trim()
+  const isFamily =
+    registrationData.accountType === "family" &&
+    Array.isArray(registrationData.familyStudents) &&
+    registrationData.familyStudents.length > 0
+  const familyStudents = registrationData.familyStudents || []
 
   const paymentPhoneE164 =
     normalizeToIndianE164(registrationData.mobile?.trim() || "") || ""
@@ -58,6 +63,71 @@ export default function PaymentPage() {
 
     const fetchPaymentInfo = async () => {
       setLoadError(null)
+
+      if (isFamily) {
+        try {
+          let courseFee = 0
+          let admissionFee = 0
+          let total = 0
+          for (const s of familyStudents) {
+            const durationQ = encodeURIComponent(s.duration)
+            const batchQ = s.batch_ref?.trim()
+              ? `&batch_ref=${encodeURIComponent(s.batch_ref.trim())}`
+              : ""
+            const response = await fetch(
+              getBackendApiUrl(
+                `courses/${encodeURIComponent(s.course_id)}/payment-info?branch_id=${encodeURIComponent(s.branch_id)}&duration=${durationQ}${batchQ}`
+              ),
+              { method: "GET", headers: { "Content-Type": "application/json" }, cache: "no-store" }
+            )
+            const data = await response.json().catch(() => ({}))
+            if (!response.ok || typeof data?.pricing?.total_amount !== "number") {
+              if (!cancelled) {
+                setPaymentInfo(null)
+                setLoadError(
+                  typeof data?.detail === "string"
+                    ? data.detail
+                    : "Could not load family payment details. Please go back and try again."
+                )
+              }
+              return
+            }
+            courseFee += data.pricing.course_fee || 0
+            admissionFee += data.pricing.admission_fee || 0
+            total += data.pricing.total_amount
+          }
+          if (!cancelled) {
+            const first = familyStudents[0]
+            setPaymentInfo({
+              course_id: first.course_id,
+              course_name:
+                familyStudents.length > 1
+                  ? `Family registration (${familyStudents.length} students)`
+                  : first.course_name,
+              category_name: first.category_name || "Family",
+              branch_name: first.branch_name,
+              duration: "Combined",
+              pricing: {
+                course_fee: courseFee,
+                admission_fee: admissionFee,
+                total_amount: total,
+                currency: registrationData.course_currency || "INR",
+                duration_multiplier: 1,
+              },
+            })
+            updateRegistrationData({ amount: total, course_price: courseFee })
+          }
+        } catch (err) {
+          console.error("Error fetching family payment info:", err)
+          if (!cancelled) {
+            setPaymentInfo(null)
+            setLoadError("Network error loading payment details.")
+          }
+        } finally {
+          if (!cancelled) setLoading(false)
+        }
+        return
+      }
 
       if (!registrationData.course_id || !registrationData.branch_id || !registrationData.duration) {
         if (!cancelled) {
@@ -148,6 +218,8 @@ export default function PaymentPage() {
     registrationData.duration_name,
     registrationData.duration_months,
     registrationData.course_currency,
+    isFamily,
+    registrationData.familyStudents,
   ])
 
   useEffect(() => {
@@ -241,7 +313,9 @@ export default function PaymentPage() {
         amountPaise,
         currency: paymentInfo.pricing.currency,
         name: "Rock Martial Arts Academy",
-        description: `${paymentInfo.course_name} - ${paymentInfo.duration}`,
+        description: isFamily
+          ? `Family registration (${familyStudents.length} students)`
+          : `${paymentInfo.course_name} - ${paymentInfo.duration}`,
         orderId,
         customerName: registrationData.fullName || fullName,
         customerEmail: registrationData.email,
@@ -365,7 +439,7 @@ export default function PaymentPage() {
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
               <p className="text-amber-900 text-sm font-medium">{loadError}</p>
               <Link
-                href="/register/select-course"
+                href={isFamily ? "/register/family-students" : "/register/select-course"}
                 className="inline-block text-sm font-semibold text-amber-800 underline"
               >
                 Back to course selection
@@ -391,13 +465,31 @@ export default function PaymentPage() {
               {/* Course Information */}
               <div className="text-center border-b border-gray-200 pb-4">
                 <h3 className="text-lg font-semibold text-black mb-1">{paymentInfo.course_name}</h3>
-                <p className="text-sm text-gray-600">{paymentInfo.category_name} • {paymentInfo.branch_name}</p>
-                {batchLabel ? (
-                  <p className="text-sm text-gray-700 font-medium mt-1">
-                    Batch: {batchLabel}
-                  </p>
-                ) : null}
-                <p className="text-sm text-gray-500">Payment Duration: {paymentInfo.duration}</p>
+                {isFamily ? (
+                  <div className="space-y-2 text-left mt-3">
+                    {familyStudents.map((s) => (
+                      <div key={s.id} className="text-sm text-gray-700 flex justify-between gap-3">
+                        <span>
+                          {s.firstName} {s.lastName}
+                          <span className="block text-xs text-gray-500">
+                            {s.course_name} · {s.branch_name}
+                          </span>
+                        </span>
+                        <span className="font-medium shrink-0">₹{(s.amount || 0).toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-gray-600">{paymentInfo.category_name} • {paymentInfo.branch_name}</p>
+                    {batchLabel ? (
+                      <p className="text-sm text-gray-700 font-medium mt-1">
+                        Batch: {batchLabel}
+                      </p>
+                    ) : null}
+                    <p className="text-sm text-gray-500">Payment Duration: {paymentInfo.duration}</p>
+                  </>
+                )}
               </div>
 
               {/* Total Amount */}

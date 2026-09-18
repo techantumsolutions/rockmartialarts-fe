@@ -2,6 +2,53 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react'
 
+export type FamilyStudentLine = {
+  id: string
+  firstName: string
+  lastName: string
+  dob: string
+  gender: string
+  relationship: string
+  branch_id: string
+  branch_name: string
+  category_id: string
+  category_name: string
+  course_id: string
+  course_name: string
+  duration: string
+  duration_name: string
+  duration_months: number
+  batch_ref: string
+  batch_display_label: string
+  course_price: number
+  amount: number
+}
+
+export function emptyFamilyStudent(partial?: Partial<FamilyStudentLine>): FamilyStudentLine {
+  return {
+    id: partial?.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
+    firstName: '',
+    lastName: '',
+    dob: '',
+    gender: '',
+    relationship: 'self',
+    branch_id: '',
+    branch_name: '',
+    category_id: '',
+    category_name: '',
+    course_id: '',
+    course_name: '',
+    duration: '',
+    duration_name: '',
+    duration_months: 0,
+    batch_ref: '',
+    batch_display_label: '',
+    course_price: 0,
+    amount: 0,
+    ...partial,
+  }
+}
+
 interface RegistrationData {
   // Personal Information
   firstName: string
@@ -57,6 +104,10 @@ interface RegistrationData {
 
   /** JWT from POST /api/reg-checkout/verify-otp (phone verified before Pay Now). */
   phoneVerificationToken?: string
+
+  /** single = existing 1-student flow; family = extra students step + summed checkout */
+  accountType: 'single' | 'family'
+  familyStudents: FamilyStudentLine[]
 }
 
 interface RegistrationContextType {
@@ -106,6 +157,8 @@ const defaultRegistrationData: RegistrationData = {
   cvv: '',
   nameOnCard: '',
   phoneVerificationToken: '',
+  accountType: 'single',
+  familyStudents: [],
 }
 
 const RegistrationContext = createContext<RegistrationContextType | undefined>(undefined)

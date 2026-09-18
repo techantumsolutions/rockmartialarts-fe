@@ -12,6 +12,7 @@ import { useCMS } from "@/contexts/CMSContext"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import { getBackendApiUrl } from "@/lib/config"
 import { TokenManager } from "@/lib/tokenManager"
+import LinkedStudentSwitcher from "@/components/linked-student-switcher"
 import {
   Menu,
   Home,
@@ -24,7 +25,8 @@ import {
   FileText,
   LogOut,
   ChevronDown,
-  Loader2
+  Loader2,
+  UserPlus
 } from "lucide-react"
 
 interface StudentDashboardHeaderProps {
@@ -319,6 +321,7 @@ export default function StudentDashboardHeader({
               })}
             </nav>
             <NotificationDropdown />
+            <LinkedStudentSwitcher />
 
             <div className="relative z-[1000]">
               <DropdownMenu>
@@ -348,6 +351,13 @@ export default function StudentDashboardHeader({
                       className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200"
                     >
                       Profile
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleNavigation("/student-dashboard/add-student")}
+                      className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200"
+                    >
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Add another student
                     </DropdownMenuItem>
                     <div className="h-px bg-gray-200/60 my-2"></div>
                     <DropdownMenuItem
