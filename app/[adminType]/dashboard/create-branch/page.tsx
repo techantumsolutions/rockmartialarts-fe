@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Building, MapPin, Clock, Users, CreditCard, X, Plus, Trash2 } from "lucide-react"
@@ -137,6 +138,8 @@ interface FormData {
   assignments: Assignments
   bank_details: BankDetails
   admission_fee: number
+  /** M21 — collaboration partner branch (default No) */
+  is_collaboration_partner?: boolean
 }
 
 export default function CreateBranchPage() {
@@ -202,7 +205,8 @@ export default function CreateBranchPage() {
       account_number: "",
       upi_id: ""
     },
-    admission_fee: 0
+    admission_fee: 0,
+    is_collaboration_partner: false,
   })
 
   // Auto-generate branch code
@@ -668,7 +672,9 @@ export default function CreateBranchPage() {
           course_schedule: buildCourseSchedulePayload(formData.assignments.courses),
         },
         bank_details: formData.bank_details,
-        admission_fee: formData.admission_fee
+        admission_fee: formData.admission_fee,
+        is_collaboration_partner: !!formData.is_collaboration_partner,
+        allows_collaboration: !!formData.is_collaboration_partner,
       }
       
       console.log("Submitting branch data:", JSON.stringify(submitData, null, 2))
@@ -784,6 +790,32 @@ export default function CreateBranchPage() {
                     </Button>
                   </div>
                   {errors.branchCode && <p className="text-xs text-red-500">{errors.branchCode}</p>}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between rounded-md border border-gray-100 bg-gray-50 px-3 py-3 gap-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="isCollaborationPartner" className="text-sm font-medium">
+                    Is Collaboration Partner
+                  </Label>
+                  <p className="text-xs text-gray-500">
+                    Default is No. Partner branding and CMS features only apply when Yes.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-xs text-gray-500">
+                    {formData.is_collaboration_partner ? "Yes" : "No"}
+                  </span>
+                  <Switch
+                    id="isCollaborationPartner"
+                    checked={!!formData.is_collaboration_partner}
+                    onCheckedChange={(checked) =>
+                      setFormData({
+                        ...formData,
+                        is_collaboration_partner: !!checked,
+                      })
+                    }
+                  />
                 </div>
               </div>
 

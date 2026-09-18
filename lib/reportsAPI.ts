@@ -11,6 +11,20 @@ import {
   isArray
 } from './validation'
 import { toast } from 'sonner'
+import { getBackendApiUrl } from './config'
+import { TokenManager } from './tokenManager'
+
+export interface StudentReportListFilters {
+  q?: string
+  branch_id?: string
+  course_id?: string
+  is_active?: boolean
+  start_date?: string
+  end_date?: string
+  skip?: number
+  limit?: number
+  format?: 'csv' | 'excel' | 'xlsx' | 'xls'
+}
 
 // Enhanced interface with validation
 export interface ReportFilters {
@@ -743,6 +757,88 @@ class ReportsAPI extends BaseAPI {
       method: 'GET',
       token
     })
+  }
+
+  /**
+   * M08-S02: filtered student rows for Admin/Branch Manager reports
+   */
+  async listStudentReportRows(
+    token: string,
+    filters: StudentReportListFilters = {}
+  ): Promise<any> {
+    const params = new URLSearchParams()
+    Object.entries(filters).forEach(([key, value]) => {
+      if (key === 'format') return
+      if (value !== undefined && value !== null && value !== '') {
+        params.append(key, String(value))
+      }
+    })
+    const endpoint = `/api/reports/students/list${params.toString() ? `?${params.toString()}` : ''}`
+    return await this.makeRequest(endpoint, {
+      method: 'GET',
+      token
+    })
+  }
+
+  /**
+   * M08-S02: CSV/Excel export using current authorized filters (FastAPI)
+   */
+  async exportStudentReports(
+    filters: StudentReportListFilters = {},
+    token?: string
+  ): Promise<{ total: number; filename: string }> {
+    const authToken = token || TokenManager.getToken()
+    if (!authToken) {
+      throw new Error('Authentication required')
+    }
+
+    const params = new URLSearchParams()
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        params.append(key, String(value))
+      }
+    })
+    if (!params.has('format')) {
+      params.append('format', 'csv')
+    }
+
+    const response = await fetch(
+      getBackendApiUrl(`reports/students/export?${params.toString()}`),
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+        },
+        cache: 'no-store',
+      }
+    )
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      const detail =
+        typeof errorData.detail === 'string'
+          ? errorData.detail
+          : `Export failed: ${response.status}`
+      throw new Error(detail)
+    }
+
+    const data = await response.json()
+    const blob = new Blob([data.content], { type: data.content_type || 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = data.filename || 'student_report.csv'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+
+    return {
+      total: Number(data.total || 0),
+      filename: data.filename || 'student_report.csv',
+    }
   }
 
   /**

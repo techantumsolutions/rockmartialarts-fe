@@ -256,6 +256,7 @@ export default function RegisterPage() {
         phone: toIndianE164FromNational(normalizedMobile),
         course: "",
         source: "registration_step1",
+        source_type: "registration_step1",
       })
 
       updateRegistrationData({

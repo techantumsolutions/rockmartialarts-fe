@@ -8,6 +8,11 @@ type EnrollmentStatusInput = {
 /** Days before period end (inclusive) to show "Expiring Soon" for paid active rows */
 export const ENROLLMENT_EXPIRING_SOON_DAYS = 5
 
+/** M07-S03: post-expiry renewal grace window (days after expiry day) */
+export const ENROLLMENT_GRACE_DAYS = 10
+
+export type EnrollmentBillingState = "active" | "grace" | "overdue" | "unknown"
+
 function getEnrollmentEndDate(input: Pick<EnrollmentStatusInput, "endDate" | "completionDate">): string | undefined {
   return input.endDate || input.completionDate
 }
@@ -56,6 +61,62 @@ export function isEnrollmentExpired(
   return isEnrollmentExpiredByDate(input, now)
 }
 
+export function getGraceEndsAtUtc(
+  endDate?: string,
+  graceDays: number = ENROLLMENT_GRACE_DAYS
+): Date | null {
+  const endEod = getSubscriptionPeriodEndUtc(endDate)
+  if (!endEod) return null
+  return new Date(endEod.getTime() + graceDays * 86400000)
+}
+
+export function isWithinGracePeriod(
+  endDate?: string,
+  now: Date = new Date(),
+  graceDays: number = ENROLLMENT_GRACE_DAYS
+): boolean {
+  if (!isEnrollmentExpiredByDate(endDate, now)) return false
+  const graceEnds = getGraceEndsAtUtc(endDate, graceDays)
+  if (!graceEnds) return false
+  return now.getTime() <= graceEnds.getTime()
+}
+
+/** Whole days after expiry calendar day. */
+export function overdueDaysAfterExpiry(endDate?: string, now: Date = new Date()): number {
+  const endEod = getSubscriptionPeriodEndUtc(endDate)
+  if (!endEod || now.getTime() <= endEod.getTime()) return 0
+  const d0 = Date.UTC(endEod.getUTCFullYear(), endEod.getUTCMonth(), endEod.getUTCDate())
+  const d1 = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  return Math.max(0, Math.round((d1 - d0) / 86400000))
+}
+
+export function graceDaysRemaining(
+  endDate?: string,
+  now: Date = new Date(),
+  graceDays: number = ENROLLMENT_GRACE_DAYS
+): number | null {
+  if (!isWithinGracePeriod(endDate, now, graceDays)) {
+    if (!isEnrollmentExpiredByDate(endDate, now)) return null
+    return 0
+  }
+  const graceEnds = getGraceEndsAtUtc(endDate, graceDays)
+  if (!graceEnds) return null
+  const d0 = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  const d1 = Date.UTC(graceEnds.getUTCFullYear(), graceEnds.getUTCMonth(), graceEnds.getUTCDate())
+  return Math.max(0, Math.round((d1 - d0) / 86400000))
+}
+
+export function getEnrollmentBillingState(
+  endDate?: string,
+  now: Date = new Date(),
+  graceDays: number = ENROLLMENT_GRACE_DAYS
+): EnrollmentBillingState {
+  if (!endDate) return "unknown"
+  if (!isEnrollmentExpiredByDate(endDate, now)) return "active"
+  if (isWithinGracePeriod(endDate, now, graceDays)) return "grace"
+  return "overdue"
+}
+
 export function isEnrollmentActivePaid(
   input: EnrollmentStatusInput,
   now: Date = new Date()
@@ -89,12 +150,20 @@ export function isExpiringSoon(
   return days >= 0 && days <= withinDays
 }
 
-export type EnrollmentUiStatus = "active" | "expiring_soon" | "expired" | "pending" | "inactive"
+export type EnrollmentUiStatus =
+  | "active"
+  | "expiring_soon"
+  | "grace"
+  | "expired"
+  | "pending"
+  | "inactive"
 
 export function getEnrollmentUiStatus(input: EnrollmentStatusInput, now: Date = new Date()): EnrollmentUiStatus {
   const normalizedStatus = (input.paymentStatus || "").toLowerCase()
+  const end = getEnrollmentEndDate(input)
 
   if (isEnrollmentExpiredByDate(input, now)) {
+    if (isWithinGracePeriod(end, now)) return "grace"
     return "expired"
   }
 
@@ -120,6 +189,8 @@ export function formatEnrollmentUiStatusLabel(status: EnrollmentUiStatus): strin
   switch (status) {
     case "expiring_soon":
       return "Expiring Soon"
+    case "grace":
+      return "Grace Period"
     case "expired":
       return "Expired"
     case "active":

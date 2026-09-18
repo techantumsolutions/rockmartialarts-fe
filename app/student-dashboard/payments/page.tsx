@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
+import Link from "next/link"
 import StudentDashboardLayout from "@/components/student-dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -20,7 +21,8 @@ import {
   TrendingUp,
   IndianRupee,
   ArrowRight,
-  Loader2
+  Loader2,
+  FileText
 } from "lucide-react"
 import { studentPaymentAPI, type PaymentRecord } from "@/lib/studentPaymentAPI"
 import { studentProfileAPI, type StudentEnrollment } from "@/lib/studentProfileAPI"
@@ -30,6 +32,9 @@ import {
   getEnrollmentUiStatus,
   isEnrollmentActivePaid,
   calendarDaysUntilSubscriptionEnd,
+  overdueDaysAfterExpiry,
+  graceDaysRemaining,
+  ENROLLMENT_GRACE_DAYS,
 } from "@/lib/student-enrollment-status"
 import { mergeEnrollmentsByCourseBranch } from "@/lib/merge-enrollment-groups"
 import {
@@ -102,6 +107,58 @@ async function fetchStudentCheckoutQuoteTotal(
   }
 }
 
+type RenewalQuoteBreakdown = {
+  total: number
+  course_fee: number
+  admission_fee: number
+  arrear_amount: number
+  overdue_days: number
+  grace_days_remaining: number | null
+  billing_state: string
+  message?: string
+  arrear_note?: string
+}
+
+async function fetchRenewalQuote(
+  token: string,
+  enrollmentId: string,
+  durationKey: string
+): Promise<RenewalQuoteBreakdown | null> {
+  try {
+    const res = await fetch(getBackendApiUrl("payments/renewal-quote"), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        enrollment_id: enrollmentId,
+        duration: durationKey,
+      }),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    const pricing = data?.pricing || {}
+    const billing = data?.billing || {}
+    const total = Number(pricing.total_amount)
+    if (!Number.isFinite(total) || total <= 0) return null
+    return {
+      total,
+      course_fee: Number(pricing.course_fee || 0),
+      admission_fee: Number(pricing.admission_fee || 0),
+      arrear_amount: Number(pricing.arrear_amount || 0),
+      overdue_days: Number(billing.overdue_days || 0),
+      grace_days_remaining:
+        billing.grace_days_remaining == null ? null : Number(billing.grace_days_remaining),
+      billing_state: String(billing.billing_state || "active"),
+      message: typeof data.message === "string" ? data.message : undefined,
+      arrear_note: data?.arrear?.arrear_note,
+    }
+  } catch {
+    return null
+  }
+}
+
 function durationKeyMatchesEnrollment(option: TenureOption, durationId: string | null | undefined): boolean {
   if (!durationId) return false
   return option.id === durationId || option.code === durationId
@@ -125,6 +182,7 @@ export default function StudentPaymentsPage() {
   } | null>(null)
   const [tenureOptions, setTenureOptions] = useState<TenureOption[]>([])
   const [tenurePrices, setTenurePrices] = useState<Record<string, number | null>>({})
+  const [tenureQuotes, setTenureQuotes] = useState<Record<string, RenewalQuoteBreakdown | null>>({})
   const [tenurePricesLoading, setTenurePricesLoading] = useState(false)
 
   useEffect(() => {
@@ -159,6 +217,7 @@ export default function StudentPaymentsPage() {
     if (!tenureModal) {
       setTenureOptions([])
       setTenurePrices({})
+      setTenureQuotes({})
       setTenurePricesLoading(false)
       return
     }
@@ -196,18 +255,37 @@ export default function StudentPaymentsPage() {
 
         if (options.length === 0) {
           setTenurePrices({})
+          setTenureQuotes({})
           return
         }
 
         const profileEnr = tenureModal.enrollment
         const isRenewal = tenureModal.isRenewal
         const next: Record<string, number | null> = {}
+        const quotes: Record<string, RenewalQuoteBreakdown | null> = {}
         for (const opt of options) {
-          let total = await fetchStudentCheckoutQuoteTotal(token, course_id, branch_id, opt.id)
-          if (total == null && opt.code) {
-            total = await fetchStudentCheckoutQuoteTotal(token, course_id, branch_id, opt.code)
+          if (isRenewal) {
+            let quote = await fetchRenewalQuote(token, profileEnr.id, opt.id)
+            if (!quote && opt.code) {
+              quote = await fetchRenewalQuote(token, profileEnr.id, opt.code)
+            }
+            quotes[opt.id] = quote
+            next[opt.id] = quote?.total ?? null
+            if (next[opt.id] == null) {
+              let total = await fetchStudentCheckoutQuoteTotal(token, course_id, branch_id, opt.id)
+              if (total == null && opt.code) {
+                total = await fetchStudentCheckoutQuoteTotal(token, course_id, branch_id, opt.code)
+              }
+              next[opt.id] = total
+            }
+          } else {
+            let total = await fetchStudentCheckoutQuoteTotal(token, course_id, branch_id, opt.id)
+            if (total == null && opt.code) {
+              total = await fetchStudentCheckoutQuoteTotal(token, course_id, branch_id, opt.code)
+            }
+            next[opt.id] = total
+            quotes[opt.id] = null
           }
-          next[opt.id] = total
         }
 
         // First-time pending checkout only — never add admission on renewal quotes.
@@ -230,6 +308,7 @@ export default function StudentPaymentsPage() {
         }
 
         setTenurePrices(next)
+        setTenureQuotes(quotes)
       } finally {
         setTenurePricesLoading(false)
       }
@@ -373,17 +452,27 @@ export default function StudentPaymentsPage() {
     try {
       const userData = user
 
-      const prepRes = await fetch(getBackendApiUrl("payments/prepare-student-checkout"), {
+      const prepUrl = isRenewal
+        ? getBackendApiUrl("payments/prepare-student-renewal-checkout")
+        : getBackendApiUrl("payments/prepare-student-checkout")
+      const prepBody = isRenewal
+        ? {
+            enrollment_id: enrollment.id,
+            duration: tenure.id,
+          }
+        : {
+            course_id: enrollment.course_id,
+            branch_id: enrollment.branch_id,
+            duration: tenure.id,
+          }
+
+      const prepRes = await fetch(prepUrl, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          course_id: enrollment.course_id,
-          branch_id: enrollment.branch_id,
-          duration: tenure.id,
-        }),
+        body: JSON.stringify(prepBody),
       })
       const prepJson = await prepRes.json().catch(() => ({}))
       if (!prepRes.ok) {
@@ -490,8 +579,26 @@ export default function StudentPaymentsPage() {
               }
               throw new Error(data?.error ?? data?.detail ?? "Verification failed")
             }
-            await loadPaymentData(activeToken)
-            window.location.reload()
+            const paymentId =
+              (typeof data?.payment_id === "string" && data.payment_id) ||
+              response.razorpay_payment_id ||
+              ""
+            const amountInr =
+              typeof order.amount === "number" ? order.amount / 100 : Number(prepJson.amount) || 0
+            const params = new URLSearchParams({
+              payment_id: paymentId,
+              order_id: response.razorpay_order_id || order.id || "",
+              amount: String(amountInr),
+              course_name: enrollmentData.course_name || "",
+              branch_name: enrollmentData.branch_name || "",
+            })
+            if (isRenewal || data?.is_renewal) {
+              params.set("renewal", "1")
+              if (data?.new_end_date) {
+                params.set("new_end_date", String(data.new_end_date))
+              }
+            }
+            router.replace(`/student-dashboard/payment-success?${params.toString()}`)
           } catch (e) {
             const message = getSessionErrorMessage(e, true)
             if (message === SESSION_EXPIRED_PAYMENT_MESSAGE) {
@@ -612,6 +719,18 @@ export default function StudentPaymentsPage() {
             </p>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/student-dashboard/invoices">
+                <FileText className="h-4 w-4 mr-2" />
+                Invoices
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/student-dashboard/billing">
+                <Calendar className="h-4 w-4 mr-2" />
+                Billing
+              </Link>
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -739,6 +858,7 @@ export default function StudentPaymentsPage() {
                     endDate: enrollment.end_date
                   })
                   const isExpired = uiStatus === "expired"
+                  const isGrace = uiStatus === "grace"
                   const isExpiringSoon = uiStatus === "expiring_soon"
                   const isActivePaid = isEnrollmentActivePaid({
                     isActive: enrollment.is_active,
@@ -746,13 +866,16 @@ export default function StudentPaymentsPage() {
                     endDate: enrollment.end_date
                   })
                   const showActiveHealthy = uiStatus === "active"
+                  const overdueDays = overdueDaysAfterExpiry(enrollment.end_date)
+                  const graceLeft = graceDaysRemaining(enrollment.end_date)
 
                   return (
                     <div
                       key={enrollment.id}
                       className={`p-4 rounded-lg border ${
                         isCancelled ? 'border-gray-200 bg-gray-50' :
-                        isExpired ? 'border-red-200 bg-red-50' : 
+                        isExpired ? 'border-red-200 bg-red-50' :
+                        isGrace ? 'border-orange-200 bg-orange-50' :
                         isExpiringSoon ? 'border-yellow-200 bg-yellow-50' : 
                         showActiveHealthy ? 'border-green-200 bg-green-50' :
                         'border-gray-200 bg-white'
@@ -769,6 +892,10 @@ export default function StudentPaymentsPage() {
                             ) : uiStatus === "expired" ? (
                               <Badge className="bg-red-100 text-red-800 border-red-200">
                                 Expired
+                              </Badge>
+                            ) : uiStatus === "grace" ? (
+                              <Badge className="bg-orange-100 text-orange-900 border-orange-300">
+                                Grace Period
                               </Badge>
                             ) : uiStatus === "expiring_soon" ? (
                               <Badge className="bg-amber-100 text-amber-900 border-amber-300">
@@ -807,9 +934,19 @@ export default function StudentPaymentsPage() {
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <IndianRupee className="h-4 w-4" />
-                              <span>Payment: {getStatusBadge(effectivePaymentStatus)}</span>
+                              <Calendar className="h-4 w-4" />
+                              <span>
+                                Next due:{" "}
+                                {formatDate(
+                                  (enrollment as { next_due_date?: string }).next_due_date ||
+                                    enrollment.end_date
+                                )}
+                              </span>
                             </div>
+                          </div>
+                          <div className="mt-2 text-sm text-muted-foreground flex items-center gap-2">
+                            <IndianRupee className="h-4 w-4" />
+                            <span>Payment: {getStatusBadge(effectivePaymentStatus)}</span>
                           </div>
 
                           {/* Status Messages */}
@@ -822,11 +959,27 @@ export default function StudentPaymentsPage() {
                             </div>
                           )}
 
+                          {isGrace && (
+                            <div className="mt-3 p-2 rounded text-sm bg-orange-100 text-orange-900">
+                              <div className="flex items-center gap-2">
+                                <Clock className="h-4 w-4" />
+                                <span>
+                                  Subscription expired — you are in a {ENROLLMENT_GRACE_DAYS}-day grace window
+                                  {graceLeft != null ? ` (${graceLeft} day${graceLeft === 1 ? "" : "s"} left)` : ""}.
+                                  Renew now to continue without interruption.
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
                           {isExpired && (
                             <div className="mt-3 p-2 rounded text-sm bg-red-100 text-red-800">
                               <div className="flex items-center gap-2">
                                 <AlertCircle className="h-4 w-4" />
-                                <span>Subscription expired {Math.abs(daysUntil)} days ago. Renew now to regain access.</span>
+                                <span>
+                                  Grace window ended. Overdue by {overdueDays} day{overdueDays === 1 ? "" : "s"}.
+                                  Renew now to restore access.
+                                </span>
                               </div>
                             </div>
                           )}
@@ -860,10 +1013,10 @@ export default function StudentPaymentsPage() {
                             >
                               Cancelled
                             </Button>
-                          ) : isExpired ? (
+                          ) : isExpired || isGrace ? (
                             <Button 
-                              className="bg-red-600 hover:bg-red-700 w-full sm:w-auto"
-                              onClick={() => openTenureModal(enrollment, false)}
+                              className={`w-full sm:w-auto ${isGrace ? "bg-orange-600 hover:bg-orange-700" : "bg-red-600 hover:bg-red-700"}`}
+                              onClick={() => openTenureModal(enrollment, true)}
                               disabled={paymentProcessingId === enrollment.id}
                             >
                               {paymentProcessingId === enrollment.id ? (
@@ -930,10 +1083,11 @@ export default function StudentPaymentsPage() {
         <Dialog open={!!tenureModal} onOpenChange={(open) => !open && setTenureModal(null)}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Select tenure</DialogTitle>
+              <DialogTitle>{tenureModal?.isRenewal ? "Renew subscription" : "Select tenure"}</DialogTitle>
               <DialogDescription>
-                Choose a tenure. Prices match checkout (course fee only for renewals — admission is charged on your
-                first payment only). Your current plan is highlighted when completing a pending first payment.
+                {tenureModal?.isRenewal
+                  ? "Choose a tenure. Amounts come from the renewal quote (course fee; admission only if still applicable). Arrear is shown when configured."
+                  : "Choose a tenure. Prices match checkout. Your current plan is highlighted when completing a pending first payment."}
               </DialogDescription>
             </DialogHeader>
             {tenurePricesLoading ? (
@@ -942,7 +1096,7 @@ export default function StudentPaymentsPage() {
                 <span>Loading prices…</span>
               </div>
             ) : (
-              <div className="space-y-2 py-2">
+              <div className="space-y-3 py-2">
                 {(() => {
                   const available = tenureOptions.filter(
                     (option) => typeof tenurePrices[option.id] === "number" && tenurePrices[option.id]! > 0
@@ -961,43 +1115,89 @@ export default function StudentPaymentsPage() {
                     const mb = selectedId && durationKeyMatchesEnrollment(b, selectedId) ? 1 : 0
                     return mb - ma
                   })
+                  const sampleQuote =
+                    tenureModal?.isRenewal
+                      ? sorted.map((o) => tenureQuotes[o.id]).find((q) => q != null) || null
+                      : null
                   return (
-                    <div className="grid grid-cols-2 gap-3">
-                      {sorted.map((option) => {
-                        const price = tenurePrices[option.id]!
-                        const isSelectedPlan =
-                          enr?.payment_status === "pending" &&
-                          selectedId &&
-                          durationKeyMatchesEnrollment(option, selectedId)
-                        return (
-                          <Button
-                            key={option.id}
-                            variant="outline"
-                            className={`h-auto flex flex-col items-center justify-center py-4 gap-1 relative ${
-                              isSelectedPlan ? "border-amber-500 ring-2 ring-amber-300 bg-amber-50" : ""
-                            }`}
-                            onClick={() =>
-                              tenureModal &&
-                              handlePayment(tenureModal.enrollment, tenureModal.isRenewal, {
-                                months: option.months,
-                                id: option.id,
-                              })
-                            }
-                          >
-                            {isSelectedPlan && (
-                              <Badge className="absolute -top-2 left-1/2 -translate-x-1/2 text-[10px] px-1.5 py-0 bg-amber-600 hover:bg-amber-600">
-                                Your plan
-                              </Badge>
-                            )}
-                            <span className="font-semibold">{option.label}</span>
-                            <span className="text-sm font-medium text-green-700 flex items-center gap-1">
-                              <IndianRupee className="h-3.5 w-3.5" />
-                              {new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(price)}
-                            </span>
-                          </Button>
-                        )
-                      })}
-                    </div>
+                    <>
+                      {sampleQuote && (
+                        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 space-y-1">
+                          {sampleQuote.message ? <p>{sampleQuote.message}</p> : null}
+                          {sampleQuote.billing_state === "grace" && sampleQuote.grace_days_remaining != null ? (
+                            <p>
+                              Grace days remaining: {sampleQuote.grace_days_remaining}
+                            </p>
+                          ) : null}
+                          {sampleQuote.overdue_days > 0 ? (
+                            <p>Overdue days: {sampleQuote.overdue_days}</p>
+                          ) : null}
+                          {sampleQuote.arrear_note ? (
+                            <p className="text-slate-500">{sampleQuote.arrear_note}</p>
+                          ) : null}
+                        </div>
+                      )}
+                      <div className="grid grid-cols-2 gap-3">
+                        {sorted.map((option) => {
+                          const price = tenurePrices[option.id]!
+                          const quote = tenureQuotes[option.id]
+                          const isSelectedPlan =
+                            enr?.payment_status === "pending" &&
+                            selectedId &&
+                            durationKeyMatchesEnrollment(option, selectedId)
+                          return (
+                            <Button
+                              key={option.id}
+                              variant="outline"
+                              className={`h-auto flex flex-col items-center justify-center py-4 gap-1 relative ${
+                                isSelectedPlan ? "border-amber-500 ring-2 ring-amber-300 bg-amber-50" : ""
+                              }`}
+                              onClick={() =>
+                                tenureModal &&
+                                handlePayment(tenureModal.enrollment, tenureModal.isRenewal, {
+                                  months: option.months,
+                                  id: option.id,
+                                })
+                              }
+                            >
+                              {isSelectedPlan && (
+                                <Badge className="absolute -top-2 left-1/2 -translate-x-1/2 text-[10px] px-1.5 py-0 bg-amber-600 hover:bg-amber-600">
+                                  Your plan
+                                </Badge>
+                              )}
+                              <span className="font-semibold">{option.label}</span>
+                              <span className="text-sm font-medium text-green-700 flex items-center gap-1">
+                                <IndianRupee className="h-3.5 w-3.5" />
+                                {new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(price)}
+                              </span>
+                              {quote && (
+                                <span className="text-[10px] text-muted-foreground text-center leading-tight px-1">
+                                  Fee{" "}
+                                  {new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(
+                                    quote.course_fee
+                                  )}
+                                  {quote.admission_fee > 0
+                                    ? ` + adm ${new Intl.NumberFormat("en-IN", {
+                                        maximumFractionDigits: 0,
+                                      }).format(quote.admission_fee)}`
+                                    : ""}
+                                  {quote.arrear_amount > 0
+                                    ? ` + arrear ${new Intl.NumberFormat("en-IN", {
+                                        maximumFractionDigits: 0,
+                                      }).format(quote.arrear_amount)}`
+                                    : ""}
+                                </span>
+                              )}
+                              {tenureModal?.isRenewal && (
+                                <span className="text-[11px] font-medium text-slate-700 mt-0.5">
+                                  Pay &amp; renew
+                                </span>
+                              )}
+                            </Button>
+                          )
+                        })}
+                      </div>
+                    </>
                   )
                 })()}
               </div>

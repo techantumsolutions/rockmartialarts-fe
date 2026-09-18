@@ -28,8 +28,20 @@ import {
 } from "lucide-react"
 import { AchievementList, type AchievementItem } from "@/components/achievements"
 import { TokenManager } from "@/lib/tokenManager"
+import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { getBackendApiUrl } from "@/lib/config"
 import { formatPaymentSourceLabel } from "@/lib/formatPaymentSourceLabel"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { StudentIdCardSection } from "@/components/students/StudentIdCardSection"
 
 interface StudentDetails {
   id: string
@@ -39,6 +51,8 @@ interface StudentDetails {
   phone: string
   date_of_birth?: string
   gender?: string
+  biometric_id?: string | null
+  essl_user_id?: string | null
   student_level?: string | null
   address?: {
     line1?: string
@@ -83,6 +97,7 @@ interface EnrollmentHistory {
   enrollment_date: string
   start_date?: string
   end_date?: string
+  next_due_date?: string
   completion_date?: string
   status: string
   progress: number
@@ -137,6 +152,29 @@ export default function StudentDetailPage() {
   const [enrollmentsLoading, setEnrollmentsLoading] = useState(true)
   const [paymentsLoading, setPaymentsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [statusHistory, setStatusHistory] = useState<
+    Array<{
+      id?: string
+      previous_label?: string
+      new_label?: string
+      reason?: string | null
+      actor_name?: string | null
+      created_at?: string
+    }>
+  >([])
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false)
+  const [statusReason, setStatusReason] = useState("")
+  const [statusSaving, setStatusSaving] = useState(false)
+
+  const isBranchAdmin =
+    adminType === "branch-admin" ||
+    (typeof window !== "undefined" && window.location.pathname.startsWith("/branch-admin"))
+
+  const getAuthToken = () => {
+    let token = isBranchAdmin ? BranchManagerAuth.getToken() : TokenManager.getToken()
+    if (!token && isBranchAdmin) token = TokenManager.getToken()
+    return token
+  }
 
   const deriveEnrollmentStatus = (enrollment: any): string => {
     const explicit = String(enrollment?.status || "").toLowerCase()
@@ -161,7 +199,7 @@ export default function StudentDetailPage() {
       setLoading(true)
       setError(null)
 
-      const token = TokenManager.getToken()
+      const token = getAuthToken()
       if (!token) {
         setError("Authentication required. Please login again.")
         return
@@ -191,7 +229,8 @@ export default function StudentDetailPage() {
         fetchEnrollmentHistory(token),
         fetchPaymentHistory(token),
         fetchAttendanceRecords(token),
-        fetchAchievements(token)
+        fetchAchievements(token),
+        fetchStatusHistory(token),
       ])
 
     } catch (err: any) {
@@ -199,6 +238,64 @@ export default function StudentDetailPage() {
       setError(err.message || 'Failed to load student details')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchStatusHistory = async (token: string) => {
+    try {
+      const res = await fetch(
+        getBackendApiUrl(`users/${studentId}/status-history?limit=20`),
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      )
+      if (!res.ok) return
+      const data = await res.json()
+      setStatusHistory(Array.isArray(data.history) ? data.history : [])
+    } catch {
+      /* optional */
+    }
+  }
+
+  const confirmDetailStatusChange = async () => {
+    if (!student) return
+    const nextActive = !student.is_active
+    if (!nextActive && !statusReason.trim()) {
+      setError("A reason is required when deactivating a student.")
+      return
+    }
+    setStatusSaving(true)
+    try {
+      const token = getAuthToken()
+      if (!token) throw new Error("Authentication required")
+      const res = await fetch(getBackendApiUrl(`users/${studentId}/status`), {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          is_active: nextActive,
+          reason: statusReason.trim() || undefined,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(
+          typeof data.detail === "string" ? data.detail : data.message || "Status update failed"
+        )
+      }
+      setStudent({ ...student, is_active: nextActive })
+      setStatusDialogOpen(false)
+      setStatusReason("")
+      await fetchStatusHistory(token)
+    } catch (err: any) {
+      setError(err.message || "Failed to update status")
+    } finally {
+      setStatusSaving(false)
     }
   }
 
@@ -223,6 +320,7 @@ export default function StudentDetailPage() {
           enrollment_date: enrollment.enrollment_date || enrollment.created_at || new Date().toISOString(),
           start_date: enrollment.start_date,
           end_date: enrollment.end_date,
+          next_due_date: enrollment.next_due_date || enrollment.end_date,
           completion_date: enrollment.completion_date,
           status: deriveEnrollmentStatus(enrollment),
           progress: enrollment.progress || 0,
@@ -551,6 +649,18 @@ export default function StudentDetailPage() {
               >
                 {student.is_active ? "Active" : "Inactive"}
               </Badge>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8"
+                onClick={() => {
+                  setStatusReason("")
+                  setStatusDialogOpen(true)
+                }}
+              >
+                {student.is_active ? "Deactivate" : "Activate"}
+              </Button>
               {student.student_id && (
                 <Badge variant="outline">
                   ID: {student.student_id}
@@ -583,6 +693,17 @@ export default function StudentDetailPage() {
                 >
                   {student.is_active ? "Active" : "Inactive"}
                 </Badge>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setStatusReason("")
+                    setStatusDialogOpen(true)
+                  }}
+                >
+                  {student.is_active ? "Deactivate" : "Activate"}
+                </Button>
                 {student.student_id && (
                   <Badge variant="outline">
                     ID: {student.student_id}
@@ -645,6 +766,15 @@ export default function StudentDetailPage() {
                       Phone
                     </h3>
                     <p className="text-sm ">{student.phone || 'Not provided'}</p>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">Biometric ID</h3>
+                    <p className="text-sm font-mono">
+                      {student.biometric_id || student.essl_user_id || (
+                        <span className="font-sans text-slate-500">Not mapped</span>
+                      )}
+                    </p>
                   </div>
 
                   {student.date_of_birth && (
@@ -751,6 +881,54 @@ export default function StudentDetailPage() {
               </CardContent>
             </Card>
 
+            {/* M08-S03 Student ID Card */}
+            <StudentIdCardSection studentId={studentId} getToken={getAuthToken} />
+
+            {/* M08-S01 Account status history */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center font-bold text-[#4D5077]">
+                  Account status history
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-[#7F8592]">
+                {statusHistory.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No status changes recorded yet.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {statusHistory.map((row, idx) => (
+                      <div
+                        key={row.id || idx}
+                        className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm"
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="outline" className="capitalize">
+                            {row.previous_label || "—"} → {row.new_label || "—"}
+                          </Badge>
+                          <span className="text-xs text-slate-500">
+                            {row.created_at
+                              ? new Date(row.created_at).toLocaleString("en-IN", {
+                                  dateStyle: "medium",
+                                  timeStyle: "short",
+                                })
+                              : ""}
+                          </span>
+                        </div>
+                        {row.reason ? (
+                          <p className="mt-1 text-slate-700">Reason: {row.reason}</p>
+                        ) : null}
+                        {row.actor_name ? (
+                          <p className="text-xs text-slate-500 mt-0.5">By {row.actor_name}</p>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Course Enrollment History */}
             <Card>
               <CardHeader>
@@ -835,6 +1013,21 @@ export default function StudentDetailPage() {
                               <span className="font-medium">End:</span>
                               <span>
                                 {new Date(enrollment.end_date).toLocaleDateString("en-US", {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                })}
+                              </span>
+                            </div>
+                          )}
+                          {(enrollment.next_due_date || enrollment.end_date) && (
+                            <div className="flex items-center space-x-1">
+                              <Clock className="w-4 h-4 text-amber-600" />
+                              <span className="font-medium">Next due:</span>
+                              <span className="font-semibold text-amber-700">
+                                {new Date(
+                                  (enrollment.next_due_date || enrollment.end_date) as string
+                                ).toLocaleDateString("en-US", {
                                   year: "numeric",
                                   month: "short",
                                   day: "numeric",
@@ -1194,6 +1387,65 @@ export default function StudentDetailPage() {
           </div>
         </div>
       </div>
+
+      <Dialog
+        open={statusDialogOpen}
+        onOpenChange={(open) => {
+          if (!open && !statusSaving) {
+            setStatusDialogOpen(false)
+            setStatusReason("")
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {student?.is_active ? "Deactivate student" : "Activate student"}
+            </DialogTitle>
+            <DialogDescription>
+              {student?.is_active
+                ? "They will not be able to sign in until reactivated. Enrollment and payment records are unchanged."
+                : "They will be able to sign in again. Enrollment and payment records are unchanged."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="detail-status-reason">
+              Reason {student?.is_active ? "(required)" : "(optional)"}
+            </Label>
+            <Textarea
+              id="detail-status-reason"
+              value={statusReason}
+              onChange={(e) => setStatusReason(e.target.value)}
+              rows={3}
+              placeholder={
+                student?.is_active
+                  ? "Why is this student being deactivated?"
+                  : "Optional note for the status history…"
+              }
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={statusSaving}
+              onClick={() => {
+                setStatusDialogOpen(false)
+                setStatusReason("")
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={statusSaving}
+              onClick={() => void confirmDetailStatusChange()}
+            >
+              {statusSaving ? "Saving…" : student?.is_active ? "Deactivate" : "Activate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

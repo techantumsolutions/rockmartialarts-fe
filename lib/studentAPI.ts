@@ -99,6 +99,26 @@ class StudentAPI extends BaseAPI {
     })
   }
 
+  /** M08-S01: update student account active/inactive with optional reason */
+  async updateStudentStatus(
+    studentId: string,
+    data: { is_active: boolean; reason?: string },
+    token: string
+  ): Promise<any> {
+    return await this.makeRequest(`/api/users/${studentId}/status`, {
+      method: 'PATCH',
+      body: data,
+      token,
+    })
+  }
+
+  async getStudentStatusHistory(studentId: string, token: string, limit = 50): Promise<any> {
+    return await this.makeRequest(`/api/users/${studentId}/status-history?limit=${limit}`, {
+      method: 'GET',
+      token,
+    })
+  }
+
   // Student-specific methods
   async enrollStudent(studentId: string, courseId: string, token: string): Promise<any> {
     return await this.makeRequest(`/api/students/${studentId}/enroll`, {
