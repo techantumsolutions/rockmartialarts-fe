@@ -154,7 +154,10 @@ function LoginFormContent() {
         access_token: data.access_token,
         token_type: data.token_type,
         expires_in: data.expires_in,
-        user: data.user
+        user: data.user,
+        profiles: data.profiles,
+        account_id: data.account_id,
+        active_student_id: data.active_student_id || data.user?.id,
       });
 
       console.log("Student login successful:", {

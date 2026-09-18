@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { PasswordInput } from "@/components/ui/password-input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useRegistration } from "@/contexts/RegistrationContext"
+import { useRegistration, emptyFamilyStudent } from "@/contexts/RegistrationContext"
 import { useCMS } from "@/contexts/CMSContext"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
@@ -32,6 +32,7 @@ export default function RegisterPage() {
     gender: registrationData.gender || "",
     dob: registrationData.dob || "",
     password: registrationData.password || "",
+    accountType: (registrationData.accountType || "single") as "single" | "family",
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -68,6 +69,7 @@ export default function RegisterPage() {
       gender: registrationData.gender || "",
       dob: registrationData.dob || "",
       password: registrationData.password || "",
+      accountType: registrationData.accountType || "single",
     })
   }, [registrationStorageReady])
 
@@ -264,8 +266,23 @@ export default function RegisterPage() {
         gender: formData.gender,
         dob: formData.dob,
         password: formData.password,
+        accountType: formData.accountType,
+        familyStudents:
+          formData.accountType === "family"
+            ? (registrationData.familyStudents?.length
+                ? registrationData.familyStudents
+                : [
+                    emptyFamilyStudent({
+                      firstName: formData.firstName,
+                      lastName: formData.lastName,
+                      dob: formData.dob,
+                      gender: formData.gender,
+                      relationship: "self",
+                    }),
+                  ])
+            : [],
       })
-      router.push("/register/select-branch")
+      router.push(formData.accountType === "family" ? "/register/family-students" : "/register/select-branch")
     } catch (err) {
       console.error("[Register] Submit error:", err)
     } finally {
@@ -274,6 +291,10 @@ export default function RegisterPage() {
   }
 
   const handleInputChange = (field: string, value: string) => {
+    if (field === "accountType") {
+      setFormData((prev) => ({ ...prev, accountType: value as "single" | "family" }))
+      return
+    }
     if (field === "mobile") {
       const v = extractIndianMobileDigits(value).slice(0, 10)
       if (registrationData.phoneVerificationToken) {
@@ -462,6 +483,36 @@ export default function RegisterPage() {
                 className={`pl-5 py-4 text-[14px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000] ${errors.password ? '!border !border-red-500' : ''}`}
               />
               {errors.password && <p className="text-red-500 text-xs mt-1 ml-1">{errors.password}</p>}
+            </div>
+
+            <div className="space-y-2 rounded-xl bg-[#F9F8FF] p-4">
+              <p className="text-sm font-semibold text-gray-800">Who is this registration for?</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleInputChange("accountType", "single")}
+                  className={`text-left rounded-lg border px-3 py-3 text-sm ${
+                    formData.accountType === "single"
+                      ? "border-yellow-400 bg-yellow-50 font-semibold text-gray-900"
+                      : "border-transparent bg-white text-gray-700"
+                  }`}
+                >
+                  Just me
+                  <span className="block text-xs font-normal text-gray-500 mt-1">Single account — one student, one login</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleInputChange("accountType", "family")}
+                  className={`text-left rounded-lg border px-3 py-3 text-sm ${
+                    formData.accountType === "family"
+                      ? "border-yellow-400 bg-yellow-50 font-semibold text-gray-900"
+                      : "border-transparent bg-white text-gray-700"
+                  }`}
+                >
+                  Family account
+                  <span className="block text-xs font-normal text-gray-500 mt-1">Multiple students, one login</span>
+                </button>
+              </div>
             </div>
 
             {/* Gender and DOB Fields */}

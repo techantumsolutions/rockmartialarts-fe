@@ -7,6 +7,8 @@ import {
   HEAR_ABOUT_OPTIONS,
   campRegBlockedAhead,
   emptyCampRegistration,
+  preloadCampTicketAssets,
+  waitForTicketImages,
   validateCampRegAll,
   validateCampRegSection,
   type CampRegTabId,
@@ -16,6 +18,8 @@ import { CampSignaturePad } from "@/components/website/CampSignaturePad"
 import { CampRegistrationReview } from "@/components/website/CampRegistrationReview"
 import {
   CampRegistrationConfirmation,
+  CAMP_TICKET_HEIGHT,
+  CAMP_TICKET_WIDTH,
   type CampPaymentSuccess,
 } from "@/components/website/CampRegistrationConfirmation"
 import { loadRazorpayScript } from "@/lib/razorpay"
@@ -113,6 +117,11 @@ export function ResidentialCampRegistrationModal({ open, onClose, content }: Pro
     setConfirmation(null)
   }, [open])
 
+  useEffect(() => {
+    if (step !== "success" || !confirmation) return
+    void preloadCampTicketAssets()
+  }, [step, confirmation])
+
   if (!open) return null
 
   const tabIndex = CAMP_REG_VISIBLE_TABS.findIndex((t) => t.id === tab)
@@ -199,9 +208,13 @@ export function ResidentialCampRegistrationModal({ open, onClose, content }: Pro
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     })
-    const verified = await verifyRes.json().catch(() => ({}))
+    const verified = (await verifyRes.json().catch(() => ({}))) as CampPaymentSuccess & {
+      registration_code?: string
+    }
     if (!verifyRes.ok) throw new Error(apiDetail(verified, "Payment verification failed"))
     setConfirmation({
+      id: verified.id || regId,
+      registration_id: verified.registration_id || verified.registration_code || "",
       event_name: verified.event_name || eventName,
       event_dates: verified.event_dates || dates,
       event_location: verified.event_location || location,
@@ -316,10 +329,24 @@ export function ResidentialCampRegistrationModal({ open, onClose, content }: Pro
     if (!confirmRef.current || !confirmation) return
     setDownloading(true)
     try {
-      const dataUrl = await toPng(confirmRef.current, { pixelRatio: 2, cacheBust: true })
+      await preloadCampTicketAssets()
+      await waitForTicketImages(confirmRef.current)
+      const dataUrl = await toPng(confirmRef.current, {
+        pixelRatio: 2,
+        cacheBust: true,
+        backgroundColor: "#000000",
+        width: CAMP_TICKET_WIDTH,
+        height: CAMP_TICKET_HEIGHT,
+        style: {
+          transform: "none",
+          left: "0",
+          top: "0",
+        },
+      })
       const link = document.createElement("a")
       const slug = (confirmation.participant_name || "camp").replace(/[^\w]+/g, "-").replace(/^-|-$/g, "")
-      link.download = `camp-registration-${slug || "confirmation"}.png`
+      const code = (confirmation.registration_id || "confirmation").replace(/[^\w-]+/g, "")
+      link.download = `camp-ticket-${slug || "confirmation"}-${code}.png`
       link.href = dataUrl
       link.click()
     } catch {
@@ -345,9 +372,9 @@ export function ResidentialCampRegistrationModal({ open, onClose, content }: Pro
         </header>
 
         {step === "success" && confirmation ? (
-          <div className="camp-reg-body">
+          <div className="camp-reg-body camp-reg-body-success">
             <div className="camp-success-wrap">
-              <CampRegistrationConfirmation ref={confirmRef} data={confirmation} />
+              <CampRegistrationConfirmation ref={confirmRef} data={confirmation} content={content} />
               {error ? <p className="camp-reg-error">{error}</p> : null}
               <div className="camp-success-actions">
                 <button type="button" className="camp-form-btn primary" onClick={downloadConfirmation} disabled={downloading}>
