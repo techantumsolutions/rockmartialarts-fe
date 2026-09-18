@@ -183,6 +183,14 @@ export default function StudentDashboardHeader({
       permissionId: "performance"
     },
     {
+      name: "Syllabus",
+      path: "/student-dashboard/syllabus",
+      icon: FileText,
+      exact: false,
+      description: "Course syllabus PDFs",
+      permissionId: "syllabus"
+    },
+    {
       name: "Progress",
       path: "/student-dashboard/progress",
       icon: TrendingUp,

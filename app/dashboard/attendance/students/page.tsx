@@ -39,6 +39,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import DashboardHeader from "@/components/dashboard-header"
 import { SuperAdminAuth } from "@/lib/auth"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
@@ -127,6 +137,9 @@ interface AttendanceRecord {
   check_in_iso?: string | null
   check_out_iso?: string | null
   admin_adjusted?: boolean
+  /** Mongo attendance.id when a same-day record exists */
+  attendance_id?: string | null
+  correction_reason?: string | null
 }
 
 interface AttendanceStats {
@@ -219,6 +232,27 @@ export default function SuperAdminStudentAttendancePage() {
   const [checkInEditDraft, setCheckInEditDraft] = useState("")
   const [editingCheckOutId, setEditingCheckOutId] = useState<string | null>(null)
   const [checkOutEditDraft, setCheckOutEditDraft] = useState("")
+
+  /** M09-S05: reason required when correcting an already-marked record */
+  type CorrectionDraft =
+    | {
+        kind: "status"
+        recordId: string
+        status: "present" | "absent" | "late"
+      }
+    | {
+        kind: "check_in"
+        recordId: string
+        iso: string
+      }
+    | {
+        kind: "check_out"
+        recordId: string
+        iso: string
+      }
+  const [correctionDraft, setCorrectionDraft] = useState<CorrectionDraft | null>(null)
+  const [correctionReason, setCorrectionReason] = useState("")
+  const [correctionSubmitting, setCorrectionSubmitting] = useState(false)
 
   // Filter attendance records based on search and filters
   const filteredRecords = attendanceRecords.filter(record => {
@@ -373,6 +407,11 @@ export default function SuperAdminStudentAttendancePage() {
                 )
               : undefined,
             admin_adjusted: Boolean(student.attendance?.admin_adjusted),
+            attendance_id:
+              student.attendance?.attendance_id ||
+              student.attendance?.id ||
+              null,
+            correction_reason: student.attendance?.correction_reason || null,
             notes: student.attendance?.notes || "",
             date: dateStr
           }
@@ -435,6 +474,9 @@ export default function SuperAdminStudentAttendancePage() {
     }
   }
 
+  const isAttendanceStatusFinal = (s: string) =>
+    s === "present" || s === "late" || s === "absent"
+
   // Handle attendance marking with improved error handling and user feedback
   const handleMarkAttendance = async (recordId: string, status: "present" | "absent" | "late") => {
     try {
@@ -460,6 +502,19 @@ export default function SuperAdminStudentAttendancePage() {
           description: "Refresh the page and try again.",
           variant: "destructive",
         })
+        return
+      }
+
+      // M09-S05: changing an already-marked row requires a reason via corrections API
+      const hasExistingAttendance =
+        Boolean(record.attendance_id) ||
+        Boolean(record.check_in_iso) ||
+        (isAttendanceStatusFinal(record.status) && record.status !== "not_marked" && Boolean(record.notes))
+      if (isAttendanceStatusFinal(record.status) && hasExistingAttendance) {
+        setMarkActionPending((prev) => ({ ...prev, [recordId]: null }))
+        setSaveStatus((prev) => ({ ...prev, [recordId]: "idle" }))
+        setCorrectionDraft({ kind: "status", recordId, status })
+        setCorrectionReason("")
         return
       }
 
@@ -570,9 +625,6 @@ export default function SuperAdminStudentAttendancePage() {
     }
   }
 
-  const isAttendanceStatusFinal = (s: string) =>
-    s === "present" || s === "late" || s === "absent"
-
   const isStatusButtonDisabled = (
     record: AttendanceRecord,
     role: "present" | "late" | "absent"
@@ -609,69 +661,9 @@ export default function SuperAdminStudentAttendancePage() {
         return
       }
     }
-    try {
-      setSaveStatus((prev) => ({ ...prev, [recordId]: "saving" }))
-      const headers = getAttendanceAuthHeaders()
-      if (!headers) {
-        setError("Authentication required")
-        toast({
-          title: "Authentication required",
-          description: "Please log in again.",
-          variant: "destructive",
-        })
-        return
-      }
-      const attendanceData: Record<string, unknown> = {
-        user_id: record.student_id,
-        user_type: "student",
-        course_id: record.course_id,
-        branch_id: record.branch_id,
-        attendance_date: `${record.date}T10:00:00Z`,
-        status: record.status,
-        check_in_time: iso,
-        notes: record.notes || `Check-in time updated ${format(new Date(), "PPp")}`,
-      }
-      if (record.check_out_iso) {
-        attendanceData.check_out_time = record.check_out_iso
-      }
-      const response = await fetch(`/api/backend/attendance/mark`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(attendanceData),
-      })
-      if (!response.ok) {
-        const t = await response.text()
-        let detail = t || `Failed (${response.status})`
-        try {
-          const j = JSON.parse(t) as { detail?: string }
-          if (typeof j.detail === "string") detail = j.detail
-        } catch {
-          /* keep text */
-        }
-        throw new Error(detail)
-      }
-      setAttendanceRecords((prev) =>
-        prev.map((r) =>
-          r.id === recordId
-            ? {
-                ...r,
-                check_in_iso: iso,
-                check_in_time: formatTimeIST(iso),
-                admin_adjusted: true,
-              }
-            : r
-        )
-      )
-      setEditingCheckInId(null)
-      setSuccessMessage("Check-in time updated")
-      toast({ title: "Check-in saved", description: "Time updated successfully." })
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Failed to update check-in time"
-      setError(msg)
-      toast({ title: "Could not save check-in", description: msg, variant: "destructive" })
-    } finally {
-      setSaveStatus((prev) => ({ ...prev, [recordId]: "idle" }))
-    }
+    // M09-S05: require reason before persisting time correction
+    setCorrectionDraft({ kind: "check_in", recordId, iso })
+    setCorrectionReason("")
   }
 
   const handleUpdateCheckOutTime = async (recordId: string, draftLocal: string) => {
@@ -711,33 +703,74 @@ export default function SuperAdminStudentAttendancePage() {
       return
     }
 
+    // M09-S05: require reason before persisting time correction
+    setCorrectionDraft({ kind: "check_out", recordId, iso })
+    setCorrectionReason("")
+  }
+
+  const submitAttendanceCorrection = async () => {
+    if (!correctionDraft) return
+    const reason = correctionReason.trim()
+    if (reason.length < 3) {
+      toast({
+        title: "Reason required",
+        description: "Enter at least 3 characters explaining this correction.",
+        variant: "destructive",
+      })
+      return
+    }
+    const record = attendanceRecords.find((r) => r.id === correctionDraft.recordId)
+    if (!record) {
+      toast({
+        title: "Record not found",
+        description: "Refresh and try again.",
+        variant: "destructive",
+      })
+      return
+    }
+    const headers = getAttendanceAuthHeaders()
+    if (!headers) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in again.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const body: Record<string, unknown> = {
+      reason,
+      student_id: record.student_id,
+      course_id: record.course_id,
+      branch_id: record.branch_id,
+      attendance_date: `${record.date}T10:00:00Z`,
+    }
+    if (record.attendance_id) body.attendance_id = record.attendance_id
+
+    if (correctionDraft.kind === "status") {
+      body.status = correctionDraft.status
+      if (correctionDraft.status !== "absent") {
+        body.check_in_time =
+          record.check_in_iso || new Date().toISOString()
+        if (record.check_out_iso) body.check_out_time = record.check_out_iso
+      }
+    } else if (correctionDraft.kind === "check_in") {
+      body.status = record.status
+      body.check_in_time = correctionDraft.iso
+      if (record.check_out_iso) body.check_out_time = record.check_out_iso
+    } else {
+      body.status = record.status
+      body.check_in_time = record.check_in_iso
+      body.check_out_time = correctionDraft.iso
+    }
+
     try {
-      setSaveStatus((prev) => ({ ...prev, [recordId]: "saving" }))
-      const headers = getAttendanceAuthHeaders()
-      if (!headers) {
-        setError("Authentication required")
-        toast({
-          title: "Authentication required",
-          description: "Please log in again.",
-          variant: "destructive",
-        })
-        return
-      }
-      const attendanceData: Record<string, unknown> = {
-        user_id: record.student_id,
-        user_type: "student",
-        course_id: record.course_id,
-        branch_id: record.branch_id,
-        attendance_date: `${record.date}T10:00:00Z`,
-        status: record.status,
-        check_in_time: cinBase,
-        check_out_time: iso,
-        notes: record.notes || `Check-out time updated ${format(new Date(), "PPp")}`,
-      }
-      const response = await fetch(`/api/backend/attendance/mark`, {
+      setCorrectionSubmitting(true)
+      setSaveStatus((prev) => ({ ...prev, [record.id]: "saving" }))
+      const response = await fetch(`/api/backend/attendance/corrections`, {
         method: "POST",
         headers,
-        body: JSON.stringify(attendanceData),
+        body: JSON.stringify(body),
       })
       if (!response.ok) {
         const t = await response.text()
@@ -746,38 +779,72 @@ export default function SuperAdminStudentAttendancePage() {
           const j = JSON.parse(t) as { detail?: string }
           if (typeof j.detail === "string") detail = j.detail
         } catch {
-          /* keep text */
+          /* keep */
         }
         throw new Error(detail)
       }
-      const payload = await response.json().catch(() => null) as
-        | { action?: string; message?: string }
-        | null
-      setAttendanceRecords((prev) =>
-        prev.map((r) =>
-          r.id === recordId
+      const payload = (await response.json().catch(() => null)) as {
+        attendance_id?: string
+        after?: { status?: string; check_in_time?: string; check_out_time?: string }
+      } | null
+
+      const nextStatus =
+        correctionDraft.kind === "status"
+          ? correctionDraft.status
+          : record.status
+      const nextInIso =
+        correctionDraft.kind === "check_in"
+          ? correctionDraft.iso
+          : correctionDraft.kind === "status" && correctionDraft.status === "absent"
+            ? null
+            : correctionDraft.kind === "check_out"
+              ? record.check_in_iso
+              : correctionDraft.kind === "status"
+                ? record.check_in_iso || new Date().toISOString()
+                : record.check_in_iso
+      const nextOutIso =
+        correctionDraft.kind === "check_out"
+          ? correctionDraft.iso
+          : correctionDraft.kind === "status" && correctionDraft.status === "absent"
+            ? null
+            : record.check_out_iso
+
+      setAttendanceRecords((prev) => {
+        const next = prev.map((r) =>
+          r.id === record.id
             ? {
                 ...r,
-                check_out_iso: iso,
-                check_out_time: formatTimeIST(iso),
+                status: nextStatus,
+                attendance_id: payload?.attendance_id || r.attendance_id,
+                check_in_iso: nextInIso,
+                check_out_iso: nextOutIso,
+                check_in_time: nextInIso ? formatTimeIST(nextInIso) : undefined,
+                check_out_time: nextOutIso ? formatTimeIST(nextOutIso) : undefined,
                 admin_adjusted: true,
+                correction_reason: reason,
               }
             : r
         )
-      )
+        setAttendanceStats(computeAttendanceStats(next))
+        return next
+      })
+      setEditingCheckInId(null)
       setEditingCheckOutId(null)
-      setSuccessMessage("Check-out time updated")
+      setCorrectionDraft(null)
+      setCorrectionReason("")
+      setSuccessMessage("Attendance corrected")
       toast({
-        title: "Check-out saved",
-        description: payload?.message || "Check-out time updated successfully.",
+        title: "Correction saved",
+        description: "Change recorded with audit reason.",
       })
       void fetchAttendanceData({ silent: true })
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Failed to update check-out time"
+      const msg = e instanceof Error ? e.message : "Failed to correct attendance"
       setError(msg)
-      toast({ title: "Could not save check-out", description: msg, variant: "destructive" })
+      toast({ title: "Correction failed", description: msg, variant: "destructive" })
     } finally {
-      setSaveStatus((prev) => ({ ...prev, [recordId]: "idle" }))
+      setCorrectionSubmitting(false)
+      setSaveStatus((prev) => ({ ...prev, [record.id]: "idle" }))
     }
   }
 
@@ -1307,7 +1374,10 @@ export default function SuperAdminStudentAttendancePage() {
                                     <span className="text-gray-400 italic">Not recorded</span>
                                   )}
                                   {record.admin_adjusted && (
-                                    <span className="ml-2 text-[10px] uppercase tracking-wide text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+                                    <span
+                                      className="ml-2 text-[10px] uppercase tracking-wide text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded"
+                                      title={record.correction_reason || "Manually adjusted"}
+                                    >
                                       Adjusted
                                     </span>
                                   )}
@@ -1564,6 +1634,68 @@ export default function SuperAdminStudentAttendancePage() {
           </div>
         </div>
       </div>
+
+      <Dialog
+        open={!!correctionDraft}
+        onOpenChange={(open) => {
+          if (!open && !correctionSubmitting) {
+            setCorrectionDraft(null)
+            setCorrectionReason("")
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm attendance correction</DialogTitle>
+            <DialogDescription>
+              A reason is required so this change is audited. First-time marking does not need this step.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-slate-600">
+              {correctionDraft?.kind === "status"
+                ? `Change status to “${correctionDraft.status}”.`
+                : correctionDraft?.kind === "check_in"
+                  ? "Update check-in time."
+                  : correctionDraft?.kind === "check_out"
+                    ? "Update check-out time."
+                    : null}
+            </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="correction-reason">Reason</Label>
+              <Textarea
+                id="correction-reason"
+                rows={3}
+                placeholder="e.g. Student arrived late; biometric punch missed"
+                value={correctionReason}
+                onChange={(e) => setCorrectionReason(e.target.value)}
+                disabled={correctionSubmitting}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={correctionSubmitting}
+              onClick={() => {
+                setCorrectionDraft(null)
+                setCorrectionReason("")
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              disabled={correctionSubmitting || correctionReason.trim().length < 3}
+              onClick={() => void submitAttendanceCorrection()}
+            >
+              {correctionSubmitting ? "Saving…" : "Save correction"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

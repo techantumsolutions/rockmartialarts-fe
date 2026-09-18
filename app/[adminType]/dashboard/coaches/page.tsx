@@ -37,6 +37,7 @@ interface Coach {
   areas_of_expertise: string[]
   full_name: string
   is_active: boolean
+  approval_status?: string | null
   created_at: string
 }
 
@@ -289,6 +290,20 @@ const paginatedCoaches = filteredCoaches.slice(
           <h1 className="text-2xl font-bold text-[#4F5077]">Coach list</h1>
           <div className="flex space-x-3">
             <Button
+              onClick={() => router.push(`${basePath}/coach-approvals`)}
+              variant="outline"
+              className="border-[#4F5077] text-[#4F5077] px-4 py-2 rounded-lg font-medium"
+            >
+              Coach Approvals
+            </Button>
+            <Button
+              onClick={() => router.push(`${basePath}/coach-availability`)}
+              variant="outline"
+              className="border-[#4F5077] text-[#4F5077] px-4 py-2 rounded-lg font-medium"
+            >
+              Availability
+            </Button>
+            <Button
               onClick={() => router.push(`${basePath}/add-coach`)}
               className="bg-yellow-400 hover:bg-yellow-500 text-white px-6 py-2 rounded-lg font-medium"
             >
@@ -328,25 +343,26 @@ const paginatedCoaches = filteredCoaches.slice(
                     <th className="text-left py-4 px-4 font-medium text-[#6B7A99] text-sm">Coach Name</th>
                     <th className="text-left py-4 px-4 font-medium text-[#6B7A99] text-sm">Designation</th>
                     <th className="text-left py-4 px-4 font-medium text-[#6B7A99] text-sm">Phone Number</th>
+                    <th className="text-left py-4 px-4 font-medium text-[#6B7A99] text-sm">Approval</th>
                     <th className="text-left py-4 px-4 font-medium text-[#6B7A99] text-sm">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={4} className="py-8 px-6 text-center text-gray-500">
+                      <td colSpan={5} className="py-8 px-6 text-center text-gray-500">
                         Loading coaches...
                       </td>
                     </tr>
                   ) : error ? (
                     <tr>
-                      <td colSpan={4} className="py-8 px-6 text-center text-red-500">
+                      <td colSpan={5} className="py-8 px-6 text-center text-red-500">
                         Error: {error}
                       </td>
                     </tr>
                   ) : filteredCoaches.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="py-8 px-6 text-center text-gray-500">
+                      <td colSpan={5} className="py-8 px-6 text-center text-gray-500">
                         {searchTerm ? `No coaches found matching "${searchTerm}"` : 'No coaches found'}
                       </td>
                     </tr>
@@ -356,6 +372,22 @@ const paginatedCoaches = filteredCoaches.slice(
                         <td className="py-4 px-6 ">{coach.full_name}</td>
                         <td className="py-4 px-6">{coach.professional_info.designation_id}</td>
                         <td className="py-4 px-6">{coach.contact_info.phone}</td>
+                        <td className="py-4 px-6">
+                          <Badge
+                            variant="outline"
+                            className={
+                              (coach.approval_status || "approved") === "pending"
+                                ? "bg-amber-50 text-amber-900 border-amber-200"
+                                : (coach.approval_status || "approved") === "rejected"
+                                  ? "bg-red-50 text-red-800 border-red-200"
+                                  : "bg-green-50 text-green-800 border-green-200"
+                            }
+                          >
+                            {(coach.approval_status || "approved").replace(/^\w/, (c) =>
+                              c.toUpperCase()
+                            )}
+                          </Badge>
+                        </td>
                         <td className="py-4 px-6">
                           <div className="flex items-center space-x-2">
                             <Button

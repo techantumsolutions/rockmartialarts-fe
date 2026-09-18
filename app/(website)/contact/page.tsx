@@ -95,6 +95,12 @@ export default function ContactPage() {
             <p className="text-gray-200 text-lg">
               Find a Rock Martial Arts branch near you. Visit us to begin your martial arts journey.
             </p>
+            <Link
+              href="/request-callback"
+              className="inline-block mt-6 rounded-[10px] bg-[#FFB70F] px-5 py-3.5 text-base font-medium text-black transition-colors hover:bg-[#F73322] hover:text-white"
+            >
+              Request a callback
+            </Link>
           </div>
         </div>
       </section>

@@ -1,341 +1,409 @@
 "use client"
-import DashboardHeader from "@/components/dashboard-header"
+
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { useParams, usePathname, useRouter } from "next/navigation"
+import { format, subDays } from "date-fns"
+import {
+  ArrowLeft,
+  CalendarIcon,
+  Download,
+  Loader2,
+  RefreshCw,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Bell, Search, ChevronDown, MoreHorizontal, ChevronLeft, ChevronRight } from "lucide-react"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useRouter, useParams } from "next/navigation"
-import { useState } from "react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar as CalendarComponent } from "@/components/ui/calendar"
+import { toast } from "sonner"
+import { getBackendApiUrl } from "@/lib/config"
+import { TokenManager } from "@/lib/tokenManager"
+import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
+
+interface AttendanceRow {
+  id: string
+  attendance_date: string
+  course_name?: string
+  branch_name?: string
+  status?: string
+  is_present?: boolean
+  check_in_time?: string
+  check_out_time?: string
+  method?: string
+  notes?: string
+}
+
+function authHeaders(): HeadersInit {
+  const token = BranchManagerAuth.getToken() || TokenManager.getToken()
+  return {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+    "Cache-Control": "no-cache",
+  }
+}
+
+function resolveStatus(row: AttendanceRow) {
+  const s = String(row.status || "").toLowerCase()
+  if (s === "present" || s === "absent" || s === "late") return s
+  return row.is_present ? "present" : "absent"
+}
 
 export default function StudentAttendanceDetailPage() {
   const router = useRouter()
   const params = useParams()
-  const [currentMonth, setCurrentMonth] = useState("May - 2025")
+  const pathname = usePathname() ?? ""
+  const adminBase = useDashboardBasePath()
+  const basePath = pathname.startsWith("/branch-manager-dashboard")
+    ? "/branch-manager-dashboard"
+    : adminBase
+  const studentId = String(params?.id || "")
 
-  // Sample student data based on ID
-  const studentData = {
-    name: "Shaolin Xiao Hong Chuan",
-    studentName: "Suman",
-    age: "14 years",
-    gender: "Male",
-    courseName: "Kung fu",
-    courseDuration: "6 months",
-    coach: "Mohan Kumar",
-    branchLocation: "Madhapur",
-    subscription: "Monthly",
-    contactNumbers: "9848123456",
-    dateOfJoining: "01/05/2025",
-    dueDate: "01/06/2025",
-    totalDays: 75,
-    totalDaysPresent: 63,
-    lateComings: 12,
-    attendancePercentage: 86.7,
-    monthlyTotalDays: 28,
-    monthlyPresent: 25,
-    monthlyLateComings: 2,
-    monthlyPercentage: 94,
+  const [loading, setLoading] = useState(true)
+  const [studentName, setStudentName] = useState("Student")
+  const [rows, setRows] = useState<AttendanceRow[]>([])
+  const [corrections, setCorrections] = useState<any[]>([])
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [startDate, setStartDate] = useState<Date>(subDays(new Date(), 30))
+  const [endDate, setEndDate] = useState<Date>(new Date())
+  const [startOpen, setStartOpen] = useState(false)
+  const [endOpen, setEndOpen] = useState(false)
+
+  const load = useCallback(async () => {
+    if (!studentId) return
+    const token = BranchManagerAuth.getToken() || TokenManager.getToken()
+    if (!token) {
+      router.push("/login")
+      return
+    }
+    try {
+      setLoading(true)
+      const paramsQs = new URLSearchParams({
+        student_id: studentId,
+        start_date: format(startDate, "yyyy-MM-dd"),
+        end_date: format(endDate, "yyyy-MM-dd"),
+      })
+      if (statusFilter !== "all") paramsQs.set("status", statusFilter)
+
+      const [reportsRes, studentRes, corrRes] = await Promise.all([
+        fetch(getBackendApiUrl(`attendance/reports?${paramsQs.toString()}`), {
+          headers: authHeaders(),
+          cache: "no-store",
+        }),
+        fetch(getBackendApiUrl(`users/${studentId}`), {
+          headers: authHeaders(),
+          cache: "no-store",
+        }).catch(() => null),
+        fetch(
+          getBackendApiUrl(
+            `attendance/corrections?student_id=${encodeURIComponent(studentId)}&limit=20`
+          ),
+          { headers: authHeaders(), cache: "no-store" }
+        ).catch(() => null),
+      ])
+
+      if (!reportsRes.ok) {
+        const text = await reportsRes.text()
+        throw new Error(text || `Failed (${reportsRes.status})`)
+      }
+      const data = await reportsRes.json()
+      setRows(data.attendance_records || [])
+
+      if (corrRes && corrRes.ok) {
+        const cdata = await corrRes.json()
+        setCorrections(cdata.corrections || [])
+      } else {
+        setCorrections([])
+      }
+
+      if (studentRes && studentRes.ok) {
+        const user = await studentRes.json()
+        const u = user.user || user
+        setStudentName(
+          u.full_name ||
+            [u.first_name, u.last_name].filter(Boolean).join(" ") ||
+            "Student"
+        )
+      } else if ((data.attendance_records || [])[0]?.student_name) {
+        setStudentName(data.attendance_records[0].student_name)
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to load history")
+      setRows([])
+    } finally {
+      setLoading(false)
+    }
+  }, [studentId, startDate, endDate, statusFilter, router])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  const counts = useMemo(() => {
+    let present = 0
+    let absent = 0
+    let late = 0
+    for (const r of rows) {
+      const s = resolveStatus(r)
+      if (s === "present") present += 1
+      else if (s === "absent") absent += 1
+      else if (s === "late") late += 1
+    }
+    const total = rows.length
+    const pct = total ? Math.round((present / total) * 1000) / 10 : 0
+    return { present, absent, late, total, pct }
+  }, [rows])
+
+  const exportCsv = () => {
+    const headers = [
+      "Date",
+      "Course",
+      "Branch",
+      "Status",
+      "Check-in",
+      "Check-out",
+      "Method",
+      "Notes",
+    ]
+    const lines = rows.map((r) =>
+      [
+        r.attendance_date,
+        r.course_name,
+        r.branch_name,
+        resolveStatus(r),
+        r.check_in_time,
+        r.check_out_time,
+        r.method,
+        r.notes,
+      ]
+        .map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`)
+        .join(",")
+    )
+    const blob = new Blob([[headers.join(","), ...lines].join("\n")], {
+      type: "text/csv",
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `student_attendance_${studentId}_${format(new Date(), "yyyyMMdd")}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
-  const attendanceData = [
-    {
-      date: "Thurs day, 1 may 2025",
-      status: "Status",
-      scheduled: "9 am - 6 pm",
-      shift: "9 hr Shift: A",
-      checkIn: "8:30 AM",
-      checkOut: "5:30 PM",
-      workedHours: "9 hr 00 min",
-      difference: "00",
-    },
-    {
-      date: "Thurs day, 1 may 2025",
-      status: "Status",
-      scheduled: "9 am - 6 pm",
-      shift: "9 hr Shift: A",
-      checkIn: "8:55 AM",
-      checkOut: "5:00 PM",
-      workedHours: "8 hr 50 min",
-      difference: "-10 min",
-      isLate: true,
-      isEarlyOut: true,
-    },
-  ]
-
   return (
-    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
-      {/* Header Navigation */}
-            <DashboardHeader currentPage="Student Attendance" />
-      <main className="w-full p-4 lg:px-8 overflow-x-hidden">
-        {/* Page Header */}
-                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
-                  <h1 className="text-2xl font-bold text-[#0A1629]">Student Attendance</h1>
-                  <div className="flex flex-wrap gap-2 lg:gap-3">
-                    <Button className="bg-yellow-400 hover:bg-yellow-500 text-white text-sm">Send Alerts</Button>
-                    <Button variant="outline" className="text-sm bg-transparent text-[#5A6ACF]">
-                      View Report
-                    </Button>
-                    <Button variant="outline" className="text-sm flex items-center space-x-2 bg-transparent text-[#5A6ACF]">
-                      <span>📥</span>
-                      <span>Download attendance sheet</span>
-                    </Button>
-                  </div>
-                </div>
-
-
-        <div className="flex flex-col gap-6 mb-6">
-          {/* Student Profile Card */} {/* Attendance Overview Card */}
-          <Card className="">
-            <CardContent className="">
-         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
-          <h2 className="text-xl font-semibold text-[#0A1629]">Attendance Overview</h2>
-          <div className="flex gap-2">
-            <Select defaultValue="2023-2024">
-              <SelectTrigger className="w-32 bg-[#F5F4F9] text-[#777777]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="2023-2024">2023-2024</SelectItem>
-                <SelectItem value="2024-2025">2024-2025</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select defaultValue="annual">
-              <SelectTrigger className="w-24 bg-[#F5F4F9] text-[#777777]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="annual">Annual</SelectItem>
-                <SelectItem value="monthly">Monthly</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>           
-       
-          <div className="flex flex-row gap-8 justify-center">
-              <div className="relative w-full">
-                <img
-                  src="/young-martial-arts-student-practicing.jpg"
-                  alt="Student"
-                  className="w-full h-76 object-cover rounded-lg"
-                />
-                <div className="absolute bottom-5 left-16">
-                  <Badge className="bg-yellow-400 text-black font-semibold px-3 py-1">{studentData.name}</Badge>
-                </div>
-              </div>
-
-                <div className="w-full">
-                  <h3 className="font-semibold text-[#6B7A99] mb-4">Personal Details:</h3>
-                  <div className="flex flex-col gap-4 text-sm text-[#333333]">
-                    <div className="flex justify-between">
-                      <span className="">Student Name</span>
-                      <span>{studentData.studentName}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="">Age:</span>
-                      <span>{studentData.age}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="">Gender</span>
-                      <span>{studentData.gender}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="">Course Name</span>
-                      <span>{studentData.courseName}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="">Course duration</span>
-                      <span>{studentData.courseDuration}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="">Coach:</span>
-                      <span>{studentData.coach}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="">Branch Location:</span>
-                      <span>{studentData.branchLocation}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="w-full">
-                  <h3 className="font-semibold text-[#6B7A99] mb-4">Registration Details</h3>
-                  <div className="flex flex-col gap-4 text-sm text-[#333333]">
-                    <div className="flex justify-between">
-                      <span className="">Subscription:</span>
-                      <span>{studentData.subscription}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="">Contact numbers</span>
-                      <span>{studentData.contactNumbers}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="">Date of joining</span>
-                      <span>{studentData.dateOfJoining}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="">Due Date:</span>
-                      <span className="text-[#FF0000]">{studentData.dueDate}</span>
-                    </div>
-                  </div>
-                </div>
-                 <div className="grid grid-cols-2 lg:grid-cols-2 gap-4 w-full">
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-blue-600">{studentData.totalDays}</div>
-                  <div className="text-sm text-gray-600">Total Days</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-purple-600">{studentData.totalDaysPresent}</div>
-                  <div className="text-sm text-gray-600">Total days Present</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-red-600">{studentData.lateComings}</div>
-                  <div className="text-sm text-gray-600">Late Comings</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-green-600">{studentData.attendancePercentage}%</div>
-                  <div className="text-sm text-gray-600">Attendance Percentage</div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-            </CardContent>
-          </Card>
+    <main className="w-full p-4 lg:px-8 mx-auto max-w-5xl space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <Button
+            variant="ghost"
+            className="mb-2 -ml-2 text-slate-600"
+            onClick={() => router.push(`${basePath}/attendance/reports`)}
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back to reports
+          </Button>
+          <h1 className="text-2xl font-bold text-gray-900">{studentName}</h1>
+          <p className="text-sm text-gray-600">Attendance history</p>
         </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={load} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <Button variant="outline" onClick={exportCsv} disabled={!rows.length}>
+            <Download className="h-4 w-4 mr-1" />
+            CSV
+          </Button>
+          <Button
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+            onClick={() =>
+              router.push(
+                `${basePath}/attendance/reports?student_id=${encodeURIComponent(studentId)}`
+              )
+            }
+          >
+            Open in reports
+          </Button>
+        </div>
+      </div>
 
-        {/* Attendance Table */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card>
-          <CardContent className="py-6">
-             {/* Statistics Cards */}
-          <div className="lg:col-span-2 space-y-6">
-           
-
-            {/* Monthly Navigation */}
-            <div className="flex justify-between items-center border-b border-gray-200 pb-4">
-              <div className="flex items-center space-x-4 border-r border-gray-200 w-full">
-                <Button variant="ghost" size="sm" onClick={() => setCurrentMonth("April - 2025")}>
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
-                <h3 className="text-lg font-semibold">{currentMonth}</h3>
-                <Button variant="ghost" size="sm" onClick={() => setCurrentMonth("June - 2025")}>
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </div>
-              <div className="flex w-full justify-end gap-8"> 
-                <Button variant="outline" size="sm" className="text-[#5A6ACF]">
-                  View Report
-                </Button>
-                <div className="flex gap-8 items-center">
-                  <span className="text-sm">Filter by:</span>
-                  <Select defaultValue="jan-2025">
-                      <SelectTrigger className="w-24 h-8 bg-[#F1F1F1] text-[#9593A8]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="jan-2025">Jan 2025</SelectItem>
-                      <SelectItem value="feb-2025">Feb 2025</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select defaultValue="june-2025">
-                    <SelectTrigger className="w-24 h-8 bg-[#F1F1F1] text-[#9593A8]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="june-2025">June 2025</SelectItem>
-                      <SelectItem value="july-2025">July 2025</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-
-            {/* Monthly Statistics */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 border-b border-gray-200 pb-4">
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-blue-600">{studentData.monthlyTotalDays}</div>
-                  <div className="text-sm text-gray-600">Total Days</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-purple-600">{studentData.monthlyPresent}</div>
-                  <div className="text-sm text-gray-600">Total days Present</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-red-600">{studentData.monthlyLateComings}</div>
-                  <div className="text-sm text-gray-600">Late Comings</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-green-600">{studentData.monthlyPercentage}%</div>
-                  <div className="text-sm text-gray-600">Attendance Percentage</div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-gray-50">
-                    <th className="text-left py-3 px-2 font-medium">Date</th>
-                    <th className="text-left py-3 px-2 font-medium">Status</th>
-                    <th className="text-left py-3 px-2 font-medium">Scheduled</th>
-                    <th className="text-left py-3 px-2 font-medium">Check in</th>
-                    <th className="text-left py-3 px-2 font-medium">Check out</th>
-                    <th className="text-left py-3 px-2 font-medium">Worked hours</th>
-                    <th className="text-left py-3 px-2 font-medium">Difference</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {attendanceData.map((record, index) => (
-                    <tr key={index} className="border-b hover:bg-gray-50 text-[#8D8D8D]">
-                      <td className="py-3 px-2">{record.date}</td>
-                      <td className="py-3 px-2">{record.status}</td>
-                      <td className="py-3 px-2">
-                        <div>
-                          <div>{record.scheduled}</div>
-                          <div className="text-xs text-gray-500">{record.shift}</div>
-                        </div>
-                      </td>
-                      <td className="py-3 px-2">
-                        <div className="flex items-center space-x-2">
-                          <span>{record.checkIn}</span>
-                          {record.isLate && <Badge className="bg-[#FF0000] text-white rounded text-xs">Late Coming</Badge>}
-                        </div>
-                      </td>
-                      <td className="py-3 px-2">
-                        <div className="flex items-center space-x-2">
-                          <span>{record.checkOut}</span>
-                          {record.isEarlyOut && <Badge className="bg-[#FFB8C9] text-white rounded text-xs">Early Out</Badge>}
-                        </div>
-                      </td>
-                      <td className="py-3 px-2">{record.workedHours}</td>
-                      <td className="py-3 px-2">
-                        <span className={record.difference.includes("-") ? "text-red-600" : "text-gray-900"}>
-                          {record.difference}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <CardContent className="pt-4">
+            <p className="text-xs text-slate-500">Records</p>
+            <p className="text-2xl font-semibold">{counts.total}</p>
           </CardContent>
         </Card>
-      </main>
-    </div>
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-xs text-slate-500">Present</p>
+            <p className="text-2xl font-semibold text-green-700">{counts.present}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-xs text-slate-500">Absent / Late</p>
+            <p className="text-2xl font-semibold text-amber-700">
+              {counts.absent + counts.late}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-xs text-slate-500">Attendance %</p>
+            <p className="text-2xl font-semibold text-blue-700">{counts.pct}%</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Filters</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <Popover open={startOpen} onOpenChange={setStartOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="justify-start font-normal">
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {format(startDate, "PPP")}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <CalendarComponent
+                mode="single"
+                selected={startDate}
+                onSelect={(d) => {
+                  if (d) setStartDate(d)
+                  setStartOpen(false)
+                }}
+              />
+            </PopoverContent>
+          </Popover>
+          <Popover open={endOpen} onOpenChange={setEndOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="justify-start font-normal">
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {format(endDate, "PPP")}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <CalendarComponent
+                mode="single"
+                selected={endDate}
+                onSelect={(d) => {
+                  if (d) setEndDate(d)
+                  setEndOpen(false)
+                }}
+              />
+            </PopoverContent>
+          </Popover>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="present">Present</SelectItem>
+              <SelectItem value="absent">Absent</SelectItem>
+              <SelectItem value="late">Late</SelectItem>
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">History</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex items-center justify-center py-16 text-slate-500">
+              <Loader2 className="h-6 w-6 animate-spin mr-2" />
+              Loading…
+            </div>
+          ) : rows.length === 0 ? (
+            <p className="text-center py-12 text-slate-500">
+              No attendance records in this date range.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {rows.map((r) => {
+                const st = resolveStatus(r)
+                return (
+                  <div
+                    key={r.id || `${r.attendance_date}-${r.course_name}`}
+                    className="rounded-lg border border-slate-100 px-3 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
+                  >
+                    <div>
+                      <p className="font-medium text-slate-900">
+                        {r.attendance_date
+                          ? format(new Date(r.attendance_date), "EEE, dd MMM yyyy")
+                          : "—"}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {r.course_name || "Course"} · {r.branch_name || "Branch"}
+                        {r.method ? ` · ${r.method}` : ""}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm">
+                      <Badge
+                        className={
+                          st === "present"
+                            ? "bg-green-100 text-green-800 hover:bg-green-100"
+                            : st === "late"
+                              ? "bg-amber-100 text-amber-900 hover:bg-amber-100"
+                              : "bg-red-100 text-red-800 hover:bg-red-100"
+                        }
+                      >
+                        {st}
+                      </Badge>
+                      <span className="text-slate-600">
+                        {r.check_in_time
+                          ? format(new Date(r.check_in_time), "hh:mm a")
+                          : "—"}
+                        {" – "}
+                        {r.check_out_time
+                          ? format(new Date(r.check_out_time), "hh:mm a")
+                          : "—"}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {corrections.length > 0 ? (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Correction audit</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {corrections.map((c) => (
+              <div
+                key={c.id}
+                className="rounded-lg border border-amber-100 bg-amber-50/60 px-3 py-2"
+              >
+                <p className="font-medium text-slate-800">
+                  {c.reason || c.action || "Correction"}
+                </p>
+                <p className="text-xs text-slate-600 mt-0.5">
+                  {c.admin_name || c.admin_id || "Admin"}
+                  {c.created_at
+                    ? ` · ${format(new Date(c.created_at), "dd MMM yyyy, hh:mm a")}`
+                    : ""}
+                  {c.before?.status || c.after?.status
+                    ? ` · ${c.before?.status || "—"} → ${c.after?.status || "—"}`
+                    : ""}
+                </p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
+    </main>
   )
 }

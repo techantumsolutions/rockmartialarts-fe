@@ -19,7 +19,7 @@ import {
   RefreshCw
 } from "lucide-react"
 import Header from "@/components/layout/Header"
-import { studentAPI } from "@/lib/studentAPI"
+import { reportsAPI } from "@/lib/reportsAPI"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { toast } from "sonner"
 
@@ -102,9 +102,11 @@ export default function BranchManagerStudentReports() {
 
   // Student search specific state (same as superadmin)
   const [searchLoading, setSearchLoading] = useState(false)
+  const [exportLoading, setExportLoading] = useState(false)
   const [studentResults, setStudentResults] = useState<any[]>([])
   const [hasSearched, setHasSearched] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const [studentExportFormat, setStudentExportFormat] = useState<"csv" | "excel">("csv")
 
   // Custom date range state
   const [customStartDate, setCustomStartDate] = useState("")
@@ -250,6 +252,75 @@ export default function BranchManagerStudentReports() {
   }, [])
 
   // Student search function (same as superadmin)
+  const buildStudentReportFilters = () => {
+    const searchParams: Record<string, string | boolean | number> = {}
+
+    if (searchQuery && searchQuery.trim().length >= 2) {
+      searchParams.q = searchQuery.trim()
+    }
+
+    if (filters.branch_id && filters.branch_id !== 'all') {
+      searchParams.branch_id = filters.branch_id
+    }
+
+    if (filters.course_id && filters.course_id !== 'all') {
+      searchParams.course_id = filters.course_id
+    }
+
+    if (filters.status && filters.status !== 'all') {
+      searchParams.is_active = filters.status === 'active'
+    }
+
+    if (filters.date_range && filters.date_range !== 'all') {
+      if (filters.date_range === 'custom') {
+        if (customStartDate) searchParams.start_date = customStartDate
+        if (customEndDate) searchParams.end_date = customEndDate
+      } else {
+        const now = new Date()
+        let startDate: Date | null = null
+        let endDate: Date | null = null
+
+        switch (filters.date_range) {
+          case 'current-month':
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+            endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+            break
+          case 'last-month':
+            startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+            endDate = new Date(now.getFullYear(), now.getMonth(), 0)
+            break
+          case 'current-quarter': {
+            const currentQuarter = Math.floor(now.getMonth() / 3)
+            startDate = new Date(now.getFullYear(), currentQuarter * 3, 1)
+            endDate = new Date(now.getFullYear(), (currentQuarter + 1) * 3, 0)
+            break
+          }
+          case 'last-quarter': {
+            const lastQuarter = Math.floor(now.getMonth() / 3) - 1
+            const lastQuarterYear = lastQuarter < 0 ? now.getFullYear() - 1 : now.getFullYear()
+            const adjustedQuarter = lastQuarter < 0 ? 3 : lastQuarter
+            startDate = new Date(lastQuarterYear, adjustedQuarter * 3, 1)
+            endDate = new Date(lastQuarterYear, (adjustedQuarter + 1) * 3, 0)
+            break
+          }
+          case 'current-year':
+            startDate = new Date(now.getFullYear(), 0, 1)
+            endDate = new Date(now.getFullYear(), 11, 31)
+            break
+          case 'last-year':
+            startDate = new Date(now.getFullYear() - 1, 0, 1)
+            endDate = new Date(now.getFullYear() - 1, 11, 31)
+            break
+        }
+
+        if (startDate) searchParams.start_date = startDate.toISOString()
+        if (endDate) searchParams.end_date = endDate.toISOString()
+      }
+    }
+
+    return searchParams
+  }
+
   const handleStudentSearch = async () => {
     const authToken = BranchManagerAuth.getToken()
     if (!authToken) {
@@ -261,106 +332,69 @@ export default function BranchManagerStudentReports() {
     setSearchLoading(true)
 
     try {
-      // Build search parameters
-      const searchParams: any = {}
-
-      // Add text search query if provided
-      if (searchQuery && searchQuery.trim().length >= 2) {
-        searchParams.q = searchQuery.trim()
-      }
-
-      // Add filter parameters
-      if (filters.branch_id && filters.branch_id !== 'all') {
-        searchParams.branch_id = filters.branch_id
-      }
-
-      if (filters.course_id && filters.course_id !== 'all') {
-        searchParams.course_id = filters.course_id
-      }
-
-      if (filters.status && filters.status !== 'all') {
-        searchParams.status = filters.status
-      }
-
-      // Handle date range filters
-      if (filters.date_range && filters.date_range !== 'all') {
-        if (filters.date_range === 'custom') {
-          if (customStartDate) searchParams.start_date = customStartDate
-          if (customEndDate) searchParams.end_date = customEndDate
-        } else {
-          // Handle predefined date ranges
-          const now = new Date()
-          let startDate: Date | null = null
-          let endDate: Date | null = null
-
-          switch (filters.date_range) {
-            case 'current-month':
-              startDate = new Date(now.getFullYear(), now.getMonth(), 1)
-              endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-              break
-            case 'last-month':
-              startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-              endDate = new Date(now.getFullYear(), now.getMonth(), 0)
-              break
-            case 'current-quarter':
-              const currentQuarter = Math.floor(now.getMonth() / 3)
-              startDate = new Date(now.getFullYear(), currentQuarter * 3, 1)
-              endDate = new Date(now.getFullYear(), (currentQuarter + 1) * 3, 0)
-              break
-            case 'last-quarter':
-              const lastQuarter = Math.floor(now.getMonth() / 3) - 1
-              const lastQuarterYear = lastQuarter < 0 ? now.getFullYear() - 1 : now.getFullYear()
-              const adjustedQuarter = lastQuarter < 0 ? 3 : lastQuarter
-              startDate = new Date(lastQuarterYear, adjustedQuarter * 3, 1)
-              endDate = new Date(lastQuarterYear, (adjustedQuarter + 1) * 3, 0)
-              break
-            case 'current-year':
-              startDate = new Date(now.getFullYear(), 0, 1)
-              endDate = new Date(now.getFullYear(), 11, 31)
-              break
-            case 'last-year':
-              startDate = new Date(now.getFullYear() - 1, 0, 1)
-              endDate = new Date(now.getFullYear() - 1, 11, 31)
-              break
-          }
-
-          if (startDate) searchParams.start_date = startDate.toISOString().split('T')[0]
-          if (endDate) searchParams.end_date = endDate.toISOString().split('T')[0]
-        }
+      const searchParams: any = {
+        ...buildStudentReportFilters(),
+        skip: 0,
+        limit: 100,
       }
 
       console.log('Student search params:', searchParams)
 
-      // Call the student search API (using BranchManagerAuth token)
-      const response = await studentAPI.searchStudents(authToken, searchParams)
+      const response = await reportsAPI.listStudentReportRows(authToken, searchParams)
 
       console.log('Student search response:', response)
 
       const students = response.students || []
       setStudentResults(students)
 
+      const total = typeof response.total === 'number' ? response.total : students.length
       const searchMessage = searchQuery
-        ? `Found ${students.length} student${students.length !== 1 ? 's' : ''} matching "${searchQuery}"`
-        : `Found ${students.length} student${students.length !== 1 ? 's' : ''}`
+        ? `Found ${total} student${total !== 1 ? 's' : ''} matching "${searchQuery}"`
+        : `Found ${total} student${total !== 1 ? 's' : ''}`
 
       toast.success(searchMessage)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error searching students:', error)
-
-      // Show error message
-      toast.error('Failed to search students. Please try again.')
-
-      // Clear results on error
+      toast.error(error?.message || 'Failed to search students. Please try again.')
       setStudentResults([])
     } finally {
       setSearchLoading(false)
     }
   }
 
+  const handleExportStudents = async () => {
+    const authToken = BranchManagerAuth.getToken()
+    if (!authToken) {
+      toast.error('Authentication required')
+      return
+    }
+
+    setExportLoading(true)
+    try {
+      const result = await reportsAPI.exportStudentReports(
+        { ...buildStudentReportFilters(), format: studentExportFormat } as any,
+        authToken
+      )
+      toast.success(
+        result.total > 0
+          ? `Downloaded ${result.total} student${result.total === 1 ? '' : 's'} (${result.filename})`
+          : `Downloaded empty report (${result.filename})`
+      )
+    } catch (error: any) {
+      console.error('Student export error:', error)
+      toast.error(error?.message || 'Failed to export student report')
+    } finally {
+      setExportLoading(false)
+    }
+  }
+
   // Handle view student details (same as superadmin)
   const handleViewStudentDetails = (studentId: string) => {
-    // Navigate to student details page or show modal
-    toast.info('Student details view coming soon!')
+    if (!studentId) {
+      toast.error('Student ID not available')
+      return
+    }
+    router.push(`/branch-manager-dashboard/students/${studentId}`)
   }
 
   if (!currentBranchManager || !token) {
@@ -415,10 +449,15 @@ export default function BranchManagerStudentReports() {
                 variant="outline"
                 size="sm"
                 className="flex items-center gap-2"
-                onClick={() => toast.info('Export functionality coming soon!')}
+                onClick={handleExportStudents}
+                disabled={exportLoading || searchLoading}
               >
-                <Download className="w-4 h-4" />
-                Export
+                {exportLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                {exportLoading ? 'Exporting...' : `Export ${studentExportFormat === 'excel' ? 'Excel' : 'CSV'}`}
               </Button>
             </div>
           </div>
@@ -598,25 +637,59 @@ export default function BranchManagerStudentReports() {
                 </div>
               )}
 
-              {/* Search Button */}
-              <div className="flex justify-end">
-                <Button
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-6"
-                  onClick={handleStudentSearch}
-                  disabled={searchLoading}
-                >
-                  {searchLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Searching...
-                    </>
-                  ) : (
-                    <>
-                      <Search className="w-4 h-4 mr-2" />
-                      Search Students
-                    </>
-                  )}
-                </Button>
+              {/* Search + Export format */}
+              <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                <div className="w-full sm:w-48">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Export Format</label>
+                  <Select
+                    value={studentExportFormat}
+                    onValueChange={(value) => setStudentExportFormat(value as "csv" | "excel")}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="csv">CSV</SelectItem>
+                      <SelectItem value="excel">Excel</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={handleExportStudents}
+                    disabled={exportLoading || searchLoading}
+                  >
+                    {exportLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Exporting...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-4 h-4 mr-2" />
+                        Export {studentExportFormat === 'excel' ? 'Excel' : 'CSV'}
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6"
+                    onClick={handleStudentSearch}
+                    disabled={searchLoading}
+                  >
+                    {searchLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Searching...
+                      </>
+                    ) : (
+                      <>
+                        <Search className="w-4 h-4 mr-2" />
+                        Search Students
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

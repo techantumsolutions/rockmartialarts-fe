@@ -204,6 +204,7 @@ export default function PaymentPage() {
         phone: paymentPhoneE164,
         course: paymentInfo.course_name || registrationData.course_name || "",
         source: "registration_payment",
+        source_type: "registration_payment",
       })
 
       const orderRes = await fetch("/api/create-order", {

@@ -1,5 +1,6 @@
 import StudentRouteGuard from "@/components/student-route-guard"
 import { StudentDashboardSonner } from "@/components/student-dashboard-sonner"
+import StudentPromotionPopup from "@/components/promotions/StudentPromotionPopup"
 
 export default function StudentDashboardLayout({
   children,
@@ -9,6 +10,7 @@ export default function StudentDashboardLayout({
   return (
     <StudentRouteGuard>
       <StudentDashboardSonner />
+      <StudentPromotionPopup />
       {children}
     </StudentRouteGuard>
   )

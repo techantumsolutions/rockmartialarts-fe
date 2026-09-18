@@ -89,6 +89,11 @@ export async function POST(req: NextRequest) {
       success: true,
       message: data?.message ?? 'Payment verified successfully',
       payment_id: data?.payment_id,
+      invoice_id: data?.invoice_id,
+      invoice_number: data?.invoice_number,
+      is_renewal: data?.is_renewal === true,
+      new_end_date: data?.new_end_date ?? null,
+      prior_end_date: data?.prior_end_date ?? null,
     })
   } catch (error) {
     console.error('Error verifying payment:', error)

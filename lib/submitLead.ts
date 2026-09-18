@@ -8,8 +8,14 @@ export async function submitLead(payload: {
   phone: string
   course?: string
   source?: string
+  source_type?: string
+  source_ref_id?: string
+  source_ref_type?: string
+  branch_id?: string
+  branch_name?: string
 }): Promise<boolean> {
   try {
+    const source = payload.source?.trim() || undefined
     const res = await fetch("/api/backend/leads", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -18,7 +24,12 @@ export async function submitLead(payload: {
         email: payload.email.trim().toLowerCase(),
         phone: payload.phone.trim(),
         course: (payload.course ?? "").trim(),
-        source: payload.source?.trim() || undefined,
+        source,
+        source_type: payload.source_type?.trim() || source,
+        source_ref_id: payload.source_ref_id?.trim() || undefined,
+        source_ref_type: payload.source_ref_type?.trim() || undefined,
+        branch_id: payload.branch_id?.trim() || undefined,
+        branch_name: payload.branch_name?.trim() || undefined,
       }),
       cache: "no-store",
     })

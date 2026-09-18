@@ -38,6 +38,19 @@ export default function BranchDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [branchTestimonials, setBranchTestimonials] = useState<BranchTestimonial[]>([])
+  const [partnerTeam, setPartnerTeam] = useState<
+    {
+      id?: string
+      name?: string
+      designation?: string
+      role?: string
+      photo_url?: string
+      bio?: string
+      contact_email?: string | null
+      contact_phone?: string | null
+      contact_approved?: boolean
+    }[]
+  >([])
   const [testimonialsTitle, setTestimonialsTitle] = useState<string>("Rock Warriors")
   const [testimonialsSubtitle, setTestimonialsSubtitle] = useState<string>("Success stories")
 
@@ -119,27 +132,89 @@ export default function BranchDetailPage() {
       return
     }
     let cancelled = false
-    fetch(`/api/backend/testimonials?branch_id=${encodeURIComponent(branch.id)}&limit=12`, {
-      cache: "no-store",
-      headers: { "Content-Type": "application/json" },
-    })
-      .then(async (mRes) => {
+    const isPartner = !!(
+      (branch as BranchData & { is_collaboration_partner?: boolean; allows_collaboration?: boolean })
+        .is_collaboration_partner ||
+      (branch as BranchData & { allows_collaboration?: boolean }).allows_collaboration
+    )
+
+    const loadLegacy = () =>
+      fetch(`/api/backend/testimonials?branch_id=${encodeURIComponent(branch.id)}&limit=12`, {
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+      }).then(async (mRes) => {
         const mongo = mRes.ok ? await mRes.json().catch(() => ({})) : {}
         if (cancelled) return
         const mongoList = Array.isArray(mongo.testimonials) ? mongo.testimonials : []
         setBranchTestimonials(mongoList)
       })
-      .catch(() => {
+
+    if (isPartner) {
+      fetch(
+        `/api/backend/collaboration-partners/public/branches/${encodeURIComponent(branch.id)}/testimonials?limit=12`,
+        { cache: "no-store", headers: { "Content-Type": "application/json" } }
+      )
+        .then(async (pRes) => {
+          const payload = pRes.ok ? await pRes.json().catch(() => ({})) : {}
+          if (cancelled) return
+          const partnerList = Array.isArray(payload.testimonials)
+            ? payload.testimonials
+            : []
+          if (partnerList.length > 0) {
+            setBranchTestimonials(partnerList)
+            return
+          }
+          await loadLegacy()
+        })
+        .catch(async () => {
+          if (!cancelled) await loadLegacy().catch(() => setBranchTestimonials([]))
+        })
+    } else {
+      loadLegacy().catch(() => {
         if (!cancelled) setBranchTestimonials([])
+      })
+    }
+
+    return () => {
+      cancelled = true
+    }
+  }, [branch])
+
+  useEffect(() => {
+    if (!branch?.id) {
+      setPartnerTeam([])
+      return
+    }
+    const isPartner = !!(
+      (branch as BranchData & { is_collaboration_partner?: boolean; allows_collaboration?: boolean })
+        .is_collaboration_partner ||
+      (branch as BranchData & { allows_collaboration?: boolean }).allows_collaboration
+    )
+    if (!isPartner) {
+      setPartnerTeam([])
+      return
+    }
+    let cancelled = false
+    fetch(
+      `/api/backend/collaboration-partners/public/branches/${encodeURIComponent(branch.id)}/team?limit=24`,
+      { cache: "no-store", headers: { "Content-Type": "application/json" } }
+    )
+      .then(async (res) => {
+        const payload = res.ok ? await res.json().catch(() => ({})) : {}
+        if (cancelled) return
+        setPartnerTeam(Array.isArray(payload.members) ? payload.members : [])
+      })
+      .catch(() => {
+        if (!cancelled) setPartnerTeam([])
       })
     return () => {
       cancelled = true
     }
-  }, [branch?.id])
+  }, [branch])
 
   useEffect(() => {
     AOS.refresh()
-  }, [branch])
+  }, [branch, branchTestimonials, partnerTeam])
 
   if (loading) {
     return (
@@ -172,10 +247,28 @@ export default function BranchDetailPage() {
 
   const coverImage =
     (branch as BranchData & { gallery_images?: string[] }).gallery_images?.[0] ?? null
+  const isPartnerBranch = !!(
+    (branch as BranchData & { is_collaboration_partner?: boolean; allows_collaboration?: boolean })
+      .is_collaboration_partner ||
+    (branch as BranchData & { allows_collaboration?: boolean }).allows_collaboration
+  )
+  const partnerLandingHref = `/partners/${encodeURIComponent(
+    String(branch.slug || slug).trim()
+  )}`
 
   return (
     <main className="min-h-screen bg-[#171A26]">
       <BranchHero branch={branch} coverImageUrl={coverImage} />
+      {isPartnerBranch ? (
+        <div className="container mx-auto px-4 max-w-7xl -mt-4 mb-6 relative z-20">
+          <Link
+            href={partnerLandingHref}
+            className="inline-flex items-center gap-2 text-sm text-[#FFB70F] hover:text-white transition-colors"
+          >
+            View full partner page →
+          </Link>
+        </div>
+      ) : null}
       <BranchCourses branch={branch} />
       <section className="py-16 md:py-20 bg-[#171A26] relative z-10">
         <div className="container mx-auto px-4 max-w-7xl">
@@ -237,6 +330,61 @@ export default function BranchDetailPage() {
           )}
         </div>
       </section>
+      {partnerTeam.length > 0 ? (
+        <section className="py-16 md:py-20 bg-[#171A26] relative z-10">
+          <div className="container mx-auto px-4 max-w-7xl">
+            <div className="text-center mb-12" data-aos="fade-up">
+              <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
+              <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">
+                Our people
+              </p>
+              <h2 className="text-3xl md:text-4xl font-bold text-[#FFB70F]">
+                Partner Team
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {partnerTeam.map((m, i) => (
+                <div
+                  key={m.id || `${m.name}-${i}`}
+                  className="bg-gray-900/50 rounded-xl p-6 border border-gray-800 h-full flex flex-col items-center text-center"
+                  data-aos="fade-up"
+                  data-aos-delay={i * 80}
+                >
+                  <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-[#FFB70F]/50 mb-4 flex-shrink-0 bg-gray-700 flex items-center justify-center text-2xl text-gray-400">
+                    {m.photo_url ? (
+                      <img
+                        src={resolvePublicAssetUrl(m.photo_url)}
+                        alt={m.name || "Team"}
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      "👤"
+                    )}
+                  </div>
+                  <h3 className="text-[#FFB70F] font-semibold">{m.name}</h3>
+                  {(m.designation || m.role) && (
+                    <p className="text-white/80 text-sm mt-1">
+                      {[m.designation, m.role].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
+                  {m.bio?.trim() ? (
+                    <p className="text-gray-300 text-sm leading-relaxed mt-3">
+                      {m.bio}
+                    </p>
+                  ) : null}
+                  {m.contact_approved && (m.contact_phone || m.contact_email) ? (
+                    <p className="text-[#FFB70F]/90 text-xs mt-3">
+                      {[m.contact_phone, m.contact_email].filter(Boolean).join(" · ")}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
       <BranchAchievements branchId={branch.id} />
       <BranchFacilities branch={branch} />
       <BranchInfoCards branch={branch} />

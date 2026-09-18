@@ -652,47 +652,8 @@ export default function StudentCoursesPage() {
   }
 
   const handleRenewEnrollment = (enrollment: EnrolledCourse) => {
-    const branchId =
-      lockedBranchId || enrollment.branch_id || branches[0]?.id || ""
-    const course = availableCourses.find(
-      (c) => c.id === enrollment.course_id && (c.branch_id || "") === branchId
-    ) || availableCourses.find((c) => c.id === enrollment.course_id)
-    if (course) {
-      setSelectedCourse(course)
-      setSelectedBranch(branchId)
-      setBatchOptions([])
-      setSelectedBatchRef("")
-      setAdminDurationOptions([])
-      setDurationOptions([])
-      setSelectedDurationKey("")
-      setEnrollAmount(null)
-      setIsRenewalDialog(true)
-      setShowEnrollDialog(true)
-    } else {
-      // Fallback: build a minimal AvailableCourse from enrollment data
-      const minimalCourse: AvailableCourse = {
-        id: enrollment.course_id,
-        title: enrollment.course_name,
-        description: "",
-        difficulty_level: "",
-        category_id: "",
-        branch_id: branchId,
-        branch_name: enrollment.branch_name,
-        pricing: { amount: 0, currency: "INR" },
-        is_enrolled: true,
-        enrollment: enrollment,
-      }
-      setSelectedCourse(minimalCourse)
-      setSelectedBranch(branchId)
-      setBatchOptions([])
-      setSelectedBatchRef("")
-      setAdminDurationOptions([])
-      setDurationOptions([])
-      setSelectedDurationKey("")
-      setEnrollAmount(null)
-      setIsRenewalDialog(true)
-      setShowEnrollDialog(true)
-    }
+    // M07-S04: unify renew funnel on Payments (quote + grace-aware checkout).
+    router.push("/student-dashboard/payments")
   }
 
   const handleEnrollClick = (course: AvailableCourse) => {

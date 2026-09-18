@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuPortal } from "@/components/ui/dropdown-menu"
-import { Menu, Home, BookOpen, User, Users, LogOut, Calendar, TrendingUp, ChevronDown, MoreVertical, DollarSign, ClipboardCheck, BarChart3 } from "lucide-react"
+import { Menu, Home, BookOpen, User, Users, LogOut, Calendar, TrendingUp, ChevronDown, MoreVertical, DollarSign, ClipboardCheck, BarChart3, Clock, CreditCard, UserPlus } from "lucide-react"
 
 interface CoachDashboardHeaderProps {
   currentPage?: string
@@ -95,6 +95,34 @@ export default function CoachDashboardHeader({
       icon: Calendar,
       exact: false,
       description: "Track attendance"
+    },
+    {
+      name: "Availability",
+      path: "/coach-dashboard/availability",
+      icon: Clock,
+      exact: false,
+      description: "Weekly availability"
+    },
+    {
+      name: "Schedule",
+      path: "/coach-dashboard/schedule",
+      icon: Calendar,
+      exact: false,
+      description: "Lead session schedule"
+    },
+    {
+      name: "Lead Assignments",
+      path: "/coach-dashboard/lead-assignments",
+      icon: UserPlus,
+      exact: false,
+      description: "Accept or decline leads"
+    },
+    {
+      name: "Subscription",
+      path: "/coach-dashboard/subscription",
+      icon: CreditCard,
+      exact: false,
+      description: "Plan and renewals"
     },
 
     {

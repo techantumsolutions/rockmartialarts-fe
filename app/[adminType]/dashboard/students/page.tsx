@@ -18,7 +18,18 @@ import {
   buildStudentListQuery,
   parseStudentListFilters,
   studentListReturnPath,
+  type StudentAccountStatusFilter,
 } from "@/lib/studentListFilters"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
 
 function formatEnrollmentDate(iso: string | null | undefined): string {
   return formatRegisteredDateOnly(iso)
@@ -126,6 +137,16 @@ export default function StudentList() {
   const [listViewFilter, setListViewFilter] = useState<'all' | 'unassigned'>(initialFilters.view)
   /** Super-admin list filter: branch id or "all" */
   const [listBranchFilter, setListBranchFilter] = useState<string>(initialFilters.branch)
+  const [accountStatusFilter, setAccountStatusFilter] = useState<StudentAccountStatusFilter>(
+    initialFilters.status
+  )
+  const [statusDialog, setStatusDialog] = useState<{
+    studentId: string
+    studentName: string
+    nextActive: boolean
+  } | null>(null)
+  const [statusReason, setStatusReason] = useState("")
+  const [statusSaving, setStatusSaving] = useState(false)
 // Pagination state
 const [currentPage, setCurrentPage] = useState(initialFilters.page)
 const itemsPerPage = 15
@@ -138,18 +159,20 @@ const itemsPerPage = 15
       q: searchTerm,
       branch: listBranchFilter,
       view: listViewFilter,
+      status: accountStatusFilter,
       page: currentPage,
     })
     const target = `${pathname}${qs}`
     if (typeof window !== "undefined" && `${pathname}${window.location.search}` !== target) {
       router.replace(target, { scroll: false })
     }
-  }, [searchTerm, listBranchFilter, listViewFilter, currentPage, pathname, router])
+  }, [searchTerm, listBranchFilter, listViewFilter, accountStatusFilter, currentPage, pathname, router])
 
   const currentListReturnUrl = studentListReturnPath(basePath, {
     q: searchTerm,
     branch: listBranchFilter,
     view: listViewFilter,
+    status: accountStatusFilter,
     page: currentPage,
   })
 
@@ -168,12 +191,15 @@ const itemsPerPage = 15
           throw new Error("Authentication token not found. Please login again.")
         }
 
-        const studentsUrl =
-          adminType === "super-admin" && listBranchFilter !== "all"
-            ? getBackendApiUrl(
-                `users/students/details?branch_id=${encodeURIComponent(listBranchFilter)}`
-              )
-            : getBackendApiUrl("users/students/details")
+        const qs = new URLSearchParams()
+        if (adminType === "super-admin" && listBranchFilter !== "all") {
+          qs.set("branch_id", listBranchFilter)
+        }
+        if (accountStatusFilter === "active") qs.set("is_active", "true")
+        if (accountStatusFilter === "inactive") qs.set("is_active", "false")
+        const studentsUrl = getBackendApiUrl(
+          `users/students/details${qs.toString() ? `?${qs.toString()}` : ""}`
+        )
 
         let response = await fetch(studentsUrl, {
           method: 'GET',
@@ -255,7 +281,7 @@ const itemsPerPage = 15
     }
 
     fetchStudents()
-  }, [refreshKey, pathname, listBranchFilter, adminType])
+  }, [refreshKey, pathname, listBranchFilter, accountStatusFilter, adminType])
 
   // Fetch branches and courses for the assignment modal
   const fetchBranchesAndCourses = async () => {
@@ -626,39 +652,65 @@ const itemsPerPage = 15
   }
 
   const handleToggleStudent = async (studentId: string) => {
+    const student = (Array.isArray(students) ? students : []).find((s) => s.id === studentId)
+    if (!student) return
+    setStatusReason("")
+    setStatusDialog({
+      studentId,
+      studentName: student.full_name || student.student_name || "Student",
+      nextActive: !student.is_active,
+    })
+  }
+
+  const confirmStatusChange = async () => {
+    if (!statusDialog) return
+    const { studentId, nextActive } = statusDialog
+    if (!nextActive && !statusReason.trim()) {
+      alert("Please enter a reason for deactivating this student.")
+      return
+    }
+    setStatusSaving(true)
     try {
-      const token = TokenManager.getToken()
+      let token = isBranchAdmin ? BranchManagerAuth.getToken() : TokenManager.getToken()
+      if (!token && isBranchAdmin) token = TokenManager.getToken()
       if (!token) {
         throw new Error("Authentication token not found. Please login again.")
       }
 
-      const student = (Array.isArray(students) ? students : []).find(s => s.id === studentId)
-      if (!student) return
-
-      const response = await fetch(getBackendApiUrl(`users/${studentId}`), {
-        method: 'PUT',
+      const response = await fetch(getBackendApiUrl(`users/${studentId}/status`), {
+        method: "PATCH",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          is_active: !student.is_active
-        })
+          is_active: nextActive,
+          reason: statusReason.trim() || undefined,
+        }),
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || errorData.message || `Failed to update student status (${response.status})`)
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          errorData.detail || errorData.message || `Failed to update student status (${response.status})`
+        )
       }
 
-      // Update local state
-      setStudents((Array.isArray(students) ? students : []).map(s =>
-        s.id === studentId ? { ...s, is_active: !s.is_active } : s
+      setStudents((Array.isArray(students) ? students : []).map((s) =>
+        s.id === studentId ? { ...s, is_active: nextActive } : s
       ))
-
+      setUnassignedStudents((prev) =>
+        prev.map((s) => (s.id === studentId ? { ...s, is_active: nextActive } : s))
+      )
+      setStatusDialog(null)
+      setStatusReason("")
     } catch (error) {
       console.error("Error updating student status:", error)
-      alert(`Error updating student status: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      alert(
+        `Error updating student status: ${error instanceof Error ? error.message : "Unknown error"}`
+      )
+    } finally {
+      setStatusSaving(false)
     }
   }
 
@@ -669,13 +721,17 @@ const itemsPerPage = 15
   }
 
   const listFiltersActive =
-    Boolean(searchTerm) || (adminType === "super-admin" && listBranchFilter !== "all")
+    Boolean(searchTerm) ||
+    (adminType === "super-admin" && listBranchFilter !== "all") ||
+    accountStatusFilter !== "all"
 
   const listBaseStudents = listViewFilter === 'unassigned' ? unassignedStudents : students
 
   // Enhanced search functionality - filter students based on search term
   const filteredStudents = Array.isArray(listBaseStudents) ? listBaseStudents.filter((student) => {
     if (!studentMatchesBranchListFilter(student)) return false
+    if (accountStatusFilter === "active" && !student.is_active) return false
+    if (accountStatusFilter === "inactive" && student.is_active) return false
     if (!searchTerm) return true
 
     const searchLower = searchTerm.toLowerCase()
@@ -803,6 +859,23 @@ const paginatedStudents = filteredStudents.slice(
               <SelectContent>
                 <SelectItem value="all">All students</SelectItem>
                 <SelectItem value="unassigned">Unassigned only</SelectItem>
+              </SelectContent>
+            </Select>
+            <span className="text-sm font-medium text-[#4F5077] sm:ml-1">Status:</span>
+            <Select
+              value={accountStatusFilter}
+              onValueChange={(v) => {
+                setAccountStatusFilter(v as StudentAccountStatusFilter)
+                setCurrentPage(1)
+              }}
+            >
+              <SelectTrigger className="w-full sm:w-[150px] min-h-[44px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
               </SelectContent>
             </Select>
             {listViewFilter === 'unassigned' && unassignedStudentsLoading && (
@@ -1072,6 +1145,7 @@ const paginatedStudents = filteredStudents.slice(
                             checked={student.is_active}
                             onCheckedChange={() => handleToggleStudent(student.id)}
                             className="data-[state=checked]:bg-yellow-400"
+                            title={student.is_active ? "Deactivate student" : "Activate student"}
                           />
                         </div>
                       </td>
@@ -1320,6 +1394,71 @@ const paginatedStudents = filteredStudents.slice(
           </div>
         </div>
       )}
+
+      {/* M08-S01 status change with reason */}
+      <Dialog
+        open={!!statusDialog}
+        onOpenChange={(open) => {
+          if (!open && !statusSaving) {
+            setStatusDialog(null)
+            setStatusReason("")
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {statusDialog?.nextActive ? "Activate student" : "Deactivate student"}
+            </DialogTitle>
+            <DialogDescription>
+              {statusDialog?.nextActive
+                ? `Reactivate ${statusDialog?.studentName}. They will be able to sign in again.`
+                : `Deactivate ${statusDialog?.studentName}. They will not be able to sign in until reactivated.`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="status-reason">
+              Reason {statusDialog?.nextActive ? "(optional)" : "(required)"}
+            </Label>
+            <Textarea
+              id="status-reason"
+              value={statusReason}
+              onChange={(e) => setStatusReason(e.target.value)}
+              placeholder={
+                statusDialog?.nextActive
+                  ? "Optional note for the status history…"
+                  : "Why is this student being deactivated?"
+              }
+              rows={3}
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={statusSaving}
+              onClick={() => {
+                setStatusDialog(null)
+                setStatusReason("")
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={statusSaving}
+              className={
+                statusDialog?.nextActive
+                  ? "bg-green-600 hover:bg-green-700 text-white"
+                  : "bg-amber-600 hover:bg-amber-700 text-white"
+              }
+              onClick={() => void confirmStatusChange()}
+            >
+              {statusSaving ? "Saving…" : statusDialog?.nextActive ? "Activate" : "Deactivate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

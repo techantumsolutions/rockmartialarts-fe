@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { getBackendApiUrl } from "@/lib/config"
 import type { StudentPerformanceDashboardPayload } from "@/lib/student-performance-types"
@@ -12,6 +12,8 @@ import { CoachFeedback } from "@/components/student-dashboard/CoachFeedback"
 import { FeeStatusCard } from "@/components/student-dashboard/FeeStatusCard"
 import { GoalTracker } from "@/components/student-dashboard/GoalTracker"
 import { WarriorStats } from "@/components/student-dashboard/WarriorStats"
+import { KpiPerformanceSection } from "@/components/student-dashboard/KpiPerformanceSection"
+import type { StudentKpiPerformanceMetrics } from "@/lib/student-kpi-metrics-types"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -57,10 +59,55 @@ export function StudentPerformanceDashboardClient({
   const [fb, setFb] = useState("")
   const [war, setWar] = useState({ streak: "", rank: "", next: "" })
   const [belt, setBelt] = useState("")
+  const [kpiMetrics, setKpiMetrics] = useState<StudentKpiPerformanceMetrics | null>(null)
+  const [kpiLoading, setKpiLoading] = useState(false)
+  const [kpiPeriodId, setKpiPeriodId] = useState("")
+  const [kpiCourseId, setKpiCourseId] = useState("")
+  const [kpiBoundStudentId, setKpiBoundStudentId] = useState<string | null>(null)
+  const kpiPeriodRef = useRef(kpiPeriodId)
+  const kpiCourseRef = useRef(kpiCourseId)
+  const kpiBoundRef = useRef(kpiBoundStudentId)
+  kpiPeriodRef.current = kpiPeriodId
+  kpiCourseRef.current = kpiCourseId
+  kpiBoundRef.current = kpiBoundStudentId
 
   useEffect(() => {
     if (initialStudentId) setStudentId(initialStudentId)
   }, [initialStudentId])
+
+  const loadKpiMetrics = useCallback(
+    async (sid: string, periodId?: string, courseId?: string) => {
+      setKpiLoading(true)
+      try {
+        const qs = new URLSearchParams()
+        if (periodId) qs.set("period_id", periodId)
+        if (courseId) qs.set("course_id", courseId)
+        const q = qs.toString()
+        const res = await fetch(
+          getBackendApiUrl(
+            `student/performance-metrics/${encodeURIComponent(sid)}${q ? `?${q}` : ""}`
+          ),
+          { headers: authHeaders(), cache: "no-store" }
+        )
+        if (!res.ok) {
+          setKpiMetrics(null)
+          return
+        }
+        const json = (await res.json()) as StudentKpiPerformanceMetrics
+        setKpiMetrics(json)
+        setKpiBoundStudentId(sid)
+        if (json.period_id && !periodId) setKpiPeriodId(json.period_id)
+        else if (periodId) setKpiPeriodId(periodId)
+        if (json.course_id && !courseId) setKpiCourseId(json.course_id)
+        else if (courseId) setKpiCourseId(courseId)
+      } catch {
+        setKpiMetrics(null)
+      } finally {
+        setKpiLoading(false)
+      }
+    },
+    []
+  )
 
   const load = useCallback(async () => {
     let sid = studentId
@@ -114,12 +161,25 @@ export function StudentPerformanceDashboardClient({
         rank: w.rank || "",
         next: w.next_level_progress == null ? "" : String(w.next_level_progress),
       })
+      const studentChanged = kpiBoundRef.current !== sid
+      if (studentChanged) {
+        setKpiPeriodId("")
+        setKpiCourseId("")
+        setKpiMetrics(null)
+        void loadKpiMetrics(sid)
+      } else {
+        void loadKpiMetrics(
+          sid,
+          kpiPeriodRef.current || undefined,
+          kpiCourseRef.current || undefined
+        )
+      }
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Failed to load dashboard")
     } finally {
       setLoading(false)
     }
-  }, [studentId])
+  }, [studentId, loadKpiMetrics])
 
   useEffect(() => {
     void load()
@@ -262,6 +322,21 @@ export function StudentPerformanceDashboardClient({
               <AttendanceCard data={data.attendance} />
             </div>
             <SkillPerformance skills={data.skills} />
+            <KpiPerformanceSection
+              metrics={kpiMetrics}
+              loading={kpiLoading}
+              periodId={kpiPeriodId}
+              courseId={kpiCourseId}
+              onPeriodChange={(id) => {
+                setKpiPeriodId(id)
+                setKpiCourseId("")
+                if (sid) void loadKpiMetrics(sid, id || undefined, undefined)
+              }}
+              onCourseChange={(id) => {
+                setKpiCourseId(id)
+                if (sid) void loadKpiMetrics(sid, kpiPeriodId || undefined, id || undefined)
+              }}
+            />
             <CoachFeedback data={data.coach_feedback} />
           </div>
           <div className="space-y-6">
@@ -352,7 +427,7 @@ export function StudentPerformanceDashboardClient({
         ) : null}
       </div>
     )
-  }, [loading, err, data, canEdit, sid, medals, skills, goal, fb, war, belt, load])
+  }, [loading, err, data, canEdit, sid, medals, skills, goal, fb, war, belt, load, kpiMetrics, kpiLoading, kpiPeriodId, kpiCourseId, loadKpiMetrics])
 
   return (
     <div className="space-y-6">
