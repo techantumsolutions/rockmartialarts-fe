@@ -110,44 +110,18 @@ function IdIcon() {
   )
 }
 
-type Props = {
+type TicketFaceProps = {
   data: CampPaymentSuccess
-  content?: ResidentialCampContent
+  academy: string
+  locLines: string[]
+  phone: string
+  registrationId: string
+  titleParts: { line1: string; line2: string }
 }
 
-export const CampRegistrationConfirmation = forwardRef<HTMLDivElement, Props>(
-  function CampRegistrationConfirmation({ data, content }, ref) {
-    const frameRef = useRef<HTMLDivElement | null>(null)
-    const [scale, setScale] = useState(1)
-    const registrationId = campRegistrationDisplayCode(data.registration_id, data.id)
-    const academy = content?.footer?.academy_name || "ROCK MARTIAL ARTS ACADEMY"
-    const location =
-      data.event_location ||
-      content?.event_location ||
-      (content ? campFactValue(content, "Location") : "") ||
-      academy
-    const phone = formatPhone(content?.register?.phone || "")
-    const locLines = locationLines(location)
-    const titleParts = campaignTitleParts(data.event_name, content)
-
-    useEffect(() => {
-      const el = frameRef.current
-      if (!el) return
-      const update = () => setScale(Math.min(1, el.clientWidth / CAMP_TICKET_WIDTH))
-      update()
-      const ro = new ResizeObserver(update)
-      ro.observe(el)
-      return () => ro.disconnect()
-    }, [])
-
-    return (
-      <div
-        ref={frameRef}
-        className="camp-ticket-frame"
-        style={{ height: CAMP_TICKET_HEIGHT * scale }}
-      >
-        <div className="camp-ticket-scale" style={{ transform: `scale(${scale})` }}>
-          <div ref={ref} className="camp-ticket">
+function CampTicketFace({ data, academy, locLines, phone, registrationId, titleParts }: TicketFaceProps) {
+  return (
+    <>
             <section className="camp-ticket-hero">
               <header className="camp-ticket-header">
                 <img className="camp-ticket-logo" src="/campaign/logo.png" alt="" />
@@ -264,9 +238,67 @@ export const CampRegistrationConfirmation = forwardRef<HTMLDivElement, Props>(
                 </div>
               ))}
             </footer>
+    </>
+  )
+}
+
+type Props = {
+  data: CampPaymentSuccess
+  content?: ResidentialCampContent
+}
+
+export const CampRegistrationConfirmation = forwardRef<HTMLDivElement, Props>(
+  function CampRegistrationConfirmation({ data, content }, ref) {
+    const frameRef = useRef<HTMLDivElement | null>(null)
+    const [scale, setScale] = useState(1)
+    const registrationId = campRegistrationDisplayCode(data.registration_id, data.id)
+    const academy = content?.footer?.academy_name || "ROCK MARTIAL ARTS ACADEMY"
+    const location =
+      data.event_location ||
+      content?.event_location ||
+      (content ? campFactValue(content, "Location") : "") ||
+      academy
+    const phone = formatPhone(content?.register?.phone || "")
+    const locLines = locationLines(location)
+    const titleParts = campaignTitleParts(data.event_name, content)
+    const faceProps = {
+      data,
+      academy,
+      locLines,
+      phone,
+      registrationId,
+      titleParts,
+    }
+
+    useEffect(() => {
+      const el = frameRef.current
+      if (!el) return
+      const update = () => setScale(Math.min(1, el.clientWidth / CAMP_TICKET_WIDTH))
+      update()
+      const ro = new ResizeObserver(update)
+      ro.observe(el)
+      return () => ro.disconnect()
+    }, [])
+
+    return (
+      <>
+      <div
+        ref={frameRef}
+        className="camp-ticket-frame"
+        style={{ height: CAMP_TICKET_HEIGHT * scale }}
+      >
+        <div className="camp-ticket-scale" style={{ transform: `scale(${scale})` }}>
+          <div className="camp-ticket">
+            <CampTicketFace {...faceProps} />
           </div>
         </div>
       </div>
+      <div className="camp-ticket-capture" aria-hidden="true">
+        <div ref={ref} className="camp-ticket">
+          <CampTicketFace {...faceProps} />
+        </div>
+      </div>
+      </>
     )
   }
 )

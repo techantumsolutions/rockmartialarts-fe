@@ -338,3 +338,17 @@ export function preloadCampTicketAssets() {
     ),
   ).then(() => undefined)
 }
+
+export async function waitForTicketImages(root: HTMLElement) {
+  const imgs = Array.from(root.querySelectorAll("img"))
+  await Promise.all(
+    imgs.map((img) => {
+      if (img.complete && img.naturalWidth > 0) return Promise.resolve()
+      return new Promise<void>((resolve) => {
+        img.onload = () => resolve()
+        img.onerror = () => resolve()
+      })
+    }),
+  )
+  await Promise.all(imgs.map((img) => (img.decode ? img.decode().catch(() => undefined) : Promise.resolve())))
+}

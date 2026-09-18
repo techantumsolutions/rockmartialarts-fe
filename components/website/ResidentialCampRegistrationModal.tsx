@@ -8,6 +8,7 @@ import {
   campRegBlockedAhead,
   emptyCampRegistration,
   preloadCampTicketAssets,
+  waitForTicketImages,
   validateCampRegAll,
   validateCampRegSection,
   type CampRegTabId,
@@ -329,12 +330,18 @@ export function ResidentialCampRegistrationModal({ open, onClose, content }: Pro
     setDownloading(true)
     try {
       await preloadCampTicketAssets()
+      await waitForTicketImages(confirmRef.current)
       const dataUrl = await toPng(confirmRef.current, {
         pixelRatio: 2,
         cacheBust: true,
         backgroundColor: "#000000",
         width: CAMP_TICKET_WIDTH,
         height: CAMP_TICKET_HEIGHT,
+        style: {
+          transform: "none",
+          left: "0",
+          top: "0",
+        },
       })
       const link = document.createElement("a")
       const slug = (confirmation.participant_name || "camp").replace(/[^\w]+/g, "-").replace(/^-|-$/g, "")
