@@ -6,7 +6,13 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { notificationAPI, PaymentNotification, MessageNotification } from "@/lib/notificationAPI"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
+import {
+  getAllNotificationsPath,
+  getNotificationTargetPath,
+  isMessageNotification,
+  isPaymentNotification,
+} from "@/lib/notificationNavigation"
 
 interface NotificationDropdownProps {
   className?: string
@@ -14,6 +20,7 @@ interface NotificationDropdownProps {
 
 export default function NotificationDropdown({ className = "" }: NotificationDropdownProps) {
   const router = useRouter()
+  const pathname = usePathname() ?? ""
   const [notifications, setNotifications] = useState<(PaymentNotification | MessageNotification)[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
@@ -122,13 +129,21 @@ export default function NotificationDropdown({ className = "" }: NotificationDro
   }
 
   // Check if notification is a payment notification
-  const isPaymentNotification = (notification: PaymentNotification | MessageNotification): notification is PaymentNotification => {
-    return 'payment_id' in notification
-  }
+  const isPaymentNotificationType = (
+    notification: PaymentNotification | MessageNotification
+  ): notification is PaymentNotification => isPaymentNotification(notification)
 
   // Check if notification is a message notification
-  const isMessageNotification = (notification: PaymentNotification | MessageNotification): notification is MessageNotification => {
-    return 'message_id' in notification
+  const isMessageNotificationType = (
+    notification: PaymentNotification | MessageNotification
+  ): notification is MessageNotification => isMessageNotification(notification)
+
+  const handleNotificationClick = (notification: PaymentNotification | MessageNotification) => {
+    if (!notification.is_read) {
+      void markAsRead(notification.id)
+    }
+    router.push(getNotificationTargetPath(notification, pathname))
+    setIsOpen(false)
   }
 
   // Get priority color
@@ -188,31 +203,7 @@ export default function NotificationDropdown({ className = "" }: NotificationDro
                 className={`px-4 py-3 cursor-pointer border-l-4 ${getPriorityColor(notification.priority)} ${
                   !notification.is_read ? 'bg-blue-50' : ''
                 }`}
-                onClick={() => {
-                  if (!notification.is_read) {
-                    markAsRead(notification.id)
-                  }
-
-                  // Navigate based on notification type
-                  if (isMessageNotification(notification)) {
-                    // Navigate to messages page
-                    const currentPath = window.location.pathname
-                    if (currentPath.includes('/branch-manager-dashboard')) {
-                      router.push('/branch-manager-dashboard/messages')
-                    } else if (currentPath.includes('/student-dashboard')) {
-                      router.push('/student-dashboard/messages')
-                    } else if (currentPath.includes('/coach-dashboard')) {
-                      router.push('/coach-dashboard/messages')
-                    } else {
-                      router.push('/dashboard/messages')
-                    }
-                  } else if (isPaymentNotification(notification)) {
-                    // Navigate to payments or dashboard
-                    router.push('/dashboard/payments')
-                  }
-
-                  setIsOpen(false)
-                }}
+                onClick={() => handleNotificationClick(notification)}
               >
                 <div className="flex items-start space-x-3 w-full">
                   <div className="flex-shrink-0 mt-1">
@@ -235,12 +226,12 @@ export default function NotificationDropdown({ className = "" }: NotificationDro
                         <Clock className="w-3 h-3" />
                         <span>{formatTimeAgo(notification.created_at)}</span>
                       </div>
-                      {isPaymentNotification(notification) && notification.amount && (
+                      {isPaymentNotificationType(notification) && notification.amount && (
                         <span className="text-xs font-medium text-green-600">
                           ₹{notification.amount.toLocaleString()}
                         </span>
                       )}
-                      {isMessageNotification(notification) && (
+                      {isMessageNotificationType(notification) && (
                         <span className="text-xs text-gray-500">
                           From: {notification.sender_name}
                         </span>
@@ -260,7 +251,7 @@ export default function NotificationDropdown({ className = "" }: NotificationDro
               className="px-4 py-2 text-center text-sm text-blue-600 hover:text-blue-800 cursor-pointer"
               onClick={() => {
                 setIsOpen(false)
-                router.push('/dashboard/notifications')
+                router.push(getAllNotificationsPath(pathname))
               }}
             >
               View all notifications

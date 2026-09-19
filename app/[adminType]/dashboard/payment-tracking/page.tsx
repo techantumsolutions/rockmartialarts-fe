@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useParams } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -99,9 +100,10 @@ export default function PaymentTrackingPage() {
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
   const [studentSearch, setStudentSearch] = useState<string>("")
   const [debouncedStudentSearch, setDebouncedStudentSearch] = useState<string>("")
-  const filtersReadyRef = useRef(false)
+  const filtersReadyRef = useRef(true)
 
-  const isSuperAdmin = String(params?.adminType || "").toLowerCase() === "super-admin"
+  const adminType = String(params?.adminType || "super-admin")
+  const isSuperAdmin = adminType.toLowerCase() === "super-admin"
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -150,31 +152,34 @@ export default function PaymentTrackingPage() {
         Pragma: "no-cache",
       }
 
-      const scopedRes = await fetch(getBackendApiUrl(`payments/stats?${qsScoped.toString()}`), {
-        cache: "no-store",
-        headers,
-      })
+      const gQs = new URLSearchParams()
+      gQs.set("_ts", String(Date.now()))
+
+      const [scopedRes, globalRes] = await Promise.all([
+        fetch(getBackendApiUrl(`payments/stats?${qsScoped.toString()}`), {
+          cache: "no-store",
+          headers,
+        }),
+        isSuperAdmin
+          ? fetch(getBackendApiUrl(`payments/stats?${gQs.toString()}`), {
+              cache: "no-store",
+              headers,
+            })
+          : Promise.resolve(null),
+      ])
 
       if (!scopedRes.ok) return
 
       const scopedData = await scopedRes.json()
 
-      if (isSuperAdmin) {
-        const gQs = new URLSearchParams()
-        gQs.set("_ts", String(Date.now()))
-        const globalRes = await fetch(getBackendApiUrl(`payments/stats?${gQs.toString()}`), {
-          cache: "no-store",
-          headers,
+      if (globalRes?.ok) {
+        const globalData = await globalRes.json()
+        const total = Number(globalData.total_collected)
+        setStats({
+          ...scopedData,
+          total_collected: Number.isFinite(total) ? total : 0,
         })
-        if (globalRes.ok) {
-          const globalData = await globalRes.json()
-          const total = Number(globalData.total_collected)
-          setStats({
-            ...scopedData,
-            total_collected: Number.isFinite(total) ? total : 0,
-          })
-          return
-        }
+        return
       }
 
       setStats(scopedData)
@@ -188,25 +193,33 @@ export default function PaymentTrackingPage() {
       setAnalyticsLoading(true)
       const token = TokenManager.getToken() || ""
 
-      // Period revenue: works with start only, end only, or both dates
-      if (periodStart || periodEnd) {
-        const q = new URLSearchParams()
-        if (periodStart) q.set("start_date", periodStart)
-        if (periodEnd) q.set("end_date", periodEnd)
-        if (branchFilter !== "all") q.set("branch_id", branchFilter)
-        q.set("_ts", String(Date.now()))
-        const statsRes = await fetch(
-          getBackendApiUrl(`payments/stats?${q.toString()}`),
-          {
-            cache: "no-store",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-              "Cache-Control": "no-cache",
-              Pragma: "no-cache",
-            },
-          }
-        )
+      const analyticsHeaders: HeadersInit = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+      }
+
+      const periodQs = new URLSearchParams()
+      if (periodStart) periodQs.set("start_date", periodStart)
+      if (periodEnd) periodQs.set("end_date", periodEnd)
+      if (branchFilter !== "all") periodQs.set("branch_id", branchFilter)
+      periodQs.set("_ts", String(Date.now()))
+
+      const [statsRes, revRes] = await Promise.all([
+        periodStart || periodEnd
+          ? fetch(getBackendApiUrl(`payments/stats?${periodQs.toString()}`), {
+              cache: "no-store",
+              headers: analyticsHeaders,
+            })
+          : Promise.resolve(null),
+        fetch(getBackendApiUrl(`payments/revenue/by-branch?${periodQs.toString()}`), {
+          cache: "no-store",
+          headers: analyticsHeaders,
+        }),
+      ])
+
+      if (statsRes) {
         if (statsRes.ok) {
           const s = await statsRes.json()
           const v = Number(s?.this_month_collection)
@@ -218,21 +231,6 @@ export default function PaymentTrackingPage() {
         setPeriodRevenue(null)
       }
 
-      // Branch-wise revenue: backend aggregates paid/completed by branch (optional date range)
-      const q = new URLSearchParams()
-      if (periodStart) q.set("start_date", periodStart)
-      if (periodEnd) q.set("end_date", periodEnd)
-      if (branchFilter !== "all") q.set("branch_id", branchFilter)
-      q.set("_ts", String(Date.now()))
-      const revRes = await fetch(getBackendApiUrl(`payments/revenue/by-branch?${q.toString()}`), {
-        cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache",
-          Pragma: "no-cache",
-        },
-      })
       if (revRes.ok) {
         const js = await revRes.json().catch(() => ({}))
         const rows: BranchRevenueRow[] = Array.isArray(js?.branches) ? js.branches : []
@@ -278,24 +276,6 @@ export default function PaymentTrackingPage() {
       }
     }
     void loadBranches()
-  }, [])
-
-  useEffect(() => {
-    ;(async () => {
-      if (isSuperAdmin) {
-        try {
-          setSyncing(true)
-          const token = TokenManager.getToken() || undefined
-          await paymentAPI.syncRazorpayPayments(token)
-        } catch (e) {
-          console.error("Razorpay sync failed:", e)
-        } finally {
-          setSyncing(false)
-        }
-      }
-      filtersReadyRef.current = true
-      await Promise.all([fetchPayments(), fetchStats(), fetchAnalytics()])
-    })()
   }, [])
 
   useEffect(() => {
@@ -676,7 +656,16 @@ export default function PaymentTrackingPage() {
                   return (
                   <tr key={payment.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {payment.student_name || "Unknown Student"}
+                      {payment.student_id ? (
+                        <Link
+                          href={`/${adminType}/dashboard/students/${payment.student_id}`}
+                          className="font-medium text-blue-700 hover:text-blue-900 hover:underline"
+                        >
+                          {payment.student_name || "Unknown Student"}
+                        </Link>
+                      ) : (
+                        payment.student_name || "Unknown Student"
+                      )}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">
                       <div className="font-medium">{payment.course_name || "N/A"}</div>

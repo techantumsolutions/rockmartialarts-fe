@@ -76,7 +76,7 @@ async function getCMSContent() {
 async function getCourses(): Promise<{ courses: any[]; fromApi: boolean }> {
   try {
     const backendUrl = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8003"
-    const res = await fetch(`${backendUrl}/api/courses/public/all`, {
+    const res = await fetch(`${backendUrl}/api/courses/public/all?limit=500`, {
       cache: "no-store",
       headers: { "Content-Type": "application/json" },
     })
@@ -299,7 +299,14 @@ export default async function HomePage() {
   const footer = cms?.footer || {}
 
   /* Real courses from API when available; mock only when API request failed (backend down) */
-  const activeCourses = apiCourses.filter((c: any) => c.settings?.active !== false).slice(0, 8)
+  /* All active super-admin courses — newest last so existing cards keep their place */
+  const activeCourses = [...apiCourses]
+    .filter((c: any) => c.settings?.active !== false && c.enabled !== false)
+    .sort((a: any, b: any) => {
+      const ta = new Date(a.created_at || 0).getTime()
+      const tb = new Date(b.created_at || 0).getTime()
+      return ta - tb
+    })
   const classCards =
     activeCourses.length > 0
       ? activeCourses.map((c: any) => ({
@@ -312,12 +319,16 @@ export default async function HomePage() {
         ? [{ id: "explore", name: "Explore our courses", img: "/assets/img/courses/choose_img1.png", href: "/courses" }]
         : staticClassesFallback.map((c, i) => ({ ...c, id: `fallback-${i}` }))
 
-  /* Hero content from CMS */
-  const heroTitle = homepage.hero_title || "IT'S NOT FITNESS. IT'S LIFE."
-  const heroSubtitle = homepage.hero_subtitle || ""
-  const heroDescription = homepage.hero_description || ""
+  /* Hero content from CMS — no hardcoded title/CTA fallbacks; show only when set in admin */
+  const heroTitle = (homepage.hero_title || "").trim()
+  const heroSubtitle = (homepage.hero_subtitle || "").trim()
+  const heroDescription = (homepage.hero_description || "").trim()
   const heroVideo = homepage.hero_video || "/assets/img/slider.mp4"
   const heroImage = homepage.hero_image || ""
+  const heroPrimaryCtaText = (homepage.hero_primary_cta_text || "").trim()
+  const heroPrimaryCtaLink = (homepage.hero_primary_cta_link || "").trim()
+  const heroSecondaryCtaText = (homepage.hero_secondary_cta_text || "").trim()
+  const heroSecondaryCtaLink = (homepage.hero_secondary_cta_link || "").trim()
 
   /* About: homepage_content API first, then legacy CMS fields */
   const aboutTitle = homepageAbout.title?.trim() || homepage.about_title || "Advantages of Rock Martial Arts"
@@ -342,6 +353,10 @@ export default async function HomePage() {
       heroDescription={heroDescription}
       heroVideo={heroVideo}
       heroImage={heroImage}
+      heroPrimaryCtaText={heroPrimaryCtaText}
+      heroPrimaryCtaLink={heroPrimaryCtaLink}
+      heroSecondaryCtaText={heroSecondaryCtaText}
+      heroSecondaryCtaLink={heroSecondaryCtaLink}
       ctaTitle={ctaTitle}
       ctaSubtitle={ctaSubtitle}
       bottomCtaTitle={bottomCtaTitle}

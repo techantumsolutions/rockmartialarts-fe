@@ -261,6 +261,7 @@ export default function StudentDashboardHeader({
                         const isActive = item.exact
                           ? pathname === item.path
                           : isActivePath(item.path)
+                        const isRegistrationForm = item.permissionId === "registration_forms"
 
                         return (
                           <button
@@ -270,7 +271,9 @@ export default function StudentDashboardHeader({
                             className={`w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100/80 text-sm font-medium transition-all duration-200 ${
                               isActive
                                 ? "bg-gradient-to-r from-yellow-50 to-yellow-100/50 text-yellow-800 border-l-3 border-yellow-400 shadow-sm"
-                                : "text-gray-700 hover:text-gray-900"
+                                : isRegistrationForm
+                                  ? "registration-form-mobile-highlight"
+                                  : "text-gray-700 hover:text-gray-900"
                             } ${isNavigating ? "opacity-50 cursor-not-allowed" : ""}`}
                           >
                             {item.name}
@@ -292,6 +295,7 @@ export default function StudentDashboardHeader({
                   ? pathname === item.path
                   : isActivePath(item.path)
                 const Icon = item.icon
+                const isRegistrationForm = item.permissionId === "registration_forms"
 
                 return (
                   <button
@@ -301,7 +305,9 @@ export default function StudentDashboardHeader({
                     className={`pb-2 px-1 text-sm font-semibold whitespace-nowrap cursor-pointer border-b-2 transition-all duration-300 hover:scale-105 flex items-center ${
                       isActive
                         ? "text-gray-900 border-yellow-400 shadow-sm"
-                        : "text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-300"
+                        : isRegistrationForm
+                          ? "registration-form-nav-highlight"
+                          : "text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-300"
                     } ${isNavigating ? "opacity-50 cursor-not-allowed" : ""}`}
                     aria-current={isActive ? "page" : undefined}
                     title={item.description}

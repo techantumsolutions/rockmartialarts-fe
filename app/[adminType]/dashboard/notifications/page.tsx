@@ -8,8 +8,12 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Bell, DollarSign, User, Clock, Check, Search, Filter, AlertCircle, Loader2 } from "lucide-react"
 import { notificationAPI, PaymentNotification } from "@/lib/notificationAPI"
+import { useRouter, usePathname } from "next/navigation"
+import { getNotificationTargetPath } from "@/lib/notificationNavigation"
 
 export default function NotificationsPage() {
+  const router = useRouter()
+  const pathname = usePathname() ?? ""
   const [notifications, setNotifications] = useState<PaymentNotification[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -279,6 +283,7 @@ export default function NotificationsPage() {
                       if (!notification.is_read) {
                         markAsRead(notification.id)
                       }
+                      router.push(getNotificationTargetPath(notification, pathname))
                     }}
                   >
                     <div className="flex items-start space-x-3">

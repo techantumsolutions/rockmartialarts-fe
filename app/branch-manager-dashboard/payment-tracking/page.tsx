@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, RefreshCw, DollarSign, Clock, Users, TrendingUp, Eye, Download } from "lucide-react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import Header from "@/components/layout/Header"
 import { getBackendApiUrl } from "@/lib/config"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
@@ -539,7 +540,16 @@ export default function BranchManagerPaymentTrackingPage() {
                     {filteredPayments.map((payment) => (
                       <tr key={payment.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {payment.student_name || 'Unknown Student'}
+                          {payment.student_id ? (
+                            <Link
+                              href={`/branch-manager-dashboard/students/${payment.student_id}`}
+                              className="font-medium text-blue-700 hover:text-blue-900 hover:underline"
+                            >
+                              {payment.student_name || "Unknown Student"}
+                            </Link>
+                          ) : (
+                            payment.student_name || "Unknown Student"
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {payment.course_name || 'N/A'}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -485,7 +486,16 @@ export default function CoachPaymentTrackingPage() {
                       <tr key={payment.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">
-                            {payment.student_name || 'Unknown Student'}
+                            {payment.student_id ? (
+                              <Link
+                                href={`/coach-dashboard/students/${payment.student_id}`}
+                                className="text-blue-700 hover:text-blue-900 hover:underline"
+                              >
+                                {payment.student_name || "Unknown Student"}
+                              </Link>
+                            ) : (
+                              payment.student_name || "Unknown Student"
+                            )}
                           </div>
                           <div className="text-sm text-gray-500">
                             {payment.course_name || 'N/A'}

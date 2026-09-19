@@ -24,6 +24,7 @@ export default function StudentRegistrationFormsPage() {
   const [loading, setLoading] = useState(true)
   const [forms, setForms] = useState<RegistrationForm[]>([])
   const [studentName, setStudentName] = useState("Student")
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
 
   const loadForms = useCallback(async () => {
     const token = requireStudentSession(router, "/student-dashboard/registration-forms")
@@ -66,16 +67,70 @@ export default function StudentRegistrationFormsPage() {
     router.push("/login")
   }
 
-  const handleDownload = (form: RegistrationForm) => {
-    const url = resolvePublicAssetUrl(form.file_url)
-    const link = document.createElement("a")
-    link.href = url
-    link.download = `${form.name.replace(/[^\w\s-]/g, "").trim() || "registration-form"}.pdf`
-    link.target = "_blank"
-    link.rel = "noopener noreferrer"
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+  const handleDownload = async (form: RegistrationForm) => {
+    if (downloadingId) return
+
+    const filename = `${form.name.replace(/[^\w\s-]/g, "").trim() || "registration-form"}.pdf`
+    const assetUrl = resolvePublicAssetUrl(form.file_url)
+    if (!assetUrl) return
+
+    // Ask the uploads route for Content-Disposition: attachment (avoids iOS PDF preview).
+    const url = assetUrl.includes("?")
+      ? `${assetUrl}&download=1`
+      : `${assetUrl}?download=1`
+
+    setDownloadingId(form.id)
+    try {
+      const res = await fetch(url, { credentials: "include", cache: "no-store" })
+      if (!res.ok) throw new Error("Download failed")
+
+      const buffer = await res.arrayBuffer()
+
+      // iOS Safari opens application/pdf in a preview viewer and ignores <a download>.
+      // Prefer the share sheet ("Save to Files"); otherwise force an octet-stream download.
+      const isIOS =
+        /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+
+      if (isIOS && typeof navigator.canShare === "function" && typeof navigator.share === "function") {
+        try {
+          const file = new File([buffer], filename, { type: "application/pdf" })
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: form.name })
+            return
+          }
+        } catch (shareErr) {
+          // User cancelled — stop without falling back to a preview navigation.
+          if (shareErr instanceof DOMException && shareErr.name === "AbortError") return
+        }
+      }
+
+      const downloadBlob = new Blob([buffer], {
+        type: isIOS ? "application/octet-stream" : "application/pdf",
+      })
+      const objectUrl = window.URL.createObjectURL(downloadBlob)
+      const link = document.createElement("a")
+      link.href = objectUrl
+      link.download = filename
+      link.rel = "noopener"
+      link.style.display = "none"
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 2000)
+    } catch {
+      // Same-origin attachment URL — still avoid target=_blank (opens PDF preview on iOS).
+      const link = document.createElement("a")
+      link.href = url
+      link.download = filename
+      link.rel = "noopener"
+      link.style.display = "none"
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } finally {
+      setDownloadingId(null)
+    }
   }
 
   if (loading) {
@@ -124,10 +179,15 @@ export default function StudentRegistrationFormsPage() {
                 <CardContent>
                   <Button
                     onClick={() => handleDownload(form)}
+                    disabled={downloadingId === form.id}
                     className="gap-2 bg-[#E1BB33] hover:bg-[#c9a82e] text-gray-900"
                   >
-                    <Download className="w-4 h-4" />
-                    Download PDF
+                    {downloadingId === form.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
+                    {downloadingId === form.id ? "Downloading…" : "Download PDF"}
                   </Button>
                 </CardContent>
               </Card>

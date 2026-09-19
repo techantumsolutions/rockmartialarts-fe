@@ -5,8 +5,8 @@ import { ReactNode, useEffect, useState } from "react"
 import { useIsMobile } from "@/components/ui/use-mobile"
 
 interface HeroAnimationProps {
-  /** Hero title (main heading) */
-  title: ReactNode
+  /** Hero title (main heading) — omitted when empty / not set in admin */
+  title?: ReactNode
   /** Optional subtitle */
   subtitle?: ReactNode
   /** Optional description line */
@@ -53,9 +53,11 @@ export function HeroAnimation({
       <div className={className}>
         {media}
         <div className="container relative z-10 mx-auto px-4 text-center text-white">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold uppercase tracking-wide mb-4">
-            {title}
-          </h1>
+          {title ? (
+            <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold uppercase tracking-wide mb-4">
+              {title}
+            </h1>
+          ) : null}
           {subtitle && <h2 className="text-2xl md:text-3xl font-semibold mb-3">{subtitle}</h2>}
           {description && <h6 className="text-lg md:text-xl max-w-2xl mx-auto">{description}</h6>}
           {actions}
@@ -91,14 +93,16 @@ export function HeroAnimation({
       <div
         className={`container relative z-10 mx-auto px-4 text-center text-white ${isMobile && exited ? "pointer-events-none" : ""}`}
       >
-        <motion.h1
-          className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold uppercase tracking-wide mb-4"
-          initial={{ opacity: 0, y: 32 }}
-          animate={contentAnimate}
-          transition={{ ...contentTransition, delay: exited ? 0 : 0.2 }}
-        >
-          {title}
-        </motion.h1>
+        {title ? (
+          <motion.h1
+            className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold uppercase tracking-wide mb-4"
+            initial={{ opacity: 0, y: 32 }}
+            animate={contentAnimate}
+            transition={{ ...contentTransition, delay: exited ? 0 : 0.2 }}
+          >
+            {title}
+          </motion.h1>
+        ) : null}
         {subtitle && (
           <motion.h2
             className="text-2xl md:text-3xl font-semibold mb-3"

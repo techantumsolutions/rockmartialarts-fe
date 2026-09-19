@@ -35,6 +35,10 @@ interface HomepageSection {
   hero_description?: string
   hero_image?: string
   hero_video?: string
+  hero_primary_cta_text?: string
+  hero_primary_cta_link?: string
+  hero_secondary_cta_text?: string
+  hero_secondary_cta_link?: string
   about_title?: string
   about_subtitle?: string
   courses_title?: string
@@ -552,6 +556,48 @@ export default function CMSPage() {
                     <div className="flex-1 space-y-2">
                       <Input value={homepage.hero_video || ""} onChange={(e) => setHomepage({ ...homepage, hero_video: e.target.value })} placeholder="Enter video URL or upload below" />
                       <Input type="file" accept="video/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleHeroMediaUpload("hero_video", file) }} className="text-sm" />
+                    </div>
+                  </div>
+                </div>
+                <div className="rounded-lg border border-dashed border-gray-200 p-4 space-y-4">
+                  <div>
+                    <p className="text-sm font-medium text-[#4F5077]">Hero buttons</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Leave blank to hide. Buttons appear on the website hero only when text is set here.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Primary button text</Label>
+                      <Input
+                        value={homepage.hero_primary_cta_text || ""}
+                        onChange={(e) => setHomepage({ ...homepage, hero_primary_cta_text: e.target.value })}
+                        placeholder="e.g. Explore Courses"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Primary button link</Label>
+                      <Input
+                        value={homepage.hero_primary_cta_link || ""}
+                        onChange={(e) => setHomepage({ ...homepage, hero_primary_cta_link: e.target.value })}
+                        placeholder="e.g. #courses or /courses"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Secondary button text</Label>
+                      <Input
+                        value={homepage.hero_secondary_cta_text || ""}
+                        onChange={(e) => setHomepage({ ...homepage, hero_secondary_cta_text: e.target.value })}
+                        placeholder="e.g. Join the Academy"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Secondary button link</Label>
+                      <Input
+                        value={homepage.hero_secondary_cta_link || ""}
+                        onChange={(e) => setHomepage({ ...homepage, hero_secondary_cta_link: e.target.value })}
+                        placeholder="e.g. /register"
+                      />
                     </div>
                   </div>
                 </div>

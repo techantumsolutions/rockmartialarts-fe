@@ -29,6 +29,12 @@ export interface HomePageViewProps {
   heroDescription: string
   heroVideo: string
   heroImage: string
+  /** Primary hero CTA — only rendered when text is set in admin CMS */
+  heroPrimaryCtaText?: string
+  heroPrimaryCtaLink?: string
+  /** Secondary hero CTA — only rendered when text is set in admin CMS */
+  heroSecondaryCtaText?: string
+  heroSecondaryCtaLink?: string
   ctaTitle: string
   ctaSubtitle: string
   bottomCtaTitle: string
@@ -63,6 +69,10 @@ export default function HomePageView({
   heroDescription,
   heroVideo,
   heroImage,
+  heroPrimaryCtaText = "",
+  heroPrimaryCtaLink = "",
+  heroSecondaryCtaText = "",
+  heroSecondaryCtaLink = "",
   ctaTitle,
   ctaSubtitle,
   bottomCtaTitle,
@@ -96,36 +106,52 @@ export default function HomePageView({
   const resolvedHeroImage = resolveUploadUrl(heroImage)
   const resolvedHeroVideo = resolveUploadUrl(heroVideo)
 
-  // Hero CTAs: scale slightly on hover (Cult.fit-style)
-  const heroActions = !shouldReduceMotion ? (
-    <div className="flex flex-wrap items-center justify-center gap-4">
-      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }} transition={{ duration: 0.3, ease: "easeOut" }}>
-        <Link
-          href="#courses"
-          className="inline-block rounded-lg bg-[#FFB70F] px-6 py-3.5 text-base font-semibold text-black hover:bg-[#F73322] hover:text-white transition-colors duration-300"
-        >
-          Explore Courses
-        </Link>
-      </motion.div>
-      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }} transition={{ duration: 0.3, ease: "easeOut" }}>
-        <Link
-          href="/register"
-          className="inline-block rounded-lg border-2 border-white px-6 py-3.5 text-base font-semibold text-white hover:bg-white hover:text-black transition-colors duration-300"
-        >
-          Join the Academy
-        </Link>
-      </motion.div>
-    </div>
-  ) : (
-    <div className="flex flex-wrap items-center justify-center gap-4 mt-6">
-      <Link href="#courses" className="inline-block rounded-lg bg-[#FFB70F] px-6 py-3.5 text-base font-semibold text-black">
-        Explore Courses
-      </Link>
-      <Link href="/register" className="inline-block rounded-lg border-2 border-white px-6 py-3.5 text-base font-semibold text-white">
-        Join the Academy
-      </Link>
-    </div>
-  )
+  const primaryCtaText = heroPrimaryCtaText.trim()
+  const secondaryCtaText = heroSecondaryCtaText.trim()
+  const primaryHref = heroPrimaryCtaLink.trim() || "#"
+  const secondaryHref = heroSecondaryCtaLink.trim() || "#"
+
+  // Hero CTAs: only when created in admin CMS (no hardcoded fallback buttons)
+  const heroActions =
+    primaryCtaText || secondaryCtaText ? (
+      !shouldReduceMotion ? (
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          {primaryCtaText ? (
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }} transition={{ duration: 0.3, ease: "easeOut" }}>
+              <Link
+                href={primaryHref}
+                className="inline-block rounded-lg bg-[#FFB70F] px-6 py-3.5 text-base font-semibold text-black hover:bg-[#F73322] hover:text-white transition-colors duration-300"
+              >
+                {primaryCtaText}
+              </Link>
+            </motion.div>
+          ) : null}
+          {secondaryCtaText ? (
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }} transition={{ duration: 0.3, ease: "easeOut" }}>
+              <Link
+                href={secondaryHref}
+                className="inline-block rounded-lg border-2 border-white px-6 py-3.5 text-base font-semibold text-white hover:bg-white hover:text-black transition-colors duration-300"
+              >
+                {secondaryCtaText}
+              </Link>
+            </motion.div>
+          ) : null}
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center justify-center gap-4 mt-6">
+          {primaryCtaText ? (
+            <Link href={primaryHref} className="inline-block rounded-lg bg-[#FFB70F] px-6 py-3.5 text-base font-semibold text-black">
+              {primaryCtaText}
+            </Link>
+          ) : null}
+          {secondaryCtaText ? (
+            <Link href={secondaryHref} className="inline-block rounded-lg border-2 border-white px-6 py-3.5 text-base font-semibold text-white">
+              {secondaryCtaText}
+            </Link>
+          ) : null}
+        </div>
+      )
+    ) : undefined
 
   return (
     <main className="min-h-screen bg-[#171A26] relative">
@@ -134,7 +160,7 @@ export default function HomePageView({
 
       {/* Hero: staggered text, media slide-in, CTAs with hover scale */}
       <HeroAnimation
-        title={heroTitle}
+        title={heroTitle.trim() || undefined}
         subtitle={heroSubtitle || undefined}
         description={heroDescription || undefined}
         actions={heroActions}

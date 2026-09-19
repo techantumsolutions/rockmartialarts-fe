@@ -55,6 +55,11 @@ type TenureOption = {
   months: number
 }
 
+type BatchOption = {
+  batch_ref: string
+  label: string
+}
+
 function asTs(value?: string | null): number {
   if (!value) return 0
   const ts = new Date(value).getTime()
@@ -79,7 +84,8 @@ async function fetchStudentCheckoutQuoteTotal(
   token: string,
   courseId: string,
   branchId: string,
-  durationKey: string
+  durationKey: string,
+  batchRef?: string | null
 ): Promise<number | null> {
   try {
     const res = await fetch(getBackendApiUrl("payments/student-checkout-quote"), {
@@ -92,6 +98,7 @@ async function fetchStudentCheckoutQuoteTotal(
         course_id: courseId,
         branch_id: branchId,
         duration: durationKey,
+        ...(batchRef?.trim() ? { batch_ref: batchRef.trim() } : {}),
       }),
     })
     if (!res.ok) return null
@@ -126,6 +133,8 @@ export default function StudentPaymentsPage() {
   const [tenureOptions, setTenureOptions] = useState<TenureOption[]>([])
   const [tenurePrices, setTenurePrices] = useState<Record<string, number | null>>({})
   const [tenurePricesLoading, setTenurePricesLoading] = useState(false)
+  const [batchOptions, setBatchOptions] = useState<BatchOption[]>([])
+  const [selectedBatchRef, setSelectedBatchRef] = useState("")
 
   useEffect(() => {
     const token = requireStudentSession(router, pathname || "/student-dashboard/payments")
@@ -154,12 +163,14 @@ export default function StudentPaymentsPage() {
     loadPaymentData(token)
   }, [router, pathname])
 
-  // When tenure modal opens, fetch price for each duration
+  // When tenure modal opens, fetch price for each duration using the student's batch
   useEffect(() => {
     if (!tenureModal) {
       setTenureOptions([])
       setTenurePrices({})
       setTenurePricesLoading(false)
+      setBatchOptions([])
+      setSelectedBatchRef("")
       return
     }
     setTenurePricesLoading(true)
@@ -171,6 +182,35 @@ export default function StudentPaymentsPage() {
     const { course_id, branch_id } = tenureModal.enrollment
     ;(async () => {
       try {
+        let resolvedBatchRef = String(tenureModal.enrollment.batch_ref || "").trim()
+        let loadedBatches: BatchOption[] = []
+        try {
+          const branchRes = await fetch(
+            getBackendApiUrl(`courses/public/by-branch/${encodeURIComponent(branch_id)}`)
+          )
+          const branchData = await branchRes.json().catch(() => ({}))
+          const courses: any[] = Array.isArray(branchData?.courses) ? branchData.courses : []
+          const found = courses.find((c) => String(c?.id || "") === String(course_id))
+          const rawBatches: any[] = Array.isArray(found?.branch_batches) ? found.branch_batches : []
+          loadedBatches = rawBatches
+            .map((b) => ({
+              batch_ref: String(b.batch_ref || b.batch_id || b.id || "").trim(),
+              label: String(
+                (typeof b.name === "string" && b.name.trim()) ||
+                  (typeof b.label === "string" && b.label.trim()) ||
+                  "Batch"
+              ),
+            }))
+            .filter((b) => b.batch_ref)
+          setBatchOptions(loadedBatches)
+          if (!resolvedBatchRef || !loadedBatches.some((b) => b.batch_ref === resolvedBatchRef)) {
+            resolvedBatchRef = loadedBatches.length === 1 ? loadedBatches[0].batch_ref : resolvedBatchRef
+          }
+        } catch {
+          setBatchOptions([])
+        }
+        setSelectedBatchRef(resolvedBatchRef)
+
         // 1) Load durations for this course from master data (dynamic, admin-configured)
         const durationsRes = await fetch(
           getBackendApiUrl(
@@ -199,13 +239,30 @@ export default function StudentPaymentsPage() {
           return
         }
 
+        if (!resolvedBatchRef && loadedBatches.length > 1) {
+          setTenurePrices({})
+          return
+        }
+
         const profileEnr = tenureModal.enrollment
         const isRenewal = tenureModal.isRenewal
         const next: Record<string, number | null> = {}
         for (const opt of options) {
-          let total = await fetchStudentCheckoutQuoteTotal(token, course_id, branch_id, opt.id)
+          let total = await fetchStudentCheckoutQuoteTotal(
+            token,
+            course_id,
+            branch_id,
+            opt.id,
+            resolvedBatchRef
+          )
           if (total == null && opt.code) {
-            total = await fetchStudentCheckoutQuoteTotal(token, course_id, branch_id, opt.code)
+            total = await fetchStudentCheckoutQuoteTotal(
+              token,
+              course_id,
+              branch_id,
+              opt.code,
+              resolvedBatchRef
+            )
           }
           next[opt.id] = total
         }
@@ -383,6 +440,9 @@ export default function StudentPaymentsPage() {
           course_id: enrollment.course_id,
           branch_id: enrollment.branch_id,
           duration: tenure.id,
+          ...((selectedBatchRef || enrollment.batch_ref)?.trim()
+            ? { batch_ref: (selectedBatchRef || enrollment.batch_ref || "").trim() }
+            : {}),
         }),
       })
       const prepJson = await prepRes.json().catch(() => ({}))
@@ -932,10 +992,62 @@ export default function StudentPaymentsPage() {
             <DialogHeader>
               <DialogTitle>Select tenure</DialogTitle>
               <DialogDescription>
-                Choose a tenure. Prices match checkout (course fee only for renewals — admission is charged on your
-                first payment only). Your current plan is highlighted when completing a pending first payment.
+                Choose a tenure. Prices match the current super-admin batch setup (course fee only for renewals —
+                admission is charged on your first payment only). Your current plan is highlighted when completing a
+                pending first payment.
               </DialogDescription>
             </DialogHeader>
+            {batchOptions.length > 1 && (
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-700" htmlFor="renewal-batch">
+                  Batch
+                </label>
+                <select
+                  id="renewal-batch"
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                  value={selectedBatchRef}
+                  onChange={(e) => {
+                    const nextRef = e.target.value
+                    setSelectedBatchRef(nextRef)
+                    const token = TokenManager.getToken()
+                    const enrollment = tenureModal?.enrollment
+                    if (!token || !enrollment || tenureOptions.length === 0) return
+                    setTenurePricesLoading(true)
+                    void (async () => {
+                      const next: Record<string, number | null> = {}
+                      for (const opt of tenureOptions) {
+                        let total = await fetchStudentCheckoutQuoteTotal(
+                          token,
+                          enrollment.course_id,
+                          enrollment.branch_id,
+                          opt.id,
+                          nextRef
+                        )
+                        if (total == null && opt.code) {
+                          total = await fetchStudentCheckoutQuoteTotal(
+                            token,
+                            enrollment.course_id,
+                            enrollment.branch_id,
+                            opt.code,
+                            nextRef
+                          )
+                        }
+                        next[opt.id] = total
+                      }
+                      setTenurePrices(next)
+                      setTenurePricesLoading(false)
+                    })()
+                  }}
+                >
+                  <option value="">Select batch</option>
+                  {batchOptions.map((b) => (
+                    <option key={b.batch_ref} value={b.batch_ref}>
+                      {b.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             {tenurePricesLoading ? (
               <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -950,7 +1062,9 @@ export default function StudentPaymentsPage() {
                   if (available.length === 0) {
                     return (
                       <p className="text-sm text-muted-foreground text-center py-4">
-                        No tenure configured for this course. Please contact support.
+                        {batchOptions.length > 1 && !selectedBatchRef
+                          ? "Select your batch to see the current admin prices."
+                          : "No tenure configured for this course. Please contact support."}
                       </p>
                     )
                   }
