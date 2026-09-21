@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { cn } from "@/lib/utils"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2, Save, Globe, FileText, Image, Home, Search, MapPin } from "lucide-react"
@@ -82,6 +82,14 @@ const SEO_PAGES = [
   { key: "gallery", label: "Gallery Page" },
   { key: "blog", label: "Blog Page" },
 ]
+
+const CMS_NAV_ITEMS = [
+  { id: "homepage", label: "Homepage", icon: Home },
+  { id: "footer", label: "Footer", icon: FileText },
+  { id: "branding", label: "Branding", icon: Image },
+  { id: "seo", label: "Page SEO", icon: Search },
+  { id: "residential-camp", label: "Residential Camp Page", icon: MapPin },
+] as const
 
 export default function CMSPage() {
   const { toast } = useToast()
@@ -480,39 +488,47 @@ export default function CMSPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-[#4F5077]">CMS Management</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage homepage sections, footer, branding, and SEO settings</p>
-        </div>
-        <Button onClick={handleSave} disabled={saving} className="bg-yellow-400 hover:bg-yellow-500 text-white">
-          {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-          {saving ? "Saving..." : "Save All Changes"}
-        </Button>
+    <div className="flex h-[calc(100dvh-5rem)] flex-col gap-4 p-6 pb-24">
+      <div className="shrink-0">
+        <h1 className="text-2xl font-bold text-[#4F5077]">CMS Management</h1>
+        <p className="text-sm text-gray-500 mt-1">Manage homepage sections, footer, branding, and SEO settings</p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="flex w-full flex-wrap h-auto gap-1 bg-gray-100 p-1">
-          <TabsTrigger value="homepage" className="flex items-center gap-2 data-[state=active]:bg-white">
-            <Home className="w-4 h-4" /> Homepage
-          </TabsTrigger>
-          <TabsTrigger value="footer" className="flex items-center gap-2 data-[state=active]:bg-white">
-            <FileText className="w-4 h-4" /> Footer
-          </TabsTrigger>
-          <TabsTrigger value="branding" className="flex items-center gap-2 data-[state=active]:bg-white">
-            <Image className="w-4 h-4" /> Branding
-          </TabsTrigger>
-          <TabsTrigger value="seo" className="flex items-center gap-2 data-[state=active]:bg-white">
-            <Search className="w-4 h-4" /> Page SEO
-          </TabsTrigger>
-          <TabsTrigger value="residential-camp" className="flex items-center gap-2 data-[state=active]:bg-white">
-            <MapPin className="w-4 h-4" /> Residential Camp Page
-          </TabsTrigger>
-        </TabsList>
+      <div className="flex min-h-0 flex-1 flex-col gap-6 lg:flex-row">
+        <aside className="w-full shrink-0 lg:w-60">
+          <nav className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm" aria-label="CMS sections">
+            <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Sections</p>
+            <ul className="space-y-1">
+              {CMS_NAV_ITEMS.map((item) => {
+                const Icon = item.icon
+                const isActive = activeTab === item.id
+                return (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab(item.id)}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors",
+                        isActive
+                          ? "bg-yellow-400 text-[#4F5077] shadow-sm"
+                          : "text-gray-600 hover:bg-gray-100 hover:text-[#4F5077]",
+                      )}
+                      aria-current={isActive ? "page" : undefined}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span>{item.label}</span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </nav>
+        </aside>
 
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain pr-1">
         {/* Homepage Section Titles */}
-        <TabsContent value="homepage" className="space-y-6 mt-6">
+        {activeTab === "homepage" && (
+        <div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="text-[#4F5077]">Hero Section</CardTitle>
@@ -885,10 +901,12 @@ export default function CMSPage() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
+        )}
 
         {/* Footer Content */}
-        <TabsContent value="footer" className="space-y-6 mt-6">
+        {activeTab === "footer" && (
+        <div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="text-[#4F5077]">Footer Text</CardTitle>
@@ -964,10 +982,12 @@ export default function CMSPage() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
+        )}
 
         {/* Branding */}
-        <TabsContent value="branding" className="space-y-6 mt-6">
+        {activeTab === "branding" && (
+        <div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="text-[#4F5077]">Website loader</CardTitle>
@@ -1055,10 +1075,12 @@ export default function CMSPage() {
               ))}
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
+        )}
 
         {/* Page-wise SEO */}
-        <TabsContent value="seo" className="space-y-6 mt-6">
+        {activeTab === "seo" && (
+        <div className="space-y-6">
           {SEO_PAGES.map((page) => (
             <Card key={page.key}>
               <CardHeader>
@@ -1106,9 +1128,11 @@ export default function CMSPage() {
               </CardContent>
             </Card>
           ))}
-        </TabsContent>
+        </div>
+        )}
 
-        <TabsContent value="residential-camp" className="space-y-6 mt-6">
+        {activeTab === "residential-camp" && (
+        <div className="space-y-6">
           <ResidentialCampCmsFields
             value={residentialCamp}
             onChange={setResidentialCamp}
@@ -1118,8 +1142,23 @@ export default function CMSPage() {
             onStartNewEvent={handleStartNewCampEvent}
             startingNewEvent={startingNewEvent}
           />
-        </TabsContent>
-      </Tabs>
+        </div>
+        )}
+        </div>
+      </div>
+
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90">
+        <div className="mx-auto flex max-w-full items-center justify-end px-6 py-3">
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-yellow-400 hover:bg-yellow-500 text-white"
+          >
+            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+            {saving ? "Saving..." : "Save All Changes"}
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }

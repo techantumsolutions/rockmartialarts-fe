@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react"
 import type { ResidentialCampContent } from "@/lib/residentialCamp"
-import { telHref, campCardIconImage } from "@/lib/residentialCamp"
+import { telHref, campCardIconImage, syncedCampFacts } from "@/lib/residentialCamp"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import { ResidentialCampNavBar } from "@/components/website/ResidentialCampNavBar"
 import { ResidentialCampCardGrid } from "@/components/website/ResidentialCampCardGrid"
@@ -14,7 +14,8 @@ export function ResidentialCampView({
   content: ResidentialCampContent
   onRegister?: () => void
 }) {
-  const { nav, hero, facts, camp, training, schedule, rules, register, footer } = content
+  const { nav, hero, camp, training, schedule, rules, register, footer } = content
+  const facts = syncedCampFacts(content)
   const heroImage = resolvePublicAssetUrl(hero.hero_image)
   const heroStyle: CSSProperties | undefined = heroImage
     ? ({ ["--hero-image"]: `url("${heroImage}")` } as CSSProperties)
@@ -74,7 +75,9 @@ export function ResidentialCampView({
           <h2>{camp.h2}</h2>
           <p className="lead">{camp.lead}</p>
           <ResidentialCampCardGrid>
-            {camp.cards.map((card) => {
+            {camp.cards
+              .filter((card) => card.enabled !== false)
+              .map((card) => {
               const iconSrc = resolvePublicAssetUrl(campCardIconImage(card))
               return (
               <article className="card" key={card.title}>
@@ -95,7 +98,9 @@ export function ResidentialCampView({
           <div className="kicker">{training.kicker}</div>
           <h2>{training.h2}</h2>
           <ResidentialCampCardGrid>
-            {training.cards.map((card) => (
+            {training.cards
+              .filter((card) => card.enabled !== false)
+              .map((card) => (
               <article className="card" key={card.title}>
                 <h3>{card.title}</h3>
                 <ul>
