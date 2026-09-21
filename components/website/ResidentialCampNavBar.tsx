@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import type { ResidentialCampNav as CampNavContent } from "@/lib/residentialCamp"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 
@@ -12,8 +12,14 @@ export function ResidentialCampNavBar({
   onRegister?: () => void
 }) {
   const [open, setOpen] = useState(false)
+  const [logoFailed, setLogoFailed] = useState(false)
   const logo = resolvePublicAssetUrl(nav.logo)
+  const showLogo = Boolean(logo) && !logoFailed
   const brandName = `${nav.brand_prefix} ${nav.brand_accent}`.trim() || "Rock Martial Arts Academy"
+
+  useEffect(() => {
+    setLogoFailed(false)
+  }, [logo])
 
   const close = () => setOpen(false)
 
@@ -21,8 +27,13 @@ export function ResidentialCampNavBar({
     <nav className="nav">
       <div className="container navin">
         <a href="#top" className="brand" aria-label={brandName} onClick={close}>
-          {logo ? (
-            <img className="brand-logo" src={logo} alt={brandName} />
+          {showLogo ? (
+            <img
+              className="brand-logo"
+              src={logo}
+              alt={brandName}
+              onError={() => setLogoFailed(true)}
+            />
           ) : (
             <>
               {nav.brand_prefix} <span>{nav.brand_accent}</span>

@@ -8,11 +8,15 @@ export type CampIconCard = {
   icon_image?: string | null
   title: string
   text: string
+  /** When false, card is hidden on the public page. Omitted/true = shown. */
+  enabled?: boolean
 }
 
 export type CampTrainingCard = {
   title: string
   bullets: string[]
+  /** When false, card is hidden on the public page. Omitted/true = shown. */
+  enabled?: boolean
 }
 
 export type CampTimelineItem = {
@@ -363,7 +367,7 @@ export function syncedCampFacts(content: ResidentialCampContent): CampLabelValue
     if (idx < 0) idx = unused.length ? 0 : -1
     const src = idx >= 0 ? unused.splice(idx, 1)[0] : { label: slot.label, value: "" }
     return {
-      label: typeof src.label === "string" ? src.label : slot.label,
+      label: slot.label,
       value: campEventSlotValue(content, slot.key) || (src.value || "").trim(),
     }
   })

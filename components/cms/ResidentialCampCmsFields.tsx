@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
 import type { ResidentialCampContent } from "@/lib/residentialCamp"
 import {
   DEFAULT_RESIDENTIAL_CAMP,
@@ -14,7 +16,6 @@ import {
   campEventPayload,
   campFactValue,
   parseFactDateRange,
-  syncedCampFacts,
 } from "@/lib/residentialCamp"
 import { TokenManager } from "@/lib/tokenManager"
 import { getBackendApiUrl } from "@/lib/config"
@@ -214,15 +215,14 @@ export function ResidentialCampCmsFields({
             <div className="flex items-center gap-4">
               {v.nav.logo ? (
                 <div className="w-24 h-16 border rounded-lg overflow-hidden flex items-center justify-center bg-gray-50">
-                  <img src={v.nav.logo} alt="Navbar logo" className="max-w-full max-h-full object-contain" />
+                  <img
+                    src={resolvePublicAssetUrl(v.nav.logo)}
+                    alt="Navbar logo"
+                    className="max-w-full max-h-full object-contain"
+                  />
                 </div>
               ) : null}
               <div className="flex-1 space-y-2">
-                <Input
-                  value={v.nav.logo || ""}
-                  onChange={(e) => patch({ nav: { ...v.nav, logo: e.target.value } })}
-                  placeholder="Enter logo URL or upload below"
-                />
                 <Input
                   type="file"
                   accept="image/*"
@@ -232,6 +232,16 @@ export function ResidentialCampCmsFields({
                   }}
                   className="text-sm"
                 />
+                {v.nav.logo ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => patch({ nav: { ...v.nav, logo: "" } })}
+                  >
+                    Remove logo
+                  </Button>
+                ) : null}
                 <p className="text-xs text-gray-500">
                   Shown on the left of the camp navbar. If empty, brand text is used.
                 </p>
@@ -297,15 +307,14 @@ export function ResidentialCampCmsFields({
             <div className="flex items-center gap-4">
               {v.hero.hero_image ? (
                 <div className="w-24 h-16 border rounded-lg overflow-hidden flex items-center justify-center bg-gray-50">
-                  <img src={v.hero.hero_image} alt="Hero" className="max-w-full max-h-full object-cover" />
+                  <img
+                    src={resolvePublicAssetUrl(v.hero.hero_image) || v.hero.hero_image}
+                    alt="Hero"
+                    className="max-w-full max-h-full object-cover"
+                  />
                 </div>
               ) : null}
-              <div className="flex-1 space-y-2">
-                <Input
-                  value={v.hero.hero_image || ""}
-                  onChange={(e) => patch({ hero: { ...v.hero, hero_image: e.target.value } })}
-                  placeholder="Enter image URL or upload below"
-                />
+              <div className="flex-1">
                 <Input
                   type="file"
                   accept="image/*"
@@ -368,32 +377,6 @@ export function ResidentialCampCmsFields({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-[#4F5077]">Facts</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {syncedCampFacts(v).map((fact, i) => (
-            <div key={i} className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
-              <div className="space-y-2">
-                <Label>Label</Label>
-                <Input
-                  value={fact.label}
-                  onChange={(e) => {
-                    const facts = syncedCampFacts(v).map((f, idx) => (idx === i ? { ...f, label: e.target.value } : f))
-                    patch({ facts })
-                  }}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Value</Label>
-                <Input value={fact.value} readOnly />
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
           <CardTitle className="text-[#4F5077]">Camp Section</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -410,7 +393,23 @@ export function ResidentialCampCmsFields({
             <Textarea rows={3} value={v.camp.lead} onChange={(e) => patch({ camp: { ...v.camp, lead: e.target.value } })} />
           </div>
           {v.camp.cards.map((card, i) => (
-            <div key={i} className="rounded-lg border p-4 space-y-3">
+            <div
+              key={i}
+              className={`rounded-lg border p-4 space-y-3 ${card.enabled === false ? "opacity-60" : ""}`}
+            >
+              <div className="flex items-center justify-between gap-4">
+                <Label htmlFor={`camp-card-enabled-${i}`}>Show on website</Label>
+                <Switch
+                  id={`camp-card-enabled-${i}`}
+                  checked={card.enabled !== false}
+                  onCheckedChange={(checked) => {
+                    const cards = v.camp.cards.map((c, idx) =>
+                      idx === i ? { ...c, enabled: checked } : c
+                    )
+                    patch({ camp: { ...v.camp, cards } })
+                  }}
+                />
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>Icon</Label>
@@ -418,7 +417,10 @@ export function ResidentialCampCmsFields({
                     {campCardIconImage(card) ? (
                       <div className="w-12 h-12 border rounded-lg overflow-hidden flex items-center justify-center bg-gray-50 shrink-0">
                         <img
-                          src={campCardIconImage(card)}
+                          src={
+                            resolvePublicAssetUrl(campCardIconImage(card)) ||
+                            campCardIconImage(card)
+                          }
                           alt=""
                           className="max-w-full max-h-full object-contain"
                         />
@@ -428,17 +430,7 @@ export function ResidentialCampCmsFields({
                         {card.icon}
                       </div>
                     ) : null}
-                    <div className="flex-1 space-y-2 min-w-0">
-                      <Input
-                        value={card.icon_image || ""}
-                        onChange={(e) => {
-                          const cards = v.camp.cards.map((c, idx) =>
-                            idx === i ? { ...c, icon_image: e.target.value } : c
-                          )
-                          patch({ camp: { ...v.camp, cards } })
-                        }}
-                        placeholder="Enter icon image URL or upload below"
-                      />
+                    <div className="flex-1 min-w-0">
                       <Input
                         type="file"
                         accept="image/*"
@@ -473,20 +465,18 @@ export function ResidentialCampCmsFields({
                   }}
                 />
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => patch({ camp: { ...v.camp, cards: v.camp.cards.filter((_, idx) => idx !== i) } })}
-              >
-                Remove card
-              </Button>
             </div>
           ))}
           <Button
             type="button"
             variant="outline"
             onClick={() =>
-              patch({ camp: { ...v.camp, cards: [...v.camp.cards, { icon: "", icon_image: "", title: "", text: "" }] } })
+              patch({
+                camp: {
+                  ...v.camp,
+                  cards: [...v.camp.cards, { icon: "", icon_image: "", title: "", text: "", enabled: true }],
+                },
+              })
             }
           >
             Add camp card
@@ -511,7 +501,23 @@ export function ResidentialCampCmsFields({
             <Input value={v.training.h2} onChange={(e) => patch({ training: { ...v.training, h2: e.target.value } })} />
           </div>
           {v.training.cards.map((card, i) => (
-            <div key={i} className="rounded-lg border p-4 space-y-3">
+            <div
+              key={i}
+              className={`rounded-lg border p-4 space-y-3 ${card.enabled === false ? "opacity-60" : ""}`}
+            >
+              <div className="flex items-center justify-between gap-4">
+                <Label htmlFor={`training-card-enabled-${i}`}>Show on website</Label>
+                <Switch
+                  id={`training-card-enabled-${i}`}
+                  checked={card.enabled !== false}
+                  onCheckedChange={(checked) => {
+                    const cards = v.training.cards.map((c, idx) =>
+                      idx === i ? { ...c, enabled: checked } : c
+                    )
+                    patch({ training: { ...v.training, cards } })
+                  }}
+                />
+              </div>
               <div className="space-y-2">
                 <Label>Title</Label>
                 <Input
@@ -534,22 +540,18 @@ export function ResidentialCampCmsFields({
                   }}
                 />
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  patch({ training: { ...v.training, cards: v.training.cards.filter((_, idx) => idx !== i) } })
-                }
-              >
-                Remove card
-              </Button>
             </div>
           ))}
           <Button
             type="button"
             variant="outline"
             onClick={() =>
-              patch({ training: { ...v.training, cards: [...v.training.cards, { title: "", bullets: [] }] } })
+              patch({
+                training: {
+                  ...v.training,
+                  cards: [...v.training.cards, { title: "", bullets: [], enabled: true }],
+                },
+              })
             }
           >
             Add training card

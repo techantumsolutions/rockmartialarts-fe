@@ -17,7 +17,7 @@ const navLinks = [
 
 export function FixedTopNav() {
   const { cms } = useCMS()
-  const navbarLogo = cms?.branding?.navbar_logo || "/logo.png"
+  const navbarLogo = resolvePublicAssetUrl(cms?.branding?.navbar_logo) || "/logo.png"
 
   const [mobileOpen, setMobileOpen] = useState(false)
 

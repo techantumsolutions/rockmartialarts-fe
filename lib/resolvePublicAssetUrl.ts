@@ -12,11 +12,26 @@ export function resolvePublicAssetUrl(url?: string | null): string {
   if (url == null) return ""
   const u = String(url).trim()
   if (!u) return ""
-  if (u.startsWith("http://") || u.startsWith("https://")) return u
+
+  if (u.startsWith("http://") || u.startsWith("https://")) {
+    try {
+      const parsed = new URL(u)
+      const path = parsed.pathname || ""
+      if (path.startsWith("/api/uploads/")) return path + parsed.search
+      if (path.startsWith("/uploads/")) {
+        return `/api/uploads/${path.slice("/uploads/".length)}${parsed.search}`
+      }
+    } catch {
+      /* keep absolute URL */
+    }
+    return u
+  }
+
   if (u.startsWith("/api/uploads/")) return u
   if (u.startsWith("/uploads/")) return `/api/uploads/${u.slice("/uploads/".length)}`
   if (u.startsWith("/")) return u
   if (u.startsWith("uploads/")) return `/api/uploads/${u.slice("uploads/".length)}`
   if (u.includes("/")) return `/api/uploads/${u.replace(/^\/+/, "")}`
-  return `/api/backend/uploads/${encodeURIComponent(u)}`
+  // Bare filename from older upload payloads — serve via runtime uploads route
+  return `/api/uploads/images/${encodeURIComponent(u)}`
 }
