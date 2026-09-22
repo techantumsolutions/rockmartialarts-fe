@@ -14,6 +14,8 @@ export type CampIconCard = {
 
 export type CampTrainingCard = {
   title: string
+  description?: string
+  image?: string | null
   bullets: string[]
   /** When false, card is hidden on the public page. Omitted/true = shown. */
   enabled?: boolean
@@ -29,16 +31,28 @@ export type ResidentialCampNav = {
   logo?: string | null
   brand_prefix: string
   brand_accent: string
+  link_home?: string
   link_camp: string
   link_training: string
   link_schedule: string
+  /** Levels / training-for-every-level banner. */
+  link_levels?: string
+  /** Journey CTA banner above footer. */
+  link_journey?: string
+  /** @deprecated Camp discipline section removed; kept for older CMS saves. */
+  link_rules?: string
   link_register: string
   mobile_register_label: string
 }
 
 export type ResidentialCampHero = {
   hero_image?: string | null
+  /** @deprecated Prefer eyebrow_part1/2/3; kept for backward-compatible saves. */
   eyebrow: string
+  /** Top banner words, shown as PART1 • PART2 • PART3 */
+  eyebrow_part1?: string
+  eyebrow_part2?: string
+  eyebrow_part3?: string
   h1_line1: string
   h1_line2: string
   h2: string
@@ -46,6 +60,49 @@ export type ResidentialCampHero = {
   cta_primary_label: string
   cta_whatsapp_label: string
   whatsapp_url: string
+  /** @deprecated Right-side hero lines removed; kept for older CMS saves. */
+  side_lines?: string[]
+  /** When false, JOIN NOW is hidden. Omitted/true = shown. */
+  cta_primary_enabled?: boolean
+  /** When false, BOOK A TRIAL CLASS is hidden. Omitted/true = shown. */
+  cta_secondary_enabled?: boolean
+  /** Bottom-left calligraphy (e.g. Chinese characters). */
+  calligraphy_text?: string
+  /** Quote line under calligraphy. */
+  quote_text?: string
+  /** Quote attribution (e.g. Deva). */
+  quote_author?: string
+}
+
+export type CampLevelCard = {
+  title: string
+  description: string
+  color: string
+  enabled?: boolean
+}
+
+export type CampLevelPanel = {
+  title: string
+  description: string
+  bullets: string[]
+  cta_label: string
+  cta_href: string
+  /** When false, CTA button is hidden. Omitted/true = shown. */
+  cta_enabled?: boolean
+  /** When true, CTA opens the registration modal instead of navigating. */
+  cta_opens_register?: boolean
+  enabled?: boolean
+}
+
+export type CampMasterProfile = {
+  title: string
+  name: string
+  designation: string
+  description: string
+  quote: string
+  image?: string | null
+  /** When false, column is hidden. Omitted/true = shown. */
+  enabled?: boolean
 }
 
 export type ResidentialCampPrice = {
@@ -57,6 +114,14 @@ export type ResidentialCampPrice = {
   refund_label: string
   refund_text: string
   cta_label: string
+}
+
+export type CampFeatureBarItem = {
+  label: string
+  icon_image?: string | null
+  /** Built-in icon when no upload: fitness | discipline | confidence | training | lifestyle */
+  icon_key?: string
+  enabled?: boolean
 }
 
 export type ResidentialCampContent = {
@@ -75,27 +140,59 @@ export type ResidentialCampContent = {
   nav: ResidentialCampNav
   hero: ResidentialCampHero
   facts: CampLabelValue[]
+  /** Icon + label strip directly under the hero banner. */
+  feature_bar?: CampFeatureBarItem[]
   camp: {
     kicker: string
     h2: string
     lead: string
+    paragraph_1?: string
+    paragraph_2?: string
+    cta_label?: string
+    cta_href?: string
+    cta_enabled?: boolean
+    about_image?: string
     cards: CampIconCard[]
   }
   training: {
     kicker: string
     h2: string
+    enabled?: boolean
     cards: CampTrainingCard[]
   }
   schedule: {
     kicker: string
     h2: string
+    masters?: CampMasterProfile[]
     timeline: CampTimelineItem[]
     price: ResidentialCampPrice
   }
-  rules: {
+  rules?: {
     kicker: string
     h2: string
     rules: string[]
+  }
+  levels?: {
+    enabled?: boolean
+    background_image?: string
+    h2: string
+    cards: CampLevelCard[]
+    panels: CampLevelPanel[]
+  }
+  /** Full-bleed CTA banner above the footer (no FAQ). */
+  journey_cta?: {
+    enabled?: boolean
+    background_image?: string
+    title_line1: string
+    title_line2: string
+    description: string
+    cta_primary_label: string
+    cta_primary_enabled?: boolean
+    cta_primary_opens_register?: boolean
+    cta_primary_href?: string
+    cta_secondary_label: string
+    cta_secondary_enabled?: boolean
+    cta_secondary_href?: string
   }
   register: {
     kicker: string
@@ -110,6 +207,19 @@ export type ResidentialCampContent = {
     academy_name: string
     tagline: string
     camp_line: string
+    logo?: string | null
+    /** Short description next to logo (max 60 chars). Falls back to tagline. */
+    description?: string
+    social_instagram_url?: string
+    social_instagram_icon?: string | null
+    social_youtube_url?: string
+    social_youtube_icon?: string | null
+    social_facebook_url?: string
+    social_facebook_icon?: string | null
+    cta_label?: string
+    cta_href?: string
+    cta_enabled?: boolean
+    cta_opens_register?: boolean
   }
 }
 
@@ -130,23 +240,34 @@ export const DEFAULT_RESIDENTIAL_CAMP: ResidentialCampContent = {
     logo: "",
     brand_prefix: "ROCK",
     brand_accent: "MARTIAL ARTS ACADEMY",
-    link_camp: "Camp",
+    link_home: "Home",
+    link_camp: "About",
     link_training: "Training",
-    link_schedule: "Schedule",
-    link_register: "Register",
-    mobile_register_label: "Register",
+    link_schedule: "Our Masters",
+    link_levels: "Levels",
+    link_journey: "Journey",
+    link_register: "Register Now",
+    mobile_register_label: "Register Now",
   },
   hero: {
     hero_image: "",
-    eyebrow: "5-Day Residential Training",
+    eyebrow: "TRADITIONAL • AUTHENTIC • TRANSFORMATIVE",
+    eyebrow_part1: "TRADITIONAL",
+    eyebrow_part2: "AUTHENTIC",
+    eyebrow_part3: "TRANSFORMATIVE",
     h1_line1: "Shaolin",
-    h1_line2: "Kungfu",
-    h2: "Residential Camp",
+    h1_line2: "Kung Fu",
+    h2: "Train your body. Train your mind. Build your warrior spirit.",
     paragraph:
-      "Train. Discipline. Transform. Step away from your daily routine and immerse yourself in intensive Shaolin Kungfu training designed to build strength, confidence, focus and a warrior mindset.",
-    cta_primary_label: "Register Now →",
-    cta_whatsapp_label: "WhatsApp Us",
+      "Authentic Shaolin Kung Fu training in Hyderabad at Rock Martial Arts Academy.",
+    cta_primary_label: "Join Now",
+    cta_whatsapp_label: "Book a Trial Class",
     whatsapp_url: "https://wa.me/918179941226",
+    cta_primary_enabled: true,
+    cta_secondary_enabled: true,
+    calligraphy_text: "少林功夫",
+    quote_text: "Not a fighter, a warrior.",
+    quote_author: "Deva",
   },
   facts: [
     { label: "Dates", value: "22–26 Sep 2026" },
@@ -154,10 +275,50 @@ export const DEFAULT_RESIDENTIAL_CAMP: ResidentialCampContent = {
     { label: "Age Group", value: "6–15 Years" },
     { label: "Camp Fee", value: "₹15,000/-" },
   ],
+  feature_bar: [
+    {
+      label: "Physical Fitness",
+      icon_key: "fitness",
+      icon_image: "/campaign/f1.png",
+      enabled: true,
+    },
+    {
+      label: "Mental Discipline",
+      icon_key: "discipline",
+      icon_image: "/campaign/f2.png",
+      enabled: true,
+    },
+    {
+      label: "Self Confidence",
+      icon_key: "confidence",
+      icon_image: "/campaign/f3.png",
+      enabled: true,
+    },
+    {
+      label: "Traditional Training",
+      icon_key: "training",
+      icon_image: "/campaign/f4.png",
+      enabled: true,
+    },
+    {
+      label: "Better Lifestyle",
+      icon_key: "lifestyle",
+      icon_image: "/campaign/f5.png",
+      enabled: true,
+    },
+  ],
   camp: {
-    kicker: "More than training",
-    h2: "Experience the Shaolin lifestyle",
+    kicker: "ABOUT",
+    h2: "SHAOLIN KUNG FU",
     lead: "The Shaolin Kungfu Residential Camp at Rock Martial Arts Academy is an immersive experience of training, discipline, teamwork, self-control and personal transformation.",
+    paragraph_1:
+      "Shaolin Kung Fu is a traditional Chinese martial art that combines physical training, martial techniques, flexibility, discipline and mental focus. It is more than fighting – it is a way of life.",
+    paragraph_2:
+      "At Rock Martial Arts Academy, we offer structured and authentic Shaolin Kung Fu training for children, teenagers and adults, helping them develop strength, character and a positive mindset.",
+    cta_label: "LEARN MORE",
+    cta_href: "#training",
+    cta_enabled: true,
+    about_image: "/campaign/aboutsection.png",
     cards: [
       {
         icon: "🥋",
@@ -178,30 +339,78 @@ export const DEFAULT_RESIDENTIAL_CAMP: ResidentialCampContent = {
   },
   training: {
     kicker: "What you will learn",
-    h2: "Build skills that stay with you",
+    h2: "OUR TRAINING PROGRAM",
+    enabled: true,
     cards: [
       {
-        title: "Foundation",
-        bullets: ["Basic Shaolin stances", "Punches and strikes", "Kicks and blocks", "Footwork and movement"],
+        title: "SHAOLIN FORMS",
+        description: "Traditional hand forms, stances and techniques.",
+        image: "/campaign/t1.png",
+        bullets: [],
+        enabled: true,
       },
       {
-        title: "Traditional Training",
-        bullets: [
-          "Traditional forms (Taolu)",
-          "Advanced forms for eligible students",
-          "Balance and coordination",
-          "Shaolin conditioning",
-        ],
+        title: "WEAPONS TRAINING",
+        description: "Learn traditional Shaolin weapons like staff, spear, etc.",
+        image: "/campaign/t2.png",
+        bullets: [],
+        enabled: true,
       },
       {
-        title: "Personal Development",
-        bullets: ["Strength & flexibility", "Self-defense awareness", "Teamwork & leadership", "Focus & confidence"],
+        title: "FLEXIBILITY & MOBILITY",
+        description: "Improve flexibility, balance and body control.",
+        image: "/campaign/t3.png",
+        bullets: [],
+        enabled: true,
+      },
+      {
+        title: "STRENGTH & CONDITIONING",
+        description: "Build functional strength, stamina and endurance.",
+        image: "/campaign/t4.png",
+        bullets: [],
+        enabled: true,
+      },
+      {
+        title: "COMBAT TRAINING",
+        description: "Practical application through drills and partner training.",
+        image: "/campaign/t5.png",
+        bullets: [],
+        enabled: true,
+      },
+      {
+        title: "DISCIPLINE & MINDSET",
+        description: "Develop patience, focus and a warrior mindset.",
+        image: "/campaign/t6.png",
+        bullets: [],
+        enabled: true,
       },
     ],
   },
   schedule: {
     kicker: "Daily routine",
     h2: "Train with purpose",
+    masters: [
+      {
+        title: "OUR SHAOLIN LINEAGE",
+        name: "MASTER DEVARAJU",
+        designation: "Founder & Master Coach",
+        description:
+          "Deva is a dedicated Shaolin Kung Fu practitioner and coach, known for his discipline, strength and traditional training approach. He focuses on building strong fundamentals, mental toughness and authentic Shaolin values in every student.",
+        quote: "NOT A FIGHTER, A WARRIOR.",
+        image: "/campaign/master1.png",
+        enabled: true,
+      },
+      {
+        title: "MEET YOUR MASTER",
+        name: "MASTER JANARDHAN",
+        designation: "16th Generation Shaolin Disciple | Founder - Rock Martial Arts Academy",
+        description:
+          "Master Janardhan is a 16th Generation Shaolin Disciple and the Founder of Rock Martial Arts Academy. With years of dedicated training and teaching experience, he specialises in traditional Shaolin Kung Fu, discipline-based coaching and holistic martial arts development for students of all ages.",
+        quote: "NOT A FIGHTER, A WARRIOR.",
+        image: "/campaign/master2.png",
+        enabled: true,
+      },
+    ],
     timeline: [
       {
         time_label: "Morning Session",
@@ -235,17 +444,78 @@ export const DEFAULT_RESIDENTIAL_CAMP: ResidentialCampContent = {
       cta_label: "Secure Your Seat",
     },
   },
-  rules: {
-    kicker: "Camp discipline",
-    h2: "Discipline is part of the training",
-    rules: [
-      "Respect coaches and fellow participants.",
-      "Follow the daily schedule and instructions.",
-      "Maintain cleanliness and personal responsibility.",
-      "Attend assigned training sessions.",
-      "Follow all safety and residential guidelines.",
-      "No unauthorized gadgets during designated periods.",
+  levels: {
+    enabled: true,
+    background_image: "/campaign/levelbg.png",
+    h2: "TRAINING FOR EVERY LEVEL",
+    cards: [
+      {
+        title: "BEGINNER",
+        description: "Learn the fundamentals. No experience needed.",
+        color: "#8f9a3a",
+        enabled: true,
+      },
+      {
+        title: "INTERMEDIATE",
+        description: "Develop your techniques and skills.",
+        color: "#1f4d36",
+        enabled: true,
+      },
+      {
+        title: "ADVANCED",
+        description: "For dedicated students seeking deeper training.",
+        color: "#b85a28",
+        enabled: true,
+      },
+      {
+        title: "PROFESSIONAL PLAYER TRAINING",
+        description: "Intensive training for demonstrations, tournaments and advanced development.",
+        color: "#8b1a1a",
+        enabled: true,
+      },
     ],
+    panels: [
+      {
+        title: "SHAOLIN FOR CHILDREN",
+        description:
+          "Help your child grow with discipline, confidence and focus through Shaolin Kung Fu training.",
+        bullets: ["Fitness & flexibility", "Discipline & respect", "Confidence & self-control"],
+        cta_label: "ENROLL YOUR CHILD",
+        cta_href: "#register",
+        cta_enabled: true,
+        cta_opens_register: true,
+        enabled: true,
+      },
+      {
+        title: "RESIDENTIAL CAMPS",
+        description: "Experience intensive Shaolin Kung Fu training in our special residential camps.",
+        bullets: [
+          "Intensive training",
+          "Weapons practice",
+          "Discipline and routine",
+          "Group activities & more",
+        ],
+        cta_label: "VIEW UPCOMING CAMPS",
+        cta_href: "#camp",
+        cta_enabled: true,
+        cta_opens_register: false,
+        enabled: true,
+      },
+    ],
+  },
+  journey_cta: {
+    enabled: true,
+    background_image: "/campaign/ctabg.png",
+    title_line1: "START YOUR",
+    title_line2: "SHAOLIN JOURNEY TODAY",
+    description: "A STRONGER BODY. A CALMER MIND. A BRIGHTER FUTURE.",
+    cta_primary_label: "REGISTER NOW",
+    cta_primary_enabled: true,
+    cta_primary_opens_register: true,
+    cta_primary_href: "#register",
+    cta_secondary_label: "BOOK A TRIAL CLASS",
+    cta_secondary_enabled: true,
+    cta_secondary_href: "https://wa.me/918179941226",
   },
   register: {
     kicker: "Ready to begin?",
@@ -261,6 +531,18 @@ export const DEFAULT_RESIDENTIAL_CAMP: ResidentialCampContent = {
     academy_name: "ROCK MARTIAL ARTS ACADEMY",
     tagline: "Become the Strongest Version of Yourself",
     camp_line: "Shaolin Kungfu Residential Camp • Hyderabad • 22–26 September 2026",
+    logo: "",
+    description: "Become the Strongest Version of Yourself",
+    social_instagram_url: "",
+    social_instagram_icon: "",
+    social_youtube_url: "",
+    social_youtube_icon: "",
+    social_facebook_url: "",
+    social_facebook_icon: "",
+    cta_label: "ENQUIRE NOW",
+    cta_href: "#register",
+    cta_enabled: true,
+    cta_opens_register: true,
   },
 }
 
@@ -288,8 +570,69 @@ function mergeDeep<T>(base: T, patch: unknown): T {
 }
 
 export function mergeResidentialCamp(raw: unknown): ResidentialCampContent {
+  if (!raw || typeof raw !== "object") {
+    return { ...DEFAULT_RESIDENTIAL_CAMP }
+  }
   const merged = mergeDeep(DEFAULT_RESIDENTIAL_CAMP, raw)
-  return { ...merged, facts: syncedCampFacts(merged) }
+  const featureBarSource =
+    merged.feature_bar && merged.feature_bar.length > 0
+      ? merged.feature_bar
+      : DEFAULT_RESIDENTIAL_CAMP.feature_bar || []
+  const defaultFeatureByLabel = new Map(
+    (DEFAULT_RESIDENTIAL_CAMP.feature_bar || [])
+      .filter((c) => (c.icon_image || "").trim())
+      .map((c) => [(c.label || "").trim().toLowerCase(), (c.icon_image || "").trim()] as const)
+  )
+  const feature_bar = featureBarSource.map((item) => {
+    if ((item.icon_image || "").trim()) return item
+    const labelKey = (item.label || "").trim().toLowerCase()
+    const fromDefault = labelKey ? defaultFeatureByLabel.get(labelKey) : ""
+    if (fromDefault) return { ...item, icon_image: fromDefault }
+    return item
+  })
+  const linkCamp = (merged.nav?.link_camp || "").trim()
+  const nav = {
+    ...merged.nav,
+    link_camp: !linkCamp || /^camp$/i.test(linkCamp) ? "About" : linkCamp,
+  }
+  const defaultTrainingByTitle = new Map(
+    DEFAULT_RESIDENTIAL_CAMP.training.cards
+      .filter((c) => (c.image || "").trim())
+      .map((c) => [(c.title || "").trim().toLowerCase(), (c.image || "").trim()] as const)
+  )
+  const trainingCards = (merged.training?.cards || []).map((card) => {
+    if ((card.image || "").trim()) return card
+    const titleKey = (card.title || "").trim().toLowerCase()
+    const fromDefault = titleKey ? defaultTrainingByTitle.get(titleKey) : ""
+    if (fromDefault) return { ...card, image: fromDefault }
+    return card
+  })
+  return {
+    ...merged,
+    facts: syncedCampFacts(merged),
+    feature_bar,
+    nav,
+    training: { ...merged.training, cards: trainingCards },
+  }
+}
+
+/** Banner eyebrow as PART1 • PART2 • PART3 (falls back to legacy eyebrow). */
+export function formatHeroEyebrow(hero: ResidentialCampHero): string {
+  const parts = [hero.eyebrow_part1, hero.eyebrow_part2, hero.eyebrow_part3]
+    .map((p) => (p || "").trim())
+    .filter(Boolean)
+  if (parts.length) return parts.join(" • ")
+  return (hero.eyebrow || "").trim()
+}
+
+/** Keep legacy `eyebrow` in sync when the three parts change. */
+export function withSyncedHeroEyebrow(
+  hero: ResidentialCampHero,
+  patch: Partial<ResidentialCampHero> = {}
+): ResidentialCampHero {
+  const next = { ...hero, ...patch }
+  next.eyebrow = formatHeroEyebrow(next)
+  return next
 }
 
 function formatIsoDate(iso: string): string {
@@ -454,6 +797,32 @@ function formatInr(amount: number): string {
   return `₹${Math.round(amount).toLocaleString("en-IN")}`
 }
 
+/**
+ * In-page nav + footer links for all public sections except the feature bar.
+ * Order: Home → About → Training → Masters → Levels → Journey
+ */
+export function buildCampNavLinks(nav: ResidentialCampNav): { href: string; label: string }[] {
+  const aboutLabel = (() => {
+    const raw = (nav.link_camp || "").trim()
+    if (!raw || /^camp$/i.test(raw)) return "About"
+    return raw
+  })()
+  const mastersLabel = (() => {
+    const raw = (nav.link_schedule || "").trim()
+    if (!raw || /^schedule$/i.test(raw) || /^masters$/i.test(raw)) return "Our Masters"
+    return raw
+  })()
+  const links = [
+    { href: "#top", label: (nav.link_home || "Home").trim() },
+    { href: "#camp", label: aboutLabel },
+    { href: "#training", label: (nav.link_training || "").trim() },
+    { href: "#masters", label: mastersLabel },
+    { href: "#levels", label: (nav.link_levels || "Levels").trim() },
+    { href: "#journey", label: (nav.link_journey || "Journey").trim() },
+  ]
+  return links.filter((l) => l.label)
+}
+
 export function campCardIconImage(card: CampIconCard): string {
   const candidates = [card.icon_image, card.icon]
   for (const raw of candidates) {
@@ -470,4 +839,30 @@ export function campCardIconImage(card: CampIconCard): string {
     }
   }
   return ""
+}
+
+export function featureBarIconImage(item: CampFeatureBarItem, _index?: number): string {
+  // Only use an explicit image — never auto-assign campaign fallbacks for new/empty items.
+  return (item.icon_image || "").trim()
+}
+
+export function trainingCardImage(card: CampTrainingCard, _index?: number): string {
+  // Only use an explicit image — never auto-assign campaign fallbacks for new/empty cards.
+  return (card.image || "").trim()
+}
+
+export function trainingCardDescription(card: CampTrainingCard): string {
+  const desc = (card.description || "").trim()
+  if (desc) return desc.slice(0, 100)
+  const fromBullets = (card.bullets || []).map((b) => b.trim()).filter(Boolean)
+  if (fromBullets.length) return fromBullets[0].slice(0, 100)
+  return ""
+}
+
+const MASTER_FALLBACK_IMAGES = ["/campaign/master1.png", "/campaign/master2.png"] as const
+
+export function masterProfileImage(profile: CampMasterProfile, index: number): string {
+  const uploaded = (profile.image || "").trim()
+  if (uploaded) return uploaded
+  return MASTER_FALLBACK_IMAGES[index % MASTER_FALLBACK_IMAGES.length]
 }

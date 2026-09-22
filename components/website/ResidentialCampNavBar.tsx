@@ -1,8 +1,11 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState, type MouseEvent } from "react"
 import type { ResidentialCampNav as CampNavContent } from "@/lib/residentialCamp"
+import { buildCampNavLinks } from "@/lib/residentialCamp"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
+
+const NAV_OFFSET_PX = 80
 
 export function ResidentialCampNavBar({
   nav,
@@ -13,15 +16,91 @@ export function ResidentialCampNavBar({
 }) {
   const [open, setOpen] = useState(false)
   const [logoFailed, setLogoFailed] = useState(false)
+  const [activeHref, setActiveHref] = useState("#top")
   const logo = resolvePublicAssetUrl(nav.logo)
   const showLogo = Boolean(logo) && !logoFailed
   const brandName = `${nav.brand_prefix} ${nav.brand_accent}`.trim() || "Rock Martial Arts Academy"
+  const links = useMemo(() => buildCampNavLinks(nav), [nav])
+  const registerLabel =
+    (nav.mobile_register_label || nav.link_register || "Register Now").trim() || "Register Now"
 
   useEffect(() => {
     setLogoFailed(false)
   }, [logo])
 
+  useEffect(() => {
+    if (links.length && !links.some((l) => l.href === activeHref)) {
+      setActiveHref(links[0].href)
+    }
+  }, [links, activeHref])
+
+  // Scroll-spy: highlight nav item for the section currently under the fixed navbar
+  useEffect(() => {
+    const targets = links
+      .map((link) => {
+        if (!link.href.startsWith("#") || link.href.length < 2) return null
+        const el = document.getElementById(link.href.slice(1))
+        return el ? { href: link.href, el } : null
+      })
+      .filter((t): t is { href: string; el: HTMLElement } => Boolean(t))
+
+    if (!targets.length) return
+
+    const readNavOffset = () => {
+      const camp = document.querySelector(".rma-camp")
+      if (camp) {
+        const raw = getComputedStyle(camp).getPropertyValue("--nav-height").trim()
+        const n = Number.parseFloat(raw)
+        if (Number.isFinite(n) && n > 0) return n
+      }
+      return NAV_OFFSET_PX
+    }
+
+    const pickActive = () => {
+      const navOffset = readNavOffset()
+
+      if (window.scrollY < 24) {
+        const home = targets.find((t) => t.href === "#top")
+        setActiveHref(home?.href || targets[0].href)
+        return
+      }
+
+      // Last section whose top has crossed under the fixed nav (industry-standard scroll-spy)
+      let current = targets[0].href
+      for (const { href, el } of targets) {
+        const top = el.getBoundingClientRect().top
+        if (top - navOffset <= 1) current = href
+      }
+      setActiveHref(current)
+    }
+
+    const navOffset = readNavOffset()
+    const observer = new IntersectionObserver(pickActive, {
+      root: null,
+      rootMargin: `-${navOffset}px 0px -40% 0px`,
+      threshold: [0, 0.1, 0.25, 0.5, 0.75, 1],
+    })
+
+    for (const { el } of targets) observer.observe(el)
+
+    pickActive()
+    window.addEventListener("scroll", pickActive, { passive: true })
+    window.addEventListener("resize", pickActive)
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener("scroll", pickActive)
+      window.removeEventListener("resize", pickActive)
+    }
+  }, [links])
+
   const close = () => setOpen(false)
+
+  const openRegister = (e: MouseEvent) => {
+    if (!onRegister) return
+    e.preventDefault()
+    onRegister()
+  }
 
   return (
     <nav className="nav">
@@ -42,20 +121,32 @@ export function ResidentialCampNavBar({
         </a>
 
         <div className="navlinks">
-          <a href="#camp">{nav.link_camp}</a>
-          <a href="#training">{nav.link_training}</a>
-          <a href="#schedule">{nav.link_schedule}</a>
+          {links.map((link) => (
             <a
-              href="#register"
-              onClick={(e) => {
-                if (!onRegister) return
-                e.preventDefault()
-                onRegister()
+              key={link.href}
+              href={link.href}
+              className={activeHref === link.href ? "is-active" : undefined}
+              aria-current={activeHref === link.href ? "true" : undefined}
+              onClick={() => {
+                setActiveHref(link.href)
+                close()
               }}
             >
-              {nav.link_register}
+              {link.label}
             </a>
+          ))}
         </div>
+
+        <a
+          className="nav-cta"
+          href="#register"
+          onClick={(e) => {
+            close()
+            openRegister(e)
+          }}
+        >
+          {registerLabel}
+        </a>
 
         <button
           type="button"
@@ -74,37 +165,29 @@ export function ResidentialCampNavBar({
       {open ? (
         <div id="rma-camp-mobile-menu" className="mobile-menu">
           <div className="container">
-            <a href="#camp" onClick={close}>
-              {nav.link_camp}
-            </a>
-            <a href="#training" onClick={close}>
-              {nav.link_training}
-            </a>
-            <a href="#schedule" onClick={close}>
-              {nav.link_schedule}
-            </a>
+            {links.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                className={activeHref === link.href ? "is-active" : undefined}
+                aria-current={activeHref === link.href ? "true" : undefined}
+                onClick={() => {
+                  setActiveHref(link.href)
+                  close()
+                }}
+              >
+                {link.label}
+              </a>
+            ))}
             <a
+              className="btn primary nav-cta-mobile"
               href="#register"
               onClick={(e) => {
                 close()
-                if (!onRegister) return
-                e.preventDefault()
-                onRegister()
+                openRegister(e)
               }}
             >
-              {nav.link_register}
-            </a>
-            <a
-              className="btn primary"
-              href="#register"
-              onClick={(e) => {
-                close()
-                if (!onRegister) return
-                e.preventDefault()
-                onRegister()
-              }}
-            >
-              {nav.mobile_register_label}
+              {registerLabel}
             </a>
           </div>
         </div>
