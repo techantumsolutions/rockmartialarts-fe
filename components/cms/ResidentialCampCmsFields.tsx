@@ -279,7 +279,7 @@ export function ResidentialCampCmsFields({
                   ["link_home", "Home", "#top"],
                   ["link_camp", "About", "#camp"],
                   ["link_training", "Training", "#training"],
-                  ["link_schedule", "Masters", "#masters"],
+                  ["link_schedule", "Our Masters", "#masters"],
                   ["link_levels", "Levels", "#levels"],
                   ["link_journey", "Journey", "#journey"],
                 ] as const

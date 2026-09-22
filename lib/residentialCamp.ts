@@ -243,7 +243,7 @@ export const DEFAULT_RESIDENTIAL_CAMP: ResidentialCampContent = {
     link_home: "Home",
     link_camp: "About",
     link_training: "Training",
-    link_schedule: "Masters",
+    link_schedule: "Our Masters",
     link_levels: "Levels",
     link_journey: "Journey",
     link_register: "Register Now",
@@ -807,11 +807,16 @@ export function buildCampNavLinks(nav: ResidentialCampNav): { href: string; labe
     if (!raw || /^camp$/i.test(raw)) return "About"
     return raw
   })()
+  const mastersLabel = (() => {
+    const raw = (nav.link_schedule || "").trim()
+    if (!raw || /^schedule$/i.test(raw) || /^masters$/i.test(raw)) return "Our Masters"
+    return raw
+  })()
   const links = [
     { href: "#top", label: (nav.link_home || "Home").trim() },
     { href: "#camp", label: aboutLabel },
     { href: "#training", label: (nav.link_training || "").trim() },
-    { href: "#masters", label: (nav.link_schedule || "").trim() },
+    { href: "#masters", label: mastersLabel },
     { href: "#levels", label: (nav.link_levels || "Levels").trim() },
     { href: "#journey", label: (nav.link_journey || "Journey").trim() },
   ]
