@@ -125,9 +125,9 @@ export default function CMSPage() {
           const pubRes = await fetch(getBackendApiUrl("cms/public/residential-camp"), { cache: "no-store" })
           campJson = pubRes.ok ? await pubRes.json().catch(() => null) : null
         }
-        if (campJson) setResidentialCamp(mergeResidentialCamp(campJson))
+        setResidentialCamp(mergeResidentialCamp(campJson || DEFAULT_RESIDENTIAL_CAMP))
       } catch {
-        /* keep current form values */
+        setResidentialCamp(DEFAULT_RESIDENTIAL_CAMP)
       }
     })()
   }, [activeTab, loading])
@@ -169,12 +169,14 @@ export default function CMSPage() {
       }
       if (campRes.ok) {
         const campJson = await campRes.json().catch(() => null)
-        if (campJson) setResidentialCamp(mergeResidentialCamp(campJson))
+        setResidentialCamp(mergeResidentialCamp(campJson || DEFAULT_RESIDENTIAL_CAMP))
       } else {
         const pubRes = await fetch(getBackendApiUrl("cms/public/residential-camp"), { cache: "no-store" })
         if (pubRes.ok) {
           const campJson = await pubRes.json().catch(() => null)
-          if (campJson) setResidentialCamp(mergeResidentialCamp(campJson))
+          setResidentialCamp(mergeResidentialCamp(campJson || DEFAULT_RESIDENTIAL_CAMP))
+        } else {
+          setResidentialCamp(DEFAULT_RESIDENTIAL_CAMP)
         }
       }
     } catch (error) {
@@ -238,6 +240,17 @@ export default function CMSPage() {
   }
 
   const handleSave = async () => {
+    const activeFeatureCards = (residentialCamp.feature_bar || []).filter(
+      (item) => item.enabled !== false
+    )
+    if (activeFeatureCards.length > 5) {
+      toast({
+        title: "Feature Bar limit",
+        description: "Only 5 Feature Bar cards can be active. Turn off extras before saving.",
+        variant: "destructive",
+      })
+      return
+    }
     try {
       setSaving(true)
       const token = TokenManager.getToken()
@@ -381,7 +394,7 @@ export default function CMSPage() {
     }
   }
 
-  const handleCampIconUpload = async (index: number, file: File) => {
+  const handleCampAboutUpload = async (file: File) => {
     try {
       const token = TokenManager.getToken()
       const formData = new FormData()
@@ -396,12 +409,239 @@ export default function CMSPage() {
       const fileUrl = uploadData.file_url || uploadData.url || uploadData.image_url || ""
       setResidentialCamp((prev) => ({
         ...prev,
-        camp: {
-          ...prev.camp,
-          cards: prev.camp.cards.map((card, i) => (i === index ? { ...card, icon_image: fileUrl } : card)),
+        camp: { ...prev.camp, about_image: fileUrl },
+      }))
+      toast({ title: "Uploaded", description: "Camp about background uploaded" })
+    } catch (error) {
+      console.error("Upload error:", error)
+      toast({ title: "Error", description: "Failed to upload image", variant: "destructive" })
+    }
+  }
+
+  const handleTrainingCardImageUpload = async (index: number, file: File) => {
+    try {
+      const token = TokenManager.getToken()
+      const formData = new FormData()
+      formData.append("file", file)
+      const uploadRes = await fetch(getBackendApiUrl("uploads"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      if (!uploadRes.ok) throw new Error("Upload failed")
+      const uploadData = await uploadRes.json()
+      const fileUrl = uploadData.file_url || uploadData.url || uploadData.image_url || ""
+      setResidentialCamp((prev) => ({
+        ...prev,
+        training: {
+          ...prev.training,
+          cards: prev.training.cards.map((card, i) =>
+            i === index ? { ...card, image: fileUrl } : card
+          ),
         },
       }))
-      toast({ title: "Uploaded", description: "Camp card icon uploaded" })
+      toast({ title: "Uploaded", description: "Training card image uploaded" })
+    } catch (error) {
+      console.error("Upload error:", error)
+      toast({ title: "Error", description: "Failed to upload image", variant: "destructive" })
+    }
+  }
+
+  const handleMasterImageUpload = async (index: number, file: File) => {
+    try {
+      const token = TokenManager.getToken()
+      const formData = new FormData()
+      formData.append("file", file)
+      const uploadRes = await fetch(getBackendApiUrl("uploads"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      if (!uploadRes.ok) throw new Error("Upload failed")
+      const uploadData = await uploadRes.json()
+      const fileUrl = uploadData.file_url || uploadData.url || uploadData.image_url || ""
+      setResidentialCamp((prev) => {
+        const base =
+          prev.schedule.masters?.length
+            ? prev.schedule.masters
+            : [
+                {
+                  title: "OUR SHAOLIN LINEAGE",
+                  name: "MASTER DEVARAJU",
+                  designation: "Founder & Master Coach",
+                  description: "",
+                  quote: "NOT A FIGHTER, A WARRIOR.",
+                  image: "/campaign/master1.png",
+                  enabled: true,
+                },
+                {
+                  title: "MEET YOUR MASTER",
+                  name: "MASTER JANARDHAN",
+                  designation: "16th Generation Shaolin Disciple | Founder - Rock Martial Arts Academy",
+                  description: "",
+                  quote: "NOT A FIGHTER, A WARRIOR.",
+                  image: "/campaign/master2.png",
+                  enabled: true,
+                },
+              ]
+        return {
+          ...prev,
+          schedule: {
+            ...prev.schedule,
+            masters: base.map((m, i) => (i === index ? { ...m, image: fileUrl } : m)),
+          },
+        }
+      })
+      toast({ title: "Uploaded", description: "Master image uploaded" })
+    } catch (error) {
+      console.error("Upload error:", error)
+      toast({ title: "Error", description: "Failed to upload image", variant: "destructive" })
+    }
+  }
+
+  const handleLevelsBgUpload = async (file: File) => {
+    try {
+      const token = TokenManager.getToken()
+      const formData = new FormData()
+      formData.append("file", file)
+      const uploadRes = await fetch(getBackendApiUrl("uploads"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      if (!uploadRes.ok) throw new Error("Upload failed")
+      const uploadData = await uploadRes.json()
+      const fileUrl = uploadData.file_url || uploadData.url || uploadData.image_url || ""
+      setResidentialCamp((prev) => ({
+        ...prev,
+        levels: {
+          ...(prev.levels || {
+            enabled: true,
+            h2: "TRAINING FOR EVERY LEVEL",
+            cards: [],
+            panels: [],
+          }),
+          background_image: fileUrl,
+        },
+      }))
+      toast({ title: "Uploaded", description: "Levels background uploaded" })
+    } catch (error) {
+      console.error("Upload error:", error)
+      toast({ title: "Error", description: "Failed to upload image", variant: "destructive" })
+    }
+  }
+
+  const handleJourneyCtaBgUpload = async (file: File) => {
+    try {
+      const token = TokenManager.getToken()
+      const formData = new FormData()
+      formData.append("file", file)
+      const uploadRes = await fetch(getBackendApiUrl("uploads"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      if (!uploadRes.ok) throw new Error("Upload failed")
+      const uploadData = await uploadRes.json()
+      const fileUrl = uploadData.file_url || uploadData.url || uploadData.image_url || ""
+      setResidentialCamp((prev) => ({
+        ...prev,
+        journey_cta: {
+          ...(prev.journey_cta || {
+            enabled: true,
+            title_line1: "START YOUR",
+            title_line2: "SHAOLIN JOURNEY TODAY",
+            description: "A STRONGER BODY. A CALMER MIND. A BRIGHTER FUTURE.",
+            cta_primary_label: "REGISTER NOW",
+            cta_secondary_label: "BOOK A TRIAL CLASS",
+          }),
+          background_image: fileUrl,
+        },
+      }))
+      toast({ title: "Uploaded", description: "Journey CTA background uploaded" })
+    } catch (error) {
+      console.error("Upload error:", error)
+      toast({ title: "Error", description: "Failed to upload image", variant: "destructive" })
+    }
+  }
+
+  const handleFooterLogoUpload = async (file: File) => {
+    try {
+      const token = TokenManager.getToken()
+      const formData = new FormData()
+      formData.append("file", file)
+      const uploadRes = await fetch(getBackendApiUrl("uploads"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      if (!uploadRes.ok) throw new Error("Upload failed")
+      const uploadData = await uploadRes.json()
+      const fileUrl = uploadData.file_url || uploadData.url || uploadData.image_url || ""
+      setResidentialCamp((prev) => ({
+        ...prev,
+        footer: { ...prev.footer, logo: fileUrl },
+      }))
+      toast({ title: "Uploaded", description: "Footer logo uploaded" })
+    } catch (error) {
+      console.error("Upload error:", error)
+      toast({ title: "Error", description: "Failed to upload image", variant: "destructive" })
+    }
+  }
+
+  const handleFooterSocialIconUpload = async (
+    network: "instagram" | "youtube" | "facebook",
+    file: File
+  ) => {
+    try {
+      const token = TokenManager.getToken()
+      const formData = new FormData()
+      formData.append("file", file)
+      const uploadRes = await fetch(getBackendApiUrl("uploads"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      if (!uploadRes.ok) throw new Error("Upload failed")
+      const uploadData = await uploadRes.json()
+      const fileUrl = uploadData.file_url || uploadData.url || uploadData.image_url || ""
+      const iconKey =
+        network === "instagram"
+          ? "social_instagram_icon"
+          : network === "youtube"
+            ? "social_youtube_icon"
+            : "social_facebook_icon"
+      setResidentialCamp((prev) => ({
+        ...prev,
+        footer: { ...prev.footer, [iconKey]: fileUrl },
+      }))
+      toast({ title: "Uploaded", description: `${network} icon uploaded` })
+    } catch (error) {
+      console.error("Upload error:", error)
+      toast({ title: "Error", description: "Failed to upload image", variant: "destructive" })
+    }
+  }
+
+  const handleFeatureBarIconUpload = async (index: number, file: File) => {
+    try {
+      const token = TokenManager.getToken()
+      const formData = new FormData()
+      formData.append("file", file)
+      const uploadRes = await fetch(getBackendApiUrl("uploads"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      if (!uploadRes.ok) throw new Error("Upload failed")
+      const uploadData = await uploadRes.json()
+      const fileUrl = uploadData.file_url || uploadData.url || uploadData.image_url || ""
+      setResidentialCamp((prev) => ({
+        ...prev,
+        feature_bar: (prev.feature_bar || []).map((item, i) =>
+          i === index ? { ...item, icon_image: fileUrl } : item
+        ),
+      }))
+      toast({ title: "Uploaded", description: "Feature bar icon uploaded" })
     } catch (error) {
       console.error("Upload error:", error)
       toast({ title: "Error", description: "Failed to upload image", variant: "destructive" })
@@ -1092,7 +1332,14 @@ export default function CMSPage() {
             onChange={setResidentialCamp}
             onHeroUpload={handleCampHeroUpload}
             onLogoUpload={handleCampLogoUpload}
-            onCampIconUpload={handleCampIconUpload}
+            onCampAboutUpload={handleCampAboutUpload}
+            onTrainingCardImageUpload={handleTrainingCardImageUpload}
+            onMasterImageUpload={handleMasterImageUpload}
+            onLevelsBgUpload={handleLevelsBgUpload}
+            onJourneyCtaBgUpload={handleJourneyCtaBgUpload}
+            onFooterLogoUpload={handleFooterLogoUpload}
+            onFooterSocialIconUpload={handleFooterSocialIconUpload}
+            onFeatureBarIconUpload={handleFeatureBarIconUpload}
             onStartNewEvent={handleStartNewCampEvent}
             startingNewEvent={startingNewEvent}
           />

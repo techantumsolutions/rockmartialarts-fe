@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState, type MouseEvent } from "react"
 import type { ResidentialCampNav as CampNavContent } from "@/lib/residentialCamp"
+import { buildCampNavLinks } from "@/lib/residentialCamp"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 
 export function ResidentialCampNavBar({
@@ -13,15 +14,31 @@ export function ResidentialCampNavBar({
 }) {
   const [open, setOpen] = useState(false)
   const [logoFailed, setLogoFailed] = useState(false)
+  const [activeHref, setActiveHref] = useState("#top")
   const logo = resolvePublicAssetUrl(nav.logo)
   const showLogo = Boolean(logo) && !logoFailed
   const brandName = `${nav.brand_prefix} ${nav.brand_accent}`.trim() || "Rock Martial Arts Academy"
+  const links = useMemo(() => buildCampNavLinks(nav), [nav])
+  const registerLabel =
+    (nav.mobile_register_label || nav.link_register || "Register Now").trim() || "Register Now"
 
   useEffect(() => {
     setLogoFailed(false)
   }, [logo])
 
+  useEffect(() => {
+    if (links.length && !links.some((l) => l.href === activeHref)) {
+      setActiveHref(links[0].href)
+    }
+  }, [links, activeHref])
+
   const close = () => setOpen(false)
+
+  const openRegister = (e: MouseEvent) => {
+    if (!onRegister) return
+    e.preventDefault()
+    onRegister()
+  }
 
   return (
     <nav className="nav">
@@ -42,20 +59,31 @@ export function ResidentialCampNavBar({
         </a>
 
         <div className="navlinks">
-          <a href="#camp">{nav.link_camp}</a>
-          <a href="#training">{nav.link_training}</a>
-          <a href="#schedule">{nav.link_schedule}</a>
+          {links.map((link) => (
             <a
-              href="#register"
-              onClick={(e) => {
-                if (!onRegister) return
-                e.preventDefault()
-                onRegister()
+              key={link.href}
+              href={link.href}
+              className={activeHref === link.href ? "is-active" : undefined}
+              onClick={() => {
+                setActiveHref(link.href)
+                close()
               }}
             >
-              {nav.link_register}
+              {link.label}
             </a>
+          ))}
         </div>
+
+        <a
+          className="nav-cta"
+          href="#register"
+          onClick={(e) => {
+            close()
+            openRegister(e)
+          }}
+        >
+          {registerLabel}
+        </a>
 
         <button
           type="button"
@@ -74,37 +102,28 @@ export function ResidentialCampNavBar({
       {open ? (
         <div id="rma-camp-mobile-menu" className="mobile-menu">
           <div className="container">
-            <a href="#camp" onClick={close}>
-              {nav.link_camp}
-            </a>
-            <a href="#training" onClick={close}>
-              {nav.link_training}
-            </a>
-            <a href="#schedule" onClick={close}>
-              {nav.link_schedule}
-            </a>
+            {links.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                className={activeHref === link.href ? "is-active" : undefined}
+                onClick={() => {
+                  setActiveHref(link.href)
+                  close()
+                }}
+              >
+                {link.label}
+              </a>
+            ))}
             <a
+              className="btn primary nav-cta-mobile"
               href="#register"
               onClick={(e) => {
                 close()
-                if (!onRegister) return
-                e.preventDefault()
-                onRegister()
+                openRegister(e)
               }}
             >
-              {nav.link_register}
-            </a>
-            <a
-              className="btn primary"
-              href="#register"
-              onClick={(e) => {
-                close()
-                if (!onRegister) return
-                e.preventDefault()
-                onRegister()
-              }}
-            >
-              {nav.mobile_register_label}
+              {registerLabel}
             </a>
           </div>
         </div>
