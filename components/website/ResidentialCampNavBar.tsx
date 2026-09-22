@@ -5,6 +5,8 @@ import type { ResidentialCampNav as CampNavContent } from "@/lib/residentialCamp
 import { buildCampNavLinks } from "@/lib/residentialCamp"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 
+const NAV_OFFSET_PX = 80
+
 export function ResidentialCampNavBar({
   nav,
   onRegister,
@@ -31,6 +33,66 @@ export function ResidentialCampNavBar({
       setActiveHref(links[0].href)
     }
   }, [links, activeHref])
+
+  // Scroll-spy: highlight nav item for the section currently under the fixed navbar
+  useEffect(() => {
+    const targets = links
+      .map((link) => {
+        if (!link.href.startsWith("#") || link.href.length < 2) return null
+        const el = document.getElementById(link.href.slice(1))
+        return el ? { href: link.href, el } : null
+      })
+      .filter((t): t is { href: string; el: HTMLElement } => Boolean(t))
+
+    if (!targets.length) return
+
+    const readNavOffset = () => {
+      const camp = document.querySelector(".rma-camp")
+      if (camp) {
+        const raw = getComputedStyle(camp).getPropertyValue("--nav-height").trim()
+        const n = Number.parseFloat(raw)
+        if (Number.isFinite(n) && n > 0) return n
+      }
+      return NAV_OFFSET_PX
+    }
+
+    const pickActive = () => {
+      const navOffset = readNavOffset()
+
+      if (window.scrollY < 24) {
+        const home = targets.find((t) => t.href === "#top")
+        setActiveHref(home?.href || targets[0].href)
+        return
+      }
+
+      // Last section whose top has crossed under the fixed nav (industry-standard scroll-spy)
+      let current = targets[0].href
+      for (const { href, el } of targets) {
+        const top = el.getBoundingClientRect().top
+        if (top - navOffset <= 1) current = href
+      }
+      setActiveHref(current)
+    }
+
+    const navOffset = readNavOffset()
+    const observer = new IntersectionObserver(pickActive, {
+      root: null,
+      rootMargin: `-${navOffset}px 0px -40% 0px`,
+      threshold: [0, 0.1, 0.25, 0.5, 0.75, 1],
+    })
+
+    for (const { el } of targets) observer.observe(el)
+
+    pickActive()
+    window.addEventListener("scroll", pickActive, { passive: true })
+    window.addEventListener("resize", pickActive)
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener("scroll", pickActive)
+      window.removeEventListener("resize", pickActive)
+    }
+  }, [links])
 
   const close = () => setOpen(false)
 
@@ -64,6 +126,7 @@ export function ResidentialCampNavBar({
               key={link.href}
               href={link.href}
               className={activeHref === link.href ? "is-active" : undefined}
+              aria-current={activeHref === link.href ? "true" : undefined}
               onClick={() => {
                 setActiveHref(link.href)
                 close()
@@ -107,6 +170,7 @@ export function ResidentialCampNavBar({
                 key={link.href}
                 href={link.href}
                 className={activeHref === link.href ? "is-active" : undefined}
+                aria-current={activeHref === link.href ? "true" : undefined}
                 onClick={() => {
                   setActiveHref(link.href)
                   close()
