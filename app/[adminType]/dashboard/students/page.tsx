@@ -191,15 +191,7 @@ const itemsPerPage = 15
           throw new Error("Authentication token not found. Please login again.")
         }
 
-        const qs = new URLSearchParams()
-        if (adminType === "super-admin" && listBranchFilter !== "all") {
-          qs.set("branch_id", listBranchFilter)
-        }
-        if (accountStatusFilter === "active") qs.set("is_active", "true")
-        if (accountStatusFilter === "inactive") qs.set("is_active", "false")
-        const studentsUrl = getBackendApiUrl(
-          `users/students/details${qs.toString() ? `?${qs.toString()}` : ""}`
-        )
+        const studentsUrl = getBackendApiUrl("users/students/details")
 
         let response = await fetch(studentsUrl, {
           method: 'GET',
@@ -281,22 +273,24 @@ const itemsPerPage = 15
     }
 
     fetchStudents()
-  }, [refreshKey, pathname, listBranchFilter, accountStatusFilter, adminType])
+  }, [refreshKey, pathname, adminType])
 
   // Fetch branches and courses for the assignment modal
-  const fetchBranchesAndCourses = async () => {
+  const fetchBranchesAndCourses = async (includeCourses = true) => {
     try {
       const token = TokenManager.getToken()
       if (!token) return
 
       // Fetch branches
-      const branchesResponse = await fetch(getBackendApiUrl('branches'), {
+      const branchesResponse = await fetch(getBackendApiUrl('branches?skip=0&limit=200&include_stats=false'), {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       if (branchesResponse.ok) {
         const branchesData = await branchesResponse.json()
         setBranches(branchesData.branches || branchesData || [])
       }
+
+      if (!includeCourses) return
 
       // Fetch courses
       const coursesResponse = await fetch(getBackendApiUrl('courses'), {
@@ -313,7 +307,7 @@ const itemsPerPage = 15
 
   useEffect(() => {
     if (adminType !== "super-admin") return
-    void fetchBranchesAndCourses()
+    void fetchBranchesAndCourses(false)
   }, [adminType])
 
   useEffect(() => {

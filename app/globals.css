@@ -213,3 +213,70 @@ body {
     font-size: 14px;
   }
 }
+
+@keyframes registration-form-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(225, 187, 51, 0.35);
+    border-color: rgba(245, 158, 11, 0.55);
+  }
+  50% {
+    box-shadow:
+      0 0 14px 3px rgba(225, 187, 51, 0.55),
+      0 0 22px 4px rgba(249, 115, 22, 0.25);
+    border-color: #e1bb33;
+  }
+}
+
+@keyframes registration-form-text-pulse {
+  0%,
+  100% {
+    color: #b45309;
+  }
+  50% {
+    color: #c2410c;
+    text-shadow: 0 0 10px rgba(225, 187, 51, 0.45);
+  }
+}
+
+.registration-form-nav-highlight {
+  color: #b45309 !important;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 55%, #fde68a 100%);
+  border-radius: 8px;
+  padding: 4px 10px !important;
+  border-bottom: 2px solid #e1bb33 !important;
+  font-weight: 700 !important;
+  animation:
+    registration-form-glow 1.8s ease-in-out infinite,
+    registration-form-text-pulse 1.8s ease-in-out infinite;
+}
+
+.registration-form-nav-highlight:hover {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e !important;
+  opacity: 1 !important;
+}
+
+.registration-form-mobile-highlight {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 55%, #fde68a 100%) !important;
+  color: #b45309 !important;
+  border-left: 3px solid #e1bb33 !important;
+  font-weight: 700 !important;
+  animation:
+    registration-form-glow 1.8s ease-in-out infinite,
+    registration-form-text-pulse 1.8s ease-in-out infinite;
+}
+
+.registration-form-action-highlight {
+  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 50%, #fed7aa 100%) !important;
+  border: 2px solid #f59e0b !important;
+  color: #c2410c !important;
+  animation: registration-form-glow 1.8s ease-in-out infinite;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.25);
+}
+
+.registration-form-action-highlight:hover {
+  background: linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%) !important;
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.35);
+  opacity: 1 !important;
+}

@@ -42,6 +42,8 @@ export interface StudentEnrollment {
   /** Selected pricing tenure when enrollment was created (matches prepare-checkout `duration`). */
   duration_id?: string | null
   duration_months?: number | null
+  /** Branch course_schedule batch used for current admin pricing. */
+  batch_ref?: string | null
   fee_amount?: number | null
   admission_fee?: number | null
 }

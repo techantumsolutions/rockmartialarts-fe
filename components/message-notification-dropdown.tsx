@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import messageAPI, { MessageNotification } from "@/lib/messageAPI"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
+import { getNotificationTargetPath } from "@/lib/notificationNavigation"
+import { getDashboardBasePath } from "@/lib/notificationNavigation"
 import { format } from "date-fns"
 
 interface MessageNotificationDropdownProps {
@@ -19,6 +21,7 @@ export default function MessageNotificationDropdown({
   onNotificationUpdate 
 }: MessageNotificationDropdownProps) {
   const router = useRouter()
+  const pathname = usePathname() ?? ""
   const [notifications, setNotifications] = useState<MessageNotification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
@@ -76,22 +79,7 @@ export default function MessageNotificationDropdown({
       await markAsRead(notification.id)
     }
 
-    // Navigate to appropriate messages page
-    const currentPath = window.location.pathname
-    let messagesPath = '/messages'
-    
-    if (currentPath.includes('/student-dashboard')) {
-      messagesPath = '/student-dashboard/messages'
-    } else if (currentPath.includes('/coach-dashboard')) {
-      messagesPath = '/coach-dashboard/messages'
-    } else if (currentPath.includes('/branch-manager-dashboard')) {
-      messagesPath = '/branch-manager-dashboard/messages'
-    } else if (currentPath.includes('/dashboard')) {
-      messagesPath = '/dashboard/messages'
-    }
-
-    // Navigate with thread ID as query parameter
-    router.push(`${messagesPath}?thread=${notification.thread_id}`)
+    router.push(getNotificationTargetPath(notification, pathname))
     setIsOpen(false)
   }
 
@@ -253,20 +241,7 @@ export default function MessageNotificationDropdown({
             size="sm" 
             className="w-full text-xs"
             onClick={() => {
-              const currentPath = window.location.pathname
-              let messagesPath = '/messages'
-              
-              if (currentPath.includes('/student-dashboard')) {
-                messagesPath = '/student-dashboard/messages'
-              } else if (currentPath.includes('/coach-dashboard')) {
-                messagesPath = '/coach-dashboard/messages'
-              } else if (currentPath.includes('/branch-manager-dashboard')) {
-                messagesPath = '/branch-manager-dashboard/messages'
-              } else if (currentPath.includes('/dashboard')) {
-                messagesPath = '/dashboard/messages'
-              }
-
-              router.push(messagesPath)
+              router.push(`${getDashboardBasePath(pathname)}/messages`)
               setIsOpen(false)
             }}
           >

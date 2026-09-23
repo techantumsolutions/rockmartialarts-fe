@@ -148,8 +148,15 @@ export default function EditCoursePage() {
         }
 
         const course = await response.json()
-        const feePerDuration = course.fee_per_duration || {}
         const pricing = course.pricing || {}
+        const feePerDuration = {
+          ...(pricing.fee_per_duration && typeof pricing.fee_per_duration === "object"
+            ? pricing.fee_per_duration
+            : {}),
+          ...(course.fee_per_duration && typeof course.fee_per_duration === "object"
+            ? course.fee_per_duration
+            : {}),
+        }
         const branchPricingRaw = course.branch_pricing || {}
         const branchPricesList: { branch_id: string; fee_per_duration: Record<string, string> }[] = []
         const branchTenures: Record<number, string[]> = {}
@@ -168,13 +175,16 @@ export default function EditCoursePage() {
         })
         setBranchPrices(branchPricesList)
         setAddedBranchTenures(branchTenures)
-        const defaultAdded = Object.keys(feePerDuration).filter((k) => feePerDuration[k] != null)
+        const defaultAdded = Object.keys(feePerDuration).filter((k) => {
+          const n = parseFloat(String(feePerDuration[k]))
+          return feePerDuration[k] != null && !Number.isNaN(n) && n > 0
+        })
         const feeByDur: Record<string, string> = {}
         defaultAdded.forEach((k) => { feeByDur[k] = String(feePerDuration[k]) })
-        if (defaultAdded.length === 0 && (pricing?.amount != null || course.base_fee != null)) {
-          const firstKey = Object.keys(feePerDuration)[0] || "1-month"
-          defaultAdded.push(firstKey)
-          if (feePerDuration[firstKey] != null) feeByDur[firstKey] = String(feePerDuration[firstKey])
+        const amountHint = parseFloat(String(pricing?.amount ?? course.base_fee ?? ""))
+        if (defaultAdded.length === 0 && Number.isFinite(amountHint) && amountHint > 0) {
+          defaultAdded.push("1-month")
+          feeByDur["1-month"] = String(amountHint)
         }
         setAddedTenures(defaultAdded)
         setFeeByDurationId(feeByDur)
@@ -684,19 +694,8 @@ export default function EditCoursePage() {
         return
       }
 
-      const hasAnyFee = addedTenures.some((id) => {
-        const v = feeByDurationId[id]
-        return v !== "" && v !== undefined && parseFloat(String(v)) > 0
-      })
-      if (!hasAnyFee || addedTenures.length === 0) {
-        toast({
-          title: "Validation Error",
-          description: "Add at least one tenure and enter its fee (e.g. Monthly).",
-          variant: "destructive"
-        })
-        setIsSubmitting(false)
-        return
-      }
+      // Live student prices are set on Branch → Course Assignments (batch fees).
+      // Course-level tenure fees are optional and must not block saving course details.
 
       const feePerDurationPayload: Record<string, number> = {}
       const flatPricePayload: Record<string, number> = {}

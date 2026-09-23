@@ -560,6 +560,7 @@ export default function StudentDashboard() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {quickActions.map((action) => {
                     const Icon = action.icon
+                    const isRegistrationForm = action.href === "/student-dashboard/registration-forms"
                     const colorClasses = {
                       blue: "bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-200",
                       green: "bg-green-50 text-green-600 hover:bg-green-100 border-green-200",
@@ -571,13 +572,17 @@ export default function StudentDashboard() {
                       <Button
                         key={action.id}
                         variant="outline"
-                        className={`h-auto p-4 justify-start space-x-3 ${colorClasses[action.color as keyof typeof colorClasses]} transition-all duration-200 hover:shadow-md`}
+                        className={`h-auto p-4 justify-start space-x-3 transition-all duration-200 hover:shadow-md ${
+                          isRegistrationForm
+                            ? "registration-form-action-highlight sm:col-span-2"
+                            : colorClasses[action.color as keyof typeof colorClasses]
+                        }`}
                         onClick={() => router.push(action.href)}
                       >
                         <Icon className="w-5 h-5" />
                         <div className="text-left">
-                          <p className="font-medium">{action.title}</p>
-                          <p className="text-xs opacity-80">{action.description}</p>
+                          <p className="font-semibold">{action.title}</p>
+                          <p className="text-xs opacity-90">{action.description}</p>
                         </div>
                         <ArrowRight className="w-4 h-4 ml-auto" />
                       </Button>

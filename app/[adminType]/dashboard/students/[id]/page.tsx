@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { formatRegisteredDateTime } from "@/lib/formatRegisteredDate"
 import { Button } from "@/components/ui/button"
@@ -122,6 +122,7 @@ interface PaymentRecord {
   description: string
   notes?: string
   transaction_id?: string
+  gateway_payment_label?: string
   updated_at?: string
   created_at?: string
 }
@@ -151,6 +152,8 @@ export default function StudentDetailPage() {
   const [loading, setLoading] = useState(true)
   const [enrollmentsLoading, setEnrollmentsLoading] = useState(true)
   const [paymentsLoading, setPaymentsLoading] = useState(true)
+  const [attendanceLoading, setAttendanceLoading] = useState(true)
+  const [paymentPeriodFilter, setPaymentPeriodFilter] = useState<"week" | "month" | "all">("all")
   const [error, setError] = useState<string | null>(null)
   const [statusHistory, setStatusHistory] = useState<
     Array<{
@@ -175,6 +178,17 @@ export default function StudentDetailPage() {
     if (!token && isBranchAdmin) token = TokenManager.getToken()
     return token
   }
+
+  const filteredPaymentHistory = useMemo(() => {
+    if (paymentPeriodFilter === "all") return paymentHistory
+    const now = Date.now()
+    const windowMs = paymentPeriodFilter === "week" ? 7 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000
+    const cutoff = now - windowMs
+    return paymentHistory.filter((payment) => {
+      const ts = new Date(payment.payment_date || payment.created_at || "").getTime()
+      return Number.isFinite(ts) && ts >= cutoff
+    })
+  }, [paymentHistory, paymentPeriodFilter])
 
   const deriveEnrollmentStatus = (enrollment: any): string => {
     const explicit = String(enrollment?.status || "").toLowerCase()
@@ -223,9 +237,9 @@ export default function StudentDetailPage() {
 
       const studentData = await studentResponse.json()
       setStudent(studentData.user || studentData)
+      setLoading(false)
 
-      // Fetch related data in parallel
-      await Promise.all([
+      void Promise.all([
         fetchEnrollmentHistory(token),
         fetchPaymentHistory(token),
         fetchAttendanceRecords(token),
@@ -374,6 +388,7 @@ export default function StudentDetailPage() {
           description: payment.description || `${payment.course_name || 'Course'} - ${payment.payment_type || 'Payment'}`,
           notes: payment.notes,
           transaction_id: payment.transaction_id,
+          gateway_payment_label: payment.gateway_payment_label,
           updated_at: payment.updated_at,
           created_at: payment.created_at,
         }))
@@ -410,8 +425,9 @@ export default function StudentDetailPage() {
 
   const fetchAttendanceRecords = async (token: string) => {
     try {
+      setAttendanceLoading(true)
       const url = getBackendApiUrl(
-        `attendance/reports?student_id=${encodeURIComponent(studentId)}`
+        `attendance/reports?student_id=${encodeURIComponent(studentId)}&limit=20`
       )
       const res = await fetch(url, {
         headers: {
@@ -454,6 +470,8 @@ export default function StudentDetailPage() {
     } catch (err) {
       console.error("Error fetching attendance records:", err)
       setAttendanceRecords([])
+    } finally {
+      setAttendanceLoading(false)
     }
   }
 
@@ -1038,7 +1056,7 @@ export default function StudentDetailPage() {
                           {enrollment.is_active !== false && enrollment.fee_amount != null && enrollment.fee_amount > 0 && (
                             <div className="flex items-center space-x-1">
                               <CreditCard className="w-4 h-4 text-blue-600" />
-                              <span className="font-medium">Next renewal:</span>
+                              <span className="font-medium">Last paid course fee:</span>
                               <span className="font-semibold text-blue-700">
                                 ₹{Number(enrollment.fee_amount).toLocaleString("en-IN")}
                               </span>
@@ -1104,7 +1122,13 @@ export default function StudentDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-[#7F8592]">
-                {attendanceRecords.length === 0 ? (
+                {attendanceLoading ? (
+                  <div className="space-y-3">
+                    <Skeleton className="h-14 w-full" />
+                    <Skeleton className="h-14 w-full" />
+                    <Skeleton className="h-14 w-full" />
+                  </div>
+                ) : attendanceRecords.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     <Clock className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                     <p>No attendance records available</p>
@@ -1206,7 +1230,8 @@ export default function StudentDetailPage() {
               <CardHeader>
                 <CardTitle className="flex flex-wrap items-center justify-between gap-2 font-bold text-[#4D5077]">
                   <span>
-                    Payment History ({paymentsLoading ? "..." : paymentHistory.length})
+                    Payment History ({paymentsLoading ? "..." : filteredPaymentHistory.length}
+                    {!paymentsLoading && paymentPeriodFilter !== "all" ? ` of ${paymentHistory.length}` : ""})
                   </span>
                   {adminType === "super-admin" && (
                     <Button
@@ -1220,6 +1245,28 @@ export default function StudentDetailPage() {
                     </Button>
                   )}
                 </CardTitle>
+                <div className="flex flex-wrap items-center gap-2 mt-3">
+                  {([
+                    { id: "week", label: "Week" },
+                    { id: "month", label: "Month" },
+                    { id: "all", label: "All" },
+                  ] as const).map((opt) => (
+                    <Button
+                      key={opt.id}
+                      type="button"
+                      size="sm"
+                      variant={paymentPeriodFilter === opt.id ? "default" : "outline"}
+                      className={
+                        paymentPeriodFilter === opt.id
+                          ? "h-8 bg-[#4D5077] hover:bg-[#3d4060] text-white"
+                          : "h-8"
+                      }
+                      onClick={() => setPaymentPeriodFilter(opt.id)}
+                    >
+                      {opt.label}
+                    </Button>
+                  ))}
+                </div>
                 {adminType === "super-admin" && (
                   <p className="text-xs text-muted-foreground mt-2">
                     Super Admin: search this student in Payment Tracking and use <strong>Recover</strong> on cancelled payment rows to restore checkout, mark offline payment, or waive.
@@ -1228,7 +1275,7 @@ export default function StudentDetailPage() {
               </CardHeader>
               <CardContent className="text-[#7F8592]">
                 {paymentsLoading ? (
-                  <div className="space-y-3">
+                  <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
                     {[1, 2, 3].map((i) => (
                       <div key={i} className="p-3 bg-gray-50 rounded-lg">
                         <div className="flex items-center justify-between mb-1">
@@ -1248,9 +1295,15 @@ export default function StudentDetailPage() {
                     <p className="text-sm">No payment history available</p>
                     <p className="text-xs mt-1">Payment transactions will appear here once payments are made.</p>
                   </div>
+                ) : filteredPaymentHistory.length === 0 ? (
+                  <div className="text-center py-6 text-gray-500">
+                    <CreditCard className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                    <p className="text-sm">No payments in this period</p>
+                    <p className="text-xs mt-1">Try Month or All to see older records.</p>
+                  </div>
                 ) : (
-                  <div className="space-y-3">
-                    {paymentHistory.slice(0, 10).map((payment) => (
+                  <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                    {filteredPaymentHistory.map((payment) => (
                       <div key={payment.id} className="p-4 bg-gray-50 rounded-lg border-l-4 border-l-blue-500">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center space-x-2">
@@ -1283,21 +1336,6 @@ export default function StudentDetailPage() {
                         </div>
                       </div>
                     ))}
-                    {paymentHistory.length > 10 && (
-                      <div className="text-center pt-2">
-                        <p className="text-sm text-gray-500">
-                          ... and {paymentHistory.length - 10} more payments
-                        </p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-2"
-                          onClick={() => router.push(`${basePath}/payment-tracking?student_id=${studentId}`)}
-                        >
-                          View All Payments
-                        </Button>
-                      </div>
-                    )}
                   </div>
                 )}
               </CardContent>
@@ -1337,53 +1375,6 @@ export default function StudentDetailPage() {
               </CardContent>
             </Card>
 
-            {/* Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center font-bold text-[#4D5077]">Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-[#7F8592]">
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() =>
-                    router.push(
-                      `${basePath}/students/edit/${studentId}?return=${encodeURIComponent(studentsListUrl)}`
-                    )
-                  }
-                >
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit Student Details
-                </Button>
-
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => router.push(`${basePath}/enrollments?student_id=${studentId}`)}
-                >
-                  <BookOpen className="w-4 h-4 mr-2" />
-                  Manage Enrollments
-                </Button>
-
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => router.push(`${basePath}/payment-tracking?student_id=${studentId}`)}
-                >
-                  <CreditCard className="w-4 h-4 mr-2" />
-                  View Payment History
-                </Button>
-
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => router.push(`${basePath}/attendance?student_id=${studentId}`)}
-                >
-                  <Clock className="w-4 h-4 mr-2" />
-                  View Attendance Records
-                </Button>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>

@@ -7,12 +7,22 @@
   --white: #fff;
   --muted: #bdbdbd;
   --line: #2a2a2a;
+  --nav-height: 80px;
   background: var(--black);
   color: var(--white);
   font-family: Inter, var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   line-height: 1.55;
   min-height: 100vh;
   scroll-behavior: smooth;
+  padding-top: var(--nav-height);
+}
+
+.rma-camp #camp,
+.rma-camp #training,
+.rma-camp #masters,
+.rma-camp #levels,
+.rma-camp #journey {
+  scroll-margin-top: calc(var(--nav-height) + 12px);
 }
 
 .rma-camp * {
@@ -29,30 +39,30 @@
   margin: auto;
 }
 
-.rma-camp .topbar {
-  background: var(--yellow);
-  color: #080808;
-  font-weight: 800;
-  text-align: center;
-  padding: 9px 15px;
-  font-size: 14px;
-  letter-spacing: 0.04em;
-}
-
 .rma-camp .nav {
-  position: absolute;
-  z-index: 40;
+  position: fixed;
+  top: 0;
   left: 0;
   right: 0;
-  padding: 20px 0;
+  width: 100%;
+  z-index: 50;
+  padding: 12px 0;
+  background: #000;
+  border-bottom: 1px solid #5c5c5c;
 }
 
 .rma-camp .navin {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 20px;
   position: relative;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding-left: clamp(28px, 3.5vw, 48px);
+  padding-right: clamp(28px, 3.5vw, 48px);
+  box-sizing: border-box;
 }
 
 .rma-camp .brand {
@@ -62,6 +72,7 @@
   display: flex;
   align-items: center;
   min-width: 0;
+  flex-shrink: 0;
 }
 
 .rma-camp .brand span {
@@ -70,17 +81,56 @@
 
 .rma-camp .brand-logo {
   display: block;
-  height: 48px;
+  height: 56px;
   width: auto;
-  max-width: 180px;
+  max-width: 200px;
   object-fit: contain;
 }
 
 .rma-camp .navlinks {
   display: flex;
-  gap: 24px;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 28px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
+  min-width: 0;
+}
+
+.rma-camp .navlinks a {
+  color: #fff;
+  white-space: nowrap;
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.rma-camp .navlinks a:hover,
+.rma-camp .navlinks a.is-active {
+  color: var(--yellow);
+  border-bottom-color: var(--yellow);
+}
+
+.rma-camp .nav-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 10px 18px;
+  border-radius: 4px;
+  background: var(--yellow);
+  color: #080808;
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border: 1px solid var(--yellow);
+}
+
+.rma-camp .nav-cta:hover {
+  filter: brightness(1.05);
 }
 
 .rma-camp .hamburger {
@@ -95,6 +145,7 @@
   flex-direction: column;
   justify-content: center;
   gap: 5px;
+  flex-shrink: 0;
 }
 
 .rma-camp .hamburger span {
@@ -122,55 +173,170 @@
 }
 
 .rma-camp .hero {
-  min-height: 780px;
+  position: relative;
+  width: 100%;
+  min-height: min(720px, 78vh);
+  display: flex;
+  align-items: stretch;
+  background-color: #000;
+  overflow: hidden;
+}
+
+.rma-camp .hero-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Keep the designed right-edge artwork (vertical copy) fully in frame */
+  object-position: right center;
+  z-index: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+.rma-camp .hero-layout {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   display: flex;
   align-items: center;
-  background:
-    linear-gradient(90deg, rgba(0, 0, 0, 0.98) 0%, rgba(0, 0, 0, 0.84) 42%, rgba(0, 0, 0, 0.2) 100%),
-    var(--hero-image, none) center / cover no-repeat;
+  padding: 40px clamp(28px, 3.5vw, 48px) 36px;
+  min-height: inherit;
+  box-sizing: border-box;
 }
 
 .rma-camp .hero-copy {
-  max-width: 650px;
-  padding: 120px 0 70px;
+  max-width: 620px;
+  flex: 1 1 auto;
+  padding: 0;
 }
 
-.rma-camp .eyebrow {
-  display: inline-block;
-  border: 1px solid var(--yellow);
-  color: var(--yellow);
-  padding: 7px 12px;
-  font-weight: 900;
+.rma-camp .hero-kicker {
+  color: #fff;
+  font-weight: 700;
   font-size: 12px;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85), 0 2px 12px rgba(0, 0, 0, 0.45);
 }
 
 .rma-camp .hero h1 {
-  font-size: clamp(48px, 8vw, 94px);
+  font-size: clamp(48px, 8.2vw, 88px);
   line-height: 0.9;
-  margin: 22px 0 14px;
+  margin: 10px 0 10px;
   text-transform: uppercase;
   font-weight: 900;
-  letter-spacing: -0.055em;
-}
-
-.rma-camp .hero h1 em {
-  color: var(--yellow);
-  font-style: normal;
-}
-
-.rma-camp .hero h2 {
-  font-size: clamp(23px, 3vw, 38px);
-  margin: 0 0 18px;
+  letter-spacing: -0.04em;
   color: #fff;
-  text-transform: uppercase;
+  text-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.9),
+    0 8px 28px rgba(0, 0, 0, 0.5);
 }
 
-.rma-camp .hero p {
-  font-size: 18px;
-  color: #ddd;
-  max-width: 610px;
+.rma-camp .hero-title-accent {
+  color: var(--yellow);
+}
+
+.rma-camp .hero-tagline {
+  margin: 0 0 8px;
+  font-size: clamp(13px, 1.5vw, 17px);
+  font-style: italic;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 4px 18px rgba(0, 0, 0, 0.45);
+}
+
+.rma-camp .hero-desc {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: #f2f2f2;
+  max-width: 480px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95), 0 3px 16px rgba(0, 0, 0, 0.55);
+}
+
+.rma-camp .hero-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 18px 0 20px;
+}
+
+.rma-camp .hero-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 20px;
+  border-radius: 3px;
+  font-weight: 900;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.rma-camp .hero-btn-primary {
+  background: var(--yellow);
+  color: #080808;
+  border: 1px solid var(--yellow);
+}
+
+.rma-camp .hero-btn-primary:hover {
+  filter: brightness(1.05);
+}
+
+.rma-camp .hero-btn-secondary {
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.92);
+}
+
+.rma-camp .hero-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.rma-camp .hero-quote {
+  margin-top: 2px;
+}
+
+.rma-camp .hero-calligraphy {
+  font-size: clamp(24px, 3.5vw, 36px);
+  line-height: 1;
+  color: #c9a227;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
+}
+
+.rma-camp .hero-quote p {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+.rma-camp .hero-quote-author {
+  position: relative;
+  padding-left: 14px;
+  margin-left: 6px;
+}
+
+.rma-camp .hero-quote-author::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 10px;
+  height: 2px;
+  background: var(--yellow);
+  transform: translateY(-50%);
 }
 
 .rma-camp .buttons {
@@ -199,6 +365,778 @@
 .rma-camp .secondary {
   border: 1px solid var(--yellow);
   color: var(--yellow);
+}
+
+.rma-camp .feature-bar {
+  position: relative;
+  z-index: 3;
+  background: #000;
+  border-top: 1px solid #2a2a2a;
+  border-bottom: 1px solid #2a2a2a;
+  width: 100%;
+}
+
+.rma-camp .feature-bar-inner {
+  width: min(1280px, 100%);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.rma-camp .feature-bar-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0px;
+  padding: 24px 12px;
+  text-align: center;
+  border-right: 1px solid #3a3a3a;
+}
+
+.rma-camp .feature-bar-item:last-child {
+  border-right: 0;
+}
+
+.rma-camp .feature-bar-icon {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rma-camp .feature-bar-icon img {
+  width: 36px;
+  height: 36px;
+  max-width: 36px;
+  max-height: 36px;
+  object-fit: contain;
+}
+
+.rma-camp .feature-bar-label {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1.3;
+}
+
+.rma-camp .camp-about {
+  position: relative;
+  z-index: 1;
+  display: block;
+  background: #000;
+  overflow: hidden;
+}
+
+.rma-camp .camp-about-left {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  width: min(40%, 520px);
+  max-width: 40%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(40px, 5.5vw, 72px) clamp(28px, 3.5vw, 48px);
+  /* background: #322e2e; */
+  color: #fff;
+  box-sizing: border-box;
+}
+
+.rma-camp .camp-about-kicker {
+  color: var(--yellow);
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: clamp(18px, 2vw, 26px);
+  line-height: 1.1;
+  margin-bottom: 2px;
+}
+
+.rma-camp .camp-about-title {
+  margin: 0;
+  font-size: clamp(28px, 3.6vw, 44px);
+  line-height: 1.05;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #fff;
+}
+
+.rma-camp .camp-about-rule {
+  width: 78px;
+  height: 3px;
+  background: var(--yellow);
+  margin: 10px 0 12px;
+}
+
+.rma-camp .camp-about-text {
+  margin: 0 0 10px;
+  color: #f2f2f2;
+  font-size: clamp(14px, 1.15vw, 16px);
+  line-height: 1.55;
+}
+
+.rma-camp .camp-about-text:last-of-type {
+  margin-bottom: 16px;
+}
+
+.rma-camp .camp-about-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+  padding: 12px 24px;
+  background: var(--yellow);
+  color: #111;
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 0;
+  transition: filter 0.15s ease;
+}
+
+.rma-camp .camp-about-cta:hover {
+  filter: brightness(0.95);
+}
+
+.rma-camp .camp-about-right {
+  position: relative;
+  z-index: 1;
+  background: #000;
+  width: 100%;
+}
+
+.rma-camp .camp-about-right img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.rma-camp .training-program {
+  background: #000;
+  padding: clamp(56px, 7vw, 88px) 0;
+}
+
+.rma-camp .training-program-inner {
+  width: min(1240px, 94%);
+  margin: 0 auto;
+}
+
+.rma-camp .training-program-title {
+  margin: 0;
+  text-align: center;
+  font-size: clamp(24px, 3.2vw, 34px);
+  line-height: 1.1;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #fff;
+}
+
+.rma-camp .training-program-rule {
+  width: 56px;
+  height: 3px;
+  background: var(--yellow);
+  margin: 14px auto 42px;
+}
+
+.rma-camp .training-program-grid {
+  display: grid;
+  gap: 18px 12px;
+}
+
+.rma-camp .training-program-grid-6 {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.rma-camp .training-program-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.rma-camp .training-program-grid-1 {
+  grid-template-columns: 1fr;
+}
+
+@media (max-width: 1099px) {
+  .rma-camp .training-program-grid-6 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 639px) {
+  .rma-camp .training-program-grid-6,
+  .rma-camp .training-program-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rma-camp .training-program-card {
+  min-width: 0;
+}
+
+.rma-camp .training-program-card-media {
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  background: #111;
+}
+
+.rma-camp .training-program-card-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rma-camp .training-program-card-title {
+  margin: 12px 0 6px;
+  color: #fff;
+  font-size: clamp(13px, 1.2vw, 16px);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.25;
+}
+
+.rma-camp .training-program-card-desc {
+  margin: 0;
+  color: #ececec;
+  font-size: clamp(12px, 1vw, 13px);
+  line-height: 1.45;
+}
+
+.rma-camp .training-program-slider {
+  margin-top: 0;
+}
+
+.rma-camp .training-program-slider-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.rma-camp .training-program-slider-status {
+  color: var(--yellow);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.rma-camp .training-program-slider-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.rma-camp .training-program-slider-viewport {
+  overflow: hidden;
+}
+
+.rma-camp .training-program-slider-track {
+  display: flex;
+  gap: 12px;
+}
+
+.rma-camp .training-program-slider-slide {
+  min-width: 0;
+}
+
+.rma-camp .training-program-slider-arrow {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #3a3a3a;
+  background: #111;
+  color: var(--yellow);
+  cursor: pointer;
+}
+
+.rma-camp .training-program-slider-arrow:hover:not(:disabled) {
+  border-color: var(--yellow);
+}
+
+.rma-camp .training-program-slider-arrow:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.rma-camp .training-program-slider-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.rma-camp .training-program-slider-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 0;
+  background: #3a3a3a;
+  cursor: pointer;
+  padding: 0;
+}
+
+.rma-camp .training-program-slider-dot.is-active {
+  background: var(--yellow);
+}
+
+.rma-camp .masters-section {
+  background: #ffffff;
+  color: #111;
+  padding: clamp(56px, 7vw, 88px) 0;
+}
+
+.rma-camp .masters-section-inner {
+  width: min(1240px, 94%);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(28px, 4vw, 56px);
+  align-items: stretch;
+}
+
+.rma-camp .masters-col {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: clamp(16px, 2vw, 28px);
+  align-items: stretch;
+  min-width: 0;
+}
+
+.rma-camp .masters-col-right {
+  grid-template-columns: 0.85fr 1.15fr;
+}
+
+.rma-camp .masters-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.rma-camp .masters-title {
+  margin: 0;
+  font-size: clamp(20px, 2.2vw, 28px);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #111;
+  line-height: 1.15;
+}
+
+.rma-camp .masters-rule {
+  width: 25%;
+  max-width: 72px;
+  min-width: 36px;
+  height: 3px;
+  background: var(--yellow);
+  margin: 10px 0 18px;
+}
+
+.rma-camp .masters-name {
+  margin: 0 0 6px;
+  font-size: clamp(18px, 1.8vw, 24px);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #111;
+  line-height: 1.2;
+}
+
+.rma-camp .masters-designation {
+  margin: 0 0 14px;
+  font-size: clamp(13px, 1.1vw, 15px);
+  font-weight: 500;
+  color: #333;
+  line-height: 1.4;
+}
+
+.rma-camp .masters-description {
+  margin: 0 0 18px;
+  font-size: clamp(13px, 1.05vw, 15px);
+  font-weight: 400;
+  color: #2a2a2a;
+  line-height: 1.65;
+}
+
+.rma-camp .masters-quote {
+  margin: 0;
+  color: var(--yellow);
+  font-size: clamp(13px, 1.1vw, 15px);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.35;
+}
+
+.rma-camp .masters-photo {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  align-self: stretch;
+  height: 100%;
+  text-align: center;
+}
+
+.rma-camp .masters-photo-frame {
+  position: relative;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 260px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.rma-camp .masters-photo-frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+
+/* Soft foggy blend into #fff — same treatment for both master images */
+.rma-camp .masters-photo-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(to bottom, transparent 58%, #fff 100%),
+    linear-gradient(to right, #fff 0%, transparent 22%, transparent 78%, #fff 100%),
+    linear-gradient(to top, transparent 88%, rgba(255, 255, 255, 0.55) 100%);
+}
+
+.rma-camp .masters-photo-caption {
+  margin-top: 10px;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #111;
+}
+
+.rma-camp .levels-banner {
+  position: relative;
+  background-color: #0a0a0a;
+  background-image: var(--levels-bg);
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  padding: 0 0 clamp(24px, 3vw, 40px);
+  color: #fff;
+  overflow: hidden;
+}
+
+.rma-camp .levels-banner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.72) 0%,
+    rgba(0, 0, 0, 0.45) 42%,
+    rgba(0, 0, 0, 0.2) 58%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+  pointer-events: none;
+}
+
+.rma-camp .levels-banner-inner {
+  position: relative;
+  z-index: 1;
+  width: min(1240px, 94%);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(120px, 0.5fr) minmax(0, 1.05fr);
+  gap: clamp(14px, 2vw, 24px);
+  align-items: start;
+  min-height: 0;
+  padding-top: 8px;
+}
+
+.rma-camp .levels-left {
+  min-width: 0;
+  padding-bottom: 4px;
+}
+
+.rma-camp .levels-banner-title {
+  margin: 0 0 10px;
+  font-size: clamp(20px, 2.4vw, 30px);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.15;
+  color: #fff;
+}
+
+.rma-camp .levels-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.rma-camp .levels-card {
+  padding: 12px 11px 13px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rma-camp .levels-card h3 {
+  margin: 0;
+  font-size: clamp(12px, 1.1vw, 14px);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  line-height: 1.25;
+}
+
+.rma-camp .levels-card p {
+  margin: 0;
+  font-size: clamp(11px, 0.95vw, 12.5px);
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.rma-camp .levels-center {
+  min-width: 0;
+  min-height: 1px;
+}
+
+.rma-camp .levels-right {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0 18px;
+  align-items: start;
+  padding-bottom: 8px;
+}
+
+.rma-camp .levels-panel-wrap {
+  display: contents;
+}
+
+.rma-camp .levels-vdivider {
+  width: 2px;
+  align-self: stretch;
+  background: var(--yellow);
+  min-height: 140px;
+}
+
+.rma-camp .levels-panel {
+  min-width: 0;
+}
+
+.rma-camp .levels-panel-title {
+  margin: 0 0 10px;
+  color: var(--yellow);
+  font-size: clamp(14px, 1.35vw, 18px);
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+.rma-camp .levels-panel-desc {
+  margin: 0 0 14px;
+  color: #f0f0f0;
+  font-size: clamp(12px, 1.05vw, 14px);
+  line-height: 1.55;
+}
+
+.rma-camp .levels-panel-list {
+  list-style: none;
+  margin: 0 0 18px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rma-camp .levels-panel-list li {
+  position: relative;
+  padding-left: 26px;
+  color: #fff;
+  font-size: clamp(12px, 1vw, 13.5px);
+  line-height: 1.4;
+}
+
+.rma-camp .levels-panel-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.15em;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--yellow);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23111' d='M6.4 11.2 3.2 8l1.1-1.1 2.1 2.1 5.3-5.3L12.8 5z'/%3E%3C/svg%3E");
+  background-size: 12px 12px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.rma-camp .levels-panel-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 16px;
+  background: var(--yellow);
+  color: #111;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 0;
+  cursor: pointer;
+  text-decoration: none;
+  transition: filter 0.15s ease;
+}
+
+.rma-camp .levels-panel-cta:hover {
+  filter: brightness(0.95);
+}
+
+.rma-camp .journey-cta {
+  position: relative;
+  background-color: #050505;
+  background-image:
+    linear-gradient(
+      90deg,
+      var(--yellow) 0%,
+      #fff 28%,
+      var(--yellow) 55%,
+      #fff 78%,
+      var(--yellow) 100%
+    ),
+    linear-gradient(
+      90deg,
+      var(--yellow) 0%,
+      #fff 28%,
+      var(--yellow) 55%,
+      #fff 78%,
+      var(--yellow) 100%
+    ),
+    var(--journey-cta-bg);
+  background-size: 100% 2px, 100% 2px, cover;
+  background-position: top center, bottom center, center center;
+  background-repeat: no-repeat;
+  padding: clamp(28px, 3.5vw, 44px) 0;
+  color: #fff;
+  overflow: hidden;
+}
+
+.rma-camp .journey-cta::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.55) 0%,
+    rgba(0, 0, 0, 0.35) 45%,
+    rgba(0, 0, 0, 0.25) 100%
+  );
+  pointer-events: none;
+}
+
+.rma-camp .journey-cta-inner {
+  position: relative;
+  z-index: 1;
+  width: min(1240px, 94%);
+  margin: 0 auto;
+}
+
+.rma-camp .journey-cta-copy {
+  max-width: 640px;
+}
+
+.rma-camp .journey-cta-line1 {
+  margin: 0;
+  color: var(--yellow);
+  font-size: clamp(22px, 3vw, 34px);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.05;
+}
+
+.rma-camp .journey-cta-line2 {
+  margin: 2px 0 0;
+  color: #fff;
+  font-size: clamp(22px, 3vw, 34px);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.05;
+}
+
+.rma-camp .journey-cta-desc {
+  margin: 12px 0 0;
+  color: #f2f2f2;
+  font-size: clamp(12px, 1.1vw, 14px);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1.5;
+}
+
+.rma-camp .journey-cta-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.rma-camp .journey-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 22px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  transition: filter 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.rma-camp .journey-cta-btn-primary {
+  background: var(--yellow);
+  color: #111;
+  border-color: var(--yellow);
+}
+
+.rma-camp .journey-cta-btn-primary:hover {
+  filter: brightness(0.95);
+}
+
+.rma-camp .journey-cta-btn-secondary {
+  background: transparent;
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.9);
+}
+
+.rma-camp .journey-cta-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .rma-camp .facts {
@@ -460,19 +1398,6 @@
   color: #fff;
 }
 
-.rma-camp .rules {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  margin-top: 30px;
-}
-
-.rma-camp .rule {
-  padding: 17px 18px;
-  border-left: 3px solid var(--yellow);
-  background: #151515;
-}
-
 .rma-camp .cta {
   background: var(--yellow);
   color: #080808;
@@ -506,8 +1431,200 @@
   color: #fff;
 }
 
+.rma-camp .camp-site-footer {
+  background: #000;
+  padding: 16px 0;
+  color: #fff;
+}
+
+.rma-camp .camp-site-footer-inner {
+  width: min(1280px, 96%);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.rma-camp .camp-site-footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.rma-camp .camp-site-footer-logo {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.rma-camp .camp-site-footer-logo img {
+  display: block;
+  height: 44px;
+  width: auto;
+  max-width: 160px;
+  object-fit: contain;
+}
+
+.rma-camp .camp-site-footer-logo-fallback {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+
+.rma-camp .camp-site-footer-logo-rock {
+  color: var(--yellow);
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.rma-camp .camp-site-footer-logo-sub {
+  margin-top: 4px;
+  color: #fff;
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.rma-camp .camp-site-footer-desc {
+  margin: 0;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 300;
+  line-height: 1.3;
+  max-width: 240px;
+}
+
+.rma-camp .camp-site-footer-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0;
+  flex: 1 1 auto;
+}
+
+.rma-camp .camp-site-footer-nav-item {
+  display: inline-flex;
+  align-items: center;
+}
+
+.rma-camp .camp-site-footer-nav a {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 300;
+  white-space: nowrap;
+  padding: 0 2px;
+}
+
+.rma-camp .camp-site-footer-nav a:hover {
+  color: var(--yellow);
+}
+
+.rma-camp .camp-site-footer-nav-sep {
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 10px;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.rma-camp .camp-site-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 0 0 auto;
+}
+
+.rma-camp .camp-site-footer-socials {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rma-camp .camp-site-footer-social {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid #2e2e2e;
+  background: #1a1a1a;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rma-camp .camp-site-footer-social:hover {
+  border-color: var(--yellow);
+  color: var(--yellow);
+}
+
+.rma-camp .camp-site-footer-social img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.rma-camp .camp-site-footer-social svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+}
+
+.rma-camp .camp-site-footer-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 18px;
+  background: var(--yellow);
+  color: #000;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.rma-camp .camp-site-footer-cta:hover {
+  filter: brightness(0.95);
+}
+
+/* Tablet / mid widths: keep About below Feature Bar (avoid absolute overlay clip) */
+@media (max-width: 1100px) {
+  .rma-camp .camp-about {
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+  }
+  .rma-camp .camp-about-left {
+    position: relative;
+    left: auto;
+    top: auto;
+    bottom: auto;
+    width: 100%;
+    max-width: none;
+    padding: 40px clamp(28px, 3.5vw, 48px) 28px;
+  }
+  .rma-camp .camp-about-right {
+    width: 100%;
+  }
+}
+
 @media (max-width: 800px) {
-  .rma-camp .navlinks {
+  .rma-camp {
+    --nav-height: 70px;
+  }
+  .rma-camp .navlinks,
+  .rma-camp .nav-cta {
     display: none;
   }
   .rma-camp .hamburger {
@@ -529,9 +1646,20 @@
   .rma-camp .mobile-menu a {
     display: block;
     padding: 12px 8px;
-    font-size: 16px;
-    font-weight: 700;
     color: #fff;
+    font-weight: 600;
+  }
+  .rma-camp .mobile-menu a.is-active {
+    color: var(--yellow);
+  }
+  .rma-camp .mobile-menu .nav-cta-mobile {
+    margin-top: 8px;
+    text-align: center;
+    background: var(--yellow);
+    color: #080808;
+    border-color: var(--yellow);
+  }
+  .rma-camp .mobile-menu a {
     border-bottom: 1px solid var(--line);
   }
   .rma-camp .mobile-menu a:last-child {
@@ -542,22 +1670,110 @@
     width: 100%;
   }
   .rma-camp .brand-logo {
-    height: 40px;
-    max-width: 150px;
+    height: 46px;
+    max-width: 170px;
   }
   .rma-camp .hero {
-    min-height: 760px;
-    background-position: 58% center;
+    min-height: 620px;
+  }
+  .rma-camp .hero-bg {
+    object-position: right center;
+  }
+  .rma-camp .hero-layout {
+    align-items: flex-start;
+    padding: 28px 22px 36px;
   }
   .rma-camp .hero-copy {
-    padding-top: 150px;
+    max-width: 100%;
+    padding: 18px 16px 20px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+  .rma-camp .navin {
+    padding-left: 22px;
+    padding-right: 22px;
+  }
+  .rma-camp .feature-bar-inner {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .rma-camp .feature-bar-item {
+    border-right: 1px solid #3a3a3a;
+    border-bottom: 1px solid #3a3a3a;
+  }
+  .rma-camp .feature-bar-item:nth-child(2n) {
+    border-right: 0;
+  }
+  .rma-camp .camp-about-left {
+    position: relative;
+    width: 100%;
+    max-width: none;
+    padding: 40px 22px 36px;
+  }
+  .rma-camp .masters-section-inner {
+    grid-template-columns: 1fr;
+    gap: 48px;
+  }
+  .rma-camp .masters-col,
+  .rma-camp .masters-col-right {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .rma-camp .masters-col-right .masters-photo {
+    order: -1;
+  }
+  .rma-camp .masters-photo-frame {
+    min-height: 320px;
+    max-height: 420px;
+  }
+  .rma-camp .levels-banner-inner {
+    grid-template-columns: 1fr;
+    min-height: 0;
+    gap: 28px;
+  }
+  .rma-camp .levels-center {
+    display: none;
+  }
+  .rma-camp .levels-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .rma-camp .levels-right {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .rma-camp .levels-vdivider {
+    width: 100%;
+    height: 2px;
+    min-height: 0;
+  }
+  .rma-camp .journey-cta-buttons {
+    justify-content: flex-start;
+  }
+  .rma-camp .journey-cta-buttons .journey-cta-btn {
+    width: auto;
+    flex: 0 0 auto;
+  }
+  .rma-camp .camp-site-footer-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .rma-camp .camp-site-footer-nav {
+    justify-content: flex-start;
+  }
+  .rma-camp .camp-site-footer-right {
+    width: 100%;
+    justify-content: space-between;
+    margin-left: 0;
   }
   .rma-camp .facts {
     grid-template-columns: 1fr 1fr;
   }
   .rma-camp .grid,
-  .rma-camp .schedule,
-  .rma-camp .rules {
+  .rma-camp .schedule {
     grid-template-columns: 1fr;
   }
   .rma-camp .card-slider-slide {
@@ -579,10 +1795,13 @@
     grid-template-columns: 1fr;
   }
   .rma-camp .hero h1 {
-    font-size: 51px;
+    font-size: 48px;
   }
-  .rma-camp .hero p {
-    font-size: 16px;
+  .rma-camp .hero-desc {
+    font-size: 15px;
+  }
+  .rma-camp .hero-buttons .hero-btn {
+    width: 100%;
   }
   .rma-camp .buttons .btn {
     width: 100%;

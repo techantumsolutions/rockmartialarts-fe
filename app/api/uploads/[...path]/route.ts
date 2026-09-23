@@ -32,7 +32,7 @@ function contentTypeFor(filePath: string): string {
  * that existed at build time; new coach photos uploaded after deploy 404 otherwise.
  */
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
   const segments = (await params).path
@@ -62,13 +62,26 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   }
 
+  const forceDownload = request.nextUrl.searchParams.get("download") === "1"
+  const filename = path.basename(filePath)
+  const safeName = filename.replace(/[^\w.\- ()[\]]+/g, "_") || "download"
+  const contentType = forceDownload
+    ? "application/octet-stream"
+    : contentTypeFor(filePath)
+
   const body = fs.readFileSync(filePath)
+  const headers: Record<string, string> = {
+    "Content-Type": contentType,
+    "Cache-Control": forceDownload ? "no-store" : "public, max-age=3600",
+    "Content-Length": String(stat.size),
+  }
+  if (forceDownload) {
+    // Force save instead of in-browser PDF preview (needed for iOS Safari).
+    headers["Content-Disposition"] = `attachment; filename="${safeName}"`
+  }
+
   return new NextResponse(body, {
     status: 200,
-    headers: {
-      "Content-Type": contentTypeFor(filePath),
-      "Cache-Control": "public, max-age=3600",
-      "Content-Length": String(stat.size),
-    },
+    headers,
   })
 }

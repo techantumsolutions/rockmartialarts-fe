@@ -412,7 +412,7 @@ export default function StudentProfilePage() {
                               <p className="text-sm text-gray-600">Branch: {enrollment.branch_name}</p>
                               {enrollment.fee_amount != null && Number(enrollment.fee_amount) > 0 && (
                                 <p className="text-sm text-blue-700 mt-1">
-                                  Next renewal: ₹{Number(enrollment.fee_amount).toLocaleString("en-IN")}
+                                  Last paid course fee: ₹{Number(enrollment.fee_amount).toLocaleString("en-IN")}
                                 </p>
                               )}
                               <div className="flex items-center space-x-2 mt-1">

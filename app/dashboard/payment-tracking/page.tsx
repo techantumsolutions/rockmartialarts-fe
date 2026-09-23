@@ -11,6 +11,7 @@ import { Bell, Search, ChevronDown, MoreHorizontal, Download, MessageCircle, Mai
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import DashboardHeader from "@/components/dashboard-header"
 import { useToast } from "@/hooks/use-toast"
 import paymentAPI from "@/lib/paymentAPI"
@@ -316,7 +317,18 @@ export default function PaymentTrackingPage() {
               ) : (
                 filteredPayments.map((payment) => (
                   <tr key={payment.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{payment.student_name || 'Unknown Student'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {payment.student_id ? (
+                        <Link
+                          href={`/dashboard/students/${payment.student_id}`}
+                          className="font-medium text-blue-700 hover:text-blue-900 hover:underline"
+                        >
+                          {payment.student_name || "Unknown Student"}
+                        </Link>
+                      ) : (
+                        payment.student_name || "Unknown Student"
+                      )}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.course_name || 'N/A'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₹{payment.amount?.toLocaleString() || '0'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₹{payment.amount?.toLocaleString() || '0'}</td>

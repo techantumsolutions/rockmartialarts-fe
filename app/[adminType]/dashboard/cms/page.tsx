@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { cn } from "@/lib/utils"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2, Save, Globe, FileText, Image, Home, Search, MapPin } from "lucide-react"
@@ -35,6 +35,10 @@ interface HomepageSection {
   hero_description?: string
   hero_image?: string
   hero_video?: string
+  hero_primary_cta_text?: string
+  hero_primary_cta_link?: string
+  hero_secondary_cta_text?: string
+  hero_secondary_cta_link?: string
   about_title?: string
   about_subtitle?: string
   courses_title?: string
@@ -79,6 +83,14 @@ const SEO_PAGES = [
   { key: "blog", label: "Blog Page" },
 ]
 
+const CMS_NAV_ITEMS = [
+  { id: "homepage", label: "Homepage", icon: Home },
+  { id: "footer", label: "Footer", icon: FileText },
+  { id: "branding", label: "Branding", icon: Image },
+  { id: "seo", label: "Page SEO", icon: Search },
+  { id: "residential-camp", label: "Residential Camp Page", icon: MapPin },
+] as const
+
 export default function CMSPage() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
@@ -117,9 +129,9 @@ export default function CMSPage() {
           const pubRes = await fetch(getBackendApiUrl("cms/public/residential-camp"), { cache: "no-store" })
           campJson = pubRes.ok ? await pubRes.json().catch(() => null) : null
         }
-        if (campJson) setResidentialCamp(mergeResidentialCamp(campJson))
+        setResidentialCamp(mergeResidentialCamp(campJson || DEFAULT_RESIDENTIAL_CAMP))
       } catch {
-        /* keep current form values */
+        setResidentialCamp(DEFAULT_RESIDENTIAL_CAMP)
       }
     })()
   }, [activeTab, loading])
@@ -161,12 +173,14 @@ export default function CMSPage() {
       }
       if (campRes.ok) {
         const campJson = await campRes.json().catch(() => null)
-        if (campJson) setResidentialCamp(mergeResidentialCamp(campJson))
+        setResidentialCamp(mergeResidentialCamp(campJson || DEFAULT_RESIDENTIAL_CAMP))
       } else {
         const pubRes = await fetch(getBackendApiUrl("cms/public/residential-camp"), { cache: "no-store" })
         if (pubRes.ok) {
           const campJson = await pubRes.json().catch(() => null)
-          if (campJson) setResidentialCamp(mergeResidentialCamp(campJson))
+          setResidentialCamp(mergeResidentialCamp(campJson || DEFAULT_RESIDENTIAL_CAMP))
+        } else {
+          setResidentialCamp(DEFAULT_RESIDENTIAL_CAMP)
         }
       }
     } catch (error) {
@@ -230,6 +244,17 @@ export default function CMSPage() {
   }
 
   const handleSave = async () => {
+    const activeFeatureCards = (residentialCamp.feature_bar || []).filter(
+      (item) => item.enabled !== false
+    )
+    if (activeFeatureCards.length > 5) {
+      toast({
+        title: "Feature Bar limit",
+        description: "Only 5 Feature Bar cards can be active. Turn off extras before saving.",
+        variant: "destructive",
+      })
+      return
+    }
     try {
       setSaving(true)
       const token = TokenManager.getToken()
@@ -373,7 +398,7 @@ export default function CMSPage() {
     }
   }
 
-  const handleCampIconUpload = async (index: number, file: File) => {
+  const handleCampAboutUpload = async (file: File) => {
     try {
       const token = TokenManager.getToken()
       const formData = new FormData()
@@ -388,12 +413,239 @@ export default function CMSPage() {
       const fileUrl = uploadData.file_url || uploadData.url || uploadData.image_url || ""
       setResidentialCamp((prev) => ({
         ...prev,
-        camp: {
-          ...prev.camp,
-          cards: prev.camp.cards.map((card, i) => (i === index ? { ...card, icon_image: fileUrl } : card)),
+        camp: { ...prev.camp, about_image: fileUrl },
+      }))
+      toast({ title: "Uploaded", description: "Camp about background uploaded" })
+    } catch (error) {
+      console.error("Upload error:", error)
+      toast({ title: "Error", description: "Failed to upload image", variant: "destructive" })
+    }
+  }
+
+  const handleTrainingCardImageUpload = async (index: number, file: File) => {
+    try {
+      const token = TokenManager.getToken()
+      const formData = new FormData()
+      formData.append("file", file)
+      const uploadRes = await fetch(getBackendApiUrl("uploads"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      if (!uploadRes.ok) throw new Error("Upload failed")
+      const uploadData = await uploadRes.json()
+      const fileUrl = uploadData.file_url || uploadData.url || uploadData.image_url || ""
+      setResidentialCamp((prev) => ({
+        ...prev,
+        training: {
+          ...prev.training,
+          cards: prev.training.cards.map((card, i) =>
+            i === index ? { ...card, image: fileUrl } : card
+          ),
         },
       }))
-      toast({ title: "Uploaded", description: "Camp card icon uploaded" })
+      toast({ title: "Uploaded", description: "Training card image uploaded" })
+    } catch (error) {
+      console.error("Upload error:", error)
+      toast({ title: "Error", description: "Failed to upload image", variant: "destructive" })
+    }
+  }
+
+  const handleMasterImageUpload = async (index: number, file: File) => {
+    try {
+      const token = TokenManager.getToken()
+      const formData = new FormData()
+      formData.append("file", file)
+      const uploadRes = await fetch(getBackendApiUrl("uploads"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      if (!uploadRes.ok) throw new Error("Upload failed")
+      const uploadData = await uploadRes.json()
+      const fileUrl = uploadData.file_url || uploadData.url || uploadData.image_url || ""
+      setResidentialCamp((prev) => {
+        const base =
+          prev.schedule.masters?.length
+            ? prev.schedule.masters
+            : [
+                {
+                  title: "OUR SHAOLIN LINEAGE",
+                  name: "MASTER DEVARAJU",
+                  designation: "Founder & Master Coach",
+                  description: "",
+                  quote: "NOT A FIGHTER, A WARRIOR.",
+                  image: "/campaign/master1.png",
+                  enabled: true,
+                },
+                {
+                  title: "MEET YOUR MASTER",
+                  name: "MASTER JANARDHAN",
+                  designation: "16th Generation Shaolin Disciple | Founder - Rock Martial Arts Academy",
+                  description: "",
+                  quote: "NOT A FIGHTER, A WARRIOR.",
+                  image: "/campaign/master2.png",
+                  enabled: true,
+                },
+              ]
+        return {
+          ...prev,
+          schedule: {
+            ...prev.schedule,
+            masters: base.map((m, i) => (i === index ? { ...m, image: fileUrl } : m)),
+          },
+        }
+      })
+      toast({ title: "Uploaded", description: "Master image uploaded" })
+    } catch (error) {
+      console.error("Upload error:", error)
+      toast({ title: "Error", description: "Failed to upload image", variant: "destructive" })
+    }
+  }
+
+  const handleLevelsBgUpload = async (file: File) => {
+    try {
+      const token = TokenManager.getToken()
+      const formData = new FormData()
+      formData.append("file", file)
+      const uploadRes = await fetch(getBackendApiUrl("uploads"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      if (!uploadRes.ok) throw new Error("Upload failed")
+      const uploadData = await uploadRes.json()
+      const fileUrl = uploadData.file_url || uploadData.url || uploadData.image_url || ""
+      setResidentialCamp((prev) => ({
+        ...prev,
+        levels: {
+          ...(prev.levels || {
+            enabled: true,
+            h2: "TRAINING FOR EVERY LEVEL",
+            cards: [],
+            panels: [],
+          }),
+          background_image: fileUrl,
+        },
+      }))
+      toast({ title: "Uploaded", description: "Levels background uploaded" })
+    } catch (error) {
+      console.error("Upload error:", error)
+      toast({ title: "Error", description: "Failed to upload image", variant: "destructive" })
+    }
+  }
+
+  const handleJourneyCtaBgUpload = async (file: File) => {
+    try {
+      const token = TokenManager.getToken()
+      const formData = new FormData()
+      formData.append("file", file)
+      const uploadRes = await fetch(getBackendApiUrl("uploads"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      if (!uploadRes.ok) throw new Error("Upload failed")
+      const uploadData = await uploadRes.json()
+      const fileUrl = uploadData.file_url || uploadData.url || uploadData.image_url || ""
+      setResidentialCamp((prev) => ({
+        ...prev,
+        journey_cta: {
+          ...(prev.journey_cta || {
+            enabled: true,
+            title_line1: "START YOUR",
+            title_line2: "SHAOLIN JOURNEY TODAY",
+            description: "A STRONGER BODY. A CALMER MIND. A BRIGHTER FUTURE.",
+            cta_primary_label: "REGISTER NOW",
+            cta_secondary_label: "BOOK A TRIAL CLASS",
+          }),
+          background_image: fileUrl,
+        },
+      }))
+      toast({ title: "Uploaded", description: "Journey CTA background uploaded" })
+    } catch (error) {
+      console.error("Upload error:", error)
+      toast({ title: "Error", description: "Failed to upload image", variant: "destructive" })
+    }
+  }
+
+  const handleFooterLogoUpload = async (file: File) => {
+    try {
+      const token = TokenManager.getToken()
+      const formData = new FormData()
+      formData.append("file", file)
+      const uploadRes = await fetch(getBackendApiUrl("uploads"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      if (!uploadRes.ok) throw new Error("Upload failed")
+      const uploadData = await uploadRes.json()
+      const fileUrl = uploadData.file_url || uploadData.url || uploadData.image_url || ""
+      setResidentialCamp((prev) => ({
+        ...prev,
+        footer: { ...prev.footer, logo: fileUrl },
+      }))
+      toast({ title: "Uploaded", description: "Footer logo uploaded" })
+    } catch (error) {
+      console.error("Upload error:", error)
+      toast({ title: "Error", description: "Failed to upload image", variant: "destructive" })
+    }
+  }
+
+  const handleFooterSocialIconUpload = async (
+    network: "instagram" | "youtube" | "facebook",
+    file: File
+  ) => {
+    try {
+      const token = TokenManager.getToken()
+      const formData = new FormData()
+      formData.append("file", file)
+      const uploadRes = await fetch(getBackendApiUrl("uploads"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      if (!uploadRes.ok) throw new Error("Upload failed")
+      const uploadData = await uploadRes.json()
+      const fileUrl = uploadData.file_url || uploadData.url || uploadData.image_url || ""
+      const iconKey =
+        network === "instagram"
+          ? "social_instagram_icon"
+          : network === "youtube"
+            ? "social_youtube_icon"
+            : "social_facebook_icon"
+      setResidentialCamp((prev) => ({
+        ...prev,
+        footer: { ...prev.footer, [iconKey]: fileUrl },
+      }))
+      toast({ title: "Uploaded", description: `${network} icon uploaded` })
+    } catch (error) {
+      console.error("Upload error:", error)
+      toast({ title: "Error", description: "Failed to upload image", variant: "destructive" })
+    }
+  }
+
+  const handleFeatureBarIconUpload = async (index: number, file: File) => {
+    try {
+      const token = TokenManager.getToken()
+      const formData = new FormData()
+      formData.append("file", file)
+      const uploadRes = await fetch(getBackendApiUrl("uploads"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      if (!uploadRes.ok) throw new Error("Upload failed")
+      const uploadData = await uploadRes.json()
+      const fileUrl = uploadData.file_url || uploadData.url || uploadData.image_url || ""
+      setResidentialCamp((prev) => ({
+        ...prev,
+        feature_bar: (prev.feature_bar || []).map((item, i) =>
+          i === index ? { ...item, icon_image: fileUrl } : item
+        ),
+      }))
+      toast({ title: "Uploaded", description: "Feature bar icon uploaded" })
     } catch (error) {
       console.error("Upload error:", error)
       toast({ title: "Error", description: "Failed to upload image", variant: "destructive" })
@@ -476,39 +728,47 @@ export default function CMSPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-[#4F5077]">CMS Management</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage homepage sections, footer, branding, and SEO settings</p>
-        </div>
-        <Button onClick={handleSave} disabled={saving} className="bg-yellow-400 hover:bg-yellow-500 text-white">
-          {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-          {saving ? "Saving..." : "Save All Changes"}
-        </Button>
+    <div className="flex h-[calc(100dvh-5rem)] flex-col gap-4 p-6 pb-24">
+      <div className="shrink-0">
+        <h1 className="text-2xl font-bold text-[#4F5077]">CMS Management</h1>
+        <p className="text-sm text-gray-500 mt-1">Manage homepage sections, footer, branding, and SEO settings</p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="flex w-full flex-wrap h-auto gap-1 bg-gray-100 p-1">
-          <TabsTrigger value="homepage" className="flex items-center gap-2 data-[state=active]:bg-white">
-            <Home className="w-4 h-4" /> Homepage
-          </TabsTrigger>
-          <TabsTrigger value="footer" className="flex items-center gap-2 data-[state=active]:bg-white">
-            <FileText className="w-4 h-4" /> Footer
-          </TabsTrigger>
-          <TabsTrigger value="branding" className="flex items-center gap-2 data-[state=active]:bg-white">
-            <Image className="w-4 h-4" /> Branding
-          </TabsTrigger>
-          <TabsTrigger value="seo" className="flex items-center gap-2 data-[state=active]:bg-white">
-            <Search className="w-4 h-4" /> Page SEO
-          </TabsTrigger>
-          <TabsTrigger value="residential-camp" className="flex items-center gap-2 data-[state=active]:bg-white">
-            <MapPin className="w-4 h-4" /> Residential Camp Page
-          </TabsTrigger>
-        </TabsList>
+      <div className="flex min-h-0 flex-1 flex-col gap-6 lg:flex-row">
+        <aside className="w-full shrink-0 lg:w-60">
+          <nav className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm" aria-label="CMS sections">
+            <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Sections</p>
+            <ul className="space-y-1">
+              {CMS_NAV_ITEMS.map((item) => {
+                const Icon = item.icon
+                const isActive = activeTab === item.id
+                return (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab(item.id)}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors",
+                        isActive
+                          ? "bg-yellow-400 text-[#4F5077] shadow-sm"
+                          : "text-gray-600 hover:bg-gray-100 hover:text-[#4F5077]",
+                      )}
+                      aria-current={isActive ? "page" : undefined}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span>{item.label}</span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </nav>
+        </aside>
 
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain pr-1">
         {/* Homepage Section Titles */}
-        <TabsContent value="homepage" className="space-y-6 mt-6">
+        {activeTab === "homepage" && (
+        <div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="text-[#4F5077]">Hero Section</CardTitle>
@@ -552,6 +812,48 @@ export default function CMSPage() {
                     <div className="flex-1 space-y-2">
                       <Input value={homepage.hero_video || ""} onChange={(e) => setHomepage({ ...homepage, hero_video: e.target.value })} placeholder="Enter video URL or upload below" />
                       <Input type="file" accept="video/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleHeroMediaUpload("hero_video", file) }} className="text-sm" />
+                    </div>
+                  </div>
+                </div>
+                <div className="rounded-lg border border-dashed border-gray-200 p-4 space-y-4">
+                  <div>
+                    <p className="text-sm font-medium text-[#4F5077]">Hero buttons</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Leave blank to hide. Buttons appear on the website hero only when text is set here.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Primary button text</Label>
+                      <Input
+                        value={homepage.hero_primary_cta_text || ""}
+                        onChange={(e) => setHomepage({ ...homepage, hero_primary_cta_text: e.target.value })}
+                        placeholder="e.g. Explore Courses"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Primary button link</Label>
+                      <Input
+                        value={homepage.hero_primary_cta_link || ""}
+                        onChange={(e) => setHomepage({ ...homepage, hero_primary_cta_link: e.target.value })}
+                        placeholder="e.g. #courses or /courses"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Secondary button text</Label>
+                      <Input
+                        value={homepage.hero_secondary_cta_text || ""}
+                        onChange={(e) => setHomepage({ ...homepage, hero_secondary_cta_text: e.target.value })}
+                        placeholder="e.g. Join the Academy"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Secondary button link</Label>
+                      <Input
+                        value={homepage.hero_secondary_cta_link || ""}
+                        onChange={(e) => setHomepage({ ...homepage, hero_secondary_cta_link: e.target.value })}
+                        placeholder="e.g. /register"
+                      />
                     </div>
                   </div>
                 </div>
@@ -839,10 +1141,12 @@ export default function CMSPage() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
+        )}
 
         {/* Footer Content */}
-        <TabsContent value="footer" className="space-y-6 mt-6">
+        {activeTab === "footer" && (
+        <div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="text-[#4F5077]">Footer Text</CardTitle>
@@ -918,10 +1222,12 @@ export default function CMSPage() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
+        )}
 
         {/* Branding */}
-        <TabsContent value="branding" className="space-y-6 mt-6">
+        {activeTab === "branding" && (
+        <div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="text-[#4F5077]">Website loader</CardTitle>
@@ -1009,10 +1315,12 @@ export default function CMSPage() {
               ))}
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
+        )}
 
         {/* Page-wise SEO */}
-        <TabsContent value="seo" className="space-y-6 mt-6">
+        {activeTab === "seo" && (
+        <div className="space-y-6">
           {SEO_PAGES.map((page) => (
             <Card key={page.key}>
               <CardHeader>
@@ -1060,20 +1368,44 @@ export default function CMSPage() {
               </CardContent>
             </Card>
           ))}
-        </TabsContent>
+        </div>
+        )}
 
-        <TabsContent value="residential-camp" className="space-y-6 mt-6">
+        {activeTab === "residential-camp" && (
+        <div className="space-y-6">
           <ResidentialCampCmsFields
             value={residentialCamp}
             onChange={setResidentialCamp}
             onHeroUpload={handleCampHeroUpload}
             onLogoUpload={handleCampLogoUpload}
-            onCampIconUpload={handleCampIconUpload}
+            onCampAboutUpload={handleCampAboutUpload}
+            onTrainingCardImageUpload={handleTrainingCardImageUpload}
+            onMasterImageUpload={handleMasterImageUpload}
+            onLevelsBgUpload={handleLevelsBgUpload}
+            onJourneyCtaBgUpload={handleJourneyCtaBgUpload}
+            onFooterLogoUpload={handleFooterLogoUpload}
+            onFooterSocialIconUpload={handleFooterSocialIconUpload}
+            onFeatureBarIconUpload={handleFeatureBarIconUpload}
             onStartNewEvent={handleStartNewCampEvent}
             startingNewEvent={startingNewEvent}
           />
-        </TabsContent>
-      </Tabs>
+        </div>
+        )}
+        </div>
+      </div>
+
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90">
+        <div className="mx-auto flex max-w-full items-center justify-end px-6 py-3">
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-yellow-400 hover:bg-yellow-500 text-white"
+          >
+            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+            {saving ? "Saving..." : "Save All Changes"}
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }
