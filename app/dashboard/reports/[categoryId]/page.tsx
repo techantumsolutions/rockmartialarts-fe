@@ -31,7 +31,6 @@ import {
 } from "@/components/skeleton-loaders"
 import { ReportsBreadcrumb } from "@/components/breadcrumb"
 import { notFound } from 'next/navigation'
-import { studentAPI } from "@/lib/studentAPI"
 import { TokenManager } from "@/lib/tokenManager"
 
 // Branch interface (same as branches page)
@@ -229,9 +228,11 @@ function CategoryReportsPageContent() {
 
   // Student search specific state
   const [searchLoading, setSearchLoading] = useState(false)
+  const [exportLoading, setExportLoading] = useState(false)
   const [studentResults, setStudentResults] = useState<any[]>([])
   const [hasSearched, setHasSearched] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const [studentExportFormat, setStudentExportFormat] = useState<"csv" | "excel">("csv")
 
   // Financial search specific state
   const [financialResults, setFinancialResults] = useState<any[]>([])
@@ -539,8 +540,112 @@ function CategoryReportsPageContent() {
     toast.success('Search applied to report categories')
   }
 
-  const handleDownloadReport = () => {
-    toast.info('Download comprehensive reports')
+  const buildStudentReportFilters = () => {
+    const searchParams: Record<string, string | boolean | number> = {}
+
+    if (searchQuery && searchQuery.trim().length >= 2) {
+      searchParams.q = searchQuery.trim()
+    }
+
+    if (filters.branch_id && filters.branch_id !== 'all') {
+      searchParams.branch_id = filters.branch_id
+    }
+
+    if (filters.course_id && filters.course_id !== 'all') {
+      searchParams.course_id = filters.course_id
+    }
+
+    if (filters.status && filters.status !== 'all') {
+      searchParams.is_active = filters.status === 'active'
+    }
+
+    if (filters.date_range && filters.date_range !== 'all') {
+      const today = new Date()
+      let startDate: Date | null = null
+      let endDate: Date | null = null
+
+      switch (filters.date_range) {
+        case 'current-month':
+          startDate = new Date(today.getFullYear(), today.getMonth(), 1)
+          endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+          break
+        case 'last-month':
+          startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+          endDate = new Date(today.getFullYear(), today.getMonth(), 0)
+          break
+        case 'current-quarter': {
+          const currentQuarter = Math.floor(today.getMonth() / 3)
+          startDate = new Date(today.getFullYear(), currentQuarter * 3, 1)
+          endDate = new Date(today.getFullYear(), (currentQuarter + 1) * 3, 0)
+          break
+        }
+        case 'last-quarter': {
+          const lastQuarter = Math.floor(today.getMonth() / 3) - 1
+          const quarterYear = lastQuarter < 0 ? today.getFullYear() - 1 : today.getFullYear()
+          const adjustedQuarter = lastQuarter < 0 ? 3 : lastQuarter
+          startDate = new Date(quarterYear, adjustedQuarter * 3, 1)
+          endDate = new Date(quarterYear, (adjustedQuarter + 1) * 3, 0)
+          break
+        }
+        case 'current-year':
+          startDate = new Date(today.getFullYear(), 0, 1)
+          endDate = new Date(today.getFullYear(), 11, 31)
+          break
+        case 'last-year':
+          startDate = new Date(today.getFullYear() - 1, 0, 1)
+          endDate = new Date(today.getFullYear() - 1, 11, 31)
+          break
+        case 'custom':
+          if (customStartDate) startDate = new Date(customStartDate)
+          if (customEndDate) endDate = new Date(customEndDate)
+          break
+      }
+
+      if (startDate) searchParams.start_date = startDate.toISOString()
+      if (endDate) searchParams.end_date = endDate.toISOString()
+    }
+
+    return searchParams
+  }
+
+  const handleDownloadReport = async () => {
+    if (categoryId !== 'student') {
+      toast.info('Download comprehensive reports')
+      return
+    }
+
+    const token = TokenManager.getToken()
+    if (!token) {
+      toast.error('Authentication required')
+      return
+    }
+
+    setExportLoading(true)
+    try {
+      const filtersForExport = {
+        ...buildStudentReportFilters(),
+        format: studentExportFormat,
+      }
+      const result = await reportsAPI.exportStudentReports(filtersForExport as any, token)
+      toast.success(
+        result.total > 0
+          ? `Downloaded ${result.total} student${result.total === 1 ? '' : 's'} (${result.filename})`
+          : `Downloaded empty report (${result.filename})`
+      )
+    } catch (error: any) {
+      console.error('Student export error:', error)
+      toast.error(error?.message || 'Failed to export student report')
+    } finally {
+      setExportLoading(false)
+    }
+  }
+
+  const handleViewStudentDetails = (studentId: string) => {
+    if (!studentId) {
+      toast.error('Student ID not available')
+      return
+    }
+    router.push(`/dashboard/students/${studentId}`)
   }
 
   const handleCategoryClick = (categoryId: string) => {
@@ -586,106 +691,30 @@ function CategoryReportsPageContent() {
     setHasSearched(true)
 
     try {
-      // Build search parameters
-      const searchParams: any = {}
-
-      // Add text search query if provided
-      if (searchQuery && searchQuery.trim().length >= 2) {
-        searchParams.q = searchQuery.trim()
+      const searchParams: any = {
+        ...buildStudentReportFilters(),
+        skip: 0,
+        limit: 100,
       }
-
-      // Add filter parameters
-      if (filters.branch_id && filters.branch_id !== 'all') {
-        searchParams.branch_id = filters.branch_id
-      }
-
-      if (filters.course_id && filters.course_id !== 'all') {
-        searchParams.course_id = filters.course_id
-      }
-
-      if (filters.status && filters.status !== 'all') {
-        searchParams.is_active = filters.status === 'active'
-      }
-
-      // Add date range filtering
-      if (filters.date_range && filters.date_range !== 'all') {
-        const today = new Date()
-        let startDate: Date | null = null
-        let endDate: Date | null = null
-
-        switch (filters.date_range) {
-          case 'current-month':
-            startDate = new Date(today.getFullYear(), today.getMonth(), 1)
-            endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0)
-            break
-          case 'last-month':
-            startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1)
-            endDate = new Date(today.getFullYear(), today.getMonth(), 0)
-            break
-          case 'current-quarter':
-            const currentQuarter = Math.floor(today.getMonth() / 3)
-            startDate = new Date(today.getFullYear(), currentQuarter * 3, 1)
-            endDate = new Date(today.getFullYear(), (currentQuarter + 1) * 3, 0)
-            break
-          case 'last-quarter':
-            const lastQuarter = Math.floor(today.getMonth() / 3) - 1
-            const quarterYear = lastQuarter < 0 ? today.getFullYear() - 1 : today.getFullYear()
-            const adjustedQuarter = lastQuarter < 0 ? 3 : lastQuarter
-            startDate = new Date(quarterYear, adjustedQuarter * 3, 1)
-            endDate = new Date(quarterYear, (adjustedQuarter + 1) * 3, 0)
-            break
-          case 'current-year':
-            startDate = new Date(today.getFullYear(), 0, 1)
-            endDate = new Date(today.getFullYear(), 11, 31)
-            break
-          case 'last-year':
-            startDate = new Date(today.getFullYear() - 1, 0, 1)
-            endDate = new Date(today.getFullYear() - 1, 11, 31)
-            break
-          case 'custom':
-            if (customStartDate) {
-              startDate = new Date(customStartDate)
-            }
-            if (customEndDate) {
-              endDate = new Date(customEndDate)
-            }
-            break
-        }
-
-        if (startDate) {
-          searchParams.start_date = startDate.toISOString()
-        }
-        if (endDate) {
-          searchParams.end_date = endDate.toISOString()
-        }
-      }
-
-      // Set pagination
-      searchParams.skip = 0
-      searchParams.limit = 100
 
       console.log('Student search parameters:', searchParams)
 
-      // Call the comprehensive student search API
-      const response = await studentAPI.searchStudents(token, searchParams)
+      const response = await reportsAPI.listStudentReportRows(token, searchParams)
 
       console.log('Student search response:', response)
 
       const students = response.students || []
       setStudentResults(students)
 
+      const total = typeof response.total === 'number' ? response.total : students.length
       const searchMessage = searchQuery
-        ? `Found ${students.length} student${students.length !== 1 ? 's' : ''} matching "${searchQuery}"`
-        : `Found ${students.length} student${students.length !== 1 ? 's' : ''}`
+        ? `Found ${total} student${total !== 1 ? 's' : ''} matching "${searchQuery}"`
+        : `Found ${total} student${total !== 1 ? 's' : ''}`
 
       toast.success(searchMessage)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error searching students:', error)
-
-      // Show error message
-      toast.error('Failed to search students. Please try again.')
-
-      // Clear results on error
+      toast.error(error?.message || 'Failed to search students. Please try again.')
       setStudentResults([])
     } finally {
       setSearchLoading(false)
@@ -883,9 +912,14 @@ function CategoryReportsPageContent() {
             <Button
               className="bg-yellow-400 hover:bg-yellow-500 text-white flex items-center space-x-2"
               onClick={handleDownloadReport}
+              disabled={exportLoading || (categoryId === 'student' && searchLoading)}
             >
-              <Download className="w-4 h-4" />
-              <span>Download Report</span>
+              {exportLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              <span>{exportLoading ? 'Downloading...' : 'Download Report'}</span>
             </Button>
           </div>
         </div>
@@ -2164,25 +2198,62 @@ function CategoryReportsPageContent() {
                   </div>
                 </div>
 
-                {/* Search Button */}
-                <div className="flex justify-end">
-                  <Button
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-6"
-                    onClick={handleStudentSearch}
-                    disabled={searchLoading}
-                  >
-                    {searchLoading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Searching...
-                      </>
-                    ) : (
-                      <>
-                        <Search className="w-4 h-4 mr-2" />
-                        Search Students
-                      </>
-                    )}
-                  </Button>
+                {/* Search + Export format */}
+                <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                  <div className="w-full sm:w-48">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Export Format</label>
+                    <Select
+                      value={studentExportFormat}
+                      onValueChange={(value) => setStudentExportFormat(value as "csv" | "excel")}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select format" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="csv">CSV</SelectItem>
+                        <SelectItem value="excel">Excel</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Download uses your current filters
+                    </p>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={handleDownloadReport}
+                      disabled={exportLoading || searchLoading}
+                    >
+                      {exportLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Exporting...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="w-4 h-4 mr-2" />
+                          Export {studentExportFormat === 'excel' ? 'Excel' : 'CSV'}
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-6"
+                      onClick={handleStudentSearch}
+                      disabled={searchLoading}
+                    >
+                      {searchLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Searching...
+                        </>
+                      ) : (
+                        <>
+                          <Search className="w-4 h-4 mr-2" />
+                          Search Students
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

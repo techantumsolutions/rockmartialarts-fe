@@ -41,6 +41,14 @@ export interface PerformanceCoachFeedback {
 export interface PerformanceFeeStatus {
   status: string
   next_due_date?: string | null
+  period_start?: string | null
+  period_end?: string | null
+  billing_status?: string | null
+  overdue_days?: number | null
+  grace_days_remaining?: number | null
+  grace_days_total?: number | null
+  is_within_grace?: boolean | null
+  duration_months?: number | null
   source?: string
 }
 

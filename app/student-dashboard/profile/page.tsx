@@ -398,11 +398,13 @@ export default function StudentProfilePage() {
                               ? "bg-green-100 text-green-800"
                               : uiStatus === "expiring_soon"
                                 ? "bg-amber-100 text-amber-900"
-                                : uiStatus === "expired"
-                                  ? "bg-red-100 text-red-800"
-                                  : uiStatus === "pending"
-                                    ? "bg-yellow-100 text-yellow-800"
-                                    : "bg-gray-100 text-gray-800"
+                                : uiStatus === "grace"
+                                  ? "bg-orange-100 text-orange-900"
+                                  : uiStatus === "expired"
+                                    ? "bg-red-100 text-red-800"
+                                    : uiStatus === "pending"
+                                      ? "bg-yellow-100 text-yellow-800"
+                                      : "bg-gray-100 text-gray-800"
 
                           return (
                             <div>

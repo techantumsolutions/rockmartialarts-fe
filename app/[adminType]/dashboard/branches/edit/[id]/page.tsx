@@ -8,11 +8,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Building, MapPin, Clock, Users, CreditCard, X, Plus, Trash2 } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
-import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
+import { useDashboardBasePath, useDashboardRole } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
 import { dropdownAPI, DropdownOption } from "@/lib/dropdownAPI"
@@ -150,12 +151,15 @@ interface FormData {
   assignments: Assignments
   bank_details: BankDetails
   admission_fee: number
+  is_collaboration_partner?: boolean
 }
 
 export default function EditBranch() {
   const router = useRouter()
   const params = useParams()
   const basePath = useDashboardBasePath()
+  const dashboardRole = useDashboardRole()
+  const canToggleCollaborationPartner = dashboardRole === "super_admin"
   const branchId = params.id as string
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -220,7 +224,8 @@ export default function EditBranch() {
       account_number: "",
       upi_id: ""
     },
-    admission_fee: 0
+    admission_fee: 0,
+    is_collaboration_partner: false,
   })
 
   // Auto-generate branch code
@@ -376,7 +381,10 @@ export default function EditBranch() {
             account_number: branchData.bank_details?.account_number || "",
             upi_id: branchData.bank_details?.upi_id || ""
           },
-          admission_fee: typeof branchData.admission_fee === "number" ? branchData.admission_fee : 0
+          admission_fee: typeof branchData.admission_fee === "number" ? branchData.admission_fee : 0,
+          is_collaboration_partner: !!(
+            branchData.is_collaboration_partner ?? branchData.allows_collaboration
+          ),
         })
 
         setIsLoading(false)
@@ -775,7 +783,11 @@ export default function EditBranch() {
           course_schedule: buildCourseSchedulePayload(formData.assignments.courses),
         },
         bank_details: formData.bank_details,
-        admission_fee: formData.admission_fee
+        admission_fee: formData.admission_fee,
+      }
+      if (canToggleCollaborationPartner) {
+        submitData.is_collaboration_partner = !!formData.is_collaboration_partner
+        submitData.allows_collaboration = !!formData.is_collaboration_partner
       }
       
       console.log("Submitting branch data:", JSON.stringify(submitData, null, 2))
@@ -911,6 +923,36 @@ export default function EditBranch() {
                     </Button>
                   </div>
                   {errors.branchCode && <p className="text-xs text-red-500">{errors.branchCode}</p>}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between rounded-md border border-gray-100 bg-gray-50 px-3 py-3 gap-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="isCollaborationPartner" className="text-sm font-medium">
+                    Is Collaboration Partner
+                  </Label>
+                  <p className="text-xs text-gray-500">
+                    Partner branding and CMS features only apply when Yes. Normal branches stay unchanged.
+                    {!canToggleCollaborationPartner
+                      ? " Only Super Admin can change this flag."
+                      : ""}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-xs text-gray-500">
+                    {formData.is_collaboration_partner ? "Yes" : "No"}
+                  </span>
+                  <Switch
+                    id="isCollaborationPartner"
+                    checked={!!formData.is_collaboration_partner}
+                    disabled={!canToggleCollaborationPartner}
+                    onCheckedChange={(checked) =>
+                      setFormData({
+                        ...formData,
+                        is_collaboration_partner: !!checked,
+                      })
+                    }
+                  />
                 </div>
               </div>
 

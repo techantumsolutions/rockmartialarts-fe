@@ -12,6 +12,17 @@ import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 
 const navLinks = [
   { label: "Store", href: "/store" },
+  { label: "Book a Demo", href: "/book-demo" },
+  { label: "Request Callback", href: "/request-callback" },
+  { label: "Online Learning", href: "/online-learning" },
+  { label: "Events", href: "/events" },
+  { label: "My Event Registrations", href: "/events/my-registrations" },
+  { label: "Become a Coach", href: "/coach-register" },
+  { label: "Home Training", href: "/home-training" },
+  { label: "School Training", href: "/school-training" },
+  { label: "College Training", href: "/college-training" },
+  { label: "Corporate Training", href: "/corporate-training" },
+  { label: "Residential Training", href: "/residential-training" },
   { label: "Residential Camp", href: "/residential-camp" },
 ]
 

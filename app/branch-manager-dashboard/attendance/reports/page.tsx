@@ -34,6 +34,8 @@ interface ReportFilters {
   branch_id?: string
   start_date?: string
   end_date?: string
+  status?: string
+  method?: string
 }
 
 export default function BranchManagerAttendanceReportsPage() {
@@ -52,6 +54,8 @@ export default function BranchManagerAttendanceReportsPage() {
   const [endDate, setEndDate] = useState<Date>(new Date())
   const [selectedStudent, setSelectedStudent] = useState<string>("all")
   const [selectedCourse, setSelectedCourse] = useState<string>("all")
+  const [selectedStatus, setSelectedStatus] = useState<string>("all")
+  const [selectedMethod, setSelectedMethod] = useState<string>("all")
 
   // Dropdown data
   const [students, setStudents] = useState<any[]>([])
@@ -132,6 +136,8 @@ export default function BranchManagerAttendanceReportsPage() {
       if (filters.course_id && filters.course_id !== "all") params.append("course_id", filters.course_id)
       if (filters.start_date) params.append("start_date", filters.start_date)
       if (filters.end_date) params.append("end_date", filters.end_date)
+      if (filters.status && filters.status !== "all") params.append("status", filters.status)
+      if (filters.method && filters.method !== "all") params.append("method", filters.method)
 
       console.log(`🔄 Fetching attendance reports with filters:`, filters)
 
@@ -169,6 +175,8 @@ export default function BranchManagerAttendanceReportsPage() {
 
     if (selectedStudent !== "all") newFilters.student_id = selectedStudent
     if (selectedCourse !== "all") newFilters.course_id = selectedCourse
+    if (selectedStatus !== "all") newFilters.status = selectedStatus
+    if (selectedMethod !== "all") newFilters.method = selectedMethod
 
     setFilters(newFilters)
     fetchAttendanceReports()
@@ -376,6 +384,37 @@ export default function BranchManagerAttendanceReportsPage() {
                         {course.name || course.title}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Status Filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Status</label>
+                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="present">Present</SelectItem>
+                    <SelectItem value="absent">Absent</SelectItem>
+                    <SelectItem value="late">Late</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Method Filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Method</label>
+                <Select value={selectedMethod} onValueChange={setSelectedMethod}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Methods" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Methods</SelectItem>
+                    <SelectItem value="biometric">Biometric</SelectItem>
+                    <SelectItem value="manual">Manual</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

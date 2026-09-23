@@ -14,6 +14,11 @@ const nextConfig = {
       bodySizeLimit: "120mb",
     },
   },
+  // react-pdf / pdfjs optional native canvas — not used in browser viewer
+  webpack: (config) => {
+    config.resolve.alias.canvas = false
+    return config
+  },
   async redirects() {
     return [
       // Browsers request /favicon.ico by default; we ship SVG only.

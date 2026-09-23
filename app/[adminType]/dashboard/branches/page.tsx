@@ -9,7 +9,7 @@ import {
 } from "@/lib/coachFetch"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, Edit, X, Eye } from "lucide-react"
+import { Search, Edit, X, Eye, Handshake, ImageIcon, Award, Images, MessageSquareQuote, UserCog, SearchCode } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { useRouter, usePathname } from "next/navigation"
@@ -36,6 +36,8 @@ interface Branch {
   }
   manager_id?: string | null
   is_active?: boolean
+  allows_collaboration?: boolean
+  is_collaboration_partner?: boolean
   operational_details: {
     courses_offered: string[]
     timings: Array<{
@@ -536,6 +538,11 @@ const paginatedBranches = filteredBranches.slice(
                     <td className="px-2 py-4 whitespace-nowrap text-xs text-[#6B7A99]">
                       <div className="flex items-center gap-2">
                         <span>{branch.branch?.name || 'N/A'}</span>
+                        {(branch.is_collaboration_partner || branch.allows_collaboration) && (
+                          <span className="inline-flex px-2 py-0.5 text-[10px] font-medium rounded bg-amber-50 text-amber-800 border border-amber-200">
+                            Partner
+                          </span>
+                        )}
                         {branch.is_active === false && (
                           <span className="inline-flex px-2 py-0.5 text-[10px] font-medium rounded bg-red-100 text-red-700">
                             Disabled
@@ -618,6 +625,97 @@ const paginatedBranches = filteredBranches.slice(
                         >
                           <Edit className="w-4 h-4" />
                         </button>
+                        {(branch.is_collaboration_partner || branch.allows_collaboration) && (
+                          <button
+                            className="text-amber-600 hover:text-amber-800"
+                            onClick={() =>
+                              router.push(
+                                `${basePath}/partner-profiles?branchId=${encodeURIComponent(branch.id)}`
+                              )
+                            }
+                            title="Partner Profile"
+                          >
+                            <Handshake className="w-4 h-4" />
+                          </button>
+                        )}
+                        {(branch.is_collaboration_partner || branch.allows_collaboration) && (
+                          <button
+                            className="text-amber-600 hover:text-amber-800"
+                            onClick={() =>
+                              router.push(
+                                `${basePath}/partner-branding?branchId=${encodeURIComponent(branch.id)}`
+                              )
+                            }
+                            title="Partner Branding"
+                          >
+                            <ImageIcon className="w-4 h-4" />
+                          </button>
+                        )}
+                        {(branch.is_collaboration_partner || branch.allows_collaboration) && (
+                          <button
+                            className="text-amber-600 hover:text-amber-800"
+                            onClick={() =>
+                              router.push(
+                                `${basePath}/partner-masters?branchId=${encodeURIComponent(branch.id)}`
+                              )
+                            }
+                            title="Partner Masters"
+                          >
+                            <Award className="w-4 h-4" />
+                          </button>
+                        )}
+                        {(branch.is_collaboration_partner || branch.allows_collaboration) && (
+                          <button
+                            className="text-amber-600 hover:text-amber-800"
+                            onClick={() =>
+                              router.push(
+                                `${basePath}/partner-gallery?branchId=${encodeURIComponent(branch.id)}`
+                              )
+                            }
+                            title="Partner Gallery"
+                          >
+                            <Images className="w-4 h-4" />
+                          </button>
+                        )}
+                        {(branch.is_collaboration_partner || branch.allows_collaboration) && (
+                          <button
+                            className="text-amber-600 hover:text-amber-800"
+                            onClick={() =>
+                              router.push(
+                                `${basePath}/partner-testimonials?branchId=${encodeURIComponent(branch.id)}`
+                              )
+                            }
+                            title="Partner Testimonials"
+                          >
+                            <MessageSquareQuote className="w-4 h-4" />
+                          </button>
+                        )}
+                        {(branch.is_collaboration_partner || branch.allows_collaboration) && (
+                          <button
+                            className="text-amber-600 hover:text-amber-800"
+                            onClick={() =>
+                              router.push(
+                                `${basePath}/partner-team?branchId=${encodeURIComponent(branch.id)}`
+                              )
+                            }
+                            title="Partner Team"
+                          >
+                            <UserCog className="w-4 h-4" />
+                          </button>
+                        )}
+                        {(branch.is_collaboration_partner || branch.allows_collaboration) && (
+                          <button
+                            className="text-amber-600 hover:text-amber-800"
+                            onClick={() =>
+                              router.push(
+                                `${basePath}/partner-seo?branchId=${encodeURIComponent(branch.id)}`
+                              )
+                            }
+                            title="Partner SEO"
+                          >
+                            <SearchCode className="w-4 h-4" />
+                          </button>
+                        )}
                         <Switch
                           checked={branch.is_active ?? true}
                           className="data-[state=checked]:bg-yellow-400"

@@ -101,6 +101,7 @@ export function LeadCaptureModal() {
       setSubmitError(null)
       const payload: Record<string, string | undefined> = {
         source: "website_popup",
+        source_type: "website_popup",
       }
       if (popup.name_enabled) payload.name = name.trim()
       if (popup.phone_enabled) {

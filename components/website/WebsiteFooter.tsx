@@ -9,6 +9,9 @@ import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 const quickLinks = [
   { label: "Courses", href: "/courses" },
   { label: "Branches", href: "/branches" },
+  { label: "Champions", href: "/champions" },
+  { label: "Events", href: "/events" },
+  { label: "My registrations", href: "/events/my-registrations" },
   { label: "Enrollment cart", href: "/cart" },
   { label: "Store", href: "/store" },
   { label: "Privacy Policy", href: "/privacy-policy" },

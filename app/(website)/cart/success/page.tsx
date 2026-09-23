@@ -16,6 +16,7 @@ function CartSuccessInner() {
     Array<{ enrollment_id: string; course_name?: string; student_label?: string; branch_name?: string }>
   >([])
   const [amount, setAmount] = useState(0)
+  const [invoiceId, setInvoiceId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!checkoutId) {
@@ -27,6 +28,8 @@ function CartSuccessInner() {
         setStatus(data.checkout.status)
         setLinks(data.checkout.enrollment_links || [])
         setAmount(data.checkout.amount_inr || data.checkout.totals?.total_amount || 0)
+        const inv = (data.checkout as { invoice_id?: string }).invoice_id
+        if (inv) setInvoiceId(inv)
       })
       .catch(() => {
         setStatus("unknown")
@@ -78,6 +81,15 @@ function CartSuccessInner() {
           <Button asChild className="bg-[#FFB70F] text-black hover:bg-[#FFB70F]/90">
             <Link href="/student-dashboard/courses">View my courses</Link>
           </Button>
+          {invoiceId ? (
+            <Button asChild variant="outline" className="border-gray-600">
+              <Link href={`/student-dashboard/invoices/${invoiceId}`}>View invoice</Link>
+            </Button>
+          ) : (
+            <Button asChild variant="outline" className="border-gray-600">
+              <Link href="/student-dashboard/invoices">My invoices</Link>
+            </Button>
+          )}
           <Button asChild variant="outline" className="border-gray-600">
             <Link href="/courses">Browse more courses</Link>
           </Button>

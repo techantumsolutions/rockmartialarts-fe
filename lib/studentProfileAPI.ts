@@ -31,6 +31,10 @@ export interface StudentEnrollment {
   enrollment_date?: string
   start_date?: string
   end_date?: string
+  /** Paid-date billing next renewal (M07-S02); falls back to end_date in UI when absent */
+  next_due_date?: string | null
+  billing_period_start?: string | null
+  billing_period_end?: string | null
   /** Derived server-side status: active | expired | pending | cancelled | inactive | paused */
   status?: string
   payment_status: string

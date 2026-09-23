@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import StudentDashboardLayout from "@/components/student-dashboard-layout"
 import { TokenManager } from "@/lib/tokenManager"
 import { getBackendApiUrl } from "@/lib/config"
@@ -84,9 +85,15 @@ export default function StudentAttendancePage() {
   const [attendanceStats, setAttendanceStats] = useState<AttendanceStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 30)
+    return d.toISOString().slice(0, 10)
+  })
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10))
 
   // Fetch attendance data
-  const fetchAttendanceData = async () => {
+  const fetchAttendanceData = async (overrideStart?: string, overrideEnd?: string) => {
     try {
       setLoading(true)
       setError(null)
@@ -114,10 +121,19 @@ export default function StudentAttendancePage() {
       const headers = TokenManager.getAuthHeaders()
       console.log("🔄 Fetching student attendance data...")
 
-      const response = await fetch(getBackendApiUrl("attendance/student/my-attendance"), {
-        method: 'GET',
-        headers
-      })
+      const qs = new URLSearchParams()
+      const s = overrideStart ?? startDate
+      const e = overrideEnd ?? endDate
+      if (s) qs.set("start_date", s)
+      if (e) qs.set("end_date", e)
+
+      const response = await fetch(
+        getBackendApiUrl(`attendance/student/my-attendance?${qs.toString()}`),
+        {
+          method: "GET",
+          headers,
+        }
+      )
 
       if (!response.ok) {
         if (response.status === 401) {
@@ -240,7 +256,7 @@ export default function StudentAttendancePage() {
           <AlertDescription className="text-red-800">
             {error}
             <Button
-              onClick={fetchAttendanceData}
+              onClick={() => fetchAttendanceData()}
               variant="outline"
               size="sm"
               className="ml-2 h-6 text-xs"
@@ -251,6 +267,35 @@ export default function StudentAttendancePage() {
           </AlertDescription>
         </Alert>
       )}
+
+      <Card className="rounded-xl border bg-white shadow-sm mb-6">
+        <CardContent className="p-4 flex flex-col sm:flex-row sm:items-end gap-3">
+          <div className="space-y-1 flex-1">
+            <label className="text-xs font-medium text-slate-600">From</label>
+            <Input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1 flex-1">
+            <label className="text-xs font-medium text-slate-600">To</label>
+            <Input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </div>
+          <Button
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+            onClick={() => fetchAttendanceData()}
+            disabled={loading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} />
+            Apply dates
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Attendance Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
