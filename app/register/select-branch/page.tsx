@@ -12,6 +12,7 @@ import { useCMS } from "@/contexts/CMSContext"
 import { useToast } from "@/hooks/use-toast"
 import { useGeographyDropdowns } from "@/hooks/use-geography-dropdowns"
 import { branchMatchesLocation } from "@/lib/branchMatchesLocation"
+import { RegistrationStepIndicator } from "@/components/register/RegistrationStepIndicator"
 
 interface Branch {
   id: string
@@ -319,20 +320,7 @@ export default function SelectBranchPage() {
             </Button>
           </form>
 
-          <div className="text-center py-4">
-            <div className="flex items-center justify-center space-x-2 mb-2">
-              <Link href="/register" className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-green-600 transition-colors">1</Link>
-              <div className="w-8 h-1 bg-green-500 rounded"></div>
-              <div className="w-8 h-8 bg-yellow-400 text-black rounded-full flex items-center justify-center font-bold text-sm">2</div>
-              <div className="w-8 h-1 bg-gray-200 rounded"></div>
-              <div className="w-8 h-8 bg-gray-200 text-gray-400 rounded-full flex items-center justify-center font-bold text-sm">3</div>
-              <div className="w-8 h-1 bg-gray-200 rounded"></div>
-              <div className="w-8 h-8 bg-gray-200 text-gray-400 rounded-full flex items-center justify-center font-bold text-sm">4</div>
-              <div className="w-8 h-1 bg-gray-200 rounded"></div>
-              <div className="w-8 h-8 bg-gray-200 text-gray-400 rounded-full flex items-center justify-center font-bold text-sm">5</div>
-            </div>
-            <span className="text-gray-500 text-sm font-medium">Step 2 of 5 - Branch Selection</span>
-          </div>
+          <RegistrationStepIndicator accountType="single" currentStep={2} />
         </div>
       </div>
     </div>

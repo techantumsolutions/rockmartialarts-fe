@@ -13,6 +13,7 @@ import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { submitLead } from "@/lib/submitLead"
 import { RegPhoneOtpSection } from "@/components/register/RegPhoneOtpSection"
+import { RegistrationStepIndicator } from "@/components/register/RegistrationStepIndicator"
 import {
   extractIndianMobileDigits,
   isValidIndianMobileNational,
@@ -575,21 +576,11 @@ export default function RegisterPage() {
             </p>
           </div>
 
-          {/* Step Indicator */}
-          <div className="text-center py-4">
-            <div className="flex items-center justify-center space-x-2 mb-2">
-              <div className="w-8 h-8 bg-yellow-400 text-black rounded-full flex items-center justify-center font-bold text-sm">1</div>
-              <div className="w-8 h-1 bg-gray-200 rounded"></div>
-              <div className="w-8 h-8 bg-gray-200 text-gray-400 rounded-full flex items-center justify-center font-bold text-sm">2</div>
-              <div className="w-8 h-1 bg-gray-200 rounded"></div>
-              <div className="w-8 h-8 bg-gray-200 text-gray-400 rounded-full flex items-center justify-center font-bold text-sm">3</div>
-              <div className="w-8 h-1 bg-gray-200 rounded"></div>
-              <div className="w-8 h-8 bg-gray-200 text-gray-400 rounded-full flex items-center justify-center font-bold text-sm">4</div>
-              <div className="w-8 h-1 bg-gray-200 rounded"></div>
-              <div className="w-8 h-8 bg-gray-200 text-gray-400 rounded-full flex items-center justify-center font-bold text-sm">5</div>
-            </div>
-            <span className="text-gray-500 text-sm font-medium">Step 1 of 5 - Personal Information</span>
-          </div>
+          {/* Step Indicator — updates when Single vs Family is selected */}
+          <RegistrationStepIndicator
+            accountType={formData.accountType === "family" ? "family" : "single"}
+            currentStep={1}
+          />
 
         </div>
       </div>
