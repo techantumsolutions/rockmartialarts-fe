@@ -11,6 +11,7 @@ import { useCMS } from "@/contexts/CMSContext"
 import { openRazorpayCheckout, type RazorpayPaymentResponse } from "@/lib/razorpay"
 import { submitLead } from "@/lib/submitLead"
 import { normalizeToIndianE164 } from "@/lib/indianMobile"
+import { RegistrationStepIndicator } from "@/components/register/RegistrationStepIndicator"
 
 interface PaymentCalculation {
   course_fee: number
@@ -584,20 +585,10 @@ export default function PaymentPage() {
           </Button>
 
           {/* Step Indicator */}
-          <div className="text-center py-4">
-            <div className="flex items-center justify-center space-x-2 mb-2">
-              <Link href="/register" className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-green-600 transition-colors">1</Link>
-              <div className="w-8 h-1 bg-green-500 rounded"></div>
-              <Link href="/register/select-branch" className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-green-600 transition-colors">2</Link>
-              <div className="w-8 h-1 bg-green-500 rounded"></div>
-              <Link href="/register/select-course" className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-green-600 transition-colors">3</Link>
-              <div className="w-8 h-1 bg-green-500 rounded"></div>
-              <div className="w-8 h-8 bg-yellow-400 text-black rounded-full flex items-center justify-center font-bold text-sm">4</div>
-              <div className="w-8 h-1 bg-gray-200 rounded"></div>
-              <div className="w-8 h-8 bg-gray-200 text-gray-400 rounded-full flex items-center justify-center font-bold text-sm">5</div>
-            </div>
-            <span className="text-gray-500 text-sm font-medium">Step 4 of 5 - Payment</span>
-          </div>
+          <RegistrationStepIndicator
+            accountType={registrationData.accountType === "family" ? "family" : "single"}
+            currentStep={registrationData.accountType === "family" ? 3 : 4}
+          />
         </div>
       </div>
     </div>

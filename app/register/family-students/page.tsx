@@ -1,9 +1,8 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -11,6 +10,7 @@ import { useRegistration, emptyFamilyStudent, type FamilyStudentLine } from "@/c
 import { useCMS } from "@/contexts/CMSContext"
 import { getBackendApiUrl } from "@/lib/config"
 import { Plus, Trash2 } from "lucide-react"
+import { RegistrationStepIndicator } from "@/components/register/RegistrationStepIndicator"
 
 const RELATIONSHIPS = [
   { value: "self", label: "Self" },
@@ -64,6 +64,8 @@ export default function FamilyStudentsPage() {
   const [loadingBranch, setLoadingBranch] = useState<string>("")
   const [masterDurations, setMasterDurations] = useState<Array<{ id: string; name: string; duration_months: number }>>([])
   const [pricingBusy, setPricingBusy] = useState(false)
+  const [estimateBusy, setEstimateBusy] = useState(false)
+  const estimateReqId = useRef(0)
   const [error, setError] = useState("")
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
@@ -196,6 +198,10 @@ export default function FamilyStudentsPage() {
   const refreshPricing = async (list: FamilyStudentLine[]) => {
     const priced: FamilyStudentLine[] = []
     for (const s of list) {
+      if (!s.course_id || !s.branch_id || !s.duration) {
+        priced.push({ ...s, amount: 0, course_price: 0 })
+        continue
+      }
       const durationQ = encodeURIComponent(s.duration)
       const batchQ = s.batch_ref?.trim() ? `&batch_ref=${encodeURIComponent(s.batch_ref.trim())}` : ""
       const res = await fetch(
@@ -223,6 +229,71 @@ export default function FamilyStudentsPage() {
     }
     return priced
   }
+
+  /** Live estimated total — pricing was previously only fetched on Continue. */
+  const pricingFingerprint = useMemo(
+    () =>
+      students
+        .map(
+          (s) =>
+            `${s.id}|${s.branch_id}|${s.course_id}|${s.duration}|${s.batch_ref || ""}`
+        )
+        .join(";"),
+    [students]
+  )
+
+  useEffect(() => {
+    const ready = students.filter((s) => s.branch_id && s.course_id && s.duration)
+    if (ready.length === 0) {
+      setEstimateBusy(false)
+      return
+    }
+
+    const reqId = ++estimateReqId.current
+    setEstimateBusy(true)
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const priced = await refreshPricing(students)
+          if (estimateReqId.current !== reqId) return
+          setStudents((prev) =>
+            prev.map((s) => {
+              const match = priced.find((p) => p.id === s.id)
+              if (!match) return s
+              // Only apply amount if selection still matches what we priced
+              if (
+                s.branch_id !== match.branch_id ||
+                s.course_id !== match.course_id ||
+                s.duration !== match.duration ||
+                (s.batch_ref || "") !== (match.batch_ref || "")
+              ) {
+                return s
+              }
+              return {
+                ...s,
+                amount: match.amount,
+                course_price: match.course_price,
+                course_name: match.course_name || s.course_name,
+                category_name: match.category_name || s.category_name,
+                branch_name: match.branch_name || s.branch_name,
+              }
+            })
+          )
+        } catch {
+          if (estimateReqId.current !== reqId) return
+          // Keep prior estimate; continue-to-payment still does a hard refresh.
+        } finally {
+          if (estimateReqId.current === reqId) setEstimateBusy(false)
+        }
+      })()
+    }, 350)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+    // fingerprint captures branch/course/duration/batch changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- students read inside effect via closure from fingerprint trigger
+  }, [pricingFingerprint])
 
   const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -381,6 +452,7 @@ export default function FamilyStudentsPage() {
                         duration_months: 0,
                         batch_ref: "",
                         amount: 0,
+                        course_price: 0,
                       })
                       void loadCourses(v)
                     }}
@@ -412,6 +484,7 @@ export default function FamilyStudentsPage() {
                           duration: "",
                           batch_ref: "",
                           amount: 0,
+                          course_price: 0,
                         })
                       }}
                     >
@@ -440,6 +513,7 @@ export default function FamilyStudentsPage() {
                           duration_months: 0,
                           batch_ref: "",
                           amount: 0,
+                          course_price: 0,
                         })
                       }}
                     >
@@ -464,6 +538,8 @@ export default function FamilyStudentsPage() {
                           duration: v,
                           duration_name: d?.name || "",
                           duration_months: d?.duration_months || 1,
+                          amount: 0,
+                          course_price: 0,
                         })
                       }}
                     >
@@ -487,6 +563,8 @@ export default function FamilyStudentsPage() {
                         updateStudent(student.id, {
                           batch_ref: v,
                           batch_display_label: (b?.name && b.name.trim()) || b?.label || "",
+                          amount: 0,
+                          course_price: 0,
                         })
                       }}
                     >
@@ -519,9 +597,15 @@ export default function FamilyStudentsPage() {
             Add another student
           </Button>
 
-          {totalEstimate > 0 && (
+          {(totalEstimate > 0 || estimateBusy) && (
             <p className="text-sm text-gray-700 text-center">
-              Estimated total: <span className="font-semibold">{formatInr(totalEstimate)}</span>
+              Estimated total:{" "}
+              <span className="font-semibold">
+                {estimateBusy && totalEstimate <= 0 ? "Calculating…" : formatInr(totalEstimate)}
+              </span>
+              {estimateBusy && totalEstimate > 0 ? (
+                <span className="text-gray-500 text-xs ml-2">Updating…</span>
+              ) : null}
             </p>
           )}
           {error && <p className="text-red-500 text-sm text-center">{error}</p>}
@@ -534,16 +618,7 @@ export default function FamilyStudentsPage() {
             {pricingBusy ? "Checking fees…" : "CONTINUE TO PAYMENT"}
           </Button>
 
-          <div className="text-center py-2">
-            <div className="flex items-center justify-center space-x-2 mb-2">
-              <Link href="/register" className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm">1</Link>
-              <div className="w-8 h-1 bg-yellow-400 rounded"></div>
-              <div className="w-8 h-8 bg-yellow-400 text-black rounded-full flex items-center justify-center font-bold text-sm">2</div>
-              <div className="w-8 h-1 bg-gray-200 rounded"></div>
-              <div className="w-8 h-8 bg-gray-200 text-gray-400 rounded-full flex items-center justify-center font-bold text-sm">3</div>
-            </div>
-            <span className="text-gray-500 text-sm font-medium">Step 2 of 4 - Family students</span>
-          </div>
+          <RegistrationStepIndicator accountType="family" currentStep={2} />
         </form>
       </div>
     </div>
