@@ -10,11 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, Save, Globe, FileText, Image, Home, Search, MapPin } from "lucide-react"
+import { Loader2, Save, Globe, FileText, Image, Home, Search, MapPin, Plus, Trash2, Megaphone } from "lucide-react"
 import { TokenManager } from "@/lib/tokenManager"
 import { getBackendApiUrl } from "@/lib/config"
 import { normalizePopupFormForCms, type PopupFormSettings } from "@/lib/popupForm"
 import { ResidentialCampCmsFields } from "@/components/cms/ResidentialCampCmsFields"
+import { CampaignPopupsAdmin } from "@/components/dashboard/CampaignPopupsAdmin"
 import {
   DEFAULT_RESIDENTIAL_CAMP,
   campEventPayload,
@@ -27,6 +28,16 @@ interface SEOSettings {
   meta_description?: string
   meta_keywords?: string
   og_image?: string
+}
+
+interface HomepageMediaItem {
+  id?: string
+  title?: string
+  subtitle?: string
+  video_url?: string
+  poster_url?: string
+  enabled?: boolean
+  display_order?: number
 }
 
 interface HomepageSection {
@@ -43,6 +54,10 @@ interface HomepageSection {
   about_subtitle?: string
   courses_title?: string
   courses_subtitle?: string
+  /** M22-S02: video section below Courses */
+  media_section_title?: string
+  media_section_subtitle?: string
+  media_section?: HomepageMediaItem[]
   testimonials_title?: string
   testimonials_subtitle?: string
   cta_title?: string
@@ -89,6 +104,7 @@ const CMS_NAV_ITEMS = [
   { id: "branding", label: "Branding", icon: Image },
   { id: "seo", label: "Page SEO", icon: Search },
   { id: "residential-camp", label: "Residential Camp Page", icon: MapPin },
+  { id: "campaign-popups", label: "Popup Creation", icon: Megaphone },
 ] as const
 
 export default function CMSPage() {
@@ -988,6 +1004,226 @@ export default function CMSPage() {
           </Card>
 
           <Card>
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                <CardTitle className="text-[#4F5077]">Video section (below Courses)</CardTitle>
+                <p className="text-sm text-gray-500 mt-1">
+                  Shown on the public homepage between Courses and About. Disabled items are hidden.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+                onClick={() => {
+                  const list = [...(homepage.media_section || [])]
+                  const nextOrder = list.reduce((max, item) => Math.max(max, item.display_order ?? 0), -1) + 1
+                  list.push({
+                    id: `media-${Date.now()}`,
+                    title: "",
+                    subtitle: "",
+                    video_url: "",
+                    poster_url: "",
+                    enabled: true,
+                    display_order: nextOrder,
+                  })
+                  setHomepage({ ...homepage, media_section: list })
+                }}
+              >
+                <Plus className="w-4 h-4 mr-1" /> Add video
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Section title</Label>
+                  <Input
+                    value={homepage.media_section_title || ""}
+                    onChange={(e) => setHomepage({ ...homepage, media_section_title: e.target.value })}
+                    placeholder='e.g. "Watch us in action"'
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Section subtitle</Label>
+                  <Input
+                    value={homepage.media_section_subtitle || ""}
+                    onChange={(e) => setHomepage({ ...homepage, media_section_subtitle: e.target.value })}
+                    placeholder='e.g. "Media"'
+                  />
+                </div>
+              </div>
+
+              {(homepage.media_section || []).length === 0 ? (
+                <p className="text-sm text-gray-500">No videos yet. Add one to show a media section on the homepage.</p>
+              ) : (
+                <div className="space-y-4">
+                  {[...(homepage.media_section || [])]
+                    .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+                    .map((item) => {
+                      const list = homepage.media_section || []
+                      const idx = list.findIndex((x) => x === item || (x.id && x.id === item.id))
+                      const patchItem = (partial: Partial<HomepageMediaItem>) => {
+                        const next = [...list]
+                        const at = idx >= 0 ? idx : list.indexOf(item)
+                        if (at < 0) return
+                        next[at] = { ...next[at], ...partial }
+                        setHomepage({ ...homepage, media_section: next })
+                      }
+                      return (
+                        <div key={item.id || `media-${idx}`} className="rounded-lg border p-4 space-y-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <Switch
+                                checked={item.enabled !== false}
+                                onCheckedChange={(checked) => patchItem({ enabled: checked })}
+                              />
+                              <span className="text-sm text-gray-600">Enabled</span>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-500 hover:text-red-700"
+                              onClick={() => {
+                                const next = list.filter((_, i) => i !== (idx >= 0 ? idx : list.indexOf(item)))
+                                setHomepage({ ...homepage, media_section: next })
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="space-y-2">
+                              <Label>Title</Label>
+                              <Input
+                                value={item.title || ""}
+                                onChange={(e) => patchItem({ title: e.target.value })}
+                                placeholder="Video title"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Display order</Label>
+                              <Input
+                                type="number"
+                                value={item.display_order ?? 0}
+                                onChange={(e) =>
+                                  patchItem({ display_order: Number.parseInt(e.target.value, 10) || 0 })
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2 md:col-span-2">
+                              <Label>Subtitle</Label>
+                              <Input
+                                value={item.subtitle || ""}
+                                onChange={(e) => patchItem({ subtitle: e.target.value })}
+                                placeholder="Optional subtitle"
+                              />
+                            </div>
+                            <div className="space-y-2 md:col-span-2">
+                              <Label>Video URL (YouTube or MP4)</Label>
+                              <div className="flex gap-2">
+                                <Input
+                                  value={item.video_url || ""}
+                                  onChange={(e) => patchItem({ video_url: e.target.value })}
+                                  placeholder="https://youtube.com/... or MP4 URL"
+                                  className="flex-1"
+                                />
+                                <label className="cursor-pointer shrink-0">
+                                  <input
+                                    type="file"
+                                    accept="video/*"
+                                    className="hidden"
+                                    onChange={async (e) => {
+                                      const file = e.target.files?.[0]
+                                      if (!file) return
+                                      try {
+                                        const token = TokenManager.getToken()
+                                        const formData = new FormData()
+                                        formData.append("file", file)
+                                        const uploadRes = await fetch(getBackendApiUrl("uploads"), {
+                                          method: "POST",
+                                          headers: { Authorization: `Bearer ${token}` },
+                                          body: formData,
+                                        })
+                                        if (!uploadRes.ok) throw new Error("Upload failed")
+                                        const uploadData = await uploadRes.json()
+                                        const fileUrl =
+                                          uploadData.file_url || uploadData.url || uploadData.image_url || ""
+                                        patchItem({ video_url: fileUrl })
+                                        toast({ title: "Uploaded", description: "Video uploaded" })
+                                      } catch {
+                                        toast({
+                                          title: "Error",
+                                          description: "Failed to upload video",
+                                          variant: "destructive",
+                                        })
+                                      }
+                                    }}
+                                  />
+                                  <span className="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-gray-100">
+                                    Upload
+                                  </span>
+                                </label>
+                              </div>
+                            </div>
+                            <div className="space-y-2 md:col-span-2">
+                              <Label>Poster image URL</Label>
+                              <div className="flex gap-2">
+                                <Input
+                                  value={item.poster_url || ""}
+                                  onChange={(e) => patchItem({ poster_url: e.target.value })}
+                                  placeholder="Poster / fallback image"
+                                  className="flex-1"
+                                />
+                                <label className="cursor-pointer shrink-0">
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={async (e) => {
+                                      const file = e.target.files?.[0]
+                                      if (!file) return
+                                      try {
+                                        const token = TokenManager.getToken()
+                                        const formData = new FormData()
+                                        formData.append("file", file)
+                                        const uploadRes = await fetch(getBackendApiUrl("uploads"), {
+                                          method: "POST",
+                                          headers: { Authorization: `Bearer ${token}` },
+                                          body: formData,
+                                        })
+                                        if (!uploadRes.ok) throw new Error("Upload failed")
+                                        const uploadData = await uploadRes.json()
+                                        const fileUrl =
+                                          uploadData.file_url || uploadData.url || uploadData.image_url || ""
+                                        patchItem({ poster_url: fileUrl })
+                                        toast({ title: "Uploaded", description: "Poster uploaded" })
+                                      } catch {
+                                        toast({
+                                          title: "Error",
+                                          description: "Failed to upload poster",
+                                          variant: "destructive",
+                                        })
+                                      }
+                                    }}
+                                  />
+                                  <span className="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-gray-100">
+                                    Upload
+                                  </span>
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
             <CardHeader>
               <CardTitle className="text-[#4F5077]">Testimonials Section</CardTitle>
             </CardHeader>
@@ -1391,9 +1627,12 @@ export default function CMSPage() {
           />
         </div>
         )}
+
+        {activeTab === "campaign-popups" && <CampaignPopupsAdmin />}
         </div>
       </div>
 
+      {activeTab !== "campaign-popups" ? (
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90">
         <div className="mx-auto flex max-w-full items-center justify-end px-6 py-3">
           <Button
@@ -1406,6 +1645,7 @@ export default function CMSPage() {
           </Button>
         </div>
       </div>
+      ) : null}
     </div>
   )
 }

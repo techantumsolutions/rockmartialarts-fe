@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuPortal } from "@/components/ui/dropdown-menu"
 import { Menu, Home, BookOpen, User, Users, LogOut, Calendar, TrendingUp, ChevronDown, MoreVertical, DollarSign, ClipboardCheck, BarChart3, Clock, CreditCard, UserPlus } from "lucide-react"
+import { usePermissions } from "@/hooks/use-permissions"
 
 interface CoachDashboardHeaderProps {
   currentPage?: string
@@ -67,86 +68,102 @@ export default function CoachDashboardHeader({
     router.push("/coach/login")
   }
 
-  const navigationItems = [
+  const navigationItemsAll = [
     {
       name: "Dashboard",
       path: "/coach-dashboard",
       icon: Home,
       exact: true,
-      description: "Overview and statistics"
+      description: "Overview and statistics",
+      permissionId: "dashboard",
     },
     {
       name: "My Courses",
       path: "/coach-dashboard/courses",
       icon: BookOpen,
       exact: false,
-      description: "Assigned courses"
+      description: "Assigned courses",
+      permissionId: "courses",
     },
     {
       name: "Students",
       path: "/coach-dashboard/students",
       icon: Users,
       exact: false,
-      description: "Manage students"
+      description: "Manage students",
+      permissionId: "students",
     },
     {
       name: "Attendance",
       path: "/coach-dashboard/attendance",
       icon: Calendar,
       exact: false,
-      description: "Track attendance"
+      description: "Track attendance",
+      permissionId: "attendance",
     },
     {
       name: "Availability",
       path: "/coach-dashboard/availability",
       icon: Clock,
       exact: false,
-      description: "Weekly availability"
+      description: "Weekly availability",
+      permissionId: "profile",
     },
     {
       name: "Schedule",
       path: "/coach-dashboard/schedule",
       icon: Calendar,
       exact: false,
-      description: "Lead session schedule"
+      description: "Lead session schedule",
+      permissionId: "dashboard",
     },
     {
       name: "Lead Assignments",
       path: "/coach-dashboard/lead-assignments",
       icon: UserPlus,
       exact: false,
-      description: "Accept or decline leads"
+      description: "Accept or decline leads",
+      permissionId: "students",
     },
     {
       name: "Subscription",
       path: "/coach-dashboard/subscription",
       icon: CreditCard,
       exact: false,
-      description: "Plan and renewals"
+      description: "Plan and renewals",
+      permissionId: "payments",
     },
-
     {
       name: "Reports",
       path: "/coach-dashboard/reports",
       icon: TrendingUp,
       exact: false,
-      description: "Performance reports"
+      description: "Performance reports",
+      permissionId: "reports",
     },
     {
       name: "Payment Tracking",
       path: "/coach-dashboard/payment-tracking",
       icon: DollarSign,
       exact: false,
-      description: "Monitor student payments"
+      description: "Monitor student payments",
+      permissionId: "payments",
     },
     {
       name: "Profile",
       path: "/coach-dashboard/profile",
       icon: User,
       exact: false,
-      description: "My profile"
-    }
+      description: "My profile",
+      permissionId: "profile",
+    },
   ]
+
+  const { hasPermission } = usePermissions("coach")
+  const navigationItems = useMemo(
+    () => navigationItemsAll.filter((item) => !item.permissionId || hasPermission(item.permissionId)),
+    [hasPermission]
+  )
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-gray-200/80 backdrop-blur-sm">

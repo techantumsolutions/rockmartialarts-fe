@@ -145,6 +145,9 @@ function getDefaultPermissions(role: string): Permission[] {
       { id: "payments", name: "Payments", description: "Manage payments", enabled: true },
       { id: "branches", name: "Branches", description: "View own branch details", enabled: true },
       { id: "categories", name: "Categories", description: "Manage categories", enabled: false },
+      { id: "partners", name: "Partners", description: "Partner CMS modules", enabled: true },
+      { id: "crm", name: "CRM", description: "Leads, callbacks, demos, training requests", enabled: true },
+      { id: "events", name: "Events", description: "Events and registrations", enabled: true },
     ],
     student: [
       { id: "dashboard", name: "Dashboard", description: "View dashboard home", enabled: true },

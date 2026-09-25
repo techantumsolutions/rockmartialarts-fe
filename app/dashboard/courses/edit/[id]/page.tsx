@@ -18,7 +18,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/AuthContext"
 import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
-import { uploadFile } from "@/lib/upload"
+import { CourseMediaResourcesFields } from "@/components/dashboard/CourseMediaResourcesFields"
 import CourseFormSections, { PageContent } from "@/components/dashboard/CourseFormSections"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
@@ -95,6 +95,7 @@ export default function EditCoursePage() {
     syllabus: "",
     imageUrl: "",
     videoUrl: "",
+    videoPosterUrl: "",
     tags: [] as string[]
   })
   const [pageContent, setPageContent] = useState<PageContent>({})
@@ -215,6 +216,7 @@ export default function EditCoursePage() {
           syllabus: course.syllabus || course.course_content?.syllabus || "",
           imageUrl: course.imageUrl || course.media_resources?.course_image_url || "",
           videoUrl: course.videoUrl || course.media_resources?.promo_video_url || "",
+          videoPosterUrl: course.media_resources?.video_poster_url || "",
           tags: course.tags || [],
         })
         setIsLoading(false)
@@ -735,7 +737,8 @@ export default function EditCoursePage() {
         },
         media_resources: {
           course_image_url: formData.imageUrl || "",
-          promo_video_url: (formData as any).promoVideoUrl || ""
+          promo_video_url: formData.videoUrl || "",
+          video_poster_url: formData.videoPosterUrl || ""
         },
         pricing: {
           currency: "INR",
@@ -1239,50 +1242,14 @@ export default function EditCoursePage() {
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-[#4F5077]">Media & Resources</h3>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Course Image</Label>
-                        {formData.imageUrl && (
-                          <img src={formData.imageUrl} alt="Course" className="w-32 h-24 object-cover rounded border" />
-                        )}
-                        <div className="flex items-center gap-2">
-                          <Input
-                            id="imageUrl"
-                            value={formData.imageUrl}
-                            onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                            placeholder="URL or upload an image"
-                            className="flex-1"
-                          />
-                          <label className="cursor-pointer">
-                            <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                              const file = e.target.files?.[0]; if (!file) return;
-                              try {
-                                const result = await uploadFile(file);
-                                setFormData({ ...formData, imageUrl: result.file_url });
-                              } catch (err: any) { alert(err.message || "Upload failed"); }
-                            }} />
-                            <span className="inline-flex items-center gap-1 rounded-md border px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800">
-                              <Upload className="w-4 h-4" /> Upload
-                            </span>
-                          </label>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="videoUrl">Promotional Video URL</Label>
-                        <Input
-                          id="videoUrl"
-                          value={formData.videoUrl}
-                          onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
-                          placeholder="Enter video URL"
-                          className="placeholder:text-muted-foreground"
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  <CourseMediaResourcesFields
+                    value={{
+                      imageUrl: formData.imageUrl,
+                      videoUrl: formData.videoUrl,
+                      videoPosterUrl: formData.videoPosterUrl,
+                    }}
+                    onChange={(patch) => setFormData((prev) => ({ ...prev, ...patch }))}
+                  />
 
                   {/* Course Curriculum Section */}
                   <div className="space-y-3">

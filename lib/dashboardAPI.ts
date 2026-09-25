@@ -3,13 +3,22 @@ import { BaseAPI } from './baseAPI'
 
 export interface DashboardStats {
   active_students: number
+  inactive_students?: number
   total_users: number
   active_courses: number
   monthly_active_users: number
   active_enrollments: number
+  enrollments_count?: number
   total_revenue: number
   monthly_revenue: number
   pending_payments: number
+  renewals_count?: number
+  leads_count?: number
+  demo_bookings_count?: number
+  training_requests_count?: number
+  events_count?: number
+  events_registrations_count?: number
+  partners_count?: number
   today_attendance: number
   /** New student user accounts created in the selected period */
   students_registered_in_period?: number
@@ -105,11 +114,11 @@ class DashboardAPI extends BaseAPI {
   /**
    * Get dashboard statistics for branch manager (automatically filters by their branch)
    */
-  async getBranchManagerDashboardStats(token: string): Promise<DashboardStatsResponse> {
-    return await this.makeRequest('/api/dashboard/stats', {
-      method: 'GET',
-      token
-    })
+  async getBranchManagerDashboardStats(
+    token: string,
+    params?: { start_date?: string; end_date?: string; period?: string }
+  ): Promise<DashboardStatsResponse> {
+    return await this.getDashboardStats(token, undefined, params)
   }
 
   /**

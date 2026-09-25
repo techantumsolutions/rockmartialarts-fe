@@ -22,6 +22,7 @@ export interface CourseCreateData {
   media_resources: {
     course_image_url?: string
     promo_video_url?: string
+    video_poster_url?: string
   }
   pricing: {
     currency: string
@@ -119,7 +120,8 @@ export function mapFormDataToAPI(formData: any, prerequisites: string[]): Course
     },
     media_resources: {
       course_image_url: formData.imageUrl || undefined,
-      promo_video_url: formData.videoUrl || undefined
+      promo_video_url: formData.videoUrl || undefined,
+      video_poster_url: formData.videoPosterUrl || undefined
     },
     pricing: {
       currency: formData.currency || 'INR',

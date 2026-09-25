@@ -1,7 +1,14 @@
 "use client"
 
+import { useMemo } from "react"
 import { usePathname } from "next/navigation"
-import { getMainNavItems, getOverflowNavItems, type DashboardRole } from "@/lib/dashboard-config"
+import {
+  filterNavItemsByPermission,
+  getMainNavItems,
+  getOverflowNavItems,
+  type DashboardRole,
+} from "@/lib/dashboard-config"
+import { usePermissions } from "@/hooks/use-permissions"
 
 interface SidebarProps {
   role: DashboardRole
@@ -10,8 +17,16 @@ interface SidebarProps {
 
 export default function Sidebar({ role, onNavigate }: SidebarProps) {
   const pathname = usePathname()
-  const menuItems = getMainNavItems(role)
-  const overflowItems = getOverflowNavItems(role)
+  const { hasPermission } = usePermissions(role)
+
+  const menuItems = useMemo(
+    () => filterNavItemsByPermission(getMainNavItems(role), { role, hasPermission }),
+    [role, hasPermission]
+  )
+  const overflowItems = useMemo(
+    () => filterNavItemsByPermission(getOverflowNavItems(role), { role, hasPermission }),
+    [role, hasPermission]
+  )
 
   const isActivePath = (path: string) => pathname === path || pathname.startsWith(path + "/")
 
@@ -36,8 +51,8 @@ export default function Sidebar({ role, onNavigate }: SidebarProps) {
         <div className="space-y-3">
           {menuItems.map((item) => {
             const Icon = item.icon
-            return item.children ? (
-              <div key={item.path} className="px-3 py-2">
+            return item.children && item.children.length > 0 ? (
+              <div key={item.path + item.label} className="px-3 py-2">
                 <p className="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
                   {Icon && <Icon className="w-4 h-4" />}
                   {item.label}
@@ -77,6 +92,25 @@ export default function Sidebar({ role, onNavigate }: SidebarProps) {
               <div className="space-y-1">
                 {overflowItems.map((item) => {
                   const Icon = item.icon
+                  if (item.children && item.children.length > 0) {
+                    return (
+                      <div key={item.path + item.label} className="mb-2">
+                        <p className="text-xs font-medium text-gray-400 px-4 mb-1">{item.label}</p>
+                        {item.children.map((child) => (
+                          <button
+                            key={child.path}
+                            onClick={() => onNavigate(child.path)}
+                            className={itemClass(child.path)}
+                          >
+                            <span className="flex items-center gap-2">
+                              {child.icon && <child.icon className="w-4 h-4" />}
+                              {child.label}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  }
                   return (
                     <button
                       key={item.path}

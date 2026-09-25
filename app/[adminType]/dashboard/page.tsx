@@ -102,7 +102,7 @@ export default function SuperAdminDashboard() {
           return
         }
 
-        const response = await dashboardAPI.getDashboardStats(token, undefined, dateRange)
+        const response = await dashboardAPI.getDashboardStats(token, branchFilterId, dateRange)
         setDashboardStats(response.dashboard_stats)
       } catch (err: any) {
         console.error("Error fetching dashboard stats:", err)
@@ -113,7 +113,7 @@ export default function SuperAdminDashboard() {
     }
 
     fetchDashboardStats()
-  }, [dateRange, getAuthToken])
+  }, [dateRange, branchFilterId, getAuthToken])
 
   // Fetch branches (only on mount)
   useEffect(() => {
@@ -260,7 +260,7 @@ export default function SuperAdminDashboard() {
              {/* Statistics Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 xl:gap-6 mb-4 sm:mb-6">
           {loading ? (
-            Array.from({ length: 4 }).map((_, index) => (
+            Array.from({ length: 8 }).map((_, index) => (
               <Card key={index}>
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
@@ -366,6 +366,38 @@ export default function SuperAdminDashboard() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* M23-S02 additive metric cards */}
+              {[
+                { label: "Inactive Students", value: dashboardStats?.inactive_students, hint: "Inactive accounts" },
+                { label: "Enrollments", value: dashboardStats?.enrollments_count ?? dashboardStats?.active_enrollments, hint: "Active enrollments" },
+                { label: "Renewals", value: dashboardStats?.renewals_count, hint: timePeriodLabel },
+                { label: "Leads", value: dashboardStats?.leads_count, hint: timePeriodLabel },
+                { label: "Coaches", value: dashboardStats?.active_coaches ?? dashboardStats?.total_coaches, hint: "Active coaches" },
+                { label: "Demo Bookings", value: dashboardStats?.demo_bookings_count, hint: timePeriodLabel },
+                { label: "Training Requests", value: dashboardStats?.training_requests_count, hint: timePeriodLabel },
+                { label: "Events", value: dashboardStats?.events_count ?? dashboardStats?.events_registrations_count, hint: timePeriodLabel },
+                { label: "Partners", value: dashboardStats?.partners_count, hint: "Collaboration partners" },
+              ].map((card) => (
+                <Card key={card.label} className="h-48 rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
+                  <CardContent className="px-4">
+                    <div className="flex justify-between flex-col gap-10">
+                      <div className="flex flex-col xl:flex-row justify-between mt-4">
+                        <p className="text-xs font-base text-[var(--brand-muted)]">{card.label}</p>
+                        <Badge variant="secondary" className="bg-gray-100 text-xs">
+                          {card.hint}
+                        </Badge>
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold text-[var(--brand-dark)]">
+                          {formatNumber(card.value ?? 0)}
+                        </p>
+                        <p className="text-xs text-[var(--brand-muted)]">{card.hint}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
 
             </>
           )}

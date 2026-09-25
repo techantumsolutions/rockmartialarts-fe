@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/AuthContext"
 import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
+import { CourseMediaResourcesFields } from "@/components/dashboard/CourseMediaResourcesFields"
 
 export default function CreateCoursePage() {
   const router = useRouter()
@@ -56,6 +57,7 @@ export default function CreateCoursePage() {
     syllabus: "",
     imageUrl: "",
     videoUrl: "",
+    videoPosterUrl: "",
     tags: [] as string[]
   })
 
@@ -314,8 +316,9 @@ export default function CreateCoursePage() {
           equipment_required: formData.equipmentRequired ? formData.equipmentRequired.split(',').map(item => item.trim()) : []
         },
         media_resources: {
-          course_image_url: (formData as any).courseImageUrl || "",
-          promo_video_url: (formData as any).promoVideoUrl || ""
+          course_image_url: formData.imageUrl || "",
+          promo_video_url: formData.videoUrl || "",
+          video_poster_url: formData.videoPosterUrl || ""
         },
         pricing: {
           currency: formData.currency,
@@ -738,36 +741,14 @@ export default function CreateCoursePage() {
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-[#4F5077]">Media & Resources</h3>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="imageUrl">Course Image URL</Label>
-                        <div className="flex space-x-2">
-                          <Input
-                            id="imageUrl"
-                            value={formData.imageUrl}
-                            onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                            placeholder="https://example.com/course-image.jpg"
-                          />
-                          <Button type="button" variant="outline" size="sm">
-                            <Upload className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="videoUrl">Promotional Video URL</Label>
-                        <Input
-                          id="videoUrl"
-                          value={formData.videoUrl}
-                          onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
-                          placeholder="https://youtube.com/watch?v=..."
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  <CourseMediaResourcesFields
+                    value={{
+                      imageUrl: formData.imageUrl,
+                      videoUrl: formData.videoUrl,
+                      videoPosterUrl: formData.videoPosterUrl,
+                    }}
+                    onChange={(patch) => setFormData((prev) => ({ ...prev, ...patch }))}
+                  />
 
                   {/* Course Curriculum Section */}
                   <div className="space-y-3">

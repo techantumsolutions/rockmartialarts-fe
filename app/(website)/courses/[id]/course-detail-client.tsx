@@ -77,7 +77,7 @@ type CourseData = {
   difficulty_level?: string
   page_content?: PageContent
   course_content?: { syllabus?: string; equipment_required?: string[] }
-  media_resources?: { course_image_url?: string; promo_video_url?: string }
+  media_resources?: { course_image_url?: string; promo_video_url?: string; video_poster_url?: string }
   fee_per_duration?: Record<string, number>
   available_durations?: { id: string; name?: string; duration_months?: number; code?: string }[]
   branch_assignments?: { branch_id: string; branch_name: string; location: string }[]
@@ -110,6 +110,81 @@ function getYouTubeId(url: string): string | null {
 
 function resolveUploadUrl(url?: string): string {
   return resolvePublicAssetUrl(url)
+}
+
+/** M22-S01: Learning/Video player with poster chain, mobile playsInline, error fallback. */
+function LearningVideoPlayer({
+  videoUrl,
+  posterUrl,
+}: {
+  videoUrl: string
+  posterUrl?: string
+}) {
+  const [showPosterOverlay, setShowPosterOverlay] = useState(Boolean(posterUrl))
+  const [mediaFailed, setMediaFailed] = useState(false)
+  const ytId = getYouTubeId(videoUrl)
+  const resolvedPoster = posterUrl ? resolveUploadUrl(posterUrl) : ""
+
+  if (mediaFailed && resolvedPoster) {
+    return (
+      <div className="relative rounded-xl overflow-hidden aspect-video bg-black">
+        <img
+          src={resolvedPoster}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+      </div>
+    )
+  }
+
+  if (ytId) {
+    return (
+      <div className="relative rounded-xl overflow-hidden aspect-video bg-black">
+        {showPosterOverlay && resolvedPoster ? (
+          <button
+            type="button"
+            className="absolute inset-0 z-10 group"
+            onClick={() => setShowPosterOverlay(false)}
+            aria-label="Play video"
+          >
+            <img
+              src={resolvedPoster}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            <span className="absolute inset-0 flex items-center justify-center bg-black/35 group-hover:bg-black/45 transition-colors">
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#F73322] text-white shadow-lg">
+                <Play className="h-6 w-6 ml-0.5" fill="currentColor" />
+              </span>
+            </span>
+          </button>
+        ) : (
+          <iframe
+            src={`https://www.youtube.com/embed/${ytId}?rel=0&playsinline=1`}
+            className="absolute inset-0 w-full h-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            title="Course learning video"
+          />
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative rounded-xl overflow-hidden aspect-video bg-black">
+      <video
+        controls
+        playsInline
+        preload="metadata"
+        poster={resolvedPoster || undefined}
+        className="w-full h-full object-cover"
+        onError={() => setMediaFailed(true)}
+      >
+        <source src={resolveUploadUrl(videoUrl)} type="video/mp4" />
+      </video>
+    </div>
+  )
 }
 
 type CourseInstructor = { name: string; designation: string; bio?: string; photo?: string }
@@ -387,7 +462,11 @@ function CourseDetailPageInner() {
   const visibility = (pc.section_visibility || {}) as Partial<Record<string, boolean>>
   const enabled = (key: string) => visibility[key] !== false
   const courseContent = (course.course_content || {}) as { syllabus?: string; equipment_required?: string[] }
-  const media = (course.media_resources || {}) as { course_image_url?: string; promo_video_url?: string }
+  const media = (course.media_resources || {}) as {
+    course_image_url?: string
+    promo_video_url?: string
+    video_poster_url?: string
+  }
   const headings = (pc.section_headings || {}) as PageContent["section_headings"]
 
   const displayTitle =
@@ -475,6 +554,11 @@ function CourseDetailPageInner() {
       : timingLine
   const promoVideoUrl = media.promo_video_url || ""
   const effectiveLearningVideo = learning.video_url || promoVideoUrl
+  const learningPoster =
+    (learning.thumbnail || "").trim() ||
+    (media.video_poster_url || "").trim() ||
+    (media.course_image_url || "").trim() ||
+    ""
 
   return (
     <main className="min-h-screen bg-[#171A26] text-gray-300">
@@ -794,20 +878,10 @@ function CourseDetailPageInner() {
                 {learning.description && learning.description.split("\n").map((p, i) => <p key={i}>{p}</p>)}
               </div>
               {effectiveLearningVideo && (
-                <div className="relative rounded-xl overflow-hidden aspect-video bg-black">
-                  {getYouTubeId(effectiveLearningVideo) ? (
-                    <iframe
-                      src={`https://www.youtube.com/embed/${getYouTubeId(effectiveLearningVideo)}`}
-                      className="absolute inset-0 w-full h-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
-                  ) : (
-                    <video controls className="w-full h-full object-cover" poster={learning.thumbnail || undefined}>
-                      <source src={effectiveLearningVideo} type="video/mp4" />
-                    </video>
-                  )}
-                </div>
+                <LearningVideoPlayer
+                  videoUrl={effectiveLearningVideo}
+                  posterUrl={learningPoster || undefined}
+                />
               )}
             </div>
           </div>

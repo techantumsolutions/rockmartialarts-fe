@@ -122,6 +122,51 @@ const REPORT_CATEGORIES = [
       { id: "course-fee-breakdown", name: "Course Fee Breakdown", icon: FileText },
       { id: "refund-and-adjustments", name: "Refund and Adjustments", icon: FileText }
     ]
+  },
+  {
+    id: "enrollments",
+    name: "Enrollment Reports",
+    icon: FileText,
+    description: "Operational enrollment listings and exports (API: /reports/enrollments)",
+    reports: [
+      { id: "enrollments-list", name: "Enrollments List", icon: FileText },
+    ]
+  },
+  {
+    id: "renewals",
+    name: "Renewal Reports",
+    icon: TrendingUp,
+    description: "Payment renewals operational report (API: /reports/renewals)",
+    reports: [
+      { id: "renewals-list", name: "Renewals List", icon: FileText },
+    ]
+  },
+  {
+    id: "leads",
+    name: "Lead Reports",
+    icon: FileText,
+    description: "CRM leads operational report (API: /reports/leads)",
+    reports: [
+      { id: "leads-list", name: "Leads List", icon: FileText },
+    ]
+  },
+  {
+    id: "events",
+    name: "Event Reports",
+    icon: FileText,
+    description: "Event registrations operational report (API: /reports/events)",
+    reports: [
+      { id: "events-list", name: "Event Registrations", icon: FileText },
+    ]
+  },
+  {
+    id: "attendance",
+    name: "Attendance Reports",
+    icon: TrendingUp,
+    description: "Use Attendance module reports for full UI",
+    reports: [
+      { id: "attendance-module", name: "Open Attendance Reports", icon: TrendingUp },
+    ]
   }
 ]
 
@@ -224,6 +269,13 @@ function ReportsPageContent() {
 
       // Show loading state for this specific category
       setCategoryLoading(categoryId)
+
+      // M23: Attendance reports live under Attendance module
+      if (categoryId === "attendance") {
+        router.push(`${basePath}/attendance/reports`)
+        setCategoryLoading(null)
+        return
+      }
 
       // Navigate with error handling and performance tracking (use basePath for branch-admin/super-admin)
       const navigationTimeout = setTimeout(() => {

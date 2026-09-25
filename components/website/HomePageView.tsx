@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { motion, useReducedMotion } from "framer-motion"
+import { Play } from "lucide-react"
 import { sanitizeRichHtmlClient } from "@/lib/sanitizeClientHtml"
 import { ScrollZoomContinuous } from "@/components/ScrollZoomContinuous"
 import {
@@ -47,6 +48,16 @@ export interface HomePageViewProps {
   aboutImage?: string
   coursesTitle: string
   coursesSubtitle: string
+  /** M22-S02: video section below Courses */
+  mediaSectionTitle?: string
+  mediaSectionSubtitle?: string
+  mediaSectionItems?: {
+    id?: string
+    title?: string
+    subtitle?: string
+    video_url: string
+    poster_url?: string
+  }[]
   testimonialsTitle: string
   testimonialsSubtitle: string
   classCards: { id?: string; name: string; img: string; href: string }[]
@@ -62,6 +73,78 @@ export interface HomePageViewProps {
 }
 
 /* ---------- Homepage with Cult.fit-style animations ---------- */
+
+function getYouTubeId(url: string): string | null {
+  const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?#]+)/)
+  return m ? m[1] : null
+}
+
+function HomepageMediaPlayer({
+  videoUrl,
+  posterUrl,
+}: {
+  videoUrl: string
+  posterUrl?: string
+}) {
+  const [showPosterOverlay, setShowPosterOverlay] = useState(Boolean(posterUrl))
+  const [mediaFailed, setMediaFailed] = useState(false)
+  const ytId = getYouTubeId(videoUrl)
+  const resolvedPoster = posterUrl ? resolvePublicAssetUrl(posterUrl) : ""
+  const resolvedVideo = resolvePublicAssetUrl(videoUrl)
+
+  if (mediaFailed && resolvedPoster) {
+    return (
+      <div className="relative rounded-lg overflow-hidden aspect-video bg-gray-800">
+        <img src={resolvedPoster} alt="" className="absolute inset-0 w-full h-full object-cover" />
+      </div>
+    )
+  }
+
+  if (ytId) {
+    return (
+      <div className="relative rounded-lg overflow-hidden aspect-video bg-gray-800">
+        {showPosterOverlay && resolvedPoster ? (
+          <button
+            type="button"
+            className="absolute inset-0 z-10 group"
+            onClick={() => setShowPosterOverlay(false)}
+            aria-label="Play video"
+          >
+            <img src={resolvedPoster} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            <span className="absolute inset-0 flex items-center justify-center bg-black/35 group-hover:bg-black/45 transition-colors">
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#F73322] text-white shadow-lg">
+                <Play className="h-6 w-6 ml-0.5" fill="currentColor" />
+              </span>
+            </span>
+          </button>
+        ) : (
+          <iframe
+            src={`https://www.youtube.com/embed/${ytId}?rel=0&playsinline=1`}
+            className="absolute inset-0 w-full h-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            title="Homepage media video"
+          />
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative rounded-lg overflow-hidden aspect-video bg-gray-800">
+      <video
+        controls
+        playsInline
+        preload="metadata"
+        poster={resolvedPoster || undefined}
+        className="w-full h-full object-cover"
+        onError={() => setMediaFailed(true)}
+      >
+        <source src={resolvedVideo} type="video/mp4" />
+      </video>
+    </div>
+  )
+}
 
 export default function HomePageView({
   heroTitle,
@@ -83,6 +166,9 @@ export default function HomePageView({
   aboutImage = "",
   coursesTitle,
   coursesSubtitle,
+  mediaSectionTitle = "",
+  mediaSectionSubtitle = "",
+  mediaSectionItems = [],
   testimonialsTitle,
   testimonialsSubtitle,
   classCards,
@@ -241,6 +327,54 @@ export default function HomePageView({
           </AnimatedStaggerGrid>
         </div>
       </section>
+
+      {/* M22-S02: Video section below Courses, above About */}
+      {mediaSectionItems.length > 0 ? (
+        <section
+          id="media"
+          className="py-16 md:py-20 bg-[#171A26] scroll-mt-24 relative z-10"
+        >
+          <div className="container mx-auto px-4 max-w-7xl">
+            <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
+              <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
+              {(mediaSectionSubtitle || "").trim() ? (
+                <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">
+                  {mediaSectionSubtitle}
+                </p>
+              ) : null}
+              <h2 className="text-3xl md:text-4xl font-bold text-[#FFB70F]">
+                {(mediaSectionTitle || "").trim() || "Videos"}
+              </h2>
+            </AnimatedSection>
+            <div
+              className={
+                mediaSectionItems.length === 1
+                  ? "max-w-4xl mx-auto"
+                  : "grid grid-cols-1 md:grid-cols-2 gap-8"
+              }
+            >
+              {mediaSectionItems.map((item, i) => (
+                <AnimatedSection key={item.id || `media-${i}`} variant="fadeSlideUp">
+                  {(item.title || item.subtitle) && (
+                    <div className="mb-3 text-center md:text-left">
+                      {item.title ? (
+                        <h3 className="text-xl font-bold text-[#FFB70F]">{item.title}</h3>
+                      ) : null}
+                      {item.subtitle ? (
+                        <p className="text-gray-400 text-sm mt-1">{item.subtitle}</p>
+                      ) : null}
+                    </div>
+                  )}
+                  <HomepageMediaPlayer
+                    videoUrl={item.video_url}
+                    posterUrl={item.poster_url}
+                  />
+                </AnimatedSection>
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {/* About: image (left); title, subtitle, rich text (right). Mobile: image first. Fallback benefits when no HTML. */}
       <AnimatedSection
