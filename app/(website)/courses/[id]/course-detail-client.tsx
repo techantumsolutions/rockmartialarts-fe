@@ -21,6 +21,11 @@ import { ShowcaseAchievementCard, type ShowcaseAchievementItem } from "@/compone
 import { SafeImage, DEFAULT_IMAGE_PLACEHOLDER } from "@/components/ui/safe-image"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import { AddToCartModal } from "@/components/cart/AddToCartModal"
+import { toast } from "@/components/ui/use-toast"
+import {
+  enrollmentCartStaffBlockedMessage,
+  getEnrollmentCartAccess,
+} from "@/lib/enrollmentCartAccess"
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -283,6 +288,27 @@ function CourseDetailPageInner() {
   const branchInitDoneRef = useRef(false)
   const [showcaseAchievements, setShowcaseAchievements] = useState<ShowcaseAchievementItem[]>([])
   const [showcaseLoading, setShowcaseLoading] = useState(false)
+
+  const handleAddToCartClick = useCallback(() => {
+    if (typeof window === "undefined") return
+
+    const access = getEnrollmentCartAccess()
+    if (!access.allowed) {
+      if (access.kind === "guest") {
+        const returnPath = `${window.location.pathname}${window.location.search || ""}`
+        window.location.href = `/login?returnUrl=${encodeURIComponent(returnPath)}`
+        return
+      }
+      toast({
+        title: "Student account required",
+        description: enrollmentCartStaffBlockedMessage(access.roleLabel),
+        variant: "destructive",
+      })
+      return
+    }
+
+    setCartModalOpen(true)
+  }, [])
 
   useEffect(() => {
     branchInitDoneRef.current = false
@@ -739,7 +765,7 @@ function CourseDetailPageInner() {
               {course?.id && effectiveLocationId && durations.length > 0 ? (
                 <button
                   type="button"
-                  onClick={() => setCartModalOpen(true)}
+                  onClick={handleAddToCartClick}
                   className="inline-flex items-center justify-center rounded-lg border-2 border-white px-8 py-4 text-base font-bold text-white hover:bg-white hover:text-[#F73322] transition-colors"
                 >
                   Add to cart

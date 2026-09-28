@@ -135,9 +135,20 @@ async function cartRequest<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     const detail =
       typeof body === "object" && body && "detail" in body
-        ? String((body as { detail: unknown }).detail)
+        ? (body as { detail: unknown }).detail
         : res.statusText
-    throw new Error(detail || "Cart request failed")
+    const message = Array.isArray(detail)
+      ? detail
+          .map((d) =>
+            typeof d === "object" && d && "msg" in d
+              ? String((d as { msg: unknown }).msg)
+              : String(d)
+          )
+          .join("; ")
+      : typeof detail === "object" && detail && "message" in detail
+        ? String((detail as { message: unknown }).message)
+        : String(detail || "Cart request failed")
+    throw new Error(message)
   }
   return body as T
 }

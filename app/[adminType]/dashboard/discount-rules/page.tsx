@@ -22,12 +22,13 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Loader2, Percent, Plus, Pencil, Trash2 } from "lucide-react"
+import { Loader2, Percent, Plus, Pencil, Eye } from "lucide-react"
 
 type DiscountRule = {
   id: string
@@ -83,6 +84,8 @@ export default function DiscountRulesPage() {
   const [editing, setEditing] = useState<DiscountRule | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [viewing, setViewing] = useState<DiscountRule | null>(null)
 
   function authHeaders(): HeadersInit {
     const token = TokenManager.getToken()
@@ -92,7 +95,7 @@ export default function DiscountRulesPage() {
     }
   }
 
-  async function loadRules() {
+    async function loadRules() {
     const token = TokenManager.getToken()
     if (!token) {
       router.push("/superadmin/login")
@@ -104,7 +107,9 @@ export default function DiscountRulesPage() {
       return
     }
     if (!res.ok) {
-      toast({ title: "Could not load rules", variant: "destructive" })
+      const err = await res.json().catch(() => ({}))
+      const detail = typeof err.detail === "string" ? err.detail : "Could not load rules"
+      toast({ title: "Could not load rules", description: detail, variant: "destructive" })
       return
     }
     const data = await res.json()
@@ -210,18 +215,66 @@ export default function DiscountRulesPage() {
     }
   }
 
-  async function handleDelete(rule: DiscountRule) {
-    if (!confirm(`Delete rule ${rule.code}?`)) return
-    const res = await fetch(getBackendApiUrl(`discount-rules/${rule.id}`), {
-      method: "DELETE",
-      headers: authHeaders(),
-    })
-    if (!res.ok) {
-      toast({ title: "Delete failed", variant: "destructive" })
-      return
+  async function handleToggleActive(rule: DiscountRule, nextActive: boolean) {
+    setTogglingId(rule.id)
+    // Optimistic update so the switch feels instant
+    setRules((prev) =>
+      prev.map((r) => (r.id === rule.id ? { ...r, is_active: nextActive } : r))
+    )
+    try {
+      const res = await fetch(getBackendApiUrl(`discount-rules/${rule.id}`), {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify({ is_active: nextActive }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(typeof err.detail === "string" ? err.detail : "Could not update status")
+      }
+      toast({
+        title: nextActive ? "Rule activated" : "Rule deactivated",
+        description: `${rule.code} is now ${nextActive ? "active" : "inactive"}.`,
+      })
+      await loadRules()
+    } catch (e) {
+      setRules((prev) =>
+        prev.map((r) => (r.id === rule.id ? { ...r, is_active: rule.is_active } : r))
+      )
+      toast({
+        title: "Status update failed",
+        description: e instanceof Error ? e.message : "Try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setTogglingId(null)
     }
-    toast({ title: "Rule deleted" })
-    await loadRules()
+  }
+
+  function triggerLabel(value: string) {
+    return TRIGGERS.find((t) => t.value === value)?.label || value
+  }
+
+  function triggerHelp(value: string) {
+    switch (value) {
+      case "multi_student":
+        return "Applies when the cart has enough students enrolled together."
+      case "multi_course_cart":
+        return "Applies when the whole cart has enough course lines."
+      case "multi_course_student":
+        return "Applies when one student has enough courses in the cart."
+      case "combination":
+        return "Applies when both student and course minimums are met."
+      case "cart_min_amount":
+        return "Applies when the cart subtotal reaches the minimum amount."
+      default:
+        return "Server calculates this promotion when the cart is viewed or validated."
+    }
+  }
+
+  function formatDiscountValue(rule: DiscountRule) {
+    return rule.discount_kind === "percentage"
+      ? `${rule.discount_value}% off`
+      : `₹${Number(rule.discount_value).toLocaleString("en-IN")} off`
   }
 
   if (loading) {
@@ -427,13 +480,31 @@ export default function DiscountRulesPage() {
                         {rule.is_active ? "Active" : "Inactive"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right space-x-2">
-                      <Button size="sm" variant="outline" onClick={() => openEdit(rule)}>
-                        <Pencil className="h-3 w-3" />
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => void handleDelete(rule)}>
-                        <Trash2 className="h-3 w-3 text-red-600" />
-                      </Button>
+                    <TableCell className="text-right">
+                      <div className="inline-flex items-center justify-end gap-2">
+                        <Switch
+                          checked={!!rule.is_active}
+                          disabled={togglingId === rule.id}
+                          onCheckedChange={(v) => void handleToggleActive(rule, v)}
+                          aria-label={`Toggle ${rule.code} active status`}
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setViewing(rule)}
+                          aria-label={`View ${rule.code}`}
+                        >
+                          <Eye className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openEdit(rule)}
+                          aria-label={`Edit ${rule.code}`}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -442,6 +513,155 @@ export default function DiscountRulesPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog
+        open={!!viewing}
+        onOpenChange={(next) => {
+          if (!next) setViewing(null)
+        }}
+      >
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0 gap-0">
+          {viewing ? (
+            <>
+              <div className="border-b bg-gradient-to-br from-[#E1BB33]/15 via-amber-50 to-white px-6 pt-6 pb-5">
+                <DialogHeader className="space-y-3 text-left">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center rounded-md bg-white/80 border border-[#E1BB33]/40 px-2 py-0.5 font-mono text-xs text-gray-800">
+                      {viewing.code}
+                    </span>
+                    <Badge
+                      variant={viewing.is_active ? "default" : "secondary"}
+                      className={
+                        viewing.is_active
+                          ? "bg-emerald-600 hover:bg-emerald-600"
+                          : "bg-gray-200 text-gray-700"
+                      }
+                    >
+                      {viewing.is_active ? "Active" : "Inactive"}
+                    </Badge>
+                    {viewing.stackable ? (
+                      <Badge variant="outline" className="border-[#E1BB33]/50 text-[#8a6d00]">
+                        Stackable
+                      </Badge>
+                    ) : null}
+                  </div>
+                  <DialogTitle className="text-xl text-gray-900 leading-snug pr-6">
+                    {viewing.name}
+                  </DialogTitle>
+                  <DialogDescription className="text-sm text-gray-600">
+                    {viewing.description?.trim() ||
+                      "Read-only summary of this enrollment cart promotion rule."}
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="mt-4 rounded-xl border border-[#E1BB33]/30 bg-white/90 px-4 py-3 flex items-center justify-between gap-3 shadow-sm">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-500">Discount</p>
+                    <p className="text-2xl font-bold text-gray-900 tabular-nums">
+                      {formatDiscountValue(viewing)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">Priority</p>
+                    <p className="text-lg font-semibold text-gray-800">{viewing.priority}</p>
+                    <p className="text-[11px] text-gray-400">Lower runs first</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="px-6 py-5 space-y-5">
+                <section className="space-y-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    When it applies
+                  </h3>
+                  <div className="rounded-lg border border-gray-200 bg-gray-50/80 p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-sm text-gray-500 shrink-0">Trigger</span>
+                      <span className="text-sm font-medium text-gray-900 text-right">
+                        {triggerLabel(viewing.trigger)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 leading-relaxed">{triggerHelp(viewing.trigger)}</p>
+                    <div className="flex items-center justify-between gap-3 pt-1 border-t border-gray-200/80">
+                      <span className="text-sm text-gray-500">Apply to</span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {viewing.apply_scope === "per_student_line"
+                          ? "Each qualifying student"
+                          : "Whole cart (eligible items)"}
+                      </span>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="space-y-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Thresholds
+                  </h3>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="rounded-lg border border-gray-200 bg-white px-3 py-2.5">
+                      <p className="text-[11px] text-gray-500">Min students</p>
+                      <p className="text-lg font-semibold text-gray-900 tabular-nums">
+                        {viewing.min_students}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 bg-white px-3 py-2.5">
+                      <p className="text-[11px] text-gray-500">Min cart items</p>
+                      <p className="text-lg font-semibold text-gray-900 tabular-nums">
+                        {viewing.min_cart_items}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 bg-white px-3 py-2.5">
+                      <p className="text-[11px] text-gray-500">Min courses / student</p>
+                      <p className="text-lg font-semibold text-gray-900 tabular-nums">
+                        {viewing.min_courses_per_student}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 bg-white px-3 py-2.5">
+                      <p className="text-[11px] text-gray-500">Min cart amount</p>
+                      <p className="text-lg font-semibold text-gray-900 tabular-nums">
+                        ₹{Number(viewing.min_cart_amount || 0).toLocaleString("en-IN")}
+                      </p>
+                    </div>
+                    {viewing.discount_kind === "percentage" && viewing.max_discount_amount != null ? (
+                      <div className="col-span-2 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2.5">
+                        <p className="text-[11px] text-amber-800/80">Max discount cap</p>
+                        <p className="text-lg font-semibold text-amber-950 tabular-nums">
+                          ₹{Number(viewing.max_discount_amount).toLocaleString("en-IN")}
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
+                </section>
+
+                <section className="rounded-lg border border-dashed border-gray-200 px-3 py-2.5 text-xs text-gray-500">
+                  {viewing.stackable
+                    ? "This rule can stack with other stackable promotions when eligible."
+                    : "Only the best matching non-stackable rule is applied to the cart."}{" "}
+                  Customers see the savings on the enrollment cart after the server calculates promotions.
+                </section>
+
+                <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-1">
+                  <Button type="button" variant="outline" onClick={() => setViewing(null)}>
+                    Close
+                  </Button>
+                  <Button
+                    type="button"
+                    className="bg-[#E1BB33] text-black hover:bg-[#E1BB33]/90"
+                    onClick={() => {
+                      const rule = viewing
+                      setViewing(null)
+                      if (rule) openEdit(rule)
+                    }}
+                  >
+                    <Pencil className="h-3.5 w-3.5 mr-2" />
+                    Edit rule
+                  </Button>
+                </div>
+              </div>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -100,7 +100,26 @@ export function clearAuthForRole(role?: string | null): void {
 
 export const DEFAULT_STUDENT_DASHBOARD = "/student-dashboard"
 
-/** Allow only in-app student-dashboard paths as post-login redirects. */
+function isAllowedPostLoginPath(pathnameOnly: string): boolean {
+  if (
+    pathnameOnly === DEFAULT_STUDENT_DASHBOARD ||
+    pathnameOnly.startsWith(`${DEFAULT_STUDENT_DASHBOARD}/`)
+  ) {
+    return true
+  }
+  if (pathnameOnly === "/cart" || pathnameOnly.startsWith("/cart/")) {
+    return true
+  }
+  if (pathnameOnly === "/courses" || pathnameOnly.startsWith("/courses/")) {
+    return true
+  }
+  return false
+}
+
+/**
+ * Safe in-app return after student login.
+ * Allows student-dashboard, public course pages, and cart (blocks open redirects).
+ */
 export function safeStudentReturnUrl(raw?: string | null): string {
   if (!raw) return DEFAULT_STUDENT_DASHBOARD
   let path = raw.trim()
@@ -113,10 +132,17 @@ export function safeStudentReturnUrl(raw?: string | null): string {
     return DEFAULT_STUDENT_DASHBOARD
   }
   const pathnameOnly = path.split("?")[0].split("#")[0]
-  if (pathnameOnly === DEFAULT_STUDENT_DASHBOARD || pathnameOnly.startsWith(`${DEFAULT_STUDENT_DASHBOARD}/`)) {
-    return pathnameOnly
+  if (!isAllowedPostLoginPath(pathnameOnly)) {
+    return DEFAULT_STUDENT_DASHBOARD
   }
-  return DEFAULT_STUDENT_DASHBOARD
+  // Preserve query string for course pages (e.g. ?branchId=…)
+  const qIdx = path.indexOf("?")
+  if (qIdx >= 0 && (pathnameOnly === "/courses" || pathnameOnly.startsWith("/courses/"))) {
+    const query = path.slice(qIdx)
+    if (query.includes("://") || query.includes("//")) return pathnameOnly
+    return `${pathnameOnly}${query}`
+  }
+  return pathnameOnly
 }
 
 export function buildLoginUrl(options?: {
