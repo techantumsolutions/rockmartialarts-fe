@@ -24,11 +24,21 @@ import { addCartItemsMulti, type CartItem, type EnrollmentCart } from "@/lib/enr
 
 type BranchOption = { id: string; name: string }
 
+type BranchBatch = {
+  batch_ref?: string
+  label?: string
+  fee_per_duration?: Record<string, number | null> | null
+  batch_fee?: number | null
+}
+
+type CourseDuration = { id?: string; code?: string; name?: string }
+
 type BranchCourse = {
   id: string
   title?: string
   code?: string
-  available_durations?: Array<{ id?: string; code?: string; name?: string }>
+  available_durations?: CourseDuration[]
+  branch_batches?: BranchBatch[]
 }
 
 type MultiCoursePickerModalProps = {
@@ -38,6 +48,40 @@ type MultiCoursePickerModalProps = {
   studentLabel: string
   existingItems: CartItem[]
   onCartUpdated: (cart: EnrollmentCart) => void
+}
+
+function durationValue(d: CourseDuration | undefined): string {
+  return ((d?.id || d?.code || "") as string).trim()
+}
+
+/** All active durations from the by-branch API (do not filter by fee keys). */
+function durationsForCourse(course: BranchCourse): CourseDuration[] {
+  return course.available_durations || []
+}
+
+/**
+ * Resolve batch_ref for a course+duration without adding new UI.
+ * Matches registration/payment-info rules: single batch, or first batch with a fee for the tenure.
+ */
+function resolveBatchRef(course: BranchCourse, durationId: string): string | undefined {
+  const batches = course.branch_batches || []
+  if (batches.length === 0) return undefined
+
+  const withRef = batches
+    .map((b) => ({ ...b, batch_ref: (b.batch_ref || "").trim() }))
+    .filter((b) => b.batch_ref)
+  if (withRef.length === 0) return undefined
+  if (withRef.length === 1) return withRef[0].batch_ref
+
+  const priced = withRef.filter((b) => {
+    const fpd = b.fee_per_duration
+    if (fpd && typeof fpd === "object") {
+      const direct = fpd[durationId]
+      if (direct != null && Number.isFinite(Number(direct))) return true
+    }
+    return b.batch_fee != null && Number.isFinite(Number(b.batch_fee))
+  })
+  return (priced[0] || withRef[0]).batch_ref
 }
 
 export function MultiCoursePickerModal({
@@ -56,6 +100,7 @@ export function MultiCoursePickerModal({
   const [submitting, setSubmitting] = useState(false)
   const [selected, setSelected] = useState<Record<string, boolean>>({})
   const [durations, setDurations] = useState<Record<string, string>>({})
+  const [formError, setFormError] = useState("")
 
   const inCartCourseIds = useMemo(() => {
     const set = new Set<string>()
@@ -70,6 +115,7 @@ export function MultiCoursePickerModal({
     setBranchId(initialBranch)
     setSelected({})
     setDurations({})
+    setFormError("")
   }, [open, initialBranch])
 
   useEffect(() => {
@@ -95,7 +141,9 @@ export function MultiCoursePickerModal({
     return () => {
       cancelled = true
     }
-  }, [open, branchId])
+    // Only re-fetch branch list when the modal opens; branchId is set from the result when empty.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: avoid refetch loop on branchId set
+  }, [open])
 
   useEffect(() => {
     if (!open || !branchId) return
@@ -108,12 +156,12 @@ export function MultiCoursePickerModal({
       .then((r) => (r.ok ? r.json() : { courses: [] }))
       .then((data) => {
         if (cancelled) return
-        const list = Array.isArray(data.courses) ? data.courses : []
+        const list: BranchCourse[] = Array.isArray(data.courses) ? data.courses : []
         setCourses(list)
         const durMap: Record<string, string> = {}
         for (const c of list) {
-          const d0 = c.available_durations?.[0]
-          const id = (d0?.id || d0?.code || "").trim()
+          const durs = durationsForCourse(c)
+          const id = durationValue(durs[0])
           if (id) durMap[c.id] = id
         }
         setDurations((prev) => ({ ...durMap, ...prev }))
@@ -144,12 +192,19 @@ export function MultiCoursePickerModal({
       toast({ title: "Select a branch", variant: "destructive" })
       return
     }
-    const selections = courses
-      .filter((c) => selected[c.id] && !inCartCourseIds.has(c.id))
-      .map((c) => ({
-        course_id: c.id,
-        duration_id: durations[c.id] || c.available_durations?.[0]?.id || c.available_durations?.[0]?.code || "",
-      }))
+    const selectedCourses = courses.filter((c) => selected[c.id] && !inCartCourseIds.has(c.id))
+    const selections = selectedCourses
+      .map((c) => {
+        const durs = durationsForCourse(c)
+        const duration_id =
+          durations[c.id] || durationValue(durs[0]) || durationValue(c.available_durations?.[0])
+        const batch_ref = duration_id ? resolveBatchRef(c, duration_id) : undefined
+        return {
+          course_id: c.id,
+          duration_id,
+          ...(batch_ref ? { batch_ref } : {}),
+        }
+      })
       .filter((s) => s.duration_id)
 
     if (selections.length === 0) {
@@ -157,6 +212,7 @@ export function MultiCoursePickerModal({
       return
     }
 
+    setFormError("")
     setSubmitting(true)
     try {
       const { cart, bulk_summary } = await addCartItemsMulti({
@@ -166,19 +222,54 @@ export function MultiCoursePickerModal({
       })
       onCartUpdated(cart)
       const added = bulk_summary?.added ?? selections.length
-      const skipped = bulk_summary?.skipped?.length ?? 0
-      toast({
-        title: `${added} course${added === 1 ? "" : "s"} added`,
-        description:
-          skipped > 0
-            ? `${skipped} could not be added (already in cart or unavailable).`
-            : `Added for ${studentLabel}.`,
-      })
+      const skipped = bulk_summary?.skipped || []
+      const enrollmentSkips = skipped.filter((s) =>
+        /already enrolled/i.test(s.reason || "")
+      )
+      const otherSkips = skipped.length - enrollmentSkips.length
+
+      if (enrollmentSkips.length > 0) {
+        const enrolledTitles = enrollmentSkips
+          .map((s) => {
+            const course = courses.find((c) => c.id === s.course_id)
+            return course?.title || course?.code || "a selected course"
+          })
+          .filter(Boolean)
+        const enrolledMsg =
+          enrollmentSkips.length === 1
+            ? `${studentLabel} is already enrolled in ${enrolledTitles[0] || "this course"}.`
+            : `${studentLabel} is already enrolled in ${enrollmentSkips.length} of the selected courses.`
+        toast({
+          title: "Already enrolled",
+          description:
+            added > 0
+              ? `${added} course${added === 1 ? "" : "s"} added. ${enrolledMsg}`
+              : enrolledMsg,
+          variant: "destructive",
+        })
+      } else if (otherSkips > 0) {
+        toast({
+          title: `${added} course${added === 1 ? "" : "s"} added`,
+          description: `${otherSkips} could not be added (already in cart or unavailable).`,
+        })
+      } else {
+        toast({
+          title: `${added} course${added === 1 ? "" : "s"} added`,
+          description: `Added for ${studentLabel}.`,
+        })
+      }
       onOpenChange(false)
     } catch (e) {
+      const raw = e instanceof Error ? e.message : "Try again."
+      const friendly = /already enrolled|active enrollment/i.test(raw)
+        ? `${studentLabel} is already enrolled in this course.`
+        : raw
+      setFormError(friendly)
       toast({
-        title: "Could not add courses",
-        description: e instanceof Error ? e.message : "Try again.",
+        title: /already enrolled|active enrollment/i.test(raw)
+          ? "Already enrolled"
+          : "Could not add courses",
+        description: friendly,
         variant: "destructive",
       })
     } finally {
@@ -227,7 +318,7 @@ export function MultiCoursePickerModal({
               {courses.map((course) => {
                 const inCart = inCartCourseIds.has(course.id)
                 const title = course.title || course.code || "Course"
-                const durs = course.available_durations || []
+                const durs = durationsForCourse(course)
                 return (
                   <li
                     key={course.id}
@@ -257,7 +348,7 @@ export function MultiCoursePickerModal({
                               </SelectTrigger>
                               <SelectContent>
                                 {durs.map((d) => {
-                                  const val = (d.id || d.code || "").trim()
+                                  const val = durationValue(d)
                                   if (!val) return null
                                   return (
                                     <SelectItem key={val} value={val}>
@@ -280,7 +371,12 @@ export function MultiCoursePickerModal({
           )}
         </div>
 
-        <DialogFooter className="border-t border-gray-800 pt-4">
+        <DialogFooter className="border-t border-gray-800 pt-4 flex-col gap-3 sm:flex-col">
+          {formError ? (
+            <p className="w-full text-sm text-red-400 text-left" role="alert">
+              {formError}
+            </p>
+          ) : null}
           <Button
             type="button"
             disabled={submitting || selectedCount === 0}

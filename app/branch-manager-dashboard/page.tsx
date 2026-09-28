@@ -80,8 +80,16 @@ export default function BranchManagerDashboard() {
 
       console.log('🔄 Loading dashboard statistics...')
 
-      // Get dashboard statistics from API
-      const response = await dashboardAPI.getBranchManagerDashboardStats(token)
+      const now = new Date()
+      const start = new Date(now.getFullYear(), now.getMonth(), 1)
+      const pad = (n: number) => String(n).padStart(2, "0")
+      const dateRange = {
+        start_date: `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`,
+        end_date: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+      }
+
+      // Get dashboard statistics from API (period = current month for M23-S03)
+      const response = await dashboardAPI.getBranchManagerDashboardStats(token, dateRange)
       console.log('📊 Dashboard stats response:', response)
       console.log('📊 Raw stats from API:', response.dashboard_stats)
 

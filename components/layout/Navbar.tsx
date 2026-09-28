@@ -13,11 +13,12 @@ import {
 import { useRouter, usePathname } from "next/navigation"
 import { useCMS } from "@/contexts/CMSContext"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import NotificationDropdown from "@/components/notification-dropdown"
 import { MobileSidebar } from "@/components/layout/responsive"
 import {
   DashboardRole,
+  filterNavItemsByPermission,
   getMainNavItems,
   getOverflowNavItems,
   getRoleLabel,
@@ -25,6 +26,7 @@ import {
   type NavItem,
 } from "@/lib/dashboard-config"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { usePermissions } from "@/hooks/use-permissions"
 
 interface NavbarProps {
   role: DashboardRole
@@ -35,10 +37,17 @@ export default function Navbar({ role }: NavbarProps) {
   const pathname = usePathname()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [profileImage, setProfileImage] = useState<string>("")
+  const { hasPermission } = usePermissions(role)
 
   const { cms } = useCMS()
-  const menuItems = getMainNavItems(role)
-  const overflowNavItems = getOverflowNavItems(role)
+  const menuItems = useMemo(
+    () => filterNavItemsByPermission(getMainNavItems(role), { role, hasPermission }),
+    [role, hasPermission]
+  )
+  const overflowNavItems = useMemo(
+    () => filterNavItemsByPermission(getOverflowNavItems(role), { role, hasPermission }),
+    [role, hasPermission]
+  )
   const basePath = getBasePath(role)
   const roleLabel = getRoleLabel(role)
 
@@ -151,6 +160,21 @@ export default function Navbar({ role }: NavbarProps) {
                     <DropdownMenuContent align="end" className="w-56 z-[1000] bg-white/95 backdrop-blur-md border border-gray-200/50 shadow-xl rounded-lg p-2" sideOffset={8}>
                       {overflowNavItems.map((item) => {
                         const Icon = item.icon
+                        if (item.children && item.children.length > 0) {
+                          return item.children.map((child) => {
+                            const ChildIcon = child.icon
+                            return (
+                              <DropdownMenuItem
+                                key={child.path}
+                                onClick={() => router.push(child.path)}
+                                className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200 flex items-center gap-2"
+                              >
+                                {ChildIcon && <ChildIcon className="w-4 h-4" />}
+                                {child.label}
+                              </DropdownMenuItem>
+                            )
+                          })
+                        }
                         return (
                           <DropdownMenuItem
                             key={item.path}

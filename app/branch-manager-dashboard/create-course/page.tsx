@@ -47,6 +47,7 @@ export default function CreateCoursePage() {
     isActive: true,
     imageUrl: "",
     videoUrl: "",
+    videoPosterUrl: "",
     tags: [] as string[]
   })
 
@@ -156,7 +157,8 @@ export default function CreateCoursePage() {
         },
         media_resources: {
           course_image_url: formData.imageUrl || "",
-          promo_video_url: formData.videoUrl || ""
+          promo_video_url: formData.videoUrl || "",
+          video_poster_url: formData.videoPosterUrl || ""
         },
         pricing: {
           currency: formData.currency,
@@ -470,6 +472,16 @@ export default function CreateCoursePage() {
                           value={formData.videoUrl}
                           onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
                           placeholder="https://example.com/promo-video.mp4"
+                        />
+                      </div>
+
+                      <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="videoPosterUrl">Video Poster / Fallback Image URL</Label>
+                        <Input
+                          id="videoPosterUrl"
+                          value={formData.videoPosterUrl}
+                          onChange={(e) => setFormData({ ...formData, videoPosterUrl: e.target.value })}
+                          placeholder="Poster image URL"
                         />
                       </div>
                     </div>

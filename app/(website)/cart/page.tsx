@@ -2,11 +2,11 @@
 
 import Link from "next/link"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { BookPlus, Loader2, ShoppingCart, Trash2, UserPlus } from "lucide-react"
+import { BookPlus, Loader2, ShoppingCart, Trash2 } from "lucide-react"
 import { MultiCoursePickerModal } from "@/components/cart/MultiCoursePickerModal"
+import { CartAddStudentsPanel } from "@/components/cart/CartAddStudentsPanel"
 import type { CartStudentGroup } from "@/lib/enrollmentCart"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { toast } from "@/components/ui/use-toast"
 import {
   AlertDialog,
@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/alert-dialog"
 import {
   addCartStudent,
-  addCartStudentsBulk,
   confirmCartCheckout,
   fetchEnrollmentCart,
   formatInr,
@@ -32,16 +31,18 @@ import {
 } from "@/lib/enrollmentCart"
 import { openRazorpayCheckout } from "@/lib/razorpay"
 import { TokenManager } from "@/lib/tokenManager"
+import { isStudentAuthenticated, profileDisplayName, loadAccountProfiles } from "@/lib/accountProfiles"
+import {
+  enrollmentCartStaffBlockedMessage,
+  getEnrollmentCartAccess,
+} from "@/lib/enrollmentCartAccess"
 
 export default function EnrollmentCartPage() {
   const [cart, setCart] = useState<EnrollmentCart | null>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
-  const [newStudentName, setNewStudentName] = useState("")
   const studentSeedAttempted = useRef(false)
   const [multiPickerGroup, setMultiPickerGroup] = useState<CartStudentGroup | null>(null)
-  const [bulkStudentNames, setBulkStudentNames] = useState("")
-  const [showBulkStudents, setShowBulkStudents] = useState(false)
   const [removeStudentTarget, setRemoveStudentTarget] = useState<CartStudentGroup | null>(null)
 
   const loadCart = useCallback(async () => {
@@ -65,51 +66,39 @@ export default function EnrollmentCartPage() {
     loadCart()
   }, [loadCart])
 
+  // Seed only the active student when cart has no linked lines — not every profile.
   useEffect(() => {
     if (!cart || cart.students.length > 0 || studentSeedAttempted.current) return
+    if (!isStudentAuthenticated()) return
     studentSeedAttempted.current = true
-    try {
-      const raw = localStorage.getItem("auth_data")
-      if (!raw) return
-      const auth = JSON.parse(raw) as {
-        user?: { id?: string; role?: string; full_name?: string; first_name?: string; last_name?: string }
+    ;(async () => {
+      try {
+        const user = TokenManager.getUser()
+        if (!user?.id) return
+        const profiles = await loadAccountProfiles()
+        const activeId = TokenManager.getActiveStudentId() || user.id
+        const match = profiles.find((p) => p.id === activeId)
+        const label = match
+          ? profileDisplayName(match)
+          : (user.full_name || "Student").trim() || "Student"
+        const updated = await addCartStudent({ label, student_id: activeId })
+        setCart(updated)
+      } catch {
+        /* ignore — user can add from the panel */
       }
-      const user = auth.user
-      if (!user || user.role !== "student" || !user.id) return
-      const label =
-        user.full_name?.trim() ||
-        [user.first_name, user.last_name].filter(Boolean).join(" ").trim() ||
-        "Student"
-      addCartStudent({ label, student_id: user.id })
-        .then(setCart)
-        .catch(() => {})
-    } catch {
-      /* ignore */
-    }
+    })()
   }, [cart])
 
-  async function handleAddStudent(e: React.FormEvent) {
-    e.preventDefault()
-    const label = newStudentName.trim()
-    if (!label) return
-    setBusy(true)
-    try {
-      const updated = await addCartStudent({ label })
-      setCart(updated)
-      setNewStudentName("")
-      toast({ title: "Student added", description: `${label} can now have courses in the cart.` })
-    } catch (err) {
+  async function handleRemoveItem(itemId: string) {
+    if (!itemId) {
       toast({
-        title: "Could not add student",
-        description: err instanceof Error ? err.message : "Try again.",
+        title: "Remove failed",
+        description: "This course line is missing an id. Refresh the page and try again.",
         variant: "destructive",
       })
-    } finally {
-      setBusy(false)
+      await loadCart()
+      return
     }
-  }
-
-  async function handleRemoveItem(itemId: string) {
     setBusy(true)
     try {
       setCart(await removeCartItem(itemId))
@@ -119,6 +108,11 @@ export default function EnrollmentCartPage() {
         description: err instanceof Error ? err.message : "Try again.",
         variant: "destructive",
       })
+      try {
+        setCart(await fetchEnrollmentCart())
+      } catch {
+        /* ignore */
+      }
     } finally {
       setBusy(false)
     }
@@ -133,40 +127,6 @@ export default function EnrollmentCartPage() {
     } catch (err) {
       toast({
         title: "Remove failed",
-        description: err instanceof Error ? err.message : "Try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function handleBulkAddStudents(e: React.FormEvent) {
-    e.preventDefault()
-    const names = bulkStudentNames
-      .split(/\n|,/)
-      .map((n) => n.trim())
-      .filter(Boolean)
-    if (names.length === 0) return
-    setBusy(true)
-    try {
-      const { cart: updated, bulk_summary } = await addCartStudentsBulk(
-        names.map((label) => ({ label }))
-      )
-      setCart(updated)
-      setBulkStudentNames("")
-      setShowBulkStudents(false)
-      const skipped = bulk_summary?.skipped?.length || 0
-      toast({
-        title: "Students added",
-        description:
-          skipped > 0
-            ? `${bulk_summary?.added || names.length} added, ${skipped} skipped.`
-            : `${bulk_summary?.added || names.length} student(s) ready for courses.`,
-      })
-    } catch (err) {
-      toast({
-        title: "Could not add students",
         description: err instanceof Error ? err.message : "Try again.",
         variant: "destructive",
       })
@@ -202,20 +162,20 @@ export default function EnrollmentCartPage() {
   }
 
   async function handleCheckout() {
-    if (!TokenManager.isAuthenticated()) {
+    const access = getEnrollmentCartAccess()
+    if (!access.allowed) {
+      if (access.kind === "guest") {
+        toast({
+          title: "Sign in required",
+          description: "Please sign in as a student to pay for enrollments in this cart.",
+          variant: "destructive",
+        })
+        window.location.href = `/login?returnUrl=${encodeURIComponent("/cart")}`
+        return
+      }
       toast({
-        title: "Sign in required",
-        description: "Please sign in as a student to pay for enrollments in this cart.",
-        variant: "destructive",
-      })
-      window.location.href = `/login?returnUrl=${encodeURIComponent("/cart")}`
-      return
-    }
-    const user = TokenManager.getUser() as { role?: string } | null
-    if (user?.role && user.role !== "student") {
-      toast({
-        title: "Student account needed",
-        description: "Cart checkout is available for student accounts.",
+        title: "Student account required",
+        description: enrollmentCartStaffBlockedMessage(access.roleLabel),
         variant: "destructive",
       })
       return
@@ -314,8 +274,11 @@ export default function EnrollmentCartPage() {
 
   const groups = cart?.student_groups || []
   const totals = cart?.totals
-  const empty = !cart || (cart.students.length === 0 && cart.items.length === 0)
+  const hasStudents = (cart?.students.length || 0) > 0
+  const cartAccess = getEnrollmentCartAccess()
   const studentCount = totals?.student_count ?? cart?.students.length ?? 0
+  const showStudentWorkspace =
+    hasStudents || cartAccess.allowed || (cartAccess.allowed === false && cartAccess.kind === "staff")
 
   return (
     <main className="min-h-screen bg-[#171A26] text-white pt-24 pb-16">
@@ -325,19 +288,26 @@ export default function EnrollmentCartPage() {
           <h1 className="text-3xl font-bold text-[#FFB70F]">Enrollment cart</h1>
         </div>
         <p className="text-gray-400 mb-8 max-w-2xl">
-          Add students and courses here, then checkout once to activate every enrollment after payment.
-          The existing single-course registration flow remains available if you prefer it.
+          Choose students from your account, assign courses, then checkout once to activate every
+          enrollment after payment.
         </p>
 
-        {empty ? (
+        {!showStudentWorkspace ? (
           <div className="rounded-xl border border-gray-800 bg-gray-900/40 p-10 text-center">
             <p className="text-gray-400 mb-6">Your cart is empty.</p>
             <div className="flex flex-wrap justify-center gap-3">
               <Button asChild className="bg-[#FFB70F] text-black hover:bg-[#FFB70F]/90">
                 <Link href="/courses">Browse courses</Link>
               </Button>
-              <Button asChild variant="outline" className="border-gray-600">
-                <Link href="/register">Quick register (single course)</Link>
+              <Button
+                type="button"
+                variant="outline"
+                className="border-gray-600"
+                onClick={() => {
+                  window.location.href = `/login?returnUrl=${encodeURIComponent("/cart")}`
+                }}
+              >
+                Sign in to add students
               </Button>
             </div>
           </div>
@@ -359,59 +329,15 @@ export default function EnrollmentCartPage() {
               </span>
             </div>
 
-            <form
-              onSubmit={handleAddStudent}
-              className="rounded-xl border border-gray-800 bg-gray-900/40 p-5 mb-4 flex flex-col sm:flex-row gap-3"
-            >
-              <Input
-                value={newStudentName}
-                onChange={(e) => setNewStudentName(e.target.value)}
-                placeholder="Add another student (name)"
-                className="bg-gray-900 border-gray-700 flex-1"
-                disabled={busy}
-              />
-              <Button
-                type="submit"
-                disabled={busy || !newStudentName.trim()}
-                className="bg-[#FFB70F] text-black hover:bg-[#FFB70F]/90 shrink-0"
-              >
-                <UserPlus className="w-4 h-4 mr-2" />
-                Add student
-              </Button>
-            </form>
+            <CartAddStudentsPanel cart={cart} busy={busy} onCartUpdated={setCart} />
 
-            <div className="mb-8">
-              <button
-                type="button"
-                className="text-sm text-[#FFB70F] hover:underline"
-                onClick={() => setShowBulkStudents((v) => !v)}
-              >
-                {showBulkStudents ? "Hide bulk add" : "Add several students at once (one name per line)"}
-              </button>
-              {showBulkStudents ? (
-                <form
-                  onSubmit={handleBulkAddStudents}
-                  className="mt-3 rounded-xl border border-gray-800 bg-gray-900/40 p-5 space-y-3"
-                >
-                  <textarea
-                    value={bulkStudentNames}
-                    onChange={(e) => setBulkStudentNames(e.target.value)}
-                    placeholder={"Student A\nStudent B\nStudent C"}
-                    rows={4}
-                    disabled={busy}
-                    className="w-full rounded-md bg-gray-900 border border-gray-700 px-3 py-2 text-sm text-white placeholder:text-gray-500"
-                  />
-                  <Button
-                    type="submit"
-                    disabled={busy || !bulkStudentNames.trim()}
-                    variant="outline"
-                    className="border-[#FFB70F]/50 text-[#FFB70F] hover:bg-[#FFB70F]/10"
-                  >
-                    Add all names
-                  </Button>
-                </form>
-              ) : null}
-            </div>
+            {!hasStudents ? (
+              <div className="rounded-xl border border-dashed border-gray-700 bg-gray-900/20 p-8 text-center mb-8">
+                <p className="text-gray-400 text-sm">
+                  Select students above (or create a new one), then assign courses for each.
+                </p>
+              </div>
+            ) : null}
 
             <div className="space-y-6 mb-8">
               {groups.map((group, index) => (
@@ -434,8 +360,12 @@ export default function EnrollmentCartPage() {
                           {formatInr(group.line_total)}
                         </p>
                         {group.student_id ? (
-                          <p className="text-xs text-gray-600 mt-0.5">Linked student account</p>
-                        ) : null}
+                          <p className="text-xs text-gray-600 mt-0.5">Account student</p>
+                        ) : (
+                          <p className="text-xs text-amber-500/90 mt-0.5">
+                            Not linked — remove and re-add from your account students
+                          </p>
+                        )}
                       </div>
                     </div>
                     <button
@@ -455,7 +385,27 @@ export default function EnrollmentCartPage() {
                       size="sm"
                       disabled={busy}
                       className="border-[#FFB70F]/50 text-[#FFB70F] hover:bg-[#FFB70F]/10"
-                      onClick={() => setMultiPickerGroup(group)}
+                      onClick={() => {
+                        const access = getEnrollmentCartAccess()
+                        if (!access.allowed) {
+                          if (access.kind === "guest") {
+                            toast({
+                              title: "Sign in required",
+                              description: "Please sign in as a student to add courses.",
+                              variant: "destructive",
+                            })
+                            window.location.href = `/login?returnUrl=${encodeURIComponent("/cart")}`
+                            return
+                          }
+                          toast({
+                            title: "Student account required",
+                            description: enrollmentCartStaffBlockedMessage(access.roleLabel),
+                            variant: "destructive",
+                          })
+                          return
+                        }
+                        setMultiPickerGroup(group)
+                      }}
                     >
                       <BookPlus className="w-4 h-4 mr-2" />
                       Add multiple courses
@@ -472,22 +422,25 @@ export default function EnrollmentCartPage() {
                     </p>
                   ) : (
                     <ul className="divide-y divide-gray-800">
-                      {group.items.map((item) => (
-                        <li key={item.id} className="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                      {group.items.map((item) => {
+                        const lineTotal = Number(item.pricing?.total_amount ?? 0)
+                        const discountAmount = Number(item.pricing?.discount_amount ?? 0)
+                        return (
+                        <li key={item.id || `${item.course_id}-${item.duration_id}`} className="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-white truncate">{item.course_name}</p>
                             <p className="text-sm text-gray-400">
                               {item.branch_name} · {item.duration_name}
                             </p>
-                            {item.pricing.is_flat_price && item.pricing.discount_amount ? (
+                            {item.pricing?.is_flat_price && discountAmount ? (
                               <p className="text-xs text-[#FFB70F] mt-1">
-                                Offer applied — save {formatInr(item.pricing.discount_amount)}
+                                Offer applied — save {formatInr(discountAmount)}
                               </p>
                             ) : null}
                           </div>
                           <div className="flex items-center gap-4">
                             <span className="text-[#FFB70F] font-semibold">
-                              {formatInr(item.pricing.total_amount)}
+                              {formatInr(lineTotal)}
                             </span>
                             <button
                               type="button"
@@ -500,7 +453,8 @@ export default function EnrollmentCartPage() {
                             </button>
                           </div>
                         </li>
-                      ))}
+                        )
+                      })}
                     </ul>
                   )}
                 </section>

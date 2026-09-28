@@ -1,5 +1,6 @@
 import { toCourseSlug } from "@/lib/course-slug"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
+import { getBackendProxyBaseUrl } from "@/lib/serverBackendUrl"
 import HomePageView from "@/components/website/HomePageView"
 
 export const metadata = {
@@ -38,34 +39,29 @@ const defaultTestimonialQuote =
 
 
 /* ---------- fetch CMS content at build / request time ---------- */
+/* Reads from FastAPI (same DB admin CMS writes to). Site-origin is fallback only. */
 
 async function getCMSContent() {
   try {
-    const siteOrigin =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "")
-
-    // Prefer same-origin proxy when we can form an absolute URL (server-side fetch).
-    if (siteOrigin) {
-      const res = await fetch(`${siteOrigin.replace(/\/$/, "")}/api/backend/cms/public`, {
-        cache: "no-store",
-        headers: { "Content-Type": "application/json" },
-      })
-      if (res.ok) return await res.json()
-    }
-
-    // Fallback: fetch backend public CMS directly.
-    const backendUrl =
-      process.env.API_BASE_URL ||
-      process.env.NEXT_PUBLIC_BACKEND_URL ||
-      process.env.NEXT_PUBLIC_API_BASE_URL ||
-      "http://127.0.0.1:8003"
+    const backendUrl = getBackendProxyBaseUrl()
     const res = await fetch(`${backendUrl.replace(/\/$/, "")}/api/cms/public`, {
       cache: "no-store",
       headers: { "Content-Type": "application/json" },
     })
-    if (!res.ok) return null
-    return await res.json()
+    if (res.ok) return await res.json()
+
+    // Fallback: same-origin Next proxy (useful when only the public site host is reachable).
+    const siteOrigin =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "")
+    if (siteOrigin) {
+      const proxyRes = await fetch(`${siteOrigin.replace(/\/$/, "")}/api/backend/cms/public`, {
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+      })
+      if (proxyRes.ok) return await proxyRes.json()
+    }
+    return null
   } catch {
     return null
   }
@@ -103,30 +99,31 @@ async function getHomepageAboutFromApi(): Promise<{
   image?: string
 }> {
   try {
-    const siteOrigin =
-      process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "")
-    if (siteOrigin) {
-      const res = await fetch(`${siteOrigin.replace(/\/$/, "")}/api/backend/homepage/public`, {
-        cache: "no-store",
-        headers: { "Content-Type": "application/json" },
-      })
-      if (res.ok) {
-        const data = await res.json()
-        return data.about || {}
-      }
-    }
-    const backendUrl =
-      process.env.API_BASE_URL ||
-      process.env.NEXT_PUBLIC_BACKEND_URL ||
-      process.env.NEXT_PUBLIC_API_BASE_URL ||
-      "http://127.0.0.1:8003"
+    // Same backend preference as getCMSContent — keep About in sync with admin saves.
+    const backendUrl = getBackendProxyBaseUrl()
     const res = await fetch(`${backendUrl.replace(/\/$/, "")}/api/homepage/public`, {
       cache: "no-store",
       headers: { "Content-Type": "application/json" },
     })
-    if (!res.ok) return {}
-    const data = await res.json()
-    return data.about || {}
+    if (res.ok) {
+      const data = await res.json()
+      return data.about || {}
+    }
+
+    const siteOrigin =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "")
+    if (siteOrigin) {
+      const proxyRes = await fetch(`${siteOrigin.replace(/\/$/, "")}/api/backend/homepage/public`, {
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+      })
+      if (proxyRes.ok) {
+        const data = await proxyRes.json()
+        return data.about || {}
+      }
+    }
+    return {}
   } catch {
     return {}
   }
@@ -337,6 +334,18 @@ export default async function HomePage() {
   const aboutImage = homepageAbout.image?.trim() || ""
   const coursesTitle = homepage.courses_title || "Our Classes"
   const coursesSubtitle = homepage.courses_subtitle || "Choose"
+  const mediaSectionTitle = (homepage.media_section_title || "").trim()
+  const mediaSectionSubtitle = (homepage.media_section_subtitle || "").trim()
+  const mediaSectionItems = (Array.isArray(homepage.media_section) ? homepage.media_section : [])
+    .filter((item: any) => item && item.enabled !== false && (item.video_url || "").trim())
+    .sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0))
+    .map((item: any) => ({
+      id: item.id,
+      title: (item.title || "").trim() || undefined,
+      subtitle: (item.subtitle || "").trim() || undefined,
+      video_url: String(item.video_url).trim(),
+      poster_url: (item.poster_url || "").trim() || undefined,
+    }))
   const testimonialsTitle = homepage.testimonials_title || "Success stories"
   const testimonialsSubtitle = homepage.testimonials_subtitle || "Testimonials"
   const testimonials: { name: string; role: string; quote?: string; image?: string; achievement?: string }[] = []
@@ -367,6 +376,9 @@ export default async function HomePage() {
       aboutImage={aboutImage}
       coursesTitle={coursesTitle}
       coursesSubtitle={coursesSubtitle}
+      mediaSectionTitle={mediaSectionTitle}
+      mediaSectionSubtitle={mediaSectionSubtitle}
+      mediaSectionItems={mediaSectionItems}
       testimonialsTitle={testimonialsTitle}
       testimonialsSubtitle={testimonialsSubtitle}
       classCards={classCards}

@@ -1,5 +1,6 @@
 import { WebsiteFooter } from "@/components/website/WebsiteFooter"
 import { LeadCaptureModal } from "@/components/website/LeadCaptureModal"
+import { CampaignPopupModal } from "@/components/website/CampaignPopupModal"
 import { WebsitePageLoader } from "@/components/website/WebsitePageLoader"
 
 export default function WebsiteLayout({
@@ -12,6 +13,7 @@ export default function WebsiteLayout({
       <WebsitePageLoader />
       {children}
       <LeadCaptureModal />
+      <CampaignPopupModal />
       <WebsiteFooter />
     </>
   )
