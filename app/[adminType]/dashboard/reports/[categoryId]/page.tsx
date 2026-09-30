@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useParams, useRouter, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -33,6 +33,16 @@ import { ReportsBreadcrumb } from "@/components/breadcrumb"
 import { notFound } from 'next/navigation'
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import {
+  exportBranchReport,
+  exportFinancialReport,
+  exportOperationalReport,
+  formatOperationalValue,
+  isOperationalReportType,
+  operationalColumnLabel,
+  operationalColumns,
+  paymentTransactionId,
+} from "@/lib/categoryReportExport"
 
 // Branch interface (same as branches page)
 interface Branch {
@@ -83,6 +93,42 @@ interface Branch {
 }
 
 // Report categories data (same as main dashboard)
+const STUDENT_REPORT_PAGE_SIZE = 10
+const OPERATIONAL_REPORT_PAGE_SIZE = 10
+const FINANCIAL_REPORT_PAGE_SIZE = 10
+
+const OPERATIONAL_CATEGORY_META: Record<string, { name: string; description: string }> = {
+  enrollments: { name: "Enrollment Reports", description: "Operational enrollment listings and exports" },
+  renewals: { name: "Renewal Reports", description: "Payment renewals operational report" },
+  leads: { name: "Lead Reports", description: "CRM leads operational report" },
+  events: { name: "Event Reports", description: "Event registrations operational report" },
+}
+
+// Up to 5 page numbers around the current page, with 1 and last always shown.
+function buildPageList(current: number, total: number): (number | "ellipsis")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const start = Math.max(2, current - 2)
+  const end = Math.min(total - 1, current + 2)
+  const pages: (number | "ellipsis")[] = [1]
+  if (start > 2) pages.push("ellipsis")
+  for (let p = start; p <= end; p++) pages.push(p)
+  if (end < total - 1) pages.push("ellipsis")
+  pages.push(total)
+  return pages
+}
+
+// Courses are collected per branch, so the same course can appear once per branch.
+function uniqueCoursesById(courses: any[]): any[] {
+  const seen = new Set<string>()
+  return courses.filter((course) => {
+    const id = course?.id
+    if (!id) return true
+    if (seen.has(id)) return false
+    seen.add(id)
+    return true
+  })
+}
+
 const REPORT_CATEGORIES = [
   {
     id: "student",
@@ -231,20 +277,22 @@ function CategoryReportsPageContent() {
   }, [router, isBranchAdminRoute])
 
   // Enhanced state management
-  const [searchTerm, setSearchTerm] = useState("")
-  const [categoryLoading, setCategoryLoading] = useState<string | null>(null)
   const [lastError, setLastError] = useState<string | null>(null)
 
   // Student search specific state
   const [searchLoading, setSearchLoading] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
   const [studentResults, setStudentResults] = useState<any[]>([])
+  const [studentTotal, setStudentTotal] = useState(0)
+  const [studentPage, setStudentPage] = useState(1)
   const [hasSearched, setHasSearched] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [studentExportFormat, setStudentExportFormat] = useState<"csv" | "excel">("csv")
 
   // Financial search specific state
   const [financialResults, setFinancialResults] = useState<any[]>([])
+  const [financialTotal, setFinancialTotal] = useState(0)
+  const [financialPage, setFinancialPage] = useState(1)
 
   // Branch search specific state
   const [branchResults, setBranchResults] = useState<any[]>([])
@@ -254,6 +302,13 @@ function CategoryReportsPageContent() {
 
   // Course search specific state
   const [courseResults, setCourseResults] = useState<any[]>([])
+
+  // Operational reports (enrollments / renewals / leads / events) state
+  const [operationalResults, setOperationalResults] = useState<any[]>([])
+  const [operationalTotal, setOperationalTotal] = useState(0)
+  const [operationalPage, setOperationalPage] = useState(1)
+  const [operationalStartDate, setOperationalStartDate] = useState("")
+  const [operationalEndDate, setOperationalEndDate] = useState("")
 
   // Coach search specific state
 
@@ -424,7 +479,7 @@ function CategoryReportsPageContent() {
 
         console.log("All courses extracted:", allCoursesFromBranches)
         setAllCourses(allCoursesFromBranches)
-        setFilteredCourses(allCoursesFromBranches) // Initially show all courses
+        setFilteredCourses(uniqueCoursesById(allCoursesFromBranches)) // Initially show all courses
 
       } catch (error) {
         console.error('Error fetching branches with courses for reports:', error)
@@ -436,7 +491,7 @@ function CategoryReportsPageContent() {
     }
 
     // Fetch branches with courses for all report categories that have branch dropdowns
-    if (categoryId && ['student', 'financial', 'branch', 'coach', 'course', 'coach'].includes(categoryId)) {
+    if (categoryId && (['student', 'financial', 'branch', 'coach', 'course', 'coach'].includes(categoryId) || isOperationalReportType(categoryId))) {
       fetchBranchesWithCourses()
     }
   }, [categoryId])
@@ -514,10 +569,12 @@ function CategoryReportsPageContent() {
 
     if (!selectedBranchId || selectedBranchId === 'all') {
       // Show all courses when no branch is selected or "All Branches" is selected
-      setFilteredCourses(allCourses)
+      setFilteredCourses(uniqueCoursesById(allCourses))
     } else {
       // Filter courses for the selected branch
-      const coursesForBranch = allCourses.filter(course => course.branch_id === selectedBranchId)
+      const coursesForBranch = uniqueCoursesById(
+        allCourses.filter(course => course.branch_id === selectedBranchId)
+      )
       setFilteredCourses(coursesForBranch)
 
       // Clear course selection if the currently selected course is not available in the new branch
@@ -530,6 +587,38 @@ function CategoryReportsPageContent() {
       }
     }
   }, [filters.branch_id, allCourses, filters.course_id])
+
+  // Student reports: load all students on open, then re-query whenever a dropdown filter changes.
+  const studentSearchRef = useRef<((options?: { silent?: boolean; page?: number }) => void) | null>(null)
+  const studentSearchRequestRef = useRef(0)
+  const studentAutoFilterKey = [
+    filters.branch_id,
+    filters.course_id,
+    filters.status,
+    filters.date_range,
+    customStartDate,
+    customEndDate,
+  ].join("|")
+
+  useEffect(() => {
+    if (categoryId !== 'student') return
+    if (filters.date_range === 'custom' && !customStartDate && !customEndDate) return
+    const timer = setTimeout(() => {
+      studentSearchRef.current?.({ silent: true })
+    }, 0)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryId, studentAutoFilterKey])
+
+  // Other categories: load all records as soon as the category page opens.
+  const categorySearchRef = useRef<((options?: { silent?: boolean }) => void) | null>(null)
+  useEffect(() => {
+    if (categoryId === 'student') return
+    const timer = setTimeout(() => {
+      categorySearchRef.current?.({ silent: true })
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [categoryId])
 
   // Show skeleton loading for initial load
   if (loading && !filterOptions) {
@@ -556,7 +645,11 @@ function CategoryReportsPageContent() {
   }
 
   const handleSearch = () => {
-    toast.success('Search applied to report categories')
+    if (categoryId === 'student') {
+      handleStudentSearch()
+      return
+    }
+    categorySearchRef.current?.()
   }
 
   const buildStudentReportFilters = () => {
@@ -629,7 +722,7 @@ function CategoryReportsPageContent() {
 
   const handleDownloadReport = async () => {
     if (categoryId !== 'student') {
-      toast.info('Download comprehensive reports')
+      await handleCategoryDownload()
       return
     }
 
@@ -667,20 +760,33 @@ function CategoryReportsPageContent() {
     router.push(`${basePath}/students/${studentId}`)
   }
 
-  const handleCategoryClick = (categoryId: string) => {
-    // Find the category name for better user feedback
-    const category = REPORT_CATEGORIES.find(cat => cat.id === categoryId)
-    const categoryName = category?.name || categoryId
+  const handleCategoryDownload = async () => {
+    const token = BranchManagerAuth.getToken() || TokenManager.getToken()
+    if (!token) {
+      toast.error('Authentication required')
+      return
+    }
 
-    // Show loading state for this specific category
-    setCategoryLoading(categoryId)
-
-    // Navigate to the category page
-    setTimeout(() => {
-      setCategoryLoading(null)
-      router.push(`${basePath}/reports/${categoryId}`)
-      toast.success(`Opening ${categoryName}...`)
-    }, 300)
+    setExportLoading(true)
+    try {
+      let count: number
+      if (categoryId === 'financial') {
+        count = await exportFinancialReport(token, buildFinancialApiFilters())
+      } else if (categoryId === 'branch') {
+        count = await exportBranchReport(token, buildBranchApiFilters())
+      } else if (isOperationalReportType(categoryId)) {
+        count = await exportOperationalReport(token, categoryId, buildOperationalApiFilters())
+      } else {
+        toast.info('Download is not available for this report')
+        return
+      }
+      toast.success(count > 0 ? `Downloaded ${count} record${count === 1 ? '' : 's'}` : 'Downloaded empty report')
+    } catch (error: any) {
+      console.error('Report export error:', error)
+      toast.error(error?.message || 'Failed to download report')
+    } finally {
+      setExportLoading(false)
+    }
   }
 
   const handleFilterChange = (key: string, value: string) => {
@@ -699,27 +805,31 @@ function CategoryReportsPageContent() {
     }
   }
 
-  const handleStudentSearch = async () => {
+  const handleStudentSearch = async (options?: { silent?: boolean; page?: number }) => {
+    const silent = options?.silent === true
+    const page = Math.max(1, options?.page ?? 1)
     const token = BranchManagerAuth.getToken() || TokenManager.getToken()
     if (!token) {
-      toast.error('Authentication required')
+      if (!silent) toast.error('Authentication required')
       return
     }
 
+    const requestId = ++studentSearchRequestRef.current
     setSearchLoading(true)
     setHasSearched(true)
 
     try {
       const searchParams: any = {
         ...buildStudentReportFilters(),
-        skip: 0,
-        limit: 100,
+        skip: (page - 1) * STUDENT_REPORT_PAGE_SIZE,
+        limit: STUDENT_REPORT_PAGE_SIZE,
       }
 
       console.log('Student search parameters:', searchParams)
 
       // M08-S02: shared report query (same filters as CSV/Excel export)
       const response = await reportsAPI.listStudentReportRows(token, searchParams)
+      if (requestId !== studentSearchRequestRef.current) return
 
       console.log('Student search response:', response)
 
@@ -727,26 +837,73 @@ function CategoryReportsPageContent() {
       setStudentResults(students)
 
       const total = typeof response.total === 'number' ? response.total : students.length
+      setStudentTotal(total)
+      setStudentPage(page)
       const searchMessage = searchQuery
         ? `Found ${total} student${total !== 1 ? 's' : ''} matching "${searchQuery}"`
         : `Found ${total} student${total !== 1 ? 's' : ''}`
 
-      toast.success(searchMessage)
+      if (!silent) toast.success(searchMessage)
     } catch (error: any) {
+      if (requestId !== studentSearchRequestRef.current) return
       console.error('Error searching students:', error)
       toast.error(error?.message || 'Failed to search students. Please try again.')
       setStudentResults([])
+      setStudentTotal(0)
+      setStudentPage(1)
     } finally {
-      setSearchLoading(false)
+      if (requestId === studentSearchRequestRef.current) setSearchLoading(false)
+    }
+  }
+  studentSearchRef.current = handleStudentSearch
+
+
+  const buildFinancialApiFilters = () => {
+    const bmBranch =
+      isBranchAdminRoute && BranchManagerAuth.getCurrentUser()?.role === "branch_manager"
+        ? BranchManagerAuth.getCurrentUser()?.branch_id ||
+          BranchManagerAuth.getCurrentUser()?.managed_branches?.[0]
+        : undefined
+
+    const apiFilters: Record<string, any> = {
+      branch_id: (bmBranch || filters.branch_id) || undefined,
+      payment_type: filters.payment_type || undefined,
+      payment_method: filters.payment_method || undefined,
+      payment_status: filters.status || undefined,
+      date_range: filters.date_range || undefined,
+      search: filters.search || undefined,
+    }
+
+    // Remove undefined values and 'all' values
+    Object.keys(apiFilters).forEach(key => {
+      if (apiFilters[key] === undefined || apiFilters[key] === 'all' || apiFilters[key] === '') {
+        delete apiFilters[key]
+      }
+    })
+    return apiFilters
+  }
+
+  const buildBranchApiFilters = () => {
+    return {
+      branch_id: !filters.branch_id || filters.branch_id === "all" ? undefined : filters.branch_id,
+      date_range: !filters.date_range || filters.date_range === "all" ? undefined : filters.date_range,
+      status: !filters.status || filters.status === "all" ? undefined : filters.status,
     }
   }
 
+  const buildOperationalApiFilters = () => ({
+    branch_id: !filters.branch_id || filters.branch_id === "all" ? undefined : filters.branch_id,
+    start_date: operationalStartDate || undefined,
+    end_date: operationalEndDate || undefined,
+  })
 
   // Financial Reports Handler
-  const handleFinancialSearch = async () => {
+  const handleFinancialSearch = async (options?: { silent?: boolean; page?: number }) => {
+    const silent = options?.silent === true
+    const page = Math.max(1, options?.page ?? 1)
     const token = BranchManagerAuth.getToken() || TokenManager.getToken()
     if (!token) {
-      toast.error('Authentication required')
+      if (!silent) toast.error('Authentication required')
       return
     }
 
@@ -754,40 +911,26 @@ function CategoryReportsPageContent() {
     setHasSearched(true)
 
     try {
-      const bmBranch =
-        isBranchAdminRoute && BranchManagerAuth.getCurrentUser()?.role === "branch_manager"
-          ? BranchManagerAuth.getCurrentUser()?.branch_id ||
-            BranchManagerAuth.getCurrentUser()?.managed_branches?.[0]
-          : undefined
-
-      // Prepare filters for API call
       const apiFilters = {
-        branch_id: (bmBranch || filters.branch_id) || undefined,
-        payment_type: filters.payment_type || undefined,
-        payment_method: filters.payment_method || undefined,
-        payment_status: filters.status || undefined,
-        date_range: filters.date_range || undefined,
-        search: filters.search || undefined,
-        skip: 0,
-        limit: 50
+        ...buildFinancialApiFilters(),
+        skip: (page - 1) * FINANCIAL_REPORT_PAGE_SIZE,
+        limit: FINANCIAL_REPORT_PAGE_SIZE
       }
 
-      // Remove undefined values and 'all' values
-      Object.keys(apiFilters).forEach(key => {
-        if (apiFilters[key] === undefined || apiFilters[key] === 'all' || apiFilters[key] === '') {
-          delete apiFilters[key]
-        }
-      })
-
       const response = await reportsAPI.getFinancialReports(token, apiFilters)
-      setFinancialResults(response.payments || [])
+      const payments = response.payments || []
+      const total = typeof response.pagination?.total === 'number' ? response.pagination.total : payments.length
+      setFinancialResults(payments)
+      setFinancialTotal(total)
+      setFinancialPage(page)
 
-      const count = response.payments?.length || 0
-      toast.success(`Found ${count} financial record${count !== 1 ? 's' : ''}`)
+      if (!silent) toast.success(`Found ${total} financial record${total !== 1 ? 's' : ''}`)
     } catch (error) {
       console.error('Error searching financial records:', error)
       toast.error('Failed to load financial records. Please try again.')
       setFinancialResults([])
+      setFinancialTotal(0)
+      setFinancialPage(1)
     } finally {
       setSearchLoading(false)
     }
@@ -795,10 +938,11 @@ function CategoryReportsPageContent() {
 
 
   // Branch Reports Handler
-  const handleBranchSearch = async () => {
-    const token = TokenManager.getToken()
+  const handleBranchSearch = async (options?: { silent?: boolean }) => {
+    const silent = options?.silent === true
+    const token = TokenManager.getToken() || BranchManagerAuth.getToken()
     if (!token) {
-      toast.error('Authentication required')
+      if (!silent) toast.error('Authentication required')
       return
     }
 
@@ -808,10 +952,7 @@ function CategoryReportsPageContent() {
     try {
       // Prepare filter parameters
       const searchFilters = {
-        branch_id: filters.branch_id === "all" ? undefined : filters.branch_id,
-        metric: filters.metric === "all" ? undefined : filters.metric,
-        date_range: filters.date_range === "all" ? undefined : filters.date_range,
-        status: filters.status === "all" ? undefined : filters.status,
+        ...buildBranchApiFilters(),
         skip: 0,
         limit: 50
       }
@@ -830,7 +971,7 @@ function CategoryReportsPageContent() {
       }))
 
       setBranchResults(transformedResults)
-      toast.success(`Found ${transformedResults.length} branch${transformedResults.length !== 1 ? 'es' : ''}`)
+      if (!silent) toast.success(`Found ${transformedResults.length} branch${transformedResults.length !== 1 ? 'es' : ''}`)
     } catch (error) {
       console.error('Error searching branch reports:', error)
       toast.error('Failed to load branch reports. Please try again.')
@@ -905,11 +1046,53 @@ function CategoryReportsPageContent() {
   }
 
 
-  // Filter categories based on search term
-  const filteredCategories = REPORT_CATEGORIES.filter(category =>
-    category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    category.description.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  // Operational Reports Handler (enrollments / renewals / leads / events)
+  const handleOperationalSearch = async (options?: { silent?: boolean; page?: number }) => {
+    if (!isOperationalReportType(categoryId)) return
+    const silent = options?.silent === true
+    const page = Math.max(1, options?.page ?? 1)
+    const token = BranchManagerAuth.getToken() || TokenManager.getToken()
+    if (!token) {
+      if (!silent) toast.error('Authentication required')
+      return
+    }
+
+    setSearchLoading(true)
+    setHasSearched(true)
+
+    try {
+      const response = await reportsAPI.getOperationalReports(token, categoryId, {
+        ...buildOperationalApiFilters(),
+        skip: (page - 1) * OPERATIONAL_REPORT_PAGE_SIZE,
+        limit: OPERATIONAL_REPORT_PAGE_SIZE,
+      })
+      const rows = response.rows || []
+      const total = typeof response.total === 'number' ? response.total : rows.length
+      setOperationalResults(rows)
+      setOperationalTotal(total)
+      setOperationalPage(page)
+      if (!silent) toast.success(`Found ${total} record${total !== 1 ? 's' : ''}`)
+    } catch (error: any) {
+      console.error('Error loading operational report:', error)
+      toast.error(error?.message || 'Failed to load report data. Please try again.')
+      setOperationalResults([])
+      setOperationalTotal(0)
+      setOperationalPage(1)
+    } finally {
+      setSearchLoading(false)
+    }
+  }
+
+  categorySearchRef.current =
+    categoryId === 'financial' ? handleFinancialSearch
+    : categoryId === 'branch' ? handleBranchSearch
+    : isOperationalReportType(categoryId) ? handleOperationalSearch
+    : null
+
+  const operationalMeta = OPERATIONAL_CATEGORY_META[categoryId]
+  const pageTitle = category?.name || operationalMeta?.name || 'Reports'
+  const pageDescription = category?.description || operationalMeta?.description || 'Comprehensive system reports and analytics'
+  const isKnownCategory = !!category || !!operationalMeta
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -920,9 +1103,18 @@ function CategoryReportsPageContent() {
         {/* Page Header - Same as main reports page */}
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex items-center space-x-1 px-0 mb-1 text-gray-600 hover:text-gray-900 hover:bg-transparent"
+              onClick={() => router.push(`${basePath}/reports`)}
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to Reports</span>
+            </Button>
+            <h1 className="text-2xl font-bold text-gray-900">{pageTitle}</h1>
             <p className="text-gray-600">
-              Comprehensive system reports and analytics
+              {pageDescription}
             </p>
           </div>
           <div className="flex space-x-2">
@@ -930,6 +1122,7 @@ function CategoryReportsPageContent() {
               variant="outline"
               className="flex items-center space-x-2"
               onClick={handleSearch}
+              disabled={!isKnownCategory || searchLoading}
             >
               <Filter className="w-4 h-4" />
               <span>Filter</span>
@@ -937,7 +1130,7 @@ function CategoryReportsPageContent() {
             <Button
               className="bg-yellow-400 hover:bg-yellow-500 text-white flex items-center space-x-2"
               onClick={handleDownloadReport}
-              disabled={exportLoading || (categoryId === 'student' && searchLoading)}
+              disabled={!isKnownCategory || exportLoading || (categoryId === 'student' && searchLoading)}
             >
               {exportLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -949,77 +1142,207 @@ function CategoryReportsPageContent() {
           </div>
         </div>
 
-        {/* Search Bar */}
-        <div className="mb-6">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
-              placeholder="Search report categories..."
-              className="pl-10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-        </div>
+        {!isKnownCategory && (
+          <Card className="mb-6">
+            <CardContent className="py-12">
+              <div className="text-center">
+                <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-lg font-medium text-gray-900 mb-2">Report Not Found</p>
+                <p className="text-gray-600 mb-4">This report category does not exist.</p>
+                <Button variant="outline" onClick={() => router.push(`${basePath}/reports`)}>
+                  Back to Reports
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Report Categories Grid - Same as main page */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {filteredCategories.map((category) => {
-            const IconComponent = category.icon
-            return (
-              <Card
-                key={category.id}
-                className="cursor-pointer hover:shadow-lg hover:border-blue-300 transition-all duration-200 bg-white border border-gray-200 active:scale-95 h-full flex flex-col"
-                onClick={() => handleCategoryClick(category.id)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    handleCategoryClick(category.id)
-                  }
-                }}
-                tabIndex={0}
-                role="button"
-                aria-label={`View ${category.name}`}
-              >
+        {/* Operational Reports (enrollments / renewals / leads / events) */}
+        {isOperationalReportType(categoryId) && (() => {
+          const columns = operationalColumns(operationalResults)
+          const totalPages = Math.max(1, Math.ceil(operationalTotal / OPERATIONAL_REPORT_PAGE_SIZE))
+          const firstRow = operationalTotal === 0 ? 0 : (operationalPage - 1) * OPERATIONAL_REPORT_PAGE_SIZE + 1
+          const lastRow = Math.min(operationalPage * OPERATIONAL_REPORT_PAGE_SIZE, operationalTotal)
+          const goTo = (page: number) => {
+            const next = Math.min(Math.max(page, 1), totalPages)
+            if (next !== operationalPage) void handleOperationalSearch({ silent: true, page: next })
+          }
+          return (
+            <>
+              {/* Search/Filter Card */}
+              <Card className="mb-6">
                 <CardHeader>
-                  <div className="flex items-center space-x-3">
-                    {categoryLoading === category.id ? (
-                      <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
-                    ) : (
-                      <IconComponent className="w-6 h-6 text-blue-600" />
-                    )}
-                    <CardTitle className="text-lg">
-                      {category.name}
-                      {categoryLoading === category.id && (
-                        <span className="text-sm text-blue-600 ml-2">Opening...</span>
-                      )}
-                    </CardTitle>
-                  </div>
+                  <CardTitle className="text-lg font-semibold text-gray-900">Search {pageTitle}</CardTitle>
                 </CardHeader>
-                <CardContent className="flex-1 flex flex-col">
-                  <p className="text-gray-600 mb-4 flex-1">{category.description}</p>
-                  <div className="flex items-center justify-between mt-auto">
-                    <span className="text-sm text-gray-500">
-                      {category.reports.length} reports available
-                    </span>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    {/* Branch Dropdown */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                      <Select
+                        value={filters.branch_id || "all"}
+                        onValueChange={(value) => handleFilterChange('branch_id', value)}
+                        disabled={branchesLoading}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={branchesLoading ? "Loading branches..." : "Select Branch"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Branches</SelectItem>
+                          {branches.filter(branch => branch.id && branch.branch?.name).map((branch) => (
+                            <SelectItem key={branch.id} value={branch.id}>
+                              {branch.branch?.name || 'N/A'} ({branch.branch?.code || branch.id})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                      <Input
+                        type="date"
+                        value={operationalStartDate}
+                        onChange={(e) => setOperationalStartDate(e.target.value)}
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                      <Input
+                        type="date"
+                        value={operationalEndDate}
+                        onChange={(e) => setOperationalEndDate(e.target.value)}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Search Button */}
+                  <div className="flex justify-end">
                     <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation() // Prevent event bubbling
-                        handleCategoryClick(category.id)
-                      }}
-                      disabled={categoryLoading === category.id}
-                      className="min-w-[100px] text-[#5A6ACF]" // Prevent button size changes
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-6"
+                      onClick={() => handleOperationalSearch()}
+                      disabled={searchLoading}
                     >
-                      {categoryLoading === category.id ? 'Opening...' : 'View Reports'}
+                      {searchLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Searching...
+                        </>
+                      ) : (
+                        <>
+                          <Search className="w-4 h-4 mr-2" />
+                          Search
+                        </>
+                      )}
                     </Button>
                   </div>
                 </CardContent>
               </Card>
-            )
-          })}
-        </div>
+
+              {/* Results Table */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold text-gray-900">{pageTitle} Results</CardTitle>
+                  {operationalTotal > 0 && (
+                    <p className="text-sm text-gray-600">
+                      Found {operationalTotal} record{operationalTotal !== 1 ? 's' : ''} (showing {firstRow}–{lastRow})
+                    </p>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  {searchLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="text-center">
+                        <Loader2 className="w-8 h-8 text-blue-500 mx-auto mb-4 animate-spin" />
+                        <p className="text-gray-600">Loading report data...</p>
+                      </div>
+                    </div>
+                  ) : operationalResults.length > 0 ? (
+                    <div>
+                      <div className="overflow-x-auto -mx-6 sm:mx-0">
+                        <div className="inline-block min-w-full align-middle">
+                          <table className="min-w-full border-collapse">
+                            <thead>
+                              <tr className="border-b border-gray-200 bg-gray-50">
+                                {columns.map((key) => (
+                                  <th key={key} className="text-left py-3 px-4 font-medium text-gray-900 text-sm whitespace-nowrap">
+                                    {operationalColumnLabel(key)}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {operationalResults.map((row, index) => (
+                                <tr key={row?.id || index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                  {columns.map((key) => (
+                                    <td key={key} className="py-3 px-4 text-sm text-gray-900 whitespace-nowrap">
+                                      {formatOperationalValue(row?.[key]) || 'N/A'}
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                      {totalPages > 1 && (
+                        <div className="flex flex-wrap justify-center items-center gap-2 py-4 border-t">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={operationalPage === 1 || searchLoading}
+                            onClick={() => goTo(operationalPage - 1)}
+                          >
+                            Previous
+                          </Button>
+                          {buildPageList(operationalPage, totalPages).map((page, idx) =>
+                            page === "ellipsis" ? (
+                              <span key={`ellipsis-${idx}`} className="px-1 text-sm text-gray-500">
+                                …
+                              </span>
+                            ) : (
+                              <Button
+                                key={page}
+                                onClick={() => goTo(page)}
+                                disabled={searchLoading}
+                                className={
+                                  operationalPage === page
+                                    ? "bg-yellow-400 hover:bg-yellow-500 text-black"
+                                    : "bg-transparent"
+                                }
+                                variant={operationalPage === page ? "default" : "outline"}
+                                size="sm"
+                              >
+                                {page}
+                              </Button>
+                            )
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={operationalPage === totalPages || searchLoading}
+                            onClick={() => goTo(operationalPage + 1)}
+                          >
+                            Next
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-lg font-medium text-gray-900 mb-2">No Records Found</p>
+                      <p className="text-gray-600">
+                        No records match your search criteria. Try adjusting your filters.
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )
+        })()}
 
         {/* Financial Reports Search/Filter Card - Only show for financial category */}
         {categoryId === 'financial' && (
@@ -1154,7 +1477,7 @@ function CategoryReportsPageContent() {
                 <div className="flex justify-end">
                   <Button
                     className="bg-blue-600 hover:bg-blue-700 text-white px-6"
-                    onClick={handleFinancialSearch}
+                    onClick={() => handleFinancialSearch()}
                     disabled={searchLoading}
                   >
                     {searchLoading ? (
@@ -1177,9 +1500,11 @@ function CategoryReportsPageContent() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg font-semibold text-gray-900">Financial Reports Results</CardTitle>
-                {financialResults.length > 0 && (
+                {financialTotal > 0 && (
                   <p className="text-sm text-gray-600">
-                    Found {financialResults.length} financial record{financialResults.length !== 1 ? 's' : ''}
+                    Found {financialTotal} financial record{financialTotal !== 1 ? 's' : ''} (showing{' '}
+                    {(financialPage - 1) * FINANCIAL_REPORT_PAGE_SIZE + 1}–
+                    {Math.min(financialPage * FINANCIAL_REPORT_PAGE_SIZE, financialTotal)})
                   </p>
                 )}
               </CardHeader>
@@ -1210,7 +1535,7 @@ function CategoryReportsPageContent() {
                           {financialResults.map((record, index) => (
                             <tr key={record.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                               <td className="py-3 px-4 text-sm text-gray-900">
-                                {record.transaction_id || 'N/A'}
+                                {paymentTransactionId(record) || 'N/A'}
                               </td>
                               <td className="py-3 px-4 text-sm text-gray-900 hidden sm:table-cell">
                                 ₹{record.amount?.toLocaleString() || '0'}
@@ -1243,6 +1568,56 @@ function CategoryReportsPageContent() {
                         </tbody>
                       </table>
                     </div>
+                    {(() => {
+                      const totalPages = Math.max(1, Math.ceil(financialTotal / FINANCIAL_REPORT_PAGE_SIZE))
+                      if (totalPages <= 1) return null
+                      const goTo = (page: number) => {
+                        const next = Math.min(Math.max(page, 1), totalPages)
+                        if (next !== financialPage) void handleFinancialSearch({ silent: true, page: next })
+                      }
+                      return (
+                        <div className="flex flex-wrap justify-center items-center gap-2 py-4 border-t">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={financialPage === 1 || searchLoading}
+                            onClick={() => goTo(financialPage - 1)}
+                          >
+                            Previous
+                          </Button>
+                          {buildPageList(financialPage, totalPages).map((page, idx) =>
+                            page === "ellipsis" ? (
+                              <span key={`ellipsis-${idx}`} className="px-1 text-sm text-gray-500">
+                                …
+                              </span>
+                            ) : (
+                              <Button
+                                key={page}
+                                onClick={() => goTo(page)}
+                                disabled={searchLoading}
+                                className={
+                                  financialPage === page
+                                    ? "bg-yellow-400 hover:bg-yellow-500 text-black"
+                                    : "bg-transparent"
+                                }
+                                variant={financialPage === page ? "default" : "outline"}
+                                size="sm"
+                              >
+                                {page}
+                              </Button>
+                            )
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={financialPage === totalPages || searchLoading}
+                            onClick={() => goTo(financialPage + 1)}
+                          >
+                            Next
+                          </Button>
+                        </div>
+                      )
+                    })()}
                   </div>
                 ) : (
                   <div className="text-center py-12">
@@ -1269,7 +1644,7 @@ function CategoryReportsPageContent() {
                 <CardTitle className="text-lg font-semibold text-gray-900">Search Branch Reports</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                   {/* Branch Dropdown */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
@@ -1300,27 +1675,6 @@ function CategoryReportsPageContent() {
                         {branchesError}
                       </p>
                     )}
-                  </div>
-
-                  {/* Performance Metric */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Performance Metric</label>
-                    <Select
-                      value={filters.metric || "all"}
-                      onValueChange={(value) => handleFilterChange('metric', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Metric" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Metrics</SelectItem>
-                        <SelectItem value="enrollment">Enrollment Rate</SelectItem>
-                        <SelectItem value="revenue">Revenue</SelectItem>
-                        <SelectItem value="retention">Student Retention</SelectItem>
-                        <SelectItem value="satisfaction">Satisfaction Score</SelectItem>
-                        <SelectItem value="attendance">Attendance Rate</SelectItem>
-                      </SelectContent>
-                    </Select>
                   </div>
 
                   {/* Date Range Dropdown */}
@@ -1370,7 +1724,7 @@ function CategoryReportsPageContent() {
                 <div className="flex justify-end">
                   <Button
                     className="bg-blue-600 hover:bg-blue-700 text-white px-6"
-                    onClick={handleBranchSearch}
+                    onClick={() => handleBranchSearch()}
                     disabled={searchLoading}
                   >
                     {searchLoading ? (
@@ -2263,7 +2617,7 @@ function CategoryReportsPageContent() {
                     </Button>
                     <Button
                       className="bg-blue-600 hover:bg-blue-700 text-white px-6"
-                      onClick={handleStudentSearch}
+                      onClick={() => handleStudentSearch()}
                       disabled={searchLoading}
                     >
                       {searchLoading ? (
@@ -2289,7 +2643,13 @@ function CategoryReportsPageContent() {
                 <CardTitle className="text-lg font-semibold text-gray-900">Student Reports Results</CardTitle>
                 {studentResults.length > 0 && (
                   <p className="text-sm text-gray-600">
-                    Found {studentResults.length} student{studentResults.length !== 1 ? 's' : ''}
+                    Found {Math.max(studentTotal, studentResults.length)} student
+                    {Math.max(studentTotal, studentResults.length) !== 1 ? 's' : ''}
+                    {studentTotal > studentResults.length
+                      ? ` (showing ${(studentPage - 1) * STUDENT_REPORT_PAGE_SIZE + 1}–${
+                          (studentPage - 1) * STUDENT_REPORT_PAGE_SIZE + studentResults.length
+                        })`
+                      : ''}
                   </p>
                 )}
               </CardHeader>
@@ -2456,6 +2816,56 @@ function CategoryReportsPageContent() {
                         </tbody>
                       </table>
                     </div>
+                    {(() => {
+                      const totalPages = Math.max(1, Math.ceil(studentTotal / STUDENT_REPORT_PAGE_SIZE))
+                      if (totalPages <= 1) return null
+                      const goTo = (page: number) => {
+                        const next = Math.min(Math.max(page, 1), totalPages)
+                        if (next !== studentPage) void handleStudentSearch({ silent: true, page: next })
+                      }
+                      return (
+                        <div className="flex flex-wrap justify-center items-center gap-2 py-4 border-t">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={studentPage === 1 || searchLoading}
+                            onClick={() => goTo(studentPage - 1)}
+                          >
+                            Previous
+                          </Button>
+                          {buildPageList(studentPage, totalPages).map((page, idx) =>
+                            page === "ellipsis" ? (
+                              <span key={`ellipsis-${idx}`} className="px-1 text-sm text-gray-500">
+                                …
+                              </span>
+                            ) : (
+                              <Button
+                                key={page}
+                                onClick={() => goTo(page)}
+                                disabled={searchLoading}
+                                className={
+                                  studentPage === page
+                                    ? "bg-yellow-400 hover:bg-yellow-500 text-black"
+                                    : "bg-transparent"
+                                }
+                                variant={studentPage === page ? "default" : "outline"}
+                                size="sm"
+                              >
+                                {page}
+                              </Button>
+                            )
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={studentPage === totalPages || searchLoading}
+                            onClick={() => goTo(studentPage + 1)}
+                          >
+                            Next
+                          </Button>
+                        </div>
+                      )
+                    })()}
                   </div>
                 ) : hasSearched ? (
                   <div className="flex items-center justify-center py-12">

@@ -395,6 +395,7 @@ export interface CoachData {
     difficulty_level: string
   }>
   areas_of_expertise: string[]
+  areas_of_expertise_names?: string[]
   professional_experience: string
   designation: string
   is_active: boolean
@@ -774,6 +775,27 @@ class ReportsAPI extends BaseAPI {
       }
     })
     const endpoint = `/api/reports/students/list${params.toString() ? `?${params.toString()}` : ''}`
+    return await this.makeRequest(endpoint, {
+      method: 'GET',
+      token
+    })
+  }
+
+  /**
+   * M23 operational reports: enrollments, renewals, leads, events
+   */
+  async getOperationalReports(
+    token: string,
+    reportType: 'enrollments' | 'renewals' | 'leads' | 'events',
+    filters: { branch_id?: string; start_date?: string; end_date?: string; skip?: number; limit?: number } = {}
+  ): Promise<{ rows: any[]; total: number; skip: number; limit: number }> {
+    const params = new URLSearchParams()
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        params.append(key, String(value))
+      }
+    })
+    const endpoint = `/api/reports/${reportType}${params.toString() ? `?${params.toString()}` : ''}`
     return await this.makeRequest(endpoint, {
       method: 'GET',
       token

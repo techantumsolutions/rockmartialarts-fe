@@ -2,6 +2,7 @@
 import { apiConfig, getBackendApiUrl } from './config'
 import { TokenManager } from './tokenManager'
 import { handleSessionExpiredFromDetail } from './sessionAuth'
+import { isInactiveUserDetail, notifyStudentDeactivated } from './studentSessionStatus'
 
 /** Build full URL for an endpoint (e.g. /api/dashboard/stats). Uses proxy in browser or when NEXT_PUBLIC_USE_BACKEND_PROXY=true. */
 function buildRequestUrl(endpoint: string): string {
@@ -113,6 +114,9 @@ export class BaseAPI {
 
         if (response.status === 401) {
           handleSessionExpiredFromDetail(errorMessage)
+        }
+        if (response.status === 400 && isInactiveUserDetail(result.detail)) {
+          notifyStudentDeactivated()
         }
 
         throw new Error(errorMessage)

@@ -21,6 +21,7 @@ import {
   getEnrollmentCartAccess,
 } from "@/lib/enrollmentCartAccess"
 import type { LinkedStudentProfile } from "@/lib/tokenManager"
+import { isProfileDeactivated } from "@/lib/studentSessionStatus"
 
 type CartAddStudentsPanelProps = {
   cart: EnrollmentCart | null
@@ -63,7 +64,10 @@ export function CartAddStudentsPanel({ cart, busy, onCartUpdated }: CartAddStude
   }, [refreshProfiles])
 
   const availableCount = useMemo(
-    () => profiles.filter((p) => p.id && !inCartIds.has(p.id) && selected[p.id]).length,
+    () =>
+      profiles.filter(
+        (p) => p.id && !inCartIds.has(p.id) && !isProfileDeactivated(p) && selected[p.id]
+      ).length,
     [profiles, inCartIds, selected]
   )
 
@@ -94,7 +98,9 @@ export function CartAddStudentsPanel({ cart, busy, onCartUpdated }: CartAddStude
 
   async function handleAddSelected() {
     if (!requireStudentAccess()) return
-    const toAdd = profiles.filter((p) => p.id && selected[p.id] && !inCartIds.has(p.id))
+    const toAdd = profiles.filter(
+      (p) => p.id && selected[p.id] && !inCartIds.has(p.id) && !isProfileDeactivated(p)
+    )
     if (toAdd.length === 0) {
       toast({ title: "Select at least one student", variant: "destructive" })
       return
@@ -219,18 +225,23 @@ export function CartAddStudentsPanel({ cart, busy, onCartUpdated }: CartAddStude
             {profiles.map((p) => {
               if (!p.id) return null
               const inCart = inCartIds.has(p.id)
+              const deactivated = !inCart && isProfileDeactivated(p)
               const name = profileDisplayName(p)
               const rel = relationshipLabel(p.relationship)
               return (
                 <li
                   key={p.id}
                   className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 ${
-                    inCart ? "border-[#FFB70F]/30 bg-[#FFB70F]/5" : "border-gray-800 bg-gray-950/40"
+                    inCart
+                      ? "border-[#FFB70F]/30 bg-[#FFB70F]/5"
+                      : deactivated
+                        ? "border-gray-800 bg-gray-950/40 opacity-60"
+                        : "border-gray-800 bg-gray-950/40"
                   }`}
                 >
                   <Checkbox
-                    checked={inCart || !!selected[p.id]}
-                    disabled={inCart || busy || adding}
+                    checked={inCart || (!deactivated && !!selected[p.id])}
+                    disabled={inCart || deactivated || busy || adding}
                     onCheckedChange={(v) => toggle(p.id, v === true)}
                     className="border-gray-600 data-[state=checked]:bg-[#FFB70F] data-[state=checked]:border-[#FFB70F]"
                   />
@@ -240,6 +251,8 @@ export function CartAddStudentsPanel({ cart, busy, onCartUpdated }: CartAddStude
                   </div>
                   {inCart ? (
                     <span className="text-xs text-[#FFB70F] shrink-0">In cart</span>
+                  ) : deactivated ? (
+                    <span className="text-xs text-gray-400 shrink-0">Deactivated</span>
                   ) : null}
                 </li>
               )
