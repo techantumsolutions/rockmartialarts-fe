@@ -12,8 +12,10 @@ import {
   DropdownMenuPortal,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { toast } from "sonner"
 import { TokenManager, type LinkedStudentProfile } from "@/lib/tokenManager"
 import { getBackendApiUrl } from "@/lib/config"
+import { isProfileDeactivated, switchStudentProfile } from "@/lib/studentSessionStatus"
 
 function relationshipLabel(value?: string) {
   if (!value) return ""
@@ -64,29 +66,11 @@ export default function LinkedStudentSwitcher() {
     if (!studentId || studentId === currentId || switchingId) return
     setSwitchingId(studentId)
     try {
-      const res = await fetch(getBackendApiUrl("auth/switch-student"), {
-        method: "POST",
-        headers: TokenManager.getAuthHeaders(),
-        body: JSON.stringify({ student_id: studentId }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok || !data.access_token || !data.user) {
-        const detail =
-          typeof data.detail === "string" ? data.detail : "Could not switch student"
-        throw new Error(detail)
-      }
-      TokenManager.storeAuthData({
-        access_token: data.access_token,
-        token_type: data.token_type,
-        expires_in: data.expires_in,
-        user: data.user,
-        profiles: data.profiles,
-        account_id: data.account_id,
-        active_student_id: data.active_student_id || data.user?.id,
-      })
+      await switchStudentProfile(studentId)
       window.location.assign(pathname || "/student-dashboard")
-    } catch (err) {
+    } catch (err: any) {
       console.error("Switch student failed:", err)
+      toast.error(err?.message || "Could not switch student")
       setSwitchingId(null)
     }
   }
@@ -140,9 +124,14 @@ export default function LinkedStudentSwitcher() {
                 >
                   <span className="flex-1 min-w-0">
                     <span className="block truncate font-medium">{p.full_name}</span>
-                    {p.relationship ? (
-                      <span className="block text-xs text-gray-500">
-                        {relationshipLabel(p.relationship)}
+                    {p.relationship || isProfileDeactivated(p) ? (
+                      <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                        {p.relationship ? relationshipLabel(p.relationship) : null}
+                        {isProfileDeactivated(p) ? (
+                          <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-600">
+                            Deactivated
+                          </span>
+                        ) : null}
                       </span>
                     ) : null}
                   </span>

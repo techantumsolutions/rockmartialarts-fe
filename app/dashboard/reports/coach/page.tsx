@@ -553,9 +553,9 @@ export default function CoachReportPage() {
                         <td className="py-4 px-4">
                           <div className="space-y-1">
                             {coach.areas_of_expertise.length > 0 ? (
-                              coach.areas_of_expertise.slice(0, 2).map((area) => (
+                              coach.areas_of_expertise.slice(0, 2).map((area, idx) => (
                                 <Badge key={area} variant="outline" className="text-xs">
-                                  {area}
+                                  {coach.areas_of_expertise_names?.[idx] || area}
                                 </Badge>
                               ))
                             ) : (

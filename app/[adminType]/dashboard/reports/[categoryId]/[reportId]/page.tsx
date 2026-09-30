@@ -26,6 +26,7 @@ import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { reportsAPI, ReportFilters, ReportFilterOptions } from "@/lib/reportsAPI"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
+import { exportTableReport } from "@/lib/categoryReportExport"
 
 // Report categories data (same as main dashboard)
 const REPORT_CATEGORIES = [
@@ -151,6 +152,7 @@ export default function IndividualReportPage() {
   const [filterOptions, setFilterOptions] = useState<ReportFilterOptions | null>(null)
   const [startDate, setStartDate] = useState<Date>()
   const [endDate, setEndDate] = useState<Date>()
+  const [exporting, setExporting] = useState<'pdf' | 'excel' | null>(null)
   
   // Filter states
   const [filters, setFilters] = useState<ReportFilters>({
@@ -393,9 +395,37 @@ export default function IndividualReportPage() {
     }
   }
 
-  const handleExport = (format: 'pdf' | 'excel') => {
-    toast.info(`Exporting report as ${format.toUpperCase()}...`)
-    // TODO: Implement actual export functionality
+  const handleExport = async (format: 'pdf' | 'excel') => {
+    if (!reportData) {
+      toast.error('No report data to export yet')
+      return
+    }
+
+    setExporting(format)
+    try {
+      const summary = reportData.reportData?.summary
+      const rows: (string | number)[][] = (reportData.tableData || []).map((row: any) => [
+        row.id ?? '',
+        row.name ?? '',
+        row.value ?? '',
+        row.status ?? '',
+      ])
+      if (summary) {
+        rows.push(
+          ['', '', '', ''],
+          ['', 'Total Records', summary.totalRecords ?? '', ''],
+          ['', 'Active Records', summary.activeRecords ?? '', ''],
+          ['', 'Success Rate', `${summary.percentage ?? ''}%`, '']
+        )
+      }
+      await exportTableReport(format, `${report.name} - ${category.name}`, ['ID', 'Name', 'Value', 'Status'], rows)
+      toast.success(`Downloaded report as ${format === 'excel' ? 'Excel' : 'PDF'}`)
+    } catch (error: any) {
+      console.error('Report export error:', error)
+      toast.error(error?.message || 'Failed to export report')
+    } finally {
+      setExporting(null)
+    }
   }
 
   return (
@@ -426,16 +456,18 @@ export default function IndividualReportPage() {
               variant="outline"
               onClick={() => handleExport('pdf')}
               className="flex items-center space-x-2"
+              disabled={exporting !== null || loading || !reportData}
             >
-              <Download className="w-4 h-4" />
+              {exporting === 'pdf' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
               <span>Export PDF</span>
             </Button>
             <Button
               variant="outline"
               onClick={() => handleExport('excel')}
               className="flex items-center space-x-2"
+              disabled={exporting !== null || loading || !reportData}
             >
-              <Download className="w-4 h-4" />
+              {exporting === 'excel' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
               <span>Export Excel</span>
             </Button>
           </div>

@@ -27,6 +27,7 @@ import { reportsAPI, CoachReportsResponse, CoachReportFiltersResponse, CoachData
 import { TokenManager } from "@/lib/tokenManager"
 import { toast } from "sonner"
 import { useDebounce } from "@/hooks/usePerformance"
+import { exportCoachReport } from "@/lib/coachReportExport"
 
 interface FilterState {
   branch_id: string
@@ -45,6 +46,7 @@ export default function CoachReportPage() {
   // State management
   const [loading, setLoading] = useState(false)
   const [filtersLoading, setFiltersLoading] = useState(false)
+  const [exporting, setExporting] = useState<'pdf' | 'excel' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [coachs, setCoachs] = useState<CoachData[]>([])
   const [filterOptions, setFilterOptions] = useState<CoachReportFiltersResponse | null>(null)
@@ -190,10 +192,28 @@ export default function CoachReportPage() {
     setSearchInput("")
   }
 
-  // Export functionality
-  const handleExport = (format: 'pdf' | 'excel') => {
-    toast.info(`Exporting coach report as ${format.toUpperCase()}...`)
-    // TODO: Implement actual export functionality
+  // Export functionality (uses the current filters, all pages)
+  const handleExport = async (format: 'pdf' | 'excel') => {
+    if (exporting) return
+    const authToken = TokenManager.getToken()
+    if (!authToken) {
+      toast.error("Authentication required. Please login again.")
+      return
+    }
+    setExporting(format)
+    try {
+      const count = await exportCoachReport(format, authToken, filters)
+      toast.success(
+        count > 0
+          ? `Downloaded ${count} coach${count === 1 ? '' : 'es'} as ${format === 'excel' ? 'Excel' : 'PDF'}`
+          : `Downloaded empty ${format === 'excel' ? 'Excel' : 'PDF'} report`
+      )
+    } catch (err: any) {
+      console.error('Coach report export failed:', err)
+      toast.error(err?.message || `Failed to export coach report as ${format.toUpperCase()}`)
+    } finally {
+      setExporting(null)
+    }
   }
 
   // Check authentication
@@ -240,16 +260,26 @@ export default function CoachReportPage() {
               variant="outline"
               className="flex items-center space-x-2"
               onClick={() => handleExport('excel')}
+              disabled={exporting !== null}
             >
-              <Download className="w-4 h-4" />
+              {exporting === 'excel' ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
               <span>Excel</span>
             </Button>
             <Button
               variant="outline"
               className="flex items-center space-x-2"
               onClick={() => handleExport('pdf')}
+              disabled={exporting !== null}
             >
-              <Download className="w-4 h-4" />
+              {exporting === 'pdf' ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
               <span>PDF</span>
             </Button>
           </div>
@@ -553,9 +583,9 @@ export default function CoachReportPage() {
                         <td className="py-4 px-4">
                           <div className="space-y-1">
                             {coach.areas_of_expertise.length > 0 ? (
-                              coach.areas_of_expertise.slice(0, 2).map((area) => (
+                              coach.areas_of_expertise.slice(0, 2).map((area, idx) => (
                                 <Badge key={area} variant="outline" className="text-xs">
-                                  {area}
+                                  {coach.areas_of_expertise_names?.[idx] || area}
                                 </Badge>
                               ))
                             ) : (
@@ -592,7 +622,7 @@ export default function CoachReportPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => router.push(`${basePath}/coaches/${coach.id}`)}
+                            onClick={() => router.push(`${basePath}/coaches/${coach.id}?from=coach-reports`)}
                             className="flex items-center space-x-1"
                           >
                             <Eye className="w-3 h-3" />

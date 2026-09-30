@@ -23,6 +23,7 @@ export interface LinkedStudentProfile {
   last_name?: string
   relationship?: string
   profile_image?: string
+  is_active?: boolean
 }
 
 export interface AuthData {
