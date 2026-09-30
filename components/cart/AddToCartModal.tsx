@@ -35,6 +35,7 @@ import {
   loadAccountProfiles,
   profileDisplayName,
 } from "@/lib/accountProfiles"
+import { isProfileDeactivated } from "@/lib/studentSessionStatus"
 import {
   enrollmentCartStaffBlockedMessage,
   getEnrollmentCartAccess,
@@ -98,7 +99,7 @@ export function AddToCartModal({
   }, [cart?.students])
 
   const profilesNotInCart = useMemo(
-    () => profiles.filter((p) => p.id && !inCartIds.has(p.id)),
+    () => profiles.filter((p) => p.id && !inCartIds.has(p.id) && !isProfileDeactivated(p)),
     [profiles, inCartIds]
   )
 

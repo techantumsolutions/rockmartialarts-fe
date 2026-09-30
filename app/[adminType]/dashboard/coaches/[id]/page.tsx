@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useState, useEffect, useRef } from "react"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -83,6 +83,9 @@ export default function CoachDetailPage() {
   const router = useRouter()
   const basePath = useDashboardBasePath()
   const coachId = params.id as string
+  const searchParams = useSearchParams()
+  const fromCoachReports = searchParams?.get("from") === "coach-reports"
+  const backLabel = fromCoachReports ? "Back to Coach Reports" : "Back to Coaches"
 
   const [coach, setCoach] = useState<CoachDetails | null>(null)
   const [courseAssignments, setCourseAssignments] = useState<CourseAssignment[]>([])
@@ -91,10 +94,47 @@ export default function CoachDetailPage() {
   const [coursesLoading, setCoursesLoading] = useState(true)
   const [studentsLoading, setStudentsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [courseNameById, setCourseNameById] = useState<Record<string, string>>({})
+  const lookedUpCourseIds = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     fetchCoachDetails()
   }, [coachId])
+
+  // areas_of_expertise stores course IDs; resolve any not covered by the coach's active courses.
+  useEffect(() => {
+    if (!coach || coursesLoading) return
+    const token = TokenManager.getToken()
+    if (!token) return
+    const missing = Array.from(new Set(coach.areas_of_expertise || [])).filter(
+      (value) => value && !courseNameById[value] && !lookedUpCourseIds.current.has(value)
+    )
+    if (missing.length === 0) return
+    missing.forEach((id) => lookedUpCourseIds.current.add(id))
+
+    Promise.all(
+      missing.map(async (id) => {
+        try {
+          const res = await fetch(`/api/backend/courses/${encodeURIComponent(id)}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          })
+          if (!res.ok) return null
+          const data = await res.json()
+          const name = data?.title || data?.name
+          return name ? ([id, String(name)] as const) : null
+        } catch {
+          return null
+        }
+      })
+    ).then((results) => {
+      const found = results.filter((r): r is readonly [string, string] => r !== null)
+      if (found.length === 0) return
+      setCourseNameById((prev) => ({ ...prev, ...Object.fromEntries(found) }))
+    })
+  }, [coach, coursesLoading, courseNameById])
 
   const fetchCoachDetails = async () => {
     try {
@@ -153,6 +193,13 @@ export default function CoachDetailPage() {
       if (response.ok) {
         const data = await response.json()
         const courses = data.courses || []
+
+        const names: Record<string, string> = {}
+        courses.forEach((course: any) => {
+          const name = course?.name || course?.title
+          if (course?.id && name) names[course.id] = name
+        })
+        setCourseNameById((prev) => ({ ...prev, ...names }))
 
         // Transform API response to match frontend interface
         const transformedCourses: CourseAssignment[] = courses.map((course: any) => ({
@@ -220,7 +267,7 @@ export default function CoachDetailPage() {
   }
 
   const handleBack = () => {
-    router.push(`${basePath}/coaches`)
+    router.push(fromCoachReports ? `${basePath}/reports/coach` : `${basePath}/coaches`)
   }
 
   const getStatusColor = (status: string) => {
@@ -288,7 +335,7 @@ export default function CoachDetailPage() {
             <div className="space-x-4">
               <Button onClick={handleBack} variant="outline">
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Coaches
+                {backLabel}
               </Button>
               <Button onClick={() => window.location.reload()}>
                 Try Again
@@ -320,7 +367,7 @@ export default function CoachDetailPage() {
                   className=" hover:text-gray-900"
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Coaches
+                  {backLabel}
                 </Button>
                 {/* <div className="text-sm text-gray-500">
                   Dashboard &gt; Coaches &gt; {coach.full_name}
@@ -411,11 +458,15 @@ export default function CoachDetailPage() {
                     Areas of Expertise
                   </h3>
                   <div className="flex flex-wrap gap-2">
-                    {coach.areas_of_expertise.map((expertise, index) => (
-                      <Badge key={index} variant="secondary" className="bg-blue-100 text-blue-800">
-                        {expertise}
-                      </Badge>
-                    ))}
+                    {coach.areas_of_expertise && coach.areas_of_expertise.length > 0 ? (
+                      coach.areas_of_expertise.map((expertise, index) => (
+                        <Badge key={index} variant="secondary" className="bg-blue-100 text-blue-800">
+                          {courseNameById[expertise] || expertise}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-sm text-gray-400">No expertise listed</span>
+                    )}
                   </div>
                 </div>
 

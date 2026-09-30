@@ -7,6 +7,12 @@ import SubscriptionExpiredModal from "@/components/subscription-expired-modal"
 import { Loader2 } from "lucide-react"
 import { TokenManager } from "@/lib/tokenManager"
 import { buildLoginUrl, safeStudentReturnUrl } from "@/lib/sessionAuth"
+import StudentDeactivatedScreen from "@/components/student-deactivated-screen"
+import {
+  STUDENT_DEACTIVATED_EVENT,
+  fetchStudentSessionStatus,
+  type StudentSessionStatus,
+} from "@/lib/studentSessionStatus"
 
 interface StudentRouteGuardProps {
   children: React.ReactNode
@@ -34,6 +40,8 @@ export default function StudentRouteGuard({ children }: StudentRouteGuardProps) 
   const subscriptionStatus = useStudentSubscription()
   const [showModal, setShowModal] = useState(false)
   const [hasSession, setHasSession] = useState<boolean | null>(null)
+  const [statusChecked, setStatusChecked] = useState(false)
+  const [sessionStatus, setSessionStatus] = useState<StudentSessionStatus | null>(null)
 
   const isPaymentPage = pathname.startsWith("/student-dashboard/payments")
   const isCoursesPage = pathname.startsWith("/student-dashboard/courses")
@@ -53,7 +61,38 @@ export default function StudentRouteGuard({ children }: StudentRouteGuardProps) 
   }, [pathname, router])
 
   useEffect(() => {
-    if (subscriptionStatus.loading || hasSession !== true) return
+    if (hasSession !== true) return
+    if (TokenManager.getUser()?.role !== "student") {
+      setStatusChecked(true)
+      return
+    }
+    let cancelled = false
+    const check = async () => {
+      const status = await fetchStudentSessionStatus()
+      if (cancelled) return
+      if (status) setSessionStatus(status)
+      setStatusChecked(true)
+    }
+    check()
+    const onFocus = () => check()
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") check()
+    }
+    window.addEventListener("focus", onFocus)
+    window.addEventListener(STUDENT_DEACTIVATED_EVENT, onFocus)
+    document.addEventListener("visibilitychange", onVisibility)
+    return () => {
+      cancelled = true
+      window.removeEventListener("focus", onFocus)
+      window.removeEventListener(STUDENT_DEACTIVATED_EVENT, onFocus)
+      document.removeEventListener("visibilitychange", onVisibility)
+    }
+  }, [pathname, hasSession])
+
+  const isDeactivated = sessionStatus?.is_active === false
+
+  useEffect(() => {
+    if (subscriptionStatus.loading || hasSession !== true || isDeactivated) return
 
     const user = localStorage.getItem("user")
     if (!user) return
@@ -67,10 +106,24 @@ export default function StudentRouteGuard({ children }: StudentRouteGuardProps) 
     } else {
       setShowModal(false)
     }
-  }, [subscriptionStatus, isSubscriptionAccessPage, hasSession])
+  }, [subscriptionStatus, isSubscriptionAccessPage, hasSession, isDeactivated])
 
   if (hasSession !== true) {
     return <GuardLoading message="Redirecting to login..." />
+  }
+
+  if (!statusChecked) {
+    return <GuardLoading message="Verifying account status..." />
+  }
+
+  if (isDeactivated) {
+    return (
+      <StudentDeactivatedScreen
+        studentName={sessionStatus?.full_name}
+        currentStudentId={sessionStatus?.student_id}
+        profiles={sessionStatus?.profiles || []}
+      />
+    )
   }
 
   if (subscriptionStatus.loading) {

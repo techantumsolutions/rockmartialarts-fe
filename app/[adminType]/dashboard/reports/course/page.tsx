@@ -14,11 +14,13 @@ import {
   FileText,
   TrendingUp,
   AlertCircle,
-  Loader2
+  Loader2,
+  ArrowLeft
 } from "lucide-react"
 import { reportsAPI, CourseReportsResponse, CourseReportFiltersResponse, CourseData } from "@/lib/reportsAPI"
 import { TokenManager } from "@/lib/tokenManager"
 import { toast } from "sonner"
+import { exportCourseReport } from "@/lib/categoryReportExport"
 
 interface FilterState {
   branch_id: string
@@ -132,9 +134,8 @@ export default function CourseReportPage() {
   const basePath = useDashboardBasePath()
 
   // State management
-  const [searchTerm, setSearchTerm] = useState("")
-  const [categoryLoading, setCategoryLoading] = useState<string | null>(null)
   const [searchLoading, setSearchLoading] = useState(false)
+  const [exportLoading, setExportLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
   const [courseResults, setCourseResults] = useState<CourseData[]>([])
   const [filterOptions, setFilterOptions] = useState<CourseReportFiltersResponse | null>(null)
@@ -147,9 +148,11 @@ export default function CourseReportPage() {
     active_only: true
   })
 
-  // Load filter options on component mount
+  // Load filter options and all courses on component mount
   useEffect(() => {
     loadFilterOptions()
+    handleCourseSearch({ silent: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Load filter options
@@ -172,26 +175,27 @@ export default function CourseReportPage() {
 
   // Handle search functionality
   const handleSearch = () => {
-    toast.success('Search applied to course reports')
+    handleCourseSearch()
   }
 
   // Handle download functionality
-  const handleDownloadReport = () => {
-    toast.info('Download course reports')
-  }
+  const handleDownloadReport = async () => {
+    const token = TokenManager.getToken()
+    if (!token) {
+      toast.error('Authentication required')
+      return
+    }
 
-  // Handle category click
-  const handleCategoryClick = (categoryId: string) => {
-    const category = REPORT_CATEGORIES.find(cat => cat.id === categoryId)
-    const categoryName = category?.name || categoryId
-
-    setCategoryLoading(categoryId)
-
-    setTimeout(() => {
-      setCategoryLoading(null)
-      router.push(`${basePath}/reports/${categoryId}`)
-      toast.success(`Opening ${categoryName}...`)
-    }, 300)
+    setExportLoading(true)
+    try {
+      const count = await exportCourseReport(token, filters)
+      toast.success(count > 0 ? `Downloaded ${count} course${count === 1 ? '' : 's'}` : 'Downloaded empty report')
+    } catch (error: any) {
+      console.error('Course export error:', error)
+      toast.error(error?.message || 'Failed to download course report')
+    } finally {
+      setExportLoading(false)
+    }
   }
 
   // Handle filter changes
@@ -201,10 +205,11 @@ export default function CourseReportPage() {
   }
 
   // Handle course search
-  const handleCourseSearch = async () => {
+  const handleCourseSearch = async (options?: { silent?: boolean }) => {
+    const silent = options?.silent === true
     const token = TokenManager.getToken()
     if (!token) {
-      toast.error('Authentication required')
+      if (!silent) toast.error('Authentication required')
       return
     }
 
@@ -219,7 +224,7 @@ export default function CourseReportPage() {
       })
 
       setCourseResults(response.courses)
-      toast.success(`Found ${response.courses.length} course${response.courses.length !== 1 ? 's' : ''}`)
+      if (!silent) toast.success(`Found ${response.courses.length} course${response.courses.length !== 1 ? 's' : ''}`)
     } catch (error) {
       console.error('Error searching courses:', error)
       toast.error('Failed to search courses. Please try again.')
@@ -229,11 +234,7 @@ export default function CourseReportPage() {
     }
   }
 
-  // Filter categories based on search term
-  const filteredCategories = REPORT_CATEGORIES.filter(category =>
-    category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    category.description.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const courseCategory = REPORT_CATEGORIES.find(category => category.id === "course")
 
   // Check authentication
   const token = TokenManager.getToken()
@@ -258,9 +259,18 @@ export default function CourseReportPage() {
         {/* Page Header - Same as main reports page */}
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex items-center space-x-1 px-0 mb-1 text-gray-600 hover:text-gray-900 hover:bg-transparent"
+              onClick={() => router.push(`${basePath}/reports`)}
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to Reports</span>
+            </Button>
+            <h1 className="text-2xl font-bold text-gray-900">{courseCategory?.name || "Course Reports"}</h1>
             <p className="text-gray-600">
-              Comprehensive system reports and analytics
+              {courseCategory?.description || "Comprehensive system reports and analytics"}
             </p>
           </div>
           <div className="flex space-x-2">
@@ -268,6 +278,7 @@ export default function CourseReportPage() {
               variant="outline"
               className="flex items-center space-x-2"
               onClick={handleSearch}
+              disabled={searchLoading}
             >
               <Filter className="w-4 h-4" />
               <span>Filter</span>
@@ -275,83 +286,16 @@ export default function CourseReportPage() {
             <Button
               className="bg-yellow-400 hover:bg-yellow-500 text-black flex items-center space-x-2"
               onClick={handleDownloadReport}
+              disabled={exportLoading}
             >
-              <Download className="w-4 h-4" />
-              <span>Download Report</span>
+              {exportLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              <span>{exportLoading ? 'Downloading...' : 'Download Report'}</span>
             </Button>
           </div>
-        </div>
-
-        {/* Search Bar */}
-        <div className="mb-6">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
-              placeholder="Search report categories..."
-              className="pl-10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* Report Categories Grid - Same as main page */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {filteredCategories.map((category) => {
-            const IconComponent = category.icon
-            return (
-              <Card
-                key={category.id}
-                className="cursor-pointer hover:shadow-lg hover:border-blue-300 transition-all duration-200 bg-white border border-gray-200 active:scale-95 h-full flex flex-col"
-                onClick={() => handleCategoryClick(category.id)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    handleCategoryClick(category.id)
-                  }
-                }}
-                tabIndex={0}
-                role="button"
-                aria-label={`View ${category.name}`}
-              >
-                <CardHeader>
-                  <div className="flex items-center space-x-3">
-                    {categoryLoading === category.id ? (
-                      <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
-                    ) : (
-                      <IconComponent className="w-6 h-6 text-blue-600" />
-                    )}
-                    <CardTitle className="text-lg">
-                      {category.name}
-                      {categoryLoading === category.id && (
-                        <span className="text-sm text-blue-600 ml-2">Opening...</span>
-                      )}
-                    </CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex-1 flex flex-col">
-                  <p className="text-gray-600 mb-4 flex-1">{category.description}</p>
-                  <div className="flex items-center justify-between mt-auto">
-                    <span className="text-sm text-gray-500">
-                      {category.reports.length} reports available
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleCategoryClick(category.id)
-                      }}
-                      disabled={categoryLoading === category.id}
-                      className="min-w-[100px]"
-                    >
-                      {categoryLoading === category.id ? 'Opening...' : 'View Reports'}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
         </div>
 
         {/* Course Reports Search/Filter Card - Only show for course category */}
@@ -448,7 +392,7 @@ export default function CourseReportPage() {
               <div className="flex justify-end">
                 <Button
                   className="bg-blue-600 hover:bg-blue-700 text-white px-6"
-                  onClick={handleCourseSearch}
+                  onClick={() => handleCourseSearch()}
                   disabled={searchLoading}
                 >
                   {searchLoading ? (
