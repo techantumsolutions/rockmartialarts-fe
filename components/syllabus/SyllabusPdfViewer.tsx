@@ -15,7 +15,7 @@ import { TokenManager } from "@/lib/tokenManager"
 import "react-pdf/dist/esm/Page/AnnotationLayer.css"
 import "react-pdf/dist/esm/Page/TextLayer.css"
 
-pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs"
+pdfjs.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.mjs?v=${pdfjs.version}`
 
 type Props = {
   /** Authenticated backend URL (includes student/admin stream path) */
@@ -88,11 +88,15 @@ export function SyllabusPdfViewer({ fileUrl, title, className }: Props) {
     if (!el) return
     const ro = new ResizeObserver((entries) => {
       const w = entries[0]?.contentRect.width
-      if (w) setContainerWidth(w)
+      if (!w) return
+      const next = Math.round(w)
+      setContainerWidth((prev) => (prev === next ? prev : next))
     })
     ro.observe(el)
     return () => ro.disconnect()
   }, [data])
+
+  const pdfFile = useMemo(() => (data ? { data: data.slice() } : null), [data])
 
   const pageWidth = useMemo(() => {
     if (!containerWidth) return undefined
@@ -198,7 +202,7 @@ export function SyllabusPdfViewer({ fileUrl, title, className }: Props) {
         style={{ WebkitUserSelect: "none", userSelect: "none" }}
       >
         <Document
-          file={{ data }}
+          file={pdfFile}
           loading={
             <div className="py-16 text-slate-500 text-sm flex items-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin" /> Rendering…
@@ -207,7 +211,9 @@ export function SyllabusPdfViewer({ fileUrl, title, className }: Props) {
           error={
             <p className="py-10 text-sm text-red-700">Could not render this PDF.</p>
           }
-          onLoadSuccess={({ numPages: n }) => setNumPages(n)}
+          onLoadSuccess={({ numPages: n }) =>
+            setNumPages((prev) => (prev === n ? prev : n))
+          }
           onLoadError={() => setError("Could not render this PDF")}
         >
           <Page

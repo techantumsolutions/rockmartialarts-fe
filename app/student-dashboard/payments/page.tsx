@@ -500,15 +500,18 @@ export default function StudentPaymentsPage() {
       const prepUrl = isRenewal
         ? getBackendApiUrl("payments/prepare-student-renewal-checkout")
         : getBackendApiUrl("payments/prepare-student-checkout")
+      const batchRef = (selectedBatchRef || enrollment.batch_ref || "").trim()
       const prepBody = isRenewal
         ? {
             enrollment_id: enrollment.id,
             duration: tenure.id,
+            ...(batchRef ? { batch_ref: batchRef } : {}),
           }
         : {
             course_id: enrollment.course_id,
             branch_id: enrollment.branch_id,
             duration: tenure.id,
+            ...(batchRef ? { batch_ref: batchRef } : {}),
           }
 
       const prepRes = await fetch(prepUrl, {
@@ -517,14 +520,7 @@ export default function StudentPaymentsPage() {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          course_id: enrollment.course_id,
-          branch_id: enrollment.branch_id,
-          duration: tenure.id,
-          ...((selectedBatchRef || enrollment.batch_ref)?.trim()
-            ? { batch_ref: (selectedBatchRef || enrollment.batch_ref || "").trim() }
-            : {}),
-        }),
+        body: JSON.stringify(prepBody),
       })
       const prepJson = await prepRes.json().catch(() => ({}))
       if (!prepRes.ok) {
