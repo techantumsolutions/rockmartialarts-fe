@@ -35,6 +35,16 @@ interface StudentDashboardHeaderProps {
   isLoading?: boolean
 }
 
+/** Survives header remounts between student-dashboard pages so the nav item does not flicker. */
+let registrationFormsNavCache: { studentId: string; available: boolean } | null = null
+
+function readRegistrationFormsCache(): boolean {
+  if (typeof window === "undefined") return false
+  const studentId = TokenManager.getActiveStudentId() || TokenManager.getUser()?.id || ""
+  if (!studentId || !registrationFormsNavCache) return false
+  return registrationFormsNavCache.studentId === studentId && registrationFormsNavCache.available
+}
+
 export default function StudentDashboardHeader({
   studentName = "Student",
   onLogout,
@@ -46,7 +56,7 @@ export default function StudentDashboardHeader({
   const [isNavigating, setIsNavigating] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [profileImage, setProfileImage] = useState<string>("")
-  const [hasRegistrationForms, setHasRegistrationForms] = useState(false)
+  const [hasRegistrationForms, setHasRegistrationForms] = useState(() => readRegistrationFormsCache())
   const { cms } = useCMS()
 
   const readProfileImage = () => {
@@ -78,6 +88,13 @@ export default function StudentDashboardHeader({
   useEffect(() => {
     const token = TokenManager.getToken()
     if (!token) return
+    const studentId = TokenManager.getActiveStudentId() || TokenManager.getUser()?.id || ""
+
+    // Keep cached visibility immediately; refresh in background without clearing first.
+    if (readRegistrationFormsCache()) {
+      setHasRegistrationForms(true)
+    }
+
     ;(async () => {
       try {
         const res = await fetch(getBackendApiUrl("registration-forms/student"), {
@@ -87,14 +104,20 @@ export default function StudentDashboardHeader({
           },
         })
         if (!res.ok) {
-          setHasRegistrationForms(false)
+          if (!readRegistrationFormsCache()) {
+            setHasRegistrationForms(false)
+            if (studentId) registrationFormsNavCache = { studentId, available: false }
+          }
           return
         }
         const data = await res.json()
         const list = Array.isArray(data.registration_forms) ? data.registration_forms : []
-        setHasRegistrationForms(list.length > 0)
+        const available = list.length > 0
+        if (studentId) registrationFormsNavCache = { studentId, available }
+        setHasRegistrationForms(available)
       } catch {
-        setHasRegistrationForms(false)
+        // Keep previous/cached value on transient errors so the nav item does not disappear.
+        setHasRegistrationForms(readRegistrationFormsCache())
       }
     })()
   }, [pathname])

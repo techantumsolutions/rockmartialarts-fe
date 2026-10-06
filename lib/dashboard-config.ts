@@ -251,7 +251,6 @@ const BRANCH_ADMIN_MENU: NavItem[] = [
       { label: "Student Attendance", path: `${BRANCH_ADMIN_BASE}/attendance/students`, icon: GraduationCap, permissionId: "attendance" },
       { label: "Coach Attendance", path: `${BRANCH_ADMIN_BASE}/attendance/coaches`, icon: Users, permissionId: "attendance" },
       { label: "Attendance Reports", path: `${BRANCH_ADMIN_BASE}/attendance/reports`, icon: BarChart, permissionId: "attendance" },
-      { label: "Biometric Devices", path: `${BRANCH_ADMIN_BASE}/attendance/devices`, icon: Cpu, permissionId: "attendance" },
       { label: "Biometric Mapping", path: `${BRANCH_ADMIN_BASE}/attendance/biometric-mapping`, icon: Fingerprint, permissionId: "attendance" },
     ],
   },

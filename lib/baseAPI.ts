@@ -109,7 +109,38 @@ export class BaseAPI {
       }
 
       if (!response.ok) {
-        const errorMessage = result.error || result.detail || result.message || `Request failed: ${response.status} ${response.statusText}`
+        const rawError = result.error || result.detail || result.message || `Request failed: ${response.status} ${response.statusText}`
+        const errorMessage = Array.isArray(rawError)
+          ? rawError
+              .map((item) => {
+                if (typeof item === "string") return item
+                if (item && typeof item === "object") {
+                  const msg = (item as { msg?: unknown }).msg
+                  const loc = (item as { loc?: unknown[] }).loc
+                  if (typeof msg === "string") {
+                    const where = Array.isArray(loc)
+                      ? loc.filter((p) => typeof p === "string" || typeof p === "number").join(".")
+                      : ""
+                    return where ? `${where}: ${msg}` : msg
+                  }
+                }
+                try {
+                  return JSON.stringify(item)
+                } catch {
+                  return String(item)
+                }
+              })
+              .filter(Boolean)
+              .join("; ")
+          : rawError && typeof rawError === "object"
+            ? (() => {
+                try {
+                  return JSON.stringify(rawError)
+                } catch {
+                  return String(rawError)
+                }
+              })()
+            : String(rawError)
         console.error('❌ API Error:', errorMessage)
 
         if (response.status === 401) {

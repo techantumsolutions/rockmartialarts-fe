@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   Plus,
   Edit,
@@ -71,6 +72,7 @@ export default function CategoriesManagementPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [errors, setErrors] = useState<FormErrors>({})
+  const [expandedCategoryIds, setExpandedCategoryIds] = useState<Set<string>>(new Set())
 
   // Sub-category form state
   const [isSubCategoryDialogOpen, setIsSubCategoryDialogOpen] = useState(false)
@@ -348,8 +350,10 @@ export default function CategoriesManagementPage() {
     const subcategories = isParentCategory ? categories.filter(cat => cat.parent_category_id === category.id) : []
     
     let confirmMessage = `Are you sure you want to ${action} the category "${category.name}"?`
-    if (isParentCategory && !newStatus && subcategories.length > 0) {
-      confirmMessage += `\n\nThis will also disable all ${subcategories.length} subcategories.`
+    if (isParentCategory && subcategories.length > 0) {
+      confirmMessage += newStatus
+        ? `\n\nThis will also enable all ${subcategories.length} subcategories.`
+        : `\n\nThis will also disable all ${subcategories.length} subcategories.`
     }
     
     // If subcategory, check if parent is active
@@ -394,8 +398,9 @@ export default function CategoriesManagementPage() {
       })
 
       if (response.ok) {
-        // If disabling a parent category, also disable all subcategories
-        if (isParentCategory && !newStatus && subcategories.length > 0) {
+        // Parent toggle cascades to all subcategories (disable or enable together).
+        // Individual subcategory deactivate remains available via its own action button.
+        if (isParentCategory && subcategories.length > 0) {
           const updatePromises = subcategories.map(subCat => 
             fetch(getBackendApiUrl(`categories/${subCat.id}`), {
               method: "PUT",
@@ -403,7 +408,7 @@ export default function CategoriesManagementPage() {
                 "Authorization": `Bearer ${token}`,
                 "Content-Type": "application/json"
               },
-              body: JSON.stringify({ is_active: false })
+              body: JSON.stringify({ is_active: newStatus })
             })
           )
           
@@ -412,7 +417,7 @@ export default function CategoriesManagementPage() {
         
         toast({
           title: "Success",
-          description: `Category ${action}d successfully${isParentCategory && !newStatus && subcategories.length > 0 ? ' along with its subcategories' : ''}`,
+          description: `Category ${action}d successfully${isParentCategory && subcategories.length > 0 ? ' along with its subcategories' : ''}`,
           variant: "default"
         })
         fetchCategories()
@@ -594,6 +599,15 @@ export default function CategoriesManagementPage() {
 
   const getSubCategories = (parentId: string) => {
     return categories.filter(cat => cat.parent_category_id === parentId)
+  }
+
+  const toggleCategoryExpanded = (categoryId: string) => {
+    setExpandedCategoryIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(categoryId)) next.delete(categoryId)
+      else next.add(categoryId)
+      return next
+    })
   }
 
   if (loading) {
@@ -1017,13 +1031,23 @@ export default function CategoriesManagementPage() {
                     <TableBody>
                       {filteredCategories.map((category) => {
                         const subCategories = getSubCategories(category.id)
+                        const isExpanded = expandedCategoryIds.has(category.id)
                         return (
                           <React.Fragment key={category.id}>
-                            <TableRow>
+                            <TableRow
+                              className={subCategories.length > 0 ? "cursor-pointer" : undefined}
+                              onClick={() => {
+                                if (subCategories.length > 0) toggleCategoryExpanded(category.id)
+                              }}
+                            >
                               <TableCell>
                                 <div className="flex items-center gap-2">
                                   {subCategories.length > 0 && (
-                                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                                    isExpanded ? (
+                                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                                    ) : (
+                                      <ChevronRight className="w-4 h-4 text-gray-400" />
+                                    )
                                   )}
                                   {category.color_code && (
                                     <div
@@ -1076,27 +1100,39 @@ export default function CategoriesManagementPage() {
                                   {category.course_count || 0} courses
                                 </Badge>
                               </TableCell>
-                              <TableCell>
+                              <TableCell onClick={(e) => e.stopPropagation()}>
                                 <div className="flex gap-2">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleEdit(category)}
-                                  >
-                                    <Edit className="w-4 h-4" />
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleToggleStatus(category)}
-                                    className={category.is_active ? "text-red-600 hover:text-red-700 hover:bg-red-50" : "text-green-600 hover:text-green-700 hover:bg-green-50"}
-                                  >
-                                    {category.is_active ? <Power className="w-4 h-4" /> : <Power className="w-4 h-4 text-green-600" />}
-                                  </Button>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleEdit(category)}
+                                      >
+                                        <Edit className="w-4 h-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Edit</TooltipContent>
+                                  </Tooltip>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleToggleStatus(category)}
+                                        className={category.is_active ? "text-red-600 hover:text-red-700 hover:bg-red-50" : "text-green-600 hover:text-green-700 hover:bg-green-50"}
+                                      >
+                                        {category.is_active ? <Power className="w-4 h-4" /> : <Power className="w-4 h-4 text-green-600" />}
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      {category.is_active ? "Deactivate" : "Activate"}
+                                    </TooltipContent>
+                                  </Tooltip>
                                 </div>
                               </TableCell>
                             </TableRow>
-                            {subCategories.map(subCat => (
+                            {isExpanded && subCategories.map(subCat => (
                               <TableRow key={subCat.id} className="bg-gray-50">
                                 <TableCell>
                                   <div className="flex items-center gap-2 pl-8">
@@ -1154,21 +1190,33 @@ export default function CategoriesManagementPage() {
                                 </TableCell>
                                 <TableCell>
                                   <div className="flex gap-2">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleEdit(subCat)}
-                                    >
-                                      <Edit className="w-4 h-4" />
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleToggleStatus(subCat)}
-                                      className={subCat.is_active ? "text-red-600 hover:text-red-700 hover:bg-red-50" : "text-green-600 hover:text-green-700 hover:bg-green-50"}
-                                    >
-                                      {subCat.is_active ? <Power className="w-4 h-4" /> : <Power className="w-4 h-4 text-green-600" />}
-                                    </Button>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => handleEdit(subCat)}
+                                        >
+                                          <Edit className="w-4 h-4" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Edit</TooltipContent>
+                                    </Tooltip>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => handleToggleStatus(subCat)}
+                                          className={subCat.is_active ? "text-red-600 hover:text-red-700 hover:bg-red-50" : "text-green-600 hover:text-green-700 hover:bg-green-50"}
+                                        >
+                                          {subCat.is_active ? <Power className="w-4 h-4" /> : <Power className="w-4 h-4 text-green-600" />}
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        {subCat.is_active ? "Deactivate" : "Activate"}
+                                      </TooltipContent>
+                                    </Tooltip>
                                   </div>
                                 </TableCell>
                               </TableRow>

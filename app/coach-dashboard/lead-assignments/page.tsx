@@ -102,7 +102,7 @@ export default function CoachLeadAssignmentsPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <CoachDashboardHeader currentPage="Lead Assignments" coachName={coachName} />
-        <main className="pt-20 px-4 lg:px-8 py-6 text-center text-gray-500">Loading…</main>
+        <main className="px-4 lg:px-8 py-6 text-center text-gray-500">Loading…</main>
       </div>
     )
   }
@@ -110,7 +110,7 @@ export default function CoachLeadAssignmentsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <CoachDashboardHeader currentPage="Lead Assignments" coachName={coachName} />
-      <main className="pt-20 px-4 lg:px-8 py-6 max-w-4xl mx-auto space-y-6">
+      <main className="px-4 lg:px-8 py-6 max-w-4xl mx-auto space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Lead assignments</h1>

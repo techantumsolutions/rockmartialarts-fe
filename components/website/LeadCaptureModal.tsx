@@ -252,7 +252,7 @@ export function LeadCaptureModal() {
           ) : null}
           <Button
             type="submit"
-            className="w-full bg-amber-500 text-white hover:bg-amber-600"
+            className="w-full bg-amber-500 text-white hover:bg-amber-600 disabled:pointer-events-auto disabled:cursor-not-allowed"
             disabled={submitDisabled}
           >
             {submitting ? "Submitting..." : "Submit"}

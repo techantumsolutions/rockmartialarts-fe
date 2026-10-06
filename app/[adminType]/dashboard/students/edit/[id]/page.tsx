@@ -3,7 +3,7 @@
 import { getBackendApiUrl } from "@/lib/config"
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useLayoutEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { PasswordInput } from "@/components/ui/password-input"
@@ -129,6 +129,7 @@ export default function EditStudent() {
   // Form state
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
   const [errors, setErrors] = useState<FormErrors>({})
+  const [pendingScrollField, setPendingScrollField] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date>()
   const [enrollmentStartDate, setEnrollmentStartDate] = useState<Date>()
   const [enrollmentEndDate, setEnrollmentEndDate] = useState<Date>()
@@ -618,7 +619,48 @@ export default function EditStudent() {
     }
   }
 
-  const validateForm = (): boolean => {
+  const scrollToField = (fieldKey: string) => {
+    const el = document.getElementById(`student-field-${fieldKey}`)
+    if (!el) return
+
+    const headerOffset = 120
+    const absoluteTop =
+      el.getBoundingClientRect().top + (window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0) - headerOffset
+    const top = Math.max(0, absoluteTop)
+
+    // Page scroll lives on documentElement in Chromium; body has overflow-x:hidden
+    // which makes it look like a scrollport but does not move the viewport.
+    // Use instant scroll so the error field is visible immediately.
+    const scrollingEl = document.scrollingElement || document.documentElement
+    scrollingEl.scrollTop = top
+    document.documentElement.scrollTop = top
+    document.body.scrollTop = top
+    window.scrollTo(0, top)
+    el.scrollIntoView({ behavior: "auto", block: "center", inline: "nearest" })
+
+    // Focus wrapper / control so the browser also brings it into view
+    el.focus({ preventScroll: false })
+    const focusable = el.querySelector<HTMLElement>(
+      "input:not([type='hidden']), textarea, button, [role='combobox'], select"
+    )
+    focusable?.focus({ preventScroll: false })
+  }
+
+  useLayoutEffect(() => {
+    if (!pendingScrollField) return
+    if (!errors[pendingScrollField]) return
+    const key = pendingScrollField
+    setPendingScrollField(null)
+    // Double rAF: wait until layout after error text paints
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        scrollToField(key)
+        setTimeout(() => scrollToField(key), 150)
+      })
+    })
+  }, [pendingScrollField, errors])
+
+  const validateForm = (): string | null => {
     const newErrors: FormErrors = {}
     if (!formData.firstName.trim()) newErrors.firstName = "First name is required"
     if (!formData.lastName.trim()) newErrors.lastName = "Last name is required"
@@ -642,12 +684,32 @@ export default function EditStudent() {
       newErrors.enrollmentEnd = "End date must be on or after start date"
     }
     setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    const errorKeys = Object.keys(newErrors)
+    if (errorKeys.length === 0) return null
+    const fieldOrder = [
+      "firstName",
+      "lastName",
+      "email",
+      "contactNumber",
+      "gender",
+      "dob",
+      "password",
+      "course",
+      "enrollmentEnd",
+      "location",
+      "branch",
+    ]
+    return fieldOrder.find((key) => newErrors[key]) || errorKeys[0]
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!validateForm()) return
+    e.stopPropagation()
+    const firstErrorField = validateForm()
+    if (firstErrorField) {
+      setPendingScrollField(firstErrorField)
+      return
+    }
 
     setIsSubmitting(true)
     try {
@@ -745,9 +807,9 @@ export default function EditStudent() {
             <p className="mt-4 text-gray-600">Loading student data...</p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200">
 
-            <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-8">
+            <form onSubmit={handleSubmit} noValidate className="p-6 sm:p-8 space-y-8">
               {errors.submit && (
                 <div className="bg-red-50 border border-red-200 rounded-xl p-4">
                   <p className="text-red-600 font-medium">{errors.submit}</p>
@@ -759,7 +821,7 @@ export default function EditStudent() {
                   <h3 className="text-lg font-semibold text-[#4D5077] border-b border-gray-200 pb-2">Personal Information</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 text-[#7F8592]">
                     
-                    <div>
+                    <div id="student-field-firstName" tabIndex={-1} className="scroll-mt-28 outline-none">
                       <Label className="block text-sm font-medium mb-2">First Name <span className="text-red-500">*</span></Label>
                       <div className="relative">
                         <UserIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -773,7 +835,7 @@ export default function EditStudent() {
                       </div>
                     </div>
 
-                    <div>
+                    <div id="student-field-lastName" tabIndex={-1} className="scroll-mt-28 outline-none">
                       <Label className="block text-sm font-medium mb-2">Last Name <span className="text-red-500">*</span></Label>
                       <div className="relative">
                         <UserIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -787,7 +849,7 @@ export default function EditStudent() {
                       </div>
                     </div>
 
-                    <div>
+                    <div id="student-field-email" tabIndex={-1} className="scroll-mt-28 outline-none">
                       <Label className="block text-sm font-medium mb-2">Email Address <span className="text-red-500">*</span></Label>
                       <div className="relative">
                         <MailIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -802,7 +864,7 @@ export default function EditStudent() {
                       </div>
                     </div>
 
-                    <div>
+                    <div id="student-field-contactNumber" tabIndex={-1} className="scroll-mt-28 outline-none">
                       <Label className="block text-sm font-medium mb-2">Mobile Number <span className="text-red-500">*</span></Label>
                       <div className="relative">
                         <PhoneIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -816,7 +878,7 @@ export default function EditStudent() {
                       </div>
                     </div>
 
-                    <div>
+                    <div id="student-field-gender" tabIndex={-1} className="scroll-mt-28 outline-none">
                       <Label className="block text-sm font-medium mb-2">Gender <span className="text-red-500">*</span></Label>
                       <div className="relative">
                         <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10 pointer-events-none">
@@ -861,7 +923,7 @@ export default function EditStudent() {
                       </div>
                     )}
 
-                    <div>
+                    <div id="student-field-dob" tabIndex={-1} className="scroll-mt-28 outline-none">
                       <Label className="block text-sm font-medium mb-2">Date of Birth <span className="text-red-500">*</span></Label>
                       <Popover>
                         <PopoverTrigger asChild>
@@ -886,7 +948,7 @@ export default function EditStudent() {
                       {errors.dob && <p className="text-red-500 text-sm mt-1">{errors.dob}</p>}
                     </div>
 
-                    <div>
+                    <div id="student-field-password" tabIndex={-1} className="scroll-mt-28 outline-none">
                       <Label className="block text-sm font-medium mb-2">New Password</Label>
                       <div className="relative">
                         <UserIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -933,7 +995,7 @@ export default function EditStudent() {
                       </Select>
                     </div>
 
-                    <div>
+                    <div id="student-field-course" tabIndex={-1} className="scroll-mt-28 outline-none">
                       <Label className="block text-sm font-medium mb-2">Course <span className="text-red-500">*</span></Label>
                       <Select value={formData.course} onValueChange={(value) => handleInputChange("course", value)}>
                         <SelectTrigger className={cn("!w-full !h-14 !pl-12 !text-base !bg-gray-50 !border-gray-200 !rounded-xl", errors.course && "!border-red-500 !bg-red-50")}>
@@ -996,7 +1058,7 @@ export default function EditStudent() {
                       </Popover>
                     </div>
 
-                    <div>
+                    <div id="student-field-enrollmentEnd" tabIndex={-1} className="scroll-mt-28 outline-none">
                       <Label className="block text-sm font-medium mb-2">Enrollment end</Label>
                       <Popover>
                         <PopoverTrigger asChild>
@@ -1064,7 +1126,7 @@ export default function EditStudent() {
                       </Select>
                     </div>
                     )}
-                    <div>
+                    <div id="student-field-location" tabIndex={-1} className="scroll-mt-28 outline-none">
                       <Label className="block text-sm font-medium mb-2">Location <span className="text-red-500">*</span></Label>
                       <Select
                         value={formData.location}
@@ -1100,7 +1162,7 @@ export default function EditStudent() {
                       {errors.location && <p className="text-red-500 text-sm mt-1">{errors.location}</p>}
                     </div>
 
-                    <div>
+                    <div id="student-field-branch" tabIndex={-1} className="scroll-mt-28 outline-none">
                       <Label className="block text-sm font-medium mb-2">Branch <span className="text-red-500">*</span></Label>
                       <Select
                         value={formData.branch}

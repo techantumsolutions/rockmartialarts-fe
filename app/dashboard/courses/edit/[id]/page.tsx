@@ -16,7 +16,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useRouter, useParams, usePathname } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/AuthContext"
-import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
 import { CourseMediaResourcesFields } from "@/components/dashboard/CourseMediaResourcesFields"
 import CourseFormSections, { PageContent } from "@/components/dashboard/CourseFormSections"
@@ -911,7 +910,6 @@ export default function EditCoursePage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader currentPage="Edit Course" />
         <div className="flex items-center justify-center h-96">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
@@ -924,8 +922,6 @@ export default function EditCoursePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader currentPage="Edit Course" />
-
       <main className="w-full py-4 px-4 lg:px-8">
         <div className="flex justify-between items-center mb-8">
           <div>

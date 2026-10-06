@@ -527,15 +527,18 @@ const paginatedCoaches = filteredCoaches.slice(
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder={branchesLoading ? "Loading branches..." : branches.length === 0 ? "No branches available" : "Choose a branch..."} />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent
+                    position="popper"
+                    className="w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]"
+                  >
                     {branches.map((branch) => {
                       const branchName = branch.branch?.name ?? branch.name ?? "Unnamed Branch"
                       const address = branch.branch?.address ?? branch.address
                       const addressText = address ? [address.area, address.city].filter(Boolean).join(", ") || "No address" : "No address"
 
                       return (
-                        <SelectItem key={branch.id} value={branch.id}>
-                          {branchName} - {addressText}
+                        <SelectItem key={branch.id} value={branch.id} className="max-w-full">
+                          <span className="block truncate">{branchName} - {addressText}</span>
                         </SelectItem>
                       )
                     })}
@@ -551,15 +554,15 @@ const paginatedCoaches = filteredCoaches.slice(
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder={filteredCoaches.length === 0 ? "No coaches available" : "Choose a coach..."} />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent
+                    position="popper"
+                    className="w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]"
+                  >
                     {filteredCoaches.map((coach) => (
-                      <SelectItem key={coach.id} value={coach.id}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{coach.full_name}</span>
-                          <span className="text-sm text-gray-500">{coach.contact_info?.email}</span>
-                          <span className="text-xs text-gray-400">
-                            {coach.areas_of_expertise?.join(", ")}
-                          </span>
+                      <SelectItem key={coach.id} value={coach.id} className="max-w-full">
+                        <div className="flex flex-col min-w-0 max-w-full overflow-hidden">
+                          <span className="font-medium truncate">{coach.full_name}</span>
+                          <span className="text-sm text-gray-500 truncate">{coach.contact_info?.email}</span>
                         </div>
                       </SelectItem>
                     ))}

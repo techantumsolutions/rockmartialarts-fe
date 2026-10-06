@@ -24,6 +24,28 @@ function authHeaders(): HeadersInit {
   }
 }
 
+function extractApiError(err: unknown, fallback: string): string {
+  if (!err || typeof err !== "object") return fallback
+  const body = err as { detail?: unknown; error?: unknown; message?: unknown }
+  if (typeof body.detail === "string" && body.detail.trim()) return body.detail
+  if (Array.isArray(body.detail)) {
+    const joined = body.detail
+      .map((item) =>
+        typeof item === "string"
+          ? item
+          : typeof item === "object" && item && "msg" in item
+            ? String((item as { msg?: string }).msg || "")
+            : ""
+      )
+      .filter(Boolean)
+      .join("; ")
+    if (joined) return joined
+  }
+  if (typeof body.error === "string" && body.error.trim()) return body.error
+  if (typeof body.message === "string" && body.message.trim()) return body.message
+  return fallback
+}
+
 class StudentBiometricMappingAPI {
   async list(params: {
     q?: string
@@ -42,7 +64,7 @@ class StudentBiometricMappingAPI {
     )
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
-      throw new Error(typeof err.detail === "string" ? err.detail : `Failed to load (${res.status})`)
+      throw new Error(extractApiError(err, `Failed to load (${res.status})`))
     }
     return res.json()
   }
@@ -59,7 +81,7 @@ class StudentBiometricMappingAPI {
     })
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
-      throw new Error(typeof err.detail === "string" ? err.detail : `Save failed (${res.status})`)
+      throw new Error(extractApiError(err, `Save failed (${res.status})`))
     }
     return res.json()
   }
@@ -72,7 +94,7 @@ class StudentBiometricMappingAPI {
     })
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
-      throw new Error(typeof err.detail === "string" ? err.detail : `Clear failed (${res.status})`)
+      throw new Error(extractApiError(err, `Clear failed (${res.status})`))
     }
     return res.json()
   }

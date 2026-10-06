@@ -27,7 +27,7 @@ export default function CoachStudentPerformancePage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <CoachDashboardHeader coachName={coachName} />
-      <div className="pt-24 px-4 sm:px-6 lg:px-8 pb-10 max-w-7xl mx-auto">
+      <div className="px-4 sm:px-6 lg:px-8 py-6 pb-10 max-w-7xl mx-auto">
         <StudentPerformanceDashboardClient
           studentId={studentId}
           canEdit={canEdit}

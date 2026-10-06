@@ -68,6 +68,7 @@ export default function FamilyStudentsPage() {
   const estimateReqId = useRef(0)
   const [error, setError] = useState("")
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [studentToRemove, setStudentToRemove] = useState<{ id: string; label: string } | null>(null)
 
   useEffect(() => {
     if (!registrationStorageReady) return
@@ -171,6 +172,12 @@ export default function FamilyStudentsPage() {
 
   const removeStudent = (id: string) => {
     setStudents((prev) => (prev.length <= 1 ? prev : prev.filter((s) => s.id !== id)))
+  }
+
+  const confirmRemoveStudent = () => {
+    if (!studentToRemove) return
+    removeStudent(studentToRemove.id)
+    setStudentToRemove(null)
   }
 
   const validate = () => {
@@ -381,7 +388,13 @@ export default function FamilyStudentsPage() {
                   {students.length > 1 && (
                     <button
                       type="button"
-                      onClick={() => removeStudent(student.id)}
+                      onClick={() => {
+                        const name = [student.firstName, student.lastName].filter(Boolean).join(" ").trim()
+                        setStudentToRemove({
+                          id: student.id,
+                          label: name || `Student ${index + 1}`,
+                        })
+                      }}
                       className="text-red-600 text-sm flex items-center gap-1"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -621,6 +634,39 @@ export default function FamilyStudentsPage() {
           <RegistrationStepIndicator accountType="family" currentStep={2} />
         </form>
       </div>
+
+      {studentToRemove && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Trash2 className="w-8 h-8 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Remove Student</h3>
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to remove <strong>{studentToRemove.label}</strong>? This cannot be undone.
+              </p>
+              <div className="flex space-x-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setStudentToRemove(null)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={confirmRemoveStudent}
+                  className="bg-red-600 hover:bg-red-700 text-white flex-1"
+                >
+                  Remove
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

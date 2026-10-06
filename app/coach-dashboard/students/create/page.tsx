@@ -20,7 +20,7 @@ import { branchAPI } from "@/lib/branchAPI"
 import { courseAPI } from "@/lib/courseAPI"
 import { useToast } from "@/hooks/use-toast"
 import CoachDashboardHeader from "@/components/coach-dashboard-header"
-import { checkCoachAuth } from "@/lib/coachAuth"
+import { checkCoachAuth, getCoachAuthHeaders } from "@/lib/coachAuth"
 
 interface Branch {
   id: string
@@ -366,7 +366,9 @@ export default function CreateStudent() {
         setIsLoadingCoaches(true)
         console.log('📡 Loading coaches for course:', formData.course)
 
-        const response = await fetch(getBackendApiUrl(`coaches/public/by-course/${formData.course}`))
+        const response = await fetch(getBackendApiUrl(`coaches/by-course/${formData.course}`), {
+          headers: getCoachAuthHeaders(),
+        })
 
         if (response.ok) {
           const data = await response.json()
@@ -948,6 +950,10 @@ export default function CreateStudent() {
                                   handleInputChange("dob", format(date, "yyyy-MM-dd"))
                                 }
                               }}
+                              captionLayout="dropdown"
+                              startMonth={new Date(1900, 0)}
+                              endMonth={new Date()}
+                              defaultMonth={selectedDate || new Date(2010, 0)}
                               initialFocus
                               disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
                               className="rounded-xl"

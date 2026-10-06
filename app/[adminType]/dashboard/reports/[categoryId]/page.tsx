@@ -341,14 +341,30 @@ function CategoryReportsPageContent() {
     search: ""
   })
 
-  // Branch Admin: scope financial reports to their branch (no API change; filter enforced client + request)
+  // Branch Admin: scope financial + student reports to their managed branch
   useEffect(() => {
-    if (categoryId !== "financial" || !isBranchAdminRoute) return
+    if (!isBranchAdminRoute || (categoryId !== "financial" && categoryId !== "student")) return
+    let cancelled = false
+    const applyBranchScope = (bm: { branch_id?: string; managed_branches?: string[] } | null) => {
+      if (!bm || cancelled) return
+      const bid = bm.branch_id || bm.managed_branches?.[0]
+      if (bid) {
+        setFilters((prev) => (prev.branch_id === bid ? prev : { ...prev, branch_id: bid }))
+      }
+    }
     const bm = BranchManagerAuth.getCurrentUser()
     if (!bm || bm.role !== "branch_manager") return
-    const bid = bm.branch_id || bm.managed_branches?.[0]
-    if (bid) {
-      setFilters((prev) => ({ ...prev, branch_id: bid }))
+    applyBranchScope(bm)
+    // Student reports: refresh managed_branches so the dropdown cannot list other branches
+    if (categoryId === "student") {
+      void BranchManagerAuth.fetchManagedBranches()
+        .then(() => {
+          if (!cancelled) applyBranchScope(BranchManagerAuth.getCurrentUser())
+        })
+        .catch(() => {})
+    }
+    return () => {
+      cancelled = true
     }
   }, [categoryId, isBranchAdminRoute])
 
@@ -652,6 +668,17 @@ function CategoryReportsPageContent() {
     categorySearchRef.current?.()
   }
 
+  const getBranchAdminManagedBranchIds = (): string[] => {
+    if (!isBranchAdminRoute) return []
+    const bm = BranchManagerAuth.getCurrentUser()
+    if (!bm || bm.role !== "branch_manager") return []
+    const fromManaged = Array.isArray(bm.managed_branches)
+      ? bm.managed_branches.map((id) => String(id)).filter(Boolean)
+      : []
+    if (fromManaged.length > 0) return fromManaged
+    return bm.branch_id ? [String(bm.branch_id)] : []
+  }
+
   const buildStudentReportFilters = () => {
     const searchParams: Record<string, string | boolean | number> = {}
 
@@ -659,8 +686,17 @@ function CategoryReportsPageContent() {
       searchParams.q = searchQuery.trim()
     }
 
-    if (filters.branch_id && filters.branch_id !== 'all') {
-      searchParams.branch_id = filters.branch_id
+    // Branch-admin: never query all academy students — always pin to a managed branch.
+    const managedBranchIds = getBranchAdminManagedBranchIds()
+    let branchId = filters.branch_id
+    if (managedBranchIds.length > 0) {
+      if (!branchId || branchId === "all" || !managedBranchIds.includes(String(branchId))) {
+        branchId = managedBranchIds[0]
+      }
+    }
+
+    if (branchId && branchId !== 'all') {
+      searchParams.branch_id = branchId
     }
 
     if (filters.course_id && filters.course_id !== 'all') {
@@ -1664,7 +1700,7 @@ function CategoryReportsPageContent() {
                           </SelectItem>
                         ))}
                         {branchesError && (
-                          <SelectItem value="" disabled>
+                          <SelectItem value="__unavailable__" disabled>
                             Error loading branches
                           </SelectItem>
                         )}
@@ -1842,7 +1878,7 @@ function CategoryReportsPageContent() {
                           </SelectItem>
                         ))}
                         {branchesError && (
-                          <SelectItem value="" disabled>
+                          <SelectItem value="__unavailable__" disabled>
                             Error loading branches
                           </SelectItem>
                         )}
@@ -2082,7 +2118,7 @@ function CategoryReportsPageContent() {
                           </SelectItem>
                         ))}
                         {branchesError && (
-                          <SelectItem value="" disabled>
+                          <SelectItem value="__unavailable__" disabled>
                             Error loading branches
                           </SelectItem>
                         )}
@@ -2261,7 +2297,7 @@ function CategoryReportsPageContent() {
                           </SelectItem>
                         ))}
                         {branchesError && (
-                          <SelectItem value="" disabled>
+                          <SelectItem value="__unavailable__" disabled>
                             Error loading branches
                           </SelectItem>
                         )}
@@ -2448,28 +2484,58 @@ function CategoryReportsPageContent() {
                   {/* Branch Dropdown */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                    {(() => {
+                      const managedBranchIds = getBranchAdminManagedBranchIds()
+                      const studentBranchOptions =
+                        managedBranchIds.length > 0
+                          ? branches.filter(
+                              (branch) =>
+                                branch.id &&
+                                branch.branch?.name &&
+                                managedBranchIds.includes(String(branch.id))
+                            )
+                          : branches.filter((branch) => branch.id && branch.branch?.name)
+                      const branchSelectValue =
+                        managedBranchIds.length > 0
+                          ? managedBranchIds.includes(String(filters.branch_id))
+                            ? String(filters.branch_id)
+                            : managedBranchIds[0]
+                          : filters.branch_id || "all"
+                      return (
                     <Select
-                      value={filters.branch_id || "all"}
+                      value={branchSelectValue}
                       onValueChange={(value) => handleFilterChange('branch_id', value)}
-                      disabled={branchesLoading}
+                      disabled={branchesLoading || (managedBranchIds.length === 1)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder={branchesLoading ? "Loading branches..." : "Select Branch"} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Branches</SelectItem>
-                        {branches.filter(branch => branch.id && branch.branch?.name).map((branch) => (
+                        {managedBranchIds.length === 0 && (
+                          <SelectItem value="all">All Branches</SelectItem>
+                        )}
+                        {studentBranchOptions.map((branch) => (
                           <SelectItem key={branch.id} value={branch.id}>
                             {branch.branch?.name || 'N/A'} ({branch.branch?.code || branch.id})
                           </SelectItem>
                         ))}
+                        {studentBranchOptions.length === 0 &&
+                          managedBranchIds.length > 0 &&
+                          branchSelectValue &&
+                          branchSelectValue !== "all" && (
+                            <SelectItem value={branchSelectValue}>
+                              {BranchManagerAuth.getCurrentUser()?.branch_name || "Your branch"}
+                            </SelectItem>
+                          )}
                         {branchesError && (
-                          <SelectItem value="" disabled>
+                          <SelectItem value="__unavailable__" disabled>
                             Error loading branches
                           </SelectItem>
                         )}
                       </SelectContent>
                     </Select>
+                      )
+                    })()}
                     {branchesError && (
                       <p className="text-sm text-red-600 mt-1">
                         {branchesError}
@@ -2496,7 +2562,7 @@ function CategoryReportsPageContent() {
                           </SelectItem>
                         ))}
                         {filteredCourses.length === 0 && filters.branch_id && filters.branch_id !== 'all' && (
-                          <SelectItem value="" disabled>
+                          <SelectItem value="__unavailable__" disabled>
                             No courses available for selected branch
                           </SelectItem>
                         )}
@@ -2743,19 +2809,14 @@ function CategoryReportsPageContent() {
                                 <div className="text-sm">
                                   {student.branches && student.branches.length > 0 ? (
                                     <div className="space-y-1">
-                                      {student.branches.slice(0, 1).map((branch: any, idx: number) => (
-                                        <div key={idx}>
+                                      {student.branches.map((branch: any, idx: number) => (
+                                        <div key={branch.id || idx}>
                                           <p className="text-gray-900 truncate">{branch.name || 'Unknown Branch'}</p>
                                           {branch.code && (
                                             <p className="text-xs text-gray-500">({branch.code})</p>
                                           )}
                                         </div>
                                       ))}
-                                      {student.branches.length > 1 && (
-                                        <p className="text-xs text-gray-500">
-                                          +{student.branches.length - 1} more
-                                        </p>
-                                      )}
                                     </div>
                                   ) : (
                                     <span className="text-gray-400 text-xs">No branch</span>

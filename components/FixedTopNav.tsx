@@ -216,7 +216,7 @@ export function FixedTopNav() {
           </SheetTrigger>
           <SheetContent
             side="right"
-            className="w-[300px] sm:w-[340px] border-[#766E6E] bg-[#171A26] px-6 py-6 overflow-y-auto"
+            className="w-[300px] sm:w-[340px] border-[#766E6E] bg-[#171A26] px-6 py-6 overflow-y-auto [&>button]:text-white [&>button]:opacity-100 [&>button]:hover:text-white [&>button]:hover:opacity-100 [&>button_svg]:text-white"
           >
             <ul className="mt-4 flex flex-col gap-5">
               <li>

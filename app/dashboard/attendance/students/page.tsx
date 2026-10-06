@@ -58,6 +58,20 @@ import { useToast } from "@/hooks/use-toast"
 
 function getAttendanceAuthHeaders(): Record<string, string> | null {
   if (typeof window === "undefined") return null
+  const path = window.location.pathname || ""
+  const onBranchAdmin =
+    path.startsWith("/branch-admin/") || path.startsWith("/branch-manager-dashboard/")
+  const bmUser = BranchManagerAuth.getCurrentUser()
+  // Branch-admin must use BM token so the API scopes to managed branches only.
+  if (onBranchAdmin || bmUser?.role === "branch_manager") {
+    const token = BranchManagerAuth.getToken() || TokenManager.getToken()
+    if (token) {
+      return {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      }
+    }
+  }
   if (SuperAdminAuth.isAuthenticated()) {
     return SuperAdminAuth.getAuthHeaders()
   }
@@ -175,6 +189,22 @@ export default function SuperAdminStudentAttendancePage() {
       pathname.startsWith("/branch-admin/dashboard") ||
       pathname.startsWith("/branch-manager-dashboard/"))
 
+  const isBranchAdminRoute =
+    !!pathname &&
+    (pathname.startsWith("/branch-admin/") ||
+      pathname.startsWith("/branch-manager-dashboard/"))
+
+  const getManagedBranchIds = (): string[] => {
+    if (!isBranchAdminRoute) return []
+    const bm = BranchManagerAuth.getCurrentUser()
+    if (!bm || bm.role !== "branch_manager") return []
+    const fromManaged = Array.isArray(bm.managed_branches)
+      ? bm.managed_branches.map((id) => String(id)).filter(Boolean)
+      : []
+    if (fromManaged.length > 0) return fromManaged
+    return bm.branch_id ? [String(bm.branch_id)] : []
+  }
+
   const canEditCheckInTime =
     typeof window !== "undefined" &&
     (SuperAdminAuth.isAuthenticated() ||
@@ -261,7 +291,18 @@ export default function SuperAdminStudentAttendancePage() {
       record.course_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.branch_name.toLowerCase().includes(searchTerm.toLowerCase())
 
-    const matchesBranch = selectedBranch === "all" || record.branch_id === selectedBranch
+    const managedIds = getManagedBranchIds()
+    const bm = BranchManagerAuth.getCurrentUser()
+    const lockedId =
+      (bm?.branch_id && managedIds.includes(String(bm.branch_id))
+        ? String(bm.branch_id)
+        : null) ||
+      (selectedBranch !== "all" ? selectedBranch : null) ||
+      managedIds[0] ||
+      ""
+    const matchesBranch = isBranchAdminRoute
+      ? !lockedId || String(record.branch_id) === lockedId
+      : selectedBranch === "all" || record.branch_id === selectedBranch
     const matchesCourse = selectedCourse === "all" || record.course_id === selectedCourse
     const matchesStatus = selectedStatus === "all" || record.status === selectedStatus
 
@@ -290,6 +331,15 @@ export default function SuperAdminStudentAttendancePage() {
 
       const headers = getAttendanceAuthHeaders()
       if (!headers) return
+
+      if (isBranchAdminRoute) {
+        try {
+          await BranchManagerAuth.fetchManagedBranches()
+        } catch {
+          /* keep stored managed_branches */
+        }
+      }
+
       const response = await fetch('/api/backend/branches', {
         method: 'GET',
         headers
@@ -297,10 +347,25 @@ export default function SuperAdminStudentAttendancePage() {
 
       if (response.ok) {
         const data = await response.json()
-        const branchList = (data.branches || []).map((branch: any) => ({
+        let branchList = (data.branches || []).map((branch: any) => ({
           id: branch.id,
           name: branch.branch?.name || branch.name || 'Unknown Branch'
         }))
+        if (isBranchAdminRoute) {
+          const managedIds = getManagedBranchIds()
+          if (managedIds.length > 0) {
+            branchList = branchList.filter((b: Branch) => managedIds.includes(String(b.id)))
+          }
+          if (branchList.length === 1) {
+            setSelectedBranch(branchList[0].id)
+          } else if (branchList.length > 1) {
+            const bm = BranchManagerAuth.getCurrentUser()
+            const preferred = bm?.branch_id && managedIds.includes(String(bm.branch_id))
+              ? String(bm.branch_id)
+              : branchList[0].id
+            setSelectedBranch(preferred)
+          }
+        }
         setBranches(branchList)
       }
     } catch (error) {
@@ -353,23 +418,65 @@ export default function SuperAdminStudentAttendancePage() {
         return
       }
       const dateStr = format(selectedDate, 'yyyy-MM-dd')
+      const managedIds = getManagedBranchIds()
+      const bmUser = BranchManagerAuth.getCurrentUser()
+      // Lock to the BM's own branch (prefer assigned branch_id over a broad managed list).
+      const lockedBranchId =
+        (isBranchAdminRoute &&
+          ((bmUser?.branch_id && managedIds.includes(String(bmUser.branch_id))
+            ? String(bmUser.branch_id)
+            : null) ||
+            (selectedBranch && selectedBranch !== "all" && managedIds.includes(selectedBranch)
+              ? selectedBranch
+              : null) ||
+            managedIds[0] ||
+            (bmUser?.branch_id ? String(bmUser.branch_id) : ""))) ||
+        ""
+      const lockedBranchName =
+        (lockedBranchId && branches.find((b) => b.id === lockedBranchId)?.name) ||
+        bmUser?.branch_name ||
+        ""
+      const qs = new URLSearchParams({ date: dateStr })
+      if (isBranchAdminRoute && lockedBranchId) {
+        qs.set("branch_id", lockedBranchId)
+      }
 
-      console.log(`🔄 Superadmin fetching attendance data for date: ${dateStr}`)
+      console.log(`🔄 Fetching attendance data for date: ${dateStr}`)
 
       // Use the unified attendance endpoint
-      const response = await fetch(`/api/backend/attendance/students?date=${dateStr}`, {
+      const response = await fetch(`/api/backend/attendance/students?${qs.toString()}`, {
         method: 'GET',
         headers
       })
 
       if (response.ok) {
         const data = await response.json()
-        console.log("✅ Superadmin attendance data received:", data)
+        console.log("✅ Attendance data received:", data)
 
-        const records: AttendanceRecord[] = (data.students || []).map((student: any) => {
+        let students = data.students || []
+        // Branch-admin: only students linked to the locked branch; never show other-branch-only rows.
+        if (isBranchAdminRoute && lockedBranchId) {
+          students = students.filter((student: any) => {
+            const bid = String(student.branch_id || "")
+            const fromBranches = Array.isArray(student.branches)
+              ? student.branches.map((b: any) => String(b?.id || "")).filter(Boolean)
+              : []
+            const ids = Array.from(new Set([bid, ...fromBranches].filter(Boolean)))
+            return ids.includes(lockedBranchId)
+          })
+        }
+
+        const records: AttendanceRecord[] = students.map((student: any) => {
           // Handle multiple courses per student
           const courses = student.courses || []
           const primaryCourse = courses[0] || {}
+          // Branch-admin table always shows the manager's branch name (avoids Madhapur/etc. confusion).
+          const displayBranchId =
+            isBranchAdminRoute && lockedBranchId ? lockedBranchId : student.branch_id || ""
+          const displayBranchName =
+            isBranchAdminRoute && lockedBranchName
+              ? lockedBranchName
+              : branches.find((b) => b.id === student.branch_id)?.name || "Unknown Branch"
 
           return {
             id: `${student.id}_${primaryCourse.id || 'no-course'}_${dateStr}`,
@@ -377,8 +484,8 @@ export default function SuperAdminStudentAttendancePage() {
             student_name: student.full_name || 'Unknown Student',
             course_id: primaryCourse.id || primaryCourse.course_id || '',
             course_name: primaryCourse.name || primaryCourse.course_name || 'No Course',
-            branch_id: student.branch_id || '',
-            branch_name: branches.find(b => b.id === student.branch_id)?.name || 'Unknown Branch',
+            branch_id: displayBranchId,
+            branch_name: displayBranchName,
             email: student.email || '',
             phone: student.phone || '',
             status: student.attendance?.status || "not_marked",
@@ -505,14 +612,14 @@ export default function SuperAdminStudentAttendancePage() {
         return
       }
 
-      // M09-S05: changing an already-marked row requires a reason via corrections API
-      const hasExistingAttendance =
-        Boolean(record.attendance_id) ||
-        Boolean(record.check_in_iso) ||
-        (isAttendanceStatusFinal(record.status) && record.status !== "not_marked" && Boolean(record.notes))
-      if (isAttendanceStatusFinal(record.status) && hasExistingAttendance) {
+      // Already marked for the day → confirm (reason dialog) before changing status.
+      // First-time mark (not_marked) skips this and posts to /mark as before.
+      if (isAttendanceStatusFinal(record.status)) {
         setMarkActionPending((prev) => ({ ...prev, [recordId]: null }))
         setSaveStatus((prev) => ({ ...prev, [recordId]: "idle" }))
+        if (record.status === status) {
+          return
+        }
         setCorrectionDraft({ kind: "status", recordId, status })
         setCorrectionReason("")
         return
@@ -975,7 +1082,11 @@ export default function SuperAdminStudentAttendancePage() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Student Attendance Management</h1>
-          <p className="text-gray-600">Manage attendance across all branches and courses</p>
+          <p className="text-gray-600">
+            {isBranchAdminRoute
+              ? "Manage attendance for your branch students"
+              : "Manage attendance across all branches and courses"}
+          </p>
         </div>
 
         {/* Alerts */}
@@ -1081,22 +1192,32 @@ export default function SuperAdminStudentAttendancePage() {
                 </Popover>
               </div>
 
-              {/* Branch Filter */}
+              {/* Branch Filter — branch-admin is locked to their managed branch(es) */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">Branch</label>
-                <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Branches" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Branches</SelectItem>
-                    {branches.map((branch) => (
-                      <SelectItem key={branch.id} value={branch.id}>
-                        {branch.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {isBranchAdminRoute ? (
+                  <div className="flex h-10 items-center rounded-md border border-input bg-muted/40 px-3 text-sm text-gray-800">
+                    {branches.length === 1
+                      ? branches[0].name
+                      : branches.find((b) => b.id === selectedBranch)?.name ||
+                        BranchManagerAuth.getCurrentUser()?.branch_name ||
+                        "Your branch"}
+                  </div>
+                ) : (
+                  <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Branches" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Branches</SelectItem>
+                      {branches.map((branch) => (
+                        <SelectItem key={branch.id} value={branch.id}>
+                          {branch.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               {/* Course Filter */}
@@ -1648,13 +1769,21 @@ export default function SuperAdminStudentAttendancePage() {
           <DialogHeader>
             <DialogTitle>Confirm attendance correction</DialogTitle>
             <DialogDescription>
-              A reason is required so this change is audited. First-time marking does not need this step.
+              This student is already marked for the day. Confirm and enter a reason to change it.
+              First-time marking does not need this step.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <p className="text-sm text-slate-600">
               {correctionDraft?.kind === "status"
-                ? `Change status to “${correctionDraft.status}”.`
+                ? (() => {
+                    const current = attendanceRecords.find(
+                      (r) => r.id === correctionDraft.recordId
+                    )
+                    return `Change ${current?.student_name || "student"} from “${
+                      current?.status || "marked"
+                    }” to “${correctionDraft.status}”.`
+                  })()
                 : correctionDraft?.kind === "check_in"
                   ? "Update check-in time."
                   : correctionDraft?.kind === "check_out"

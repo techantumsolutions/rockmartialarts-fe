@@ -196,7 +196,7 @@ class PaymentAPI extends BaseAPI {
     return await this.makeRequest(`/api/payments/${paymentId}/recover`, {
       method: 'POST',
       token: authToken,
-      body: JSON.stringify(payload),
+      body: payload,
     })
   }
 
