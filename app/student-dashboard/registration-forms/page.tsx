@@ -135,9 +135,18 @@ export default function StudentRegistrationFormsPage() {
 
   if (loading) {
     return (
-      <StudentDashboardLayout studentName={studentName} onLogout={handleLogout} isLoading>
-        <div className="flex items-center justify-center min-h-[40vh]">
-          <Loader2 className="w-10 h-10 animate-spin text-[#E1BB33]" />
+      <StudentDashboardLayout
+        studentName={studentName}
+        onLogout={handleLogout}
+        pageTitle="Registration Forms"
+      >
+        <div className="space-y-6 max-w-3xl">
+          <div className="space-y-2 animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-1/3"></div>
+            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+          </div>
+          <div className="h-28 bg-gray-200 rounded animate-pulse"></div>
+          <div className="h-28 bg-gray-200 rounded animate-pulse"></div>
         </div>
       </StudentDashboardLayout>
     )

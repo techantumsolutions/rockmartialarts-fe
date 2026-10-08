@@ -599,8 +599,8 @@ export default function LeadsPage() {
       </div>
 
       <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
-        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-          <SheetHeader>
+        <SheetContent className="w-full sm:max-w-lg overflow-y-auto p-6 gap-4">
+          <SheetHeader className="p-0 pr-8 text-left space-y-1.5">
             <SheetTitle>{activeLead?.name || "Lead"}</SheetTitle>
             <SheetDescription>
               {activeLead?.phone}
@@ -609,9 +609,9 @@ export default function LeadsPage() {
           </SheetHeader>
 
           {detailLoading ? (
-            <p className="text-sm text-gray-500 mt-6">Loading…</p>
+            <p className="text-sm text-gray-500 mt-2">Loading…</p>
           ) : activeLead ? (
-            <div className="mt-6 space-y-6">
+            <div className="mt-2 space-y-6">
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <p className="text-xs text-gray-500">Status</p>

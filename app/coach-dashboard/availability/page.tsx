@@ -25,7 +25,7 @@ export default function CoachAvailabilityPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <CoachDashboardHeader currentPage="Availability" coachName={coachName} />
-        <main className="pt-20 px-4 lg:px-8 py-6 text-center text-gray-500">Loading…</main>
+        <main className="px-4 lg:px-8 py-6 text-center text-gray-500">Loading…</main>
       </div>
     )
   }
@@ -33,7 +33,7 @@ export default function CoachAvailabilityPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <CoachDashboardHeader currentPage="Availability" coachName={coachName} />
-      <main className="pt-20 px-4 lg:px-8 py-6 max-w-5xl mx-auto">
+      <main className="px-4 lg:px-8 py-6 max-w-5xl mx-auto">
         <CoachAvailabilityEditor
           title="My availability"
           subtitle="Set your weekly hours and the branches where you can serve."

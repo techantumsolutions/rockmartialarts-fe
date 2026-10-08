@@ -1,6 +1,7 @@
 import { getBackendApiUrl } from "./config"
 import { TokenManager } from "./tokenManager"
 import { BranchManagerAuth } from "./branchManagerAuth"
+import { formatApiErrorPayload } from "./formatApiError"
 
 export type KpiWeightUnit = "percent" | "points"
 
@@ -81,9 +82,7 @@ class KpiDefinitionAPI {
     })
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
-      throw new Error(
-        typeof err.detail === "string" ? err.detail : `Create failed (${res.status})`
-      )
+      throw new Error(formatApiErrorPayload(err) || `Create failed (${res.status})`)
     }
     return res.json()
   }
@@ -96,9 +95,7 @@ class KpiDefinitionAPI {
     })
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
-      throw new Error(
-        typeof err.detail === "string" ? err.detail : `Update failed (${res.status})`
-      )
+      throw new Error(formatApiErrorPayload(err) || `Update failed (${res.status})`)
     }
     return res.json()
   }

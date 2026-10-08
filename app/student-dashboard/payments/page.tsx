@@ -496,63 +496,141 @@ export default function StudentPaymentsPage() {
     setError(null)
     try {
       const userData = user
+      const batchRef = (selectedBatchRef || enrollment.batch_ref || "").trim()
+      const payStatus = String(enrollment.payment_status || "").toLowerCase()
+      // Existing pending enrollments must be paid in place. prepare-student-checkout
+      // deletes pending rows and can recreate them with ₹0 when pricing lookup fails.
+      const payExistingPending =
+        !isRenewal &&
+        !!enrollment.id &&
+        (payStatus === "pending" || payStatus === "processing")
 
-      const prepUrl = isRenewal
-        ? getBackendApiUrl("payments/prepare-student-renewal-checkout")
-        : getBackendApiUrl("payments/prepare-student-checkout")
-      const prepBody = isRenewal
-        ? {
-            enrollment_id: enrollment.id,
-            duration: tenure.id,
+      let prepJson: Record<string, unknown> = {
+        enrollment_id: enrollment.id,
+        course_name: enrollment.course_name,
+        branch_name: enrollment.branch_name,
+        amount:
+          Number(enrollment.fee_amount || 0) + Number(enrollment.admission_fee || 0),
+      }
+      let pendingEnrollmentId = enrollment.id
+
+      if (!payExistingPending) {
+        const prepUrl = isRenewal
+          ? getBackendApiUrl("payments/prepare-student-renewal-checkout")
+          : getBackendApiUrl("payments/prepare-student-checkout")
+        const prepBody = isRenewal
+          ? {
+              enrollment_id: enrollment.id,
+              duration: tenure.id,
+              ...(batchRef ? { batch_ref: batchRef } : {}),
+            }
+          : {
+              course_id: enrollment.course_id,
+              branch_id: enrollment.branch_id,
+              duration: tenure.id,
+              ...(batchRef ? { batch_ref: batchRef } : {}),
+            }
+
+        const prepRes = await fetch(prepUrl, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(prepBody),
+        })
+        prepJson = await prepRes.json().catch(() => ({}))
+        if (!prepRes.ok) {
+          const msg =
+            typeof prepJson?.detail === "string"
+              ? prepJson.detail
+              : (prepJson as { detail?: Array<{ msg?: string }>; message?: string })?.detail?.[0]?.msg ||
+                (prepJson as { message?: string })?.message ||
+                "Could not start checkout"
+          if (prepRes.status === 401 || isSessionExpiredError(msg)) {
+            TokenManager.clearAuthData()
+            throw new Error(SESSION_EXPIRED_PAYMENT_MESSAGE)
           }
-        : {
+          throw new Error(String(msg))
+        }
+
+        pendingEnrollmentId = String(prepJson.enrollment_id || "")
+        if (!pendingEnrollmentId) {
+          throw new Error("Invalid checkout response from server")
+        }
+      }
+
+      const createOrder = async (enrollmentId: string) => {
+        const orderRes = await fetch("/api/payments/create-order", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ enrollment_id: enrollmentId }),
+        })
+        const orderJson = await orderRes.json().catch(() => ({}))
+        return { orderRes, orderJson }
+      }
+
+      let { orderRes, orderJson } = await createOrder(pendingEnrollmentId)
+
+      // Stale pending rows can be missing/deleted (or have ₹0). Rebuild checkout once.
+      const orderErr = String(orderJson?.error || orderJson?.detail || "")
+      const shouldRebuildPending =
+        !orderRes.ok &&
+        payExistingPending &&
+        (/invalid checkout amount/i.test(orderErr) ||
+          orderRes.status === 404 ||
+          /enrollment not found/i.test(orderErr) ||
+          /does not belong/i.test(orderErr))
+
+      if (shouldRebuildPending) {
+        const durationForPrep = String(tenure.id || enrollment.duration_id || "").trim()
+        if (!durationForPrep) {
+          throw new Error("Please select a tenure, then try Pay Now again.")
+        }
+        const prepRes = await fetch(getBackendApiUrl("payments/prepare-student-checkout"), {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
             course_id: enrollment.course_id,
             branch_id: enrollment.branch_id,
-            duration: tenure.id,
-          }
-
-      const prepRes = await fetch(prepUrl, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          course_id: enrollment.course_id,
-          branch_id: enrollment.branch_id,
-          duration: tenure.id,
-          ...((selectedBatchRef || enrollment.batch_ref)?.trim()
-            ? { batch_ref: (selectedBatchRef || enrollment.batch_ref || "").trim() }
-            : {}),
-        }),
-      })
-      const prepJson = await prepRes.json().catch(() => ({}))
-      if (!prepRes.ok) {
-        const msg =
-          typeof prepJson?.detail === "string"
-            ? prepJson.detail
-            : prepJson?.detail?.[0]?.msg || prepJson?.message || "Could not start checkout"
-        if (prepRes.status === 401 || isSessionExpiredError(msg)) {
-          TokenManager.clearAuthData()
-          throw new Error(SESSION_EXPIRED_PAYMENT_MESSAGE)
+            duration: durationForPrep,
+            ...(batchRef ? { batch_ref: batchRef } : {}),
+          }),
+        })
+        prepJson = await prepRes.json().catch(() => ({}))
+        if (!prepRes.ok) {
+          const msg =
+            typeof prepJson?.detail === "string"
+              ? prepJson.detail
+              : (prepJson as { detail?: Array<{ msg?: string }> })?.detail?.[0]?.msg ||
+                (prepJson as { message?: string })?.message ||
+                "Could not start checkout"
+          void loadPaymentData(token)
+          throw new Error(String(msg))
         }
-        throw new Error(msg)
+        pendingEnrollmentId = String(prepJson.enrollment_id || "")
+        if (!pendingEnrollmentId) {
+          void loadPaymentData(token)
+          throw new Error("Invalid checkout response from server")
+        }
+        const rebuiltAmount = Number(prepJson.amount)
+        if (Number.isFinite(rebuiltAmount) && rebuiltAmount <= 0) {
+          void loadPaymentData(token)
+          throw new Error(
+            "No payable amount for this course/tenure. Please select another tenure or contact the admin."
+          )
+        }
+        ;({ orderRes, orderJson } = await createOrder(pendingEnrollmentId))
+        // Refresh list so UI drops the stale pending enrollment id.
+        void loadPaymentData(token)
       }
 
-      const pendingEnrollmentId = prepJson.enrollment_id as string
-      if (!pendingEnrollmentId) {
-        throw new Error("Invalid checkout response from server")
-      }
-
-      const orderRes = await fetch("/api/payments/create-order", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ enrollment_id: pendingEnrollmentId }),
-      })
-      const orderJson = await orderRes.json().catch(() => ({}))
       if (!orderRes.ok) {
         const msg =
           typeof orderJson?.error === "string"
@@ -563,6 +641,12 @@ export default function StudentPaymentsPage() {
         if (orderRes.status === 401 || isSessionExpiredError(msg)) {
           TokenManager.clearAuthData()
           throw new Error(SESSION_EXPIRED_PAYMENT_MESSAGE)
+        }
+        if (
+          /invalid checkout amount/i.test(String(msg)) ||
+          /enrollment not found/i.test(String(msg))
+        ) {
+          void loadPaymentData(token)
         }
         throw new Error(msg)
       }
@@ -735,17 +819,18 @@ export default function StudentPaymentsPage() {
       <StudentDashboardLayout
         studentName={studentData?.name}
         onLogout={handleLogout}
-        isLoading={true}
+        pageTitle="Payment History"
+        pageDescription="Manage your subscriptions and view transaction history"
       >
         <div className="space-y-6">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2 mb-8"></div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-32 bg-gray-200 rounded"></div>
-              ))}
-            </div>
+          <div className="space-y-2 animate-pulse mb-8">
+            <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-32 bg-gray-200 rounded animate-pulse"></div>
+            ))}
           </div>
         </div>
       </StudentDashboardLayout>
@@ -756,7 +841,6 @@ export default function StudentPaymentsPage() {
     <StudentDashboardLayout
       studentName={studentData?.name}
       onLogout={handleLogout}
-      isLoading={loading}
     >
       <div className="space-y-6">
         {/* Header */}
@@ -770,14 +854,14 @@ export default function StudentPaymentsPage() {
               Manage your subscriptions and view transaction history
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" asChild>
+          <div className="flex gap-2 overflow-x-auto max-w-full w-full sm:w-auto pb-1">
+            <Button variant="outline" size="sm" className="shrink-0" asChild>
               <Link href="/student-dashboard/invoices">
                 <FileText className="h-4 w-4 mr-2" />
                 Invoices
               </Link>
             </Button>
-            <Button variant="outline" size="sm" asChild>
+            <Button variant="outline" size="sm" className="shrink-0" asChild>
               <Link href="/student-dashboard/billing">
                 <Calendar className="h-4 w-4 mr-2" />
                 Billing
@@ -786,6 +870,7 @@ export default function StudentPaymentsPage() {
             <Button
               variant="outline"
               size="sm"
+              className="shrink-0"
               onClick={handleRefresh}
               disabled={refreshing}
             >
@@ -795,6 +880,7 @@ export default function StudentPaymentsPage() {
             <Button
               variant="outline"
               size="sm"
+              className="shrink-0"
               onClick={handleExport}
               disabled={paymentHistory.length === 0}
             >
@@ -1082,7 +1168,12 @@ export default function StudentPaymentsPage() {
                             <Button 
                               className="bg-yellow-600 hover:bg-yellow-700 w-full sm:w-auto"
                               onClick={() => {
-                                if (enrollment.duration_id) {
+                                const pendingTotal =
+                                  Number(enrollment.fee_amount || 0) +
+                                  Number(enrollment.admission_fee || 0)
+                                // Zero-fee pending rows need a tenure re-quote; direct Pay Now
+                                // hits create-order → Invalid checkout amount / stale 404.
+                                if (enrollment.duration_id && pendingTotal > 0) {
                                   void handlePayment(enrollment, false, {
                                     months: enrollment.duration_months ?? 1,
                                     id: enrollment.duration_id,
@@ -1316,52 +1407,52 @@ export default function StudentPaymentsPage() {
         </Dialog>
 
         {/* Transaction History */}
-        <Card>
+        <Card className="min-w-0 overflow-hidden">
           <CardHeader>
             <CardTitle>Transaction History</CardTitle>
             <CardDescription>
               Your complete payment transaction history
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="min-w-0">
             {paymentHistory.length === 0 ? (
               <div className="text-center py-12">
                 <CreditCard className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500">No payment history found</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
+              <div className="max-h-[60vh] overflow-x-auto overflow-y-auto sm:max-h-none">
+                <table className="w-full min-w-[52rem] border-collapse">
                   <thead>
                     <tr className="border-b text-left text-sm text-muted-foreground">
-                      <th className="pb-3 font-medium">Transaction ID</th>
-                      <th className="pb-3 font-medium">Date</th>
-                      <th className="pb-3 font-medium">Type</th>
-                      <th className="pb-3 font-medium">Course</th>
-                      <th className="pb-3 font-medium text-right">Amount</th>
-                      <th className="pb-3 font-medium">Method</th>
-                      <th className="pb-3 font-medium">Status</th>
+                      <th className="pb-3 pr-4 font-medium whitespace-nowrap">Transaction ID</th>
+                      <th className="pb-3 pr-4 font-medium whitespace-nowrap">Date</th>
+                      <th className="pb-3 pr-4 font-medium whitespace-nowrap">Type</th>
+                      <th className="pb-3 pr-4 font-medium whitespace-nowrap">Course</th>
+                      <th className="pb-3 pr-8 font-medium text-right whitespace-nowrap">Amount</th>
+                      <th className="pb-3 pr-4 pl-2 font-medium whitespace-nowrap">Method</th>
+                      <th className="pb-3 font-medium whitespace-nowrap">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {paymentHistory.map((payment) => (
                       <tr key={payment.id} className="border-b last:border-b-0 hover:bg-gray-50">
-                        <td className="py-4 text-sm font-mono">
+                        <td className="py-4 pr-4 text-sm font-mono whitespace-nowrap">
                           {payment.transaction_id || payment.id.substring(0, 16).toUpperCase()}
                         </td>
-                        <td className="py-4 text-sm">
+                        <td className="py-4 pr-4 text-sm whitespace-nowrap">
                           {formatDate(payment.payment_date || payment.created_at)}
                         </td>
-                        <td className="py-4 text-sm">
+                        <td className="py-4 pr-4 text-sm whitespace-nowrap">
                           {studentPaymentAPI.formatPaymentType(payment.payment_type)}
                         </td>
-                        <td className="py-4 text-sm">
+                        <td className="py-4 pr-4 text-sm whitespace-nowrap">
                           {getCourseName(payment)}
                         </td>
-                        <td className="py-4 text-sm text-right font-semibold">
+                        <td className="py-4 pr-8 text-sm text-right font-semibold whitespace-nowrap">
                           {formatCurrency(payment.amount)}
                         </td>
-                        <td className="py-4 text-sm">
+                        <td className="py-4 pr-4 pl-2 text-sm whitespace-nowrap">
                           <div className="flex items-center gap-2 min-w-[8rem]">
                             {getPaymentMethodIcon(payment.payment_method)}
                             <span className="text-left leading-snug">
@@ -1369,7 +1460,7 @@ export default function StudentPaymentsPage() {
                             </span>
                           </div>
                         </td>
-                        <td className="py-4">
+                        <td className="py-4 whitespace-nowrap">
                           {getStatusBadge(payment.payment_status)}
                         </td>
                       </tr>

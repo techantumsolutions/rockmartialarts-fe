@@ -54,12 +54,31 @@ async function proxy(request: NextRequest, pathSegments: string[]) {
 
     const contentType = res.headers.get("content-type") || "";
     const isHtml = contentType.includes("text/html");
+    // Invoice print (and similar) endpoints intentionally return HTML documents.
+    const isDocumentEndpoint =
+      path === "document" ||
+      path.endsWith("/document") ||
+      /\/document$/i.test(path);
 
     // Upstream sometimes returns Next.js/HTML 404 when BACKEND_URL is the website, not FastAPI.
+    // Do not treat intentional HTML document responses as proxy failures.
     if (isHtml) {
       const snippet = await res.text();
+      if (isDocumentEndpoint && res.ok) {
+        return new NextResponse(snippet, {
+          status: res.status,
+          statusText: res.statusText,
+          headers: {
+            "Content-Type": contentType || "text/html; charset=utf-8",
+            "Cache-Control": "no-store, max-age=0",
+            Pragma: "no-cache",
+          },
+        });
+      }
       const looksLikeNext =
-        snippet.includes("<!DOCTYPE") || snippet.includes("__NEXT_DATA__");
+        snippet.includes("__NEXT_DATA__") ||
+        snippet.includes("/_next/") ||
+        (snippet.includes("<!DOCTYPE") && !isDocumentEndpoint);
       console.error(
         "[backend proxy] Non-JSON response",
         res.status,

@@ -32,7 +32,9 @@ interface AttendanceRecord {
   course_name: string
   course_id: string
   date: string
-  status: "present" | "absent" | "late"
+  status: "present" | "absent" | "late" | "not_marked"
+  /** True when API already had present/late/absent for this day (not a UI default). */
+  already_marked?: boolean
   check_in_time?: string
   check_out_time?: string
   notes?: string
@@ -252,6 +254,9 @@ export default function CoachAttendancePage() {
         console.log(`   Raw attendance:`, attendance)
         console.log(`   Status: '${attendance.status}' (type: ${typeof attendance.status})`)
 
+        const rawStatus = String(attendance.status || "").toLowerCase()
+        const alreadyMarked =
+          rawStatus === "present" || rawStatus === "late" || rawStatus === "absent"
         const processedRecord = {
           id: `${student.id}_${selectedDateStr}`,
           student_name: student.full_name || 'Unknown Student',
@@ -259,7 +264,12 @@ export default function CoachAttendancePage() {
           course_name: primaryCourse?.name || primaryCourse?.course_name || 'No Course Assigned',
           course_id: primaryCourse?.id || primaryCourse?.course_id || '',
           date: selectedDateStr,
-          status: attendance.status || "absent", // Use actual attendance status or default to absent
+          status: (alreadyMarked ? rawStatus : "not_marked") as
+            | "present"
+            | "absent"
+            | "late"
+            | "not_marked",
+          already_marked: alreadyMarked,
           check_in_time: attendance.check_in_time ?
             new Date(attendance.check_in_time).toLocaleTimeString('en-US', {
               hour: '2-digit',
@@ -368,7 +378,10 @@ export default function CoachAttendancePage() {
     }
   }
 
-  const handleMarkAttendance = async (recordId: string, status: "present" | "absent" | "late") => {
+  const handleMarkAttendance = async (
+    recordId: string,
+    status: "present" | "absent" | "late"
+  ) => {
     try {
       // Set saving status for this record
       setSaveStatus(prev => ({ ...prev, [recordId]: 'saving' }))
@@ -390,6 +403,21 @@ export default function CoachAttendancePage() {
         return
       }
 
+      // Already marked for the day → ask before changing (first-time mark skips this).
+      if (record.already_marked && record.status !== status) {
+        const ok = window.confirm(
+          `${record.student_name} is already marked as ${record.status.toUpperCase()} for this day.\n\nChange to ${status.toUpperCase()}?`
+        )
+        if (!ok) {
+          setSaveStatus((prev) => {
+            const next = { ...prev }
+            delete next[recordId]
+            return next
+          })
+          return
+        }
+      }
+
       // Update local state immediately for better UX
       setAttendanceRecords(prev =>
         prev.map(r =>
@@ -397,6 +425,7 @@ export default function CoachAttendancePage() {
             ? {
                 ...r,
                 status,
+                already_marked: true,
                 check_in_time: status !== "absent" ? new Date().toLocaleTimeString('en-US', {
                   hour: '2-digit',
                   minute: '2-digit',
@@ -414,6 +443,7 @@ export default function CoachAttendancePage() {
             ? {
                 ...r,
                 status,
+                already_marked: true,
                 check_in_time: status !== "absent" ? new Date().toLocaleTimeString('en-US', {
                   hour: '2-digit',
                   minute: '2-digit',
@@ -483,8 +513,9 @@ export default function CoachAttendancePage() {
 
       console.log("💾 Starting to save attendance records to backend...")
 
-      // Save all attendance records to backend
+      // Save only students the coach actually marked (skip not_marked defaults)
       for (const record of filteredRecords) {
+        if (record.status === "not_marked") continue
         try {
           const attendanceData = {
             user_id: record.student_id,
@@ -623,8 +654,10 @@ export default function CoachAttendancePage() {
         return <Badge className="bg-red-100 text-red-800">Absent</Badge>
       case "late":
         return <Badge className="bg-yellow-100 text-yellow-800">Late</Badge>
+      case "not_marked":
+        return <Badge className="bg-gray-100 text-gray-700">Not Marked</Badge>
       default:
-        return <Badge variant="outline">Unknown</Badge>
+        return <Badge variant="outline">Not Marked</Badge>
     }
   }
 

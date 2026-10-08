@@ -88,6 +88,8 @@ interface Student {
     location_id?: string
     branch_id?: string
     branch_name?: string
+    /** All distinct active-enrollment branch names (multi-branch students). */
+    branch_names?: string[]
   } | null
   has_credentials?: boolean
   start_date?: string | null
@@ -383,9 +385,28 @@ const itemsPerPage = 15
     setCurrentPage(1)
   }
 
-  /** Branch shown in the table column — must match filter (not historical/other enrollments). */
+  /** Primary branch id used by super-admin branch filter (unchanged). */
   const getStudentDisplayBranchId = (student: Student): string | null =>
     student.branch_info?.branch_id ?? student.branch_id ?? null
+
+  /** Branch column label — show every active-enrollment branch for multi-branch students. */
+  const getStudentBranchColumnLabel = (student: Student): string => {
+    const fromApi = (student.branch_info?.branch_names || [])
+      .map((n) => (typeof n === "string" ? n.trim() : ""))
+      .filter(Boolean)
+    if (fromApi.length > 0) {
+      return Array.from(new Set(fromApi)).join(", ")
+    }
+    const fromCourses = Array.from(
+      new Set(
+        (student.courses || [])
+          .map((c) => (typeof c.branch_name === "string" ? c.branch_name.trim() : ""))
+          .filter(Boolean)
+      )
+    )
+    if (fromCourses.length > 0) return fromCourses.join(", ")
+    return student.branch_info?.branch_name || "Not assigned"
+  }
 
   const studentMatchesBranchListFilter = (student: Student) => {
     if (adminType !== "super-admin" || listBranchFilter === "all") return true
@@ -737,9 +758,11 @@ const itemsPerPage = 15
       student.phone?.toLowerCase().includes(searchLower) ||
       student.gender?.toLowerCase().includes(searchLower) ||
       student.branch_info?.branch_name?.toLowerCase().includes(searchLower) ||
+      student.branch_info?.branch_names?.some((n) => n?.toLowerCase().includes(searchLower)) ||
       student.courses?.some(course =>
         course.course_name?.toLowerCase().includes(searchLower) ||
-        course.course_id?.toLowerCase().includes(searchLower)
+        course.course_id?.toLowerCase().includes(searchLower) ||
+        course.branch_name?.toLowerCase().includes(searchLower)
       ) ||
       student.course_info?.course_id?.toLowerCase().includes(searchLower)
     )
@@ -1052,7 +1075,7 @@ const paginatedStudents = filteredStudents.slice(
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 px-6 align-top">{student.branch_info?.branch_name || 'Not assigned'}</td>
+                      <td className="py-4 px-6 align-top">{getStudentBranchColumnLabel(student)}</td>
                       <td className="py-4 px-6 align-top">
                         <div className="flex items-center space-x-2">
                           {adminType === "super-admin" && (

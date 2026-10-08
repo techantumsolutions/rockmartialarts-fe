@@ -330,22 +330,34 @@ function CourseDetailPageInner() {
       .finally(() => setLoading(false))
   }, [slug])
 
-  /* After course loads: pick branch from ?branchId, localStorage, or first assignment */
+  /* After course loads: pick branch from ?branchId (legacy), localStorage, or first assignment.
+     Keep branch selection in state/localStorage only — never expose branch UUID in the public URL. */
   useEffect(() => {
     if (loading || !course) return
     const branches = (course.branch_assignments || []) as { branch_id: string }[]
     const canonical = (course.slug || slug).toString().trim()
-    const shouldCanonicalize = decodeURIComponent(slug).toLowerCase() !== canonical.toLowerCase()
+    const pathSlug = canonical || slug
+    const slugNeedsCanonicalize =
+      decodeURIComponent(slug).toLowerCase() !== pathSlug.toLowerCase()
+    const hadBranchQuery = !!searchParams.get("branchId")
+
+    const replaceCleanCourseUrl = () => {
+      if (!pathSlug) return
+      if (slugNeedsCanonicalize || hadBranchQuery) {
+        router.replace(`/courses/${encodeURIComponent(pathSlug)}`, { scroll: false })
+      }
+    }
 
     if (branches.length === 0) {
-      if (shouldCanonicalize && canonical) {
-        const qs = searchParams.toString()
-        router.replace(`/courses/${encodeURIComponent(canonical)}${qs ? `?${qs}` : ""}`, { scroll: false })
-      }
+      replaceCleanCourseUrl()
       branchInitDoneRef.current = true
       return
     }
-    if (branchInitDoneRef.current) return
+    if (branchInitDoneRef.current) {
+      // Still strip legacy ?branchId= if present on later renders
+      if (hadBranchQuery) replaceCleanCourseUrl()
+      return
+    }
 
     const q = searchParams.get("branchId")
     let pick: string | null = null
@@ -360,12 +372,13 @@ function CourseDetailPageInner() {
     }
     if (!pick) pick = branches[0].branch_id
     setSelectedLocationId(pick)
-
-    const currentQ = searchParams.get("branchId")
-    const pathSlug = canonical || slug
-    if (pick && (pick !== currentQ || decodeURIComponent(slug).toLowerCase() !== pathSlug.toLowerCase())) {
-      router.replace(`/courses/${encodeURIComponent(pathSlug)}?branchId=${encodeURIComponent(pick)}`, { scroll: false })
+    try {
+      if (pick) localStorage.setItem(LAST_BRANCH_STORAGE_KEY, pick)
+    } catch {
+      /* ignore */
     }
+
+    replaceCleanCourseUrl()
     branchInitDoneRef.current = true
   }, [loading, course, slug, searchParams, router])
 
@@ -378,9 +391,13 @@ function CourseDetailPageInner() {
       } catch {
         /* ignore */
       }
-      router.replace(`/courses/${encodeURIComponent(course?.slug || slug)}?branchId=${encodeURIComponent(branchId)}`, { scroll: false })
+      // Public URL stays course-slug only (no branch UUID query param).
+      const pathSlug = course?.slug || slug
+      if (pathSlug && searchParams.get("branchId")) {
+        router.replace(`/courses/${encodeURIComponent(pathSlug)}`, { scroll: false })
+      }
     },
-    [router, slug, course?.slug]
+    [router, slug, course?.slug, searchParams]
   )
 
   const branchesForFetch = (course?.branch_assignments || []) as { branch_id: string }[]

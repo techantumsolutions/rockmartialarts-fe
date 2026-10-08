@@ -1533,7 +1533,7 @@ export default function EditBranch() {
             <CardContent className="pt-6">
               <div className="text-center space-y-4">
                 <div className="text-green-500 text-6xl">✓</div>
-                <h3 className="text-xl font-bold">Branch Created Successfully!</h3>
+                <h3 className="text-xl font-bold">Branch Updated Successfully!</h3>
                 <p className="text-gray-500">Redirecting to branches list...</p>
               </div>
             </CardContent>

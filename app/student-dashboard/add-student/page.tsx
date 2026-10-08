@@ -254,6 +254,9 @@ export default function AddLinkedStudentPage() {
     }
   }
 
+  const now = new Date()
+  const maxDob = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
+
   return (
     <StudentDashboardLayout
       studentName={studentName}
@@ -277,7 +280,23 @@ export default function AddLinkedStudentPage() {
               <SelectItem value="other">Other</SelectItem>
             </SelectContent>
           </Select>
-          <Input type="date" value={dob} onChange={(e) => setDob(e.target.value)} className="h-12" />
+          <Input
+            type="date"
+            value={dob}
+            min="1900-01-01"
+            max={maxDob}
+            onChange={(e) => {
+              const v = e.target.value
+              // Native date inputs can accept 5–6 digit years while typing; keep DOB at 4 digits.
+              const match = v.match(/^(\d+)-(\d{2})-(\d{2})$/)
+              if (match && match[1].length > 4) {
+                setDob(`${match[1].slice(0, 4)}-${match[2]}-${match[3]}`)
+                return
+              }
+              setDob(v)
+            }}
+            className="h-12"
+          />
         </div>
         <Select value={relationship} onValueChange={setRelationship}>
           <SelectTrigger className="h-12">

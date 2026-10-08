@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -28,6 +28,23 @@ function formatDate(value?: string | null) {
   return d.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
 }
 
+function matchesInvoiceSearch(inv: InvoiceListItem, raw: string) {
+  const term = raw.trim().toLowerCase()
+  if (!term) return true
+  const haystack = [
+    inv.invoice_number,
+    inv.customer_name,
+    inv.payment_reference,
+    inv.payment_id,
+    inv.cart_checkout_id,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase()
+  // Match if every word in the query appears somewhere in the invoice fields.
+  return term.split(/\s+/).every((word) => haystack.includes(word))
+}
+
 export default function AdminInvoicesPage() {
   const params = useParams()
   const router = useRouter()
@@ -37,20 +54,36 @@ export default function AdminInvoicesPage() {
 
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
-  const [items, setItems] = useState<InvoiceListItem[]>([])
-  const [total, setTotal] = useState(0)
+  const [allItems, setAllItems] = useState<InvoiceListItem[]>([])
+  const [serverTotal, setServerTotal] = useState(0)
   const [printingId, setPrintingId] = useState<string | null>(null)
 
+  const filteredItems = useMemo(
+    () => allItems.filter((inv) => matchesInvoiceSearch(inv, search)),
+    [allItems, search]
+  )
+
+  const activeQuery = search.trim()
+  const visibleCount = filteredItems.length
+
   async function load(q?: string) {
+    const term = (q ?? search).trim()
     setLoading(true)
     try {
       if (!TokenManager.isAuthenticated()) {
         router.push(adminType.includes("branch") ? "/branch-manager/login" : "/superadmin/login")
         return
       }
-      const data = await invoicesAPI.list({ limit: 100, search: q?.trim() || undefined })
-      setItems(data.invoices)
-      setTotal(data.total)
+      const data = await invoicesAPI.list({
+        limit: 100,
+        search: term || undefined,
+      })
+      const invoices = Array.isArray(data.invoices) ? data.invoices : []
+      setAllItems(invoices)
+      setServerTotal(Number(data.total || invoices.length))
+      if (typeof q === "string") {
+        setSearch(q)
+      }
     } catch (err) {
       toast({
         title: "Could not load invoices",
@@ -63,7 +96,8 @@ export default function AdminInvoicesPage() {
   }
 
   useEffect(() => {
-    void load()
+    void load("")
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function handlePrint(id: string) {
@@ -94,40 +128,68 @@ export default function AdminInvoicesPage() {
         <CardHeader className="pb-3">
           <CardTitle className="text-lg">Invoice register</CardTitle>
           <CardDescription>
-            {total > 0 ? `${total} invoice${total === 1 ? "" : "s"}` : "No invoices yet"}
+            {activeQuery
+              ? `${visibleCount} match${visibleCount === 1 ? "" : "es"} for “${activeQuery}”`
+              : serverTotal > 0
+                ? `${serverTotal} invoice${serverTotal === 1 ? "" : "s"}`
+                : "No invoices yet"}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form
-            className="flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault()
-              void load(search)
-            }}
-          >
+          <div className="flex gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               <Input
                 className="pl-9"
                 placeholder="Search invoice number, customer, payment reference"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault()
+                    void load(search)
+                  }
+                }}
               />
             </div>
-            <Button type="submit" variant="secondary">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={loading}
+              onClick={() => void load(search)}
+            >
               Search
             </Button>
-          </form>
+            {activeQuery ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={loading}
+                onClick={() => {
+                  setSearch("")
+                  void load("")
+                }}
+              >
+                Clear
+              </Button>
+            ) : null}
+          </div>
 
           {loading ? (
             <div className="flex justify-center py-16">
               <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
             </div>
-          ) : items.length === 0 ? (
+          ) : filteredItems.length === 0 ? (
             <div className="rounded-lg border border-dashed p-10 text-center text-muted-foreground">
               <FileText className="mx-auto mb-3 h-10 w-10 opacity-40" />
-              <p className="font-medium text-gray-800">No invoices yet</p>
-              <p className="text-sm mt-1">Invoices appear automatically when payments succeed.</p>
+              <p className="font-medium text-gray-800">
+                {activeQuery ? "No matching invoices" : "No invoices yet"}
+              </p>
+              <p className="text-sm mt-1">
+                {activeQuery
+                  ? "Try a different invoice number, customer name, or payment reference."
+                  : "Invoices appear automatically when payments succeed."}
+              </p>
             </div>
           ) : (
             <div className="overflow-x-auto rounded-lg border">
@@ -143,7 +205,7 @@ export default function AdminInvoicesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((inv) => (
+                  {filteredItems.map((inv) => (
                     <tr key={inv.id} className="border-t">
                       <td className="px-4 py-3">
                         <div className="font-medium">{inv.invoice_number}</div>

@@ -143,7 +143,7 @@ export default function CoachSubscriptionPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <CoachDashboardHeader currentPage="Subscription" coachName={coachName} />
-      <main className="pt-20 px-4 lg:px-8 py-6 max-w-4xl mx-auto space-y-6">
+      <main className="px-4 lg:px-8 py-6 max-w-4xl mx-auto space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-[#4F5077]">My subscription</h1>

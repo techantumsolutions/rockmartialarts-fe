@@ -134,6 +134,15 @@ interface AttendanceRecord {
   duration_minutes?: number
 }
 
+/** Account status history timestamps are UTC naive from the API — show in IST. */
+function formatAccountStatusHistoryAt(iso: string | null | undefined): string {
+  if (iso == null || iso === "") return ""
+  const raw = String(iso).trim()
+  const hasTz = /([zZ]|[+-]\d{2}:?\d{2})$/.test(raw)
+  const utcIso = hasTz ? raw : `${raw.includes("T") ? raw : raw.replace(" ", "T")}Z`
+  return formatRegisteredDateTime(utcIso)
+}
+
 export default function StudentDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -926,12 +935,7 @@ export default function StudentDetailPage() {
                             {row.previous_label || "—"} → {row.new_label || "—"}
                           </Badge>
                           <span className="text-xs text-slate-500">
-                            {row.created_at
-                              ? new Date(row.created_at).toLocaleString("en-IN", {
-                                  dateStyle: "medium",
-                                  timeStyle: "short",
-                                })
-                              : ""}
+                            {formatAccountStatusHistoryAt(row.created_at)}
                           </span>
                         </div>
                         {row.reason ? (

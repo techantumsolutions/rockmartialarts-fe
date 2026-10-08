@@ -26,7 +26,6 @@ import {
   prepareCartCheckout,
   removeCartItem,
   removeCartStudent,
-  validateEnrollmentCart,
   type EnrollmentCart,
 } from "@/lib/enrollmentCart"
 import { openRazorpayCheckout } from "@/lib/razorpay"
@@ -127,32 +126,6 @@ export default function EnrollmentCartPage() {
     } catch (err) {
       toast({
         title: "Remove failed",
-        description: err instanceof Error ? err.message : "Try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function handleValidate() {
-    setBusy(true)
-    try {
-      const updated = await validateEnrollmentCart()
-      setCart(updated)
-      if (updated.is_valid) {
-        toast({ title: "Cart looks good", description: "All items passed validation." })
-      } else {
-        const first = updated.validation_issues[0]
-        toast({
-          title: "Please review your cart",
-          description: first?.message || "Some items need attention.",
-          variant: "destructive",
-        })
-      }
-    } catch (err) {
-      toast({
-        title: "Validation failed",
         description: err instanceof Error ? err.message : "Try again.",
         variant: "destructive",
       })
@@ -522,15 +495,6 @@ export default function EnrollmentCartPage() {
                 ) : null}
               </div>
               <div className="flex flex-col sm:flex-row gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="border-gray-600"
-                  disabled={busy}
-                  onClick={handleValidate}
-                >
-                  Validate cart
-                </Button>
                 <Button
                   type="button"
                   disabled={busy || !(totals?.item_count)}

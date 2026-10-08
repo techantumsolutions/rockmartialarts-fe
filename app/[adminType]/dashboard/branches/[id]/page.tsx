@@ -391,17 +391,10 @@ export default function BranchDetailPage() {
             {/* Courses at this Branch */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center justify-between text-[#4F5077]">
+                <CardTitle className="flex items-center text-[#4F5077]">
                   <div className="flex items-center font-bold">
                     Courses ({courses.length})
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => router.push(`${basePath}/courses`)}
-                  >
-                    View All Courses
-                  </Button>
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-[#7D8592]">
@@ -441,9 +434,15 @@ export default function BranchDetailPage() {
                       </div>
                     ))}
                     {courses.length > 5 && (
-                      <p className="text-sm text-gray-500 text-center pt-2">
-                        ... and {courses.length - 5} more courses
-                      </p>
+                      <div className="flex justify-center pt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => router.push(`${basePath}/courses`)}
+                        >
+                          View All Courses
+                        </Button>
+                      </div>
                     )}
                   </div>
                 )}
@@ -453,17 +452,10 @@ export default function BranchDetailPage() {
             {/* Coaches at this Branch */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center justify-between text-[#4F5077]">
+                <CardTitle className="flex items-center text-[#4F5077]">
                   <div className="flex items-center font-bold">
                     Coaches ({coaches.length})
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => router.push(`${basePath}/coaches`)}
-                  >
-                    View All Coaches
-                  </Button>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -513,9 +505,15 @@ export default function BranchDetailPage() {
                       </div>
                     ))}
                     {coaches.length > 5 && (
-                      <p className="text-sm text-gray-500 text-center pt-2">
-                        ... and {coaches.length - 5} more coaches
-                      </p>
+                      <div className="flex justify-center pt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => router.push(`${basePath}/coaches`)}
+                        >
+                          View All Coaches
+                        </Button>
+                      </div>
                     )}
                   </div>
                 )}
@@ -612,7 +610,7 @@ export default function BranchDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => router.push(`${basePath}/students?branch_id=${branchId}`)}
+                  onClick={() => router.push(`${basePath}/students?branch=${encodeURIComponent(branchId)}`)}
                 >
                   <Users className="w-4 h-4 mr-2" />
                   View Branch Students

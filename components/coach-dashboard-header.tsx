@@ -166,7 +166,8 @@ export default function CoachDashboardHeader({
   )
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-gray-200/80 backdrop-blur-sm">
+    // sticky (not fixed) so page content starts below the header on all coach pages
+    <header className="sticky top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-gray-200/80 backdrop-blur-sm">
       <div className="w-full px-4 lg:px-6 py-2">
         <div className="flex justify-between items-center h-auto roboto">
           {/* Logo and Navigation */}

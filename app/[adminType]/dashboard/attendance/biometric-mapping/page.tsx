@@ -45,6 +45,7 @@ export default function BiometricMappingPage() {
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [rows, setRows] = useState<BiometricMappingRow[]>([])
   const [total, setTotal] = useState(0)
   const [branches, setBranches] = useState<BranchOption[]>([])
@@ -123,25 +124,47 @@ export default function BiometricMappingPage() {
   const openMap = (row: BiometricMappingRow) => {
     setSelected(row)
     setBiometricId(row.biometric_id || row.essl_user_id || "")
+    setSaveError(null)
     setOpen(true)
   }
 
   const handleSave = async () => {
     if (!selected?.student_id) return
-    if (!biometricId.trim()) {
-      toast.error("Enter a biometric / device user ID")
+    const nextId = biometricId.trim()
+    if (!nextId) {
+      const msg = "Enter a biometric / device user ID"
+      setSaveError(msg)
+      toast.error(msg)
+      return
+    }
+    const conflict = rows.find((row) => {
+      if (row.student_id === selected.student_id) return false
+      const bio = String(row.biometric_id || "").trim().toLowerCase()
+      const essl = String(row.essl_user_id || "").trim().toLowerCase()
+      const needle = nextId.toLowerCase()
+      return bio === needle || essl === needle
+    })
+    if (conflict) {
+      const msg = `Biometric ID '${nextId}' is already mapped to ${
+        conflict.full_name || conflict.student_id
+      }.`
+      setSaveError(msg)
+      toast.error(msg)
       return
     }
     setSaving(true)
+    setSaveError(null)
     try {
       await studentBiometricMappingAPI.set(selected.student_id, {
-        biometric_id: biometricId.trim(),
+        biometric_id: nextId,
       })
       toast.success("Biometric mapping saved")
       setOpen(false)
       await loadRows()
     } catch (err: any) {
-      toast.error(err?.message || "Save failed")
+      const msg = err?.message || "Save failed"
+      setSaveError(msg)
+      toast.error(msg)
     } finally {
       setSaving(false)
     }
@@ -321,7 +344,13 @@ export default function BiometricMappingPage() {
         </Card>
       </main>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next)
+          if (!next) setSaveError(null)
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
@@ -336,13 +365,21 @@ export default function BiometricMappingPage() {
               <Label>Vendor / device user ID *</Label>
               <Input
                 value={biometricId}
-                onChange={(e) => setBiometricId(e.target.value)}
+                onChange={(e) => {
+                  setBiometricId(e.target.value)
+                  if (saveError) setSaveError(null)
+                }}
                 placeholder="e.g. STU0001"
                 autoFocus
               />
               <p className="text-xs text-slate-500 mt-1">
                 Must be unique across students. Same value is stored for ESSL compatibility.
               </p>
+              {saveError ? (
+                <p className="text-sm text-red-600 mt-2" role="alert">
+                  {saveError}
+                </p>
+              ) : null}
             </div>
           </div>
           <DialogFooter>

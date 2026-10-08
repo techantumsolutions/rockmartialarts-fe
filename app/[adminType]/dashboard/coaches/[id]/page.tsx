@@ -828,6 +828,7 @@ export default function CoachDetailPage() {
                   View Assigned Students
                 </Button>
 
+                {/* Routes /schedule and /performance are not implemented yet — 404.
                 <Button
                   variant="outline"
                   className="w-full justify-start"
@@ -845,6 +846,7 @@ export default function CoachDetailPage() {
                   <TrendingUp className="w-4 h-4 mr-2" />
                   Performance Reports
                 </Button>
+                */}
               </CardContent>
             </Card>
           </div>

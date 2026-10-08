@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useRouter } from "next/navigation"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
+import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { useToast } from "@/hooks/use-toast"
 
 interface Coach {
@@ -44,6 +45,7 @@ interface Coach {
 export default function CoachesListPage() {
   const router = useRouter()
   const basePath = useDashboardBasePath()
+  const isBranchAdmin = basePath.includes("branch-admin")
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [showAssignPopup, setShowAssignPopup] = useState(false)
@@ -63,10 +65,17 @@ export default function CoachesListPage() {
 const [currentPage, setCurrentPage] = useState(1)
 const itemsPerPage = 15
 
+  const authToken = () => {
+    if (isBranchAdmin) {
+      return BranchManagerAuth.getToken() || TokenManager.getToken()
+    }
+    return TokenManager.getToken() || BranchManagerAuth.getToken()
+  }
+
   // Fetch branches for the assignment modal (preload on mount so dropdown has data)
   useEffect(() => {
     const loadBranches = async () => {
-      const token = TokenManager.getToken()
+      const token = authToken()
       if (!token) return
       try {
         setBranchesLoading(true)
@@ -84,16 +93,16 @@ const itemsPerPage = 15
       }
     }
     loadBranches()
-  }, [])
+  }, [isBranchAdmin])
 
-  // Fetch coaches from API
+  // Fetch coaches from API (BM token scopes list to managed branch only)
   useEffect(() => {
     const fetchCoaches = async () => {
       try {
         setLoading(true)
         setError(null)
 
-        const token = TokenManager.getToken()
+        const token = authToken()
         if (!token) {
           throw new Error("Authentication token not found. Please login again.")
         }
@@ -111,7 +120,7 @@ const itemsPerPage = 15
     }
 
     fetchCoaches()
-  }, [])
+  }, [isBranchAdmin])
 
   const handleAssignClick = () => {
     setShowAssignPopup(true)
@@ -127,7 +136,7 @@ const itemsPerPage = 15
       setAssignmentLoading(true)
       setAssignmentError(null)
 
-      const token = TokenManager.getToken()
+      const token = authToken()
       if (!token) {
         throw new Error("Authentication token not found. Please login again.")
       }
@@ -178,7 +187,7 @@ const itemsPerPage = 15
 
     setIsSendingCredentials(true)
     try {
-      const token = TokenManager.getToken()
+      const token = authToken()
       if (!token) {
         throw new Error("Authentication token not found. Please login again.")
       }
@@ -220,7 +229,7 @@ const itemsPerPage = 15
 
   const toggleCoachStatus = async (coachId: string) => {
     try {
-      const token = TokenManager.getToken()
+      const token = authToken()
       if (!token) {
         throw new Error("Authentication token not found. Please login again.")
       }
@@ -513,15 +522,18 @@ const paginatedCoaches = filteredCoaches.slice(
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder={branchesLoading ? "Loading branches..." : branches.length === 0 ? "No branches available" : "Choose a branch..."} />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent
+                    position="popper"
+                    className="w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]"
+                  >
                     {branches.map((branch) => {
                       const branchName = branch.branch?.name ?? branch.name ?? "Unnamed Branch"
                       const address = branch.branch?.address ?? branch.address
                       const addressText = address ? [address.area, address.city].filter(Boolean).join(", ") || "No address" : "No address"
 
                       return (
-                        <SelectItem key={branch.id} value={branch.id}>
-                          {branchName} - {addressText}
+                        <SelectItem key={branch.id} value={branch.id} className="max-w-full">
+                          <span className="block truncate">{branchName} - {addressText}</span>
                         </SelectItem>
                       )
                     })}
@@ -537,15 +549,15 @@ const paginatedCoaches = filteredCoaches.slice(
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder={filteredCoaches.length === 0 ? "No coaches available" : "Choose a coach..."} />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent
+                    position="popper"
+                    className="w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]"
+                  >
                     {filteredCoaches.map((coach) => (
-                      <SelectItem key={coach.id} value={coach.id}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{coach.full_name}</span>
-                          <span className="text-sm text-gray-500">{coach.contact_info?.email}</span>
-                          <span className="text-xs text-gray-400">
-                            {coach.areas_of_expertise?.join(", ")}
-                          </span>
+                      <SelectItem key={coach.id} value={coach.id} className="max-w-full">
+                        <div className="flex flex-col min-w-0 max-w-full overflow-hidden">
+                          <span className="font-medium truncate">{coach.full_name}</span>
+                          <span className="text-sm text-gray-500 truncate">{coach.contact_info?.email}</span>
                         </div>
                       </SelectItem>
                     ))}

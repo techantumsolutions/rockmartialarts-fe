@@ -422,12 +422,6 @@ export default function StudentCoursesPage() {
   const [enrollPricingLoading, setEnrollPricingLoading] = useState(false)
   const [enrolling, setEnrolling] = useState(false)
 
-  // Beneficiary state (subscribe for others)
-  const [beneficiaryType, setBeneficiaryType] = useState("self")
-  const [beneficiaryName, setBeneficiaryName] = useState("")
-  const [beneficiaryPhone, setBeneficiaryPhone] = useState("")
-  const [beneficiaryRelationship, setBeneficiaryRelationship] = useState("")
-
   // Branch change request dialog
   const [showBranchChangeDialog, setShowBranchChangeDialog] = useState(false)
   const [changingEnrollment, setChangingEnrollment] = useState<EnrolledCourse | null>(null)
@@ -955,14 +949,6 @@ export default function StudentCoursesPage() {
           duration: durParam,
           ...(selectedBatchRef.trim() ? { batch_ref: selectedBatchRef.trim() } : {}),
         }
-        if (beneficiaryType !== "self") {
-          quoteBody.beneficiary = {
-            beneficiary_type: beneficiaryType,
-            beneficiary_name: beneficiaryName.trim() || undefined,
-            beneficiary_phone: beneficiaryPhone.trim() || undefined,
-            beneficiary_relationship: beneficiaryRelationship.trim() || undefined,
-          }
-        }
         const res = await fetch(getBackendApiUrl("payments/student-checkout-quote"), {
           method: "POST",
           ...fetchOpts(token),
@@ -993,10 +979,6 @@ export default function StudentCoursesPage() {
     selectedBranch,
     selectedDurationKey,
     durationOptions,
-    beneficiaryType,
-    beneficiaryName,
-    beneficiaryPhone,
-    beneficiaryRelationship,
     selectedBatchRef,
   ])
 
@@ -1050,14 +1032,6 @@ export default function StudentCoursesPage() {
           branch_id: selectedBranch,
           duration: durationForApi,
           ...(selectedBatchRef.trim() ? { batch_ref: selectedBatchRef.trim() } : {}),
-          ...(beneficiaryType !== "self" && beneficiaryName.trim() ? {
-            beneficiary: {
-              beneficiary_type: beneficiaryType,
-              beneficiary_name: beneficiaryName.trim(),
-              beneficiary_phone: beneficiaryPhone.trim() || undefined,
-              beneficiary_relationship: beneficiaryRelationship.trim() || undefined,
-            }
-          } : {}),
         }),
       })
       const prepJson = await prepRes.json().catch(() => ({}))
@@ -1221,14 +1195,17 @@ export default function StudentCoursesPage() {
       <StudentDashboardLayout
         studentName={studentData?.name}
         onLogout={handleLogout}
-        isLoading={true}
+        pageTitle="My Courses"
+        pageDescription="Manage your enrolled courses and browse new courses"
       >
-        <div className="space-y-6 animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+        <div className="space-y-6">
+          <div className="space-y-2 animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+          </div>
           <div className="grid gap-4 md:grid-cols-3">
             {[1, 2, 3].map(i => (
-              <div key={i} className="h-32 bg-gray-200 rounded"></div>
+              <div key={i} className="h-32 bg-gray-200 rounded animate-pulse"></div>
             ))}
           </div>
         </div>
@@ -1540,10 +1517,6 @@ export default function StudentCoursesPage() {
             setSelectedBatchRef("")
             setAdminDurationOptions([])
             setEnrollAmount(null)
-            setBeneficiaryType("self")
-            setBeneficiaryName("")
-            setBeneficiaryPhone("")
-            setBeneficiaryRelationship("")
           }
         }}
       >
@@ -1686,56 +1659,6 @@ export default function StudentCoursesPage() {
                 </Select>
               )}
             </div>
-
-            <div className="space-y-2">
-              <Label>Who is this for?</Label>
-              <Select value={beneficiaryType} onValueChange={(v) => { setBeneficiaryType(v); if (v === "self") { setBeneficiaryName(""); setBeneficiaryPhone(""); setBeneficiaryRelationship(""); } }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="self">Self</SelectItem>
-                  <SelectItem value="family">Family</SelectItem>
-                  <SelectItem value="friend">Friend</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {beneficiaryType !== "self" && (
-              <div className="space-y-2 rounded-lg border p-3">
-                <div className="space-y-2">
-                  <Label>Beneficiary Name *</Label>
-                  <input
-                    type="text"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={beneficiaryName}
-                    onChange={(e) => setBeneficiaryName(e.target.value)}
-                    placeholder="Full name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Phone (optional)</Label>
-                  <input
-                    type="tel"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={beneficiaryPhone}
-                    onChange={(e) => setBeneficiaryPhone(e.target.value)}
-                    placeholder="Phone number"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Relationship</Label>
-                  <input
-                    type="text"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={beneficiaryRelationship}
-                    onChange={(e) => setBeneficiaryRelationship(e.target.value)}
-                    placeholder="e.g., Son, Daughter, Friend"
-                  />
-                </div>
-              </div>
-            )}
 
             {selectedCourse && (
               <div className="rounded-lg bg-blue-50 p-4">

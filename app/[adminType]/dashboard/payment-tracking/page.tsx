@@ -45,6 +45,7 @@ interface Payment {
   branch_name?: string | null
   branch_id?: string | null
   created_at?: string | null
+  enrollment_id?: string | null
 }
 
 interface PaymentStats {
@@ -89,6 +90,9 @@ export default function PaymentTrackingPage() {
   const [recoverTarget, setRecoverTarget] = useState<Payment | null>(null)
   const [recoverAction, setRecoverAction] = useState<RecoveryAction | null>(null)
   const [recoverNote, setRecoverNote] = useState("")
+  const [recoverBlocked, setRecoverBlocked] = useState(false)
+  /** Cancelled payment ids that still have a course registration (enrollment) to recover */
+  const [recoverablePaymentIds, setRecoverablePaymentIds] = useState<Record<string, boolean>>({})
   const [syncing, setSyncing] = useState(false)
   const [page, setPage] = useState(1)
   const [totalPayments, setTotalPayments] = useState(0)
@@ -127,14 +131,70 @@ export default function PaymentTrackingPage() {
         },
         token
       )
-      setPayments(data.payments || [])
+      const list = (data.payments || []) as Payment[]
+      setPayments(list)
       setTotalPayments(Number(data.total) || 0)
+
+      // Show Recover only when the cancelled payment still has a course registration.
+      if (isSuperAdmin) {
+        const cancelled = list.filter((p) => {
+          const s = String(p.payment_status || "").toLowerCase()
+          return s === "cancelled" || s === "canceled"
+        })
+        const checks = await Promise.all(
+          cancelled.map(async (payment) => {
+            try {
+              const detail = (await paymentAPI.getPaymentById(payment.id, token)) as Payment & {
+                enrollment_id?: string | null
+              }
+              const enrollmentId = String(detail.enrollment_id || payment.enrollment_id || "").trim()
+              if (!enrollmentId) return [payment.id, false] as const
+
+              const studentId = String(detail.student_id || payment.student_id || "").trim()
+              if (!studentId) {
+                // Enrollment id present but cannot verify student list — allow Recover.
+                return [payment.id, true] as const
+              }
+
+              const enrRes = await fetch(
+                getBackendApiUrl(`enrollments/students/${encodeURIComponent(studentId)}`),
+                {
+                  cache: "no-store",
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                  },
+                }
+              )
+              if (!enrRes.ok) return [payment.id, false] as const
+              const enrBody = await enrRes.json().catch(() => ({}))
+              const enrollments = Array.isArray(enrBody)
+                ? enrBody
+                : Array.isArray(enrBody?.enrollments)
+                  ? enrBody.enrollments
+                  : Array.isArray(enrBody?.data)
+                    ? enrBody.data
+                    : []
+              const exists = enrollments.some(
+                (e: { id?: string; enrollment_id?: string }) =>
+                  String(e?.id || e?.enrollment_id || "") === enrollmentId
+              )
+              return [payment.id, exists] as const
+            } catch {
+              return [payment.id, false] as const
+            }
+          })
+        )
+        setRecoverablePaymentIds(Object.fromEntries(checks))
+      } else {
+        setRecoverablePaymentIds({})
+      }
     } catch (error) {
       console.error("Error fetching payments:", error)
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, periodStart, periodEnd, debouncedStudentSearch, branchFilter])
+  }, [page, pageSize, periodStart, periodEnd, debouncedStudentSearch, branchFilter, isSuperAdmin])
 
   const fetchStats = useCallback(async () => {
     try {
@@ -417,14 +477,16 @@ export default function PaymentTrackingPage() {
   }
 
   const openRecoverDialog = (payment: Payment, action: RecoveryAction) => {
+    if (!recoverablePaymentIds[payment.id]) return
     setRecoverTarget(payment)
-    setRecoverAction(action)
     setRecoverNote("")
+    setRecoverBlocked(false)
+    setRecoverAction(action)
     setRecoverOpen(true)
   }
 
   const handleConfirmRecover = async () => {
-    if (!recoverTarget?.id || !recoverAction) return
+    if (!recoverTarget?.id || !recoverAction || recoverBlocked) return
     try {
       setRecoveringId(recoverTarget.id)
       const res = await paymentAPI.recoverCancelledPayment(recoverTarget.id, {
@@ -438,12 +500,17 @@ export default function PaymentTrackingPage() {
       setRecoverOpen(false)
       setRecoverTarget(null)
       setRecoverAction(null)
+      setRecoverBlocked(false)
       await fetchPayments()
       await fetchStats()
     } catch (error) {
+      const raw = error instanceof Error ? error.message : "Could not update this enrollment"
+      const enrollmentMissing = /enrollment not found/i.test(raw)
       toast({
-        title: "Recovery failed",
-        description: error instanceof Error ? error.message : "Could not update this enrollment",
+        title: enrollmentMissing ? "Cannot recover this payment" : "Recovery failed",
+        description: enrollmentMissing
+          ? "This student’s course registration for this payment is missing, so recovery cannot be completed. Please contact support or re-add the course for the student, then try Recover again."
+          : raw,
         variant: "destructive",
       })
     } finally {
@@ -711,6 +778,7 @@ export default function PaymentTrackingPage() {
                     {isSuperAdmin && (
                       <td className="px-6 py-4 whitespace-nowrap">
                         {paymentStatus === "cancelled" || paymentStatus === "canceled" ? (
+                          recoverablePaymentIds[payment.id] ? (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
@@ -738,6 +806,9 @@ export default function PaymentTrackingPage() {
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )
                         ) : (
                           <Button
                             variant="outline"
@@ -803,39 +874,52 @@ export default function PaymentTrackingPage() {
               setRecoverTarget(null)
               setRecoverAction(null)
               setRecoverNote("")
+              setRecoverBlocked(false)
             }
           }}
         >
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
-                {recoverAction ? recoveryCopy[recoverAction].title : "Recover enrollment"}
+                {recoverBlocked
+                  ? "Cannot recover this payment"
+                  : recoverAction
+                    ? recoveryCopy[recoverAction].title
+                    : "Recover enrollment"}
               </AlertDialogTitle>
               <AlertDialogDescription className="text-sm text-gray-600">
-                {recoverAction ? recoveryCopy[recoverAction].description : ""}
+                {recoverBlocked
+                  ? "This student’s course registration for this payment is missing, so recovery cannot be completed. Please contact support or re-add the course for the student, then try Recover again."
+                  : recoverAction
+                    ? recoveryCopy[recoverAction].description
+                    : ""}
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <div className="px-6 pb-2 space-y-2">
-              <label className="text-xs text-gray-500 block">Optional note (stored on payment record)</label>
-              <Textarea
-                value={recoverNote}
-                onChange={(e) => setRecoverNote(e.target.value)}
-                placeholder="e.g. Cash collected at front desk"
-                className="min-h-[72px] text-gray-900"
-              />
-            </div>
+            {!recoverBlocked && (
+              <div className="px-6 pb-2 space-y-2">
+                <label className="text-xs text-gray-500 block">Optional note (stored on payment record)</label>
+                <Textarea
+                  value={recoverNote}
+                  onChange={(e) => setRecoverNote(e.target.value)}
+                  placeholder="e.g. Cash collected at front desk"
+                  className="min-h-[72px] text-gray-900"
+                />
+              </div>
+            )}
             <AlertDialogFooter>
-              <AlertDialogCancel>Back</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={(e) => {
-                  e.preventDefault()
-                  void handleConfirmRecover()
-                }}
-                disabled={recoveringId !== null}
-                className="bg-emerald-700 hover:bg-emerald-800"
-              >
-                {recoveringId ? "Please wait…" : "Confirm"}
-              </AlertDialogAction>
+              <AlertDialogCancel>{recoverBlocked ? "Close" : "Back"}</AlertDialogCancel>
+              {!recoverBlocked && (
+                <AlertDialogAction
+                  onClick={(e) => {
+                    e.preventDefault()
+                    void handleConfirmRecover()
+                  }}
+                  disabled={recoveringId !== null}
+                  className="bg-emerald-700 hover:bg-emerald-800"
+                >
+                  {recoveringId ? "Please wait…" : "Confirm"}
+                </AlertDialogAction>
+              )}
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

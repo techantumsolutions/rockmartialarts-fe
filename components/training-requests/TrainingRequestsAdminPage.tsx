@@ -32,6 +32,7 @@ import {
   type TrainingRequest,
   type TrainingRequestStatus,
 } from "@/lib/trainingRequestAPI"
+import { formatRegisteredDateTime } from "@/lib/formatRegisteredDate"
 
 type CoachOpt = { id: string; name: string }
 type BranchOpt = { id: string; name: string }
@@ -63,11 +64,8 @@ const TYPE_BADGE: Record<string, string> = {
 
 function fmtDate(iso?: string | null) {
   if (!iso) return "—"
-  try {
-    return new Date(iso).toLocaleString()
-  } catch {
-    return iso
-  }
+  const formatted = formatRegisteredDateTime(iso)
+  return formatted === "-" ? "—" : formatted
 }
 
 function detailsOf(req: TrainingRequest | null): Record<string, unknown> {
@@ -152,6 +150,16 @@ export default function TrainingRequestsAdminPage() {
   useEffect(() => {
     load()
   }, [load])
+
+  // Apply search as the user types (debounced) so the bar works without relying only on Submit.
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      const next = searchInput.trim()
+      setSkip(0)
+      setSearch((prev) => (prev === next ? prev : next))
+    }, 350)
+    return () => window.clearTimeout(handle)
+  }, [searchInput])
 
   useEffect(() => {
     const token = BranchManagerAuth.getToken() || TokenManager.getToken()
@@ -333,28 +341,32 @@ export default function TrainingRequestsAdminPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <form
-              className="flex flex-col gap-2"
+              className="flex flex-col sm:flex-row gap-2"
               onSubmit={(e) => {
                 e.preventDefault()
+                const next = searchInput.trim()
                 setSkip(0)
-                setSearch(searchInput)
+                if (next === search) {
+                  void load()
+                } else {
+                  setSearch(next)
+                }
               }}
             >
-              <div className="flex flex-col sm:flex-row gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input
-                    placeholder="Search name, school, college, org, phone, city, coach…"
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-                <Button type="submit" className="bg-yellow-400 hover:bg-yellow-500 text-white">
-                  Search
-                </Button>
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <Input
+                  placeholder="Search name, school, college, org, phone, city, coach…"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  className="pl-9"
+                />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+              <Button type="submit" className="bg-yellow-400 hover:bg-yellow-500 text-white">
+                Search
+              </Button>
+            </form>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
                 <Select
                   value={typeFilter}
                   onValueChange={(v) => {
@@ -450,8 +462,7 @@ export default function TrainingRequestsAdminPage() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-            </form>
+            </div>
 
             {error && <p className="text-sm text-red-600">{error}</p>}
             {loading ? (
