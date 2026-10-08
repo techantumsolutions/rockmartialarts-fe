@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Ban,
   Eye,
+  AlertTriangle,
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -35,6 +36,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { getBackendApiUrl } from "@/lib/config"
@@ -74,6 +76,11 @@ export default function CourseSyllabusPage() {
   const [notes, setNotes] = useState("")
   const [activate, setActivate] = useState(true)
   const [file, setFile] = useState<File | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<{
+    courseId?: string
+    file?: string
+  }>({})
 
   const ensureAuth = () => {
     const token = BranchManagerAuth.getToken() || TokenManager.getToken()
@@ -125,6 +132,8 @@ export default function CourseSyllabusPage() {
     setNotes("")
     setActivate(true)
     setFile(null)
+    setFormError(null)
+    setFieldErrors({})
     setDialogOpen(true)
   }
 
@@ -136,27 +145,41 @@ export default function CourseSyllabusPage() {
     setNotes(row.notes || "")
     setActivate(true)
     setFile(null)
+    setFormError(null)
+    setFieldErrors({})
     setDialogOpen(true)
   }
 
   const submit = async () => {
-    if (!file) {
-      toast.error("Choose a PDF file")
-      return
-    }
-    if (file.type && file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
-      toast.error("Only PDF files are allowed")
-      return
-    }
+    const nextErrors: { courseId?: string; file?: string } = {}
     if (mode === "upload" && !courseId) {
-      toast.error("Select a course")
+      nextErrors.courseId = "Please select a course"
+    }
+    if (!file) {
+      nextErrors.file = "Please upload a PDF file"
+    } else if (
+      file.type &&
+      file.type !== "application/pdf" &&
+      !file.name.toLowerCase().endsWith(".pdf")
+    ) {
+      nextErrors.file = "Only PDF files are allowed"
+    }
+
+    if (nextErrors.courseId || nextErrors.file) {
+      const msg = [nextErrors.courseId, nextErrors.file].filter(Boolean).join(". ")
+      setFieldErrors(nextErrors)
+      setFormError(msg)
+      toast.error(msg)
       return
     }
+
     try {
       setSaving(true)
+      setFormError(null)
+      setFieldErrors({})
       if (mode === "replace" && replaceTarget) {
         await syllabusAPI.replace(replaceTarget.id, {
-          file,
+          file: file!,
           title: title.trim() || undefined,
           notes: notes.trim() || undefined,
           activate,
@@ -165,7 +188,7 @@ export default function CourseSyllabusPage() {
       } else {
         await syllabusAPI.create({
           course_id: courseId,
-          file,
+          file: file!,
           title: title.trim() || undefined,
           notes: notes.trim() || undefined,
           activate,
@@ -175,7 +198,9 @@ export default function CourseSyllabusPage() {
       setDialogOpen(false)
       await load()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Save failed")
+      const msg = err instanceof Error ? err.message : "Save failed"
+      setFormError(msg)
+      toast.error(msg)
     } finally {
       setSaving(false)
     }
@@ -350,19 +375,45 @@ export default function CourseSyllabusPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(next) => {
+          setDialogOpen(next)
+          if (!next) {
+            setFormError(null)
+            setFieldErrors({})
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
               {mode === "replace" ? "Replace syllabus (new version)" : "Upload syllabus"}
             </DialogTitle>
           </DialogHeader>
+          {formError ? (
+            <Alert variant="destructive" className="mb-1">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{formError}</AlertDescription>
+            </Alert>
+          ) : null}
           <div className="grid gap-3 py-2">
             {mode === "upload" ? (
               <div className="space-y-1.5">
-                <Label>Course</Label>
-                <Select value={courseId || "none"} onValueChange={(v) => setCourseId(v === "none" ? "" : v)}>
-                  <SelectTrigger>
+                <Label>
+                  Course <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={courseId || "none"}
+                  onValueChange={(v) => {
+                    setCourseId(v === "none" ? "" : v)
+                    if (fieldErrors.courseId) {
+                      setFieldErrors((e) => ({ ...e, courseId: undefined }))
+                      setFormError(null)
+                    }
+                  }}
+                >
+                  <SelectTrigger className={fieldErrors.courseId ? "border-red-500" : undefined}>
                     <SelectValue placeholder="Select course" />
                   </SelectTrigger>
                   <SelectContent>
@@ -374,6 +425,9 @@ export default function CourseSyllabusPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {fieldErrors.courseId ? (
+                  <p className="text-xs text-red-600">{fieldErrors.courseId}</p>
+                ) : null}
               </div>
             ) : (
               <p className="text-sm text-slate-600">
@@ -393,13 +447,26 @@ export default function CourseSyllabusPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>PDF file</Label>
+              <Label>
+                PDF file <span className="text-red-500">*</span>
+              </Label>
               <Input
                 type="file"
                 accept="application/pdf,.pdf"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                className={fieldErrors.file ? "border-red-500" : undefined}
+                onChange={(e) => {
+                  setFile(e.target.files?.[0] || null)
+                  if (fieldErrors.file) {
+                    setFieldErrors((err) => ({ ...err, file: undefined }))
+                    setFormError(null)
+                  }
+                }}
               />
-              <p className="text-xs text-slate-500">PDF only, max 20 MB. Stored privately.</p>
+              {fieldErrors.file ? (
+                <p className="text-xs text-red-600">{fieldErrors.file}</p>
+              ) : (
+                <p className="text-xs text-slate-500">PDF only, max 20 MB. Stored privately.</p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Notes (optional)</Label>

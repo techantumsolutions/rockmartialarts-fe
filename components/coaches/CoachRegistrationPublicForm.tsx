@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, type ChangeEvent, type FormEvent } from "react"
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react"
 import Link from "next/link"
 import { CheckCircle2, Loader2, Upload, UserPlus, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -85,7 +85,19 @@ export default function CoachRegistrationPublicForm() {
   const [submitting, setSubmitting] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<{
+    experience?: string
+    specializations?: string
+    email?: string
+  }>({})
   const [done, setDone] = useState<{ coach_id: string; message: string } | null>(null)
+  const successRef = useRef<HTMLDivElement>(null)
+  const emailFieldRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!done) return
+    successRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+  }, [done])
 
   useEffect(() => {
     coachRegistrationAPI
@@ -105,6 +117,9 @@ export default function CoachRegistrationPublicForm() {
   }, [])
 
   const toggleSpec = (value: string) => {
+    setFieldErrors((prev) =>
+      prev.specializations ? { ...prev, specializations: undefined } : prev
+    )
     setForm((prev) => ({
       ...prev,
       specializations: prev.specializations.includes(value)
@@ -141,16 +156,23 @@ export default function CoachRegistrationPublicForm() {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
+    const nextFieldErrors: {
+      experience?: string
+      specializations?: string
+      email?: string
+    } = {}
+    if (!form.professional_experience.trim()) {
+      nextFieldErrors.experience = "Experience is required"
+    }
     if (form.specializations.length === 0) {
-      setError("Select at least one specialization")
+      nextFieldErrors.specializations = "Select at least one specialization"
+    }
+    setFieldErrors(nextFieldErrors)
+    if (nextFieldErrors.experience || nextFieldErrors.specializations) {
       return
     }
     if (form.service_location_ids.length === 0) {
       setError("Select at least one service location (branch)")
-      return
-    }
-    if (!form.professional_experience.trim()) {
-      setError("Experience is required")
       return
     }
     setSubmitting(true)
@@ -180,8 +202,23 @@ export default function CoachRegistrationPublicForm() {
       })
       setDone({ coach_id: result.coach_id, message: result.message })
       setForm(INITIAL)
+      setFieldErrors({})
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed")
+      const msg = err instanceof Error ? err.message : "Registration failed"
+      const lower = msg.toLowerCase()
+      if (lower.includes("email")) {
+        setFieldErrors((prev) => ({
+          ...prev,
+          email: lower.includes("already exists")
+            ? "A coach with this email already exists"
+            : msg,
+        }))
+        requestAnimationFrame(() => {
+          emailFieldRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+        })
+      } else {
+        setError(msg)
+      }
     } finally {
       setSubmitting(false)
     }
@@ -192,7 +229,10 @@ export default function CoachRegistrationPublicForm() {
 
   if (done) {
     return (
-      <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-8 md:p-10 text-center max-w-xl mx-auto space-y-4">
+      <div
+        ref={successRef}
+        className="rounded-xl border border-gray-800 bg-gray-900/50 p-8 md:p-10 text-center max-w-xl mx-auto space-y-4"
+      >
         <CheckCircle2 className="w-14 h-14 text-[#FFB70F] mx-auto" />
         <h2 className="text-2xl font-bold text-white">Application submitted</h2>
         <p className="text-gray-300">{done.message}</p>
@@ -220,6 +260,23 @@ export default function CoachRegistrationPublicForm() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-8 max-w-3xl mx-auto">
+      <style>{`
+        .coach-register-dob {
+          color-scheme: dark;
+        }
+        .coach-register-dob::-webkit-calendar-picker-indicator {
+          cursor: pointer;
+          opacity: 1;
+          filter: none;
+          width: 1.1rem;
+          height: 1.1rem;
+          background-color: transparent;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
+          background-position: center;
+          background-size: 1.1rem 1.1rem;
+          background-repeat: no-repeat;
+        }
+      `}</style>
       {error ? (
         <p className="text-sm text-red-400 bg-red-950/40 border border-red-900 rounded-lg px-4 py-3">
           {error}
@@ -284,21 +341,38 @@ export default function CoachRegistrationPublicForm() {
             <Label className="text-gray-300">Date of birth *</Label>
             <Input
               type="date"
-              className={fieldClass}
+              min="1900-01-01"
+              max="9999-12-31"
+              className={`${fieldClass} coach-register-dob`}
               required
               value={form.date_of_birth}
-              onChange={(e) => setForm((f) => ({ ...f, date_of_birth: e.target.value }))}
+              onChange={(e) => {
+                let v = e.target.value
+                const m = /^(\d+)-(\d{2})-(\d{2})$/.exec(v)
+                if (m && m[1].length > 4) {
+                  v = `${m[1].slice(0, 4)}-${m[2]}-${m[3]}`
+                }
+                setForm((f) => ({ ...f, date_of_birth: v }))
+              }}
             />
           </div>
-          <div className="space-y-1">
+          <div className="space-y-1" ref={emailFieldRef}>
             <Label className="text-gray-300">Email *</Label>
             <Input
               type="email"
-              className={fieldClass}
+              className={`${fieldClass}${fieldErrors.email ? " border-red-500" : ""}`}
               required
               value={form.email}
-              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+              onChange={(e) => {
+                if (fieldErrors.email) {
+                  setFieldErrors((prev) => ({ ...prev, email: undefined }))
+                }
+                setForm((f) => ({ ...f, email: e.target.value }))
+              }}
             />
+            {fieldErrors.email ? (
+              <p className="text-xs text-red-400">{fieldErrors.email}</p>
+            ) : null}
           </div>
           <div className="space-y-1">
             <Label className="text-gray-300">Phone *</Label>
@@ -405,9 +479,16 @@ export default function CoachRegistrationPublicForm() {
             <Label className="text-gray-300">Experience *</Label>
             <Select
               value={form.professional_experience || undefined}
-              onValueChange={(v) => setForm((f) => ({ ...f, professional_experience: v }))}
+              onValueChange={(v) => {
+                setFieldErrors((prev) =>
+                  prev.experience ? { ...prev, experience: undefined } : prev
+                )
+                setForm((f) => ({ ...f, professional_experience: v }))
+              }}
             >
-              <SelectTrigger className={fieldClass}>
+              <SelectTrigger
+                className={`${fieldClass}${fieldErrors.experience ? " border-red-500" : ""}`}
+              >
                 <SelectValue placeholder="Select experience" />
               </SelectTrigger>
               <SelectContent>
@@ -427,6 +508,9 @@ export default function CoachRegistrationPublicForm() {
                 ))}
               </SelectContent>
             </Select>
+            {fieldErrors.experience ? (
+              <p className="text-xs text-red-400">{fieldErrors.experience}</p>
+            ) : null}
           </div>
           <div className="space-y-1">
             <Label className="text-gray-300">Designation</Label>
@@ -461,7 +545,11 @@ export default function CoachRegistrationPublicForm() {
           </div>
           <div className="sm:col-span-2 space-y-2">
             <Label className="text-gray-300">Specializations *</Label>
-            <div className="flex flex-wrap gap-3">
+            <div
+              className={`flex flex-wrap gap-3 rounded-md ${
+                fieldErrors.specializations ? "ring-1 ring-red-500 p-2" : ""
+              }`}
+            >
               {(specializations.length
                 ? specializations
                 : [
@@ -482,6 +570,9 @@ export default function CoachRegistrationPublicForm() {
                 )
               })}
             </div>
+            {fieldErrors.specializations ? (
+              <p className="text-xs text-red-400">{fieldErrors.specializations}</p>
+            ) : null}
           </div>
           <div className="sm:col-span-2 space-y-2">
             <Label className="text-gray-300">Service locations (branches) *</Label>

@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useRouter } from "next/navigation"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
+import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { useToast } from "@/hooks/use-toast"
 
 interface Coach {
@@ -44,6 +45,7 @@ interface Coach {
 export default function CoachesListPage() {
   const router = useRouter()
   const basePath = useDashboardBasePath()
+  const isBranchAdmin = basePath.includes("branch-admin")
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [showAssignPopup, setShowAssignPopup] = useState(false)
@@ -63,10 +65,17 @@ export default function CoachesListPage() {
 const [currentPage, setCurrentPage] = useState(1)
 const itemsPerPage = 15
 
+  const authToken = () => {
+    if (isBranchAdmin) {
+      return BranchManagerAuth.getToken() || TokenManager.getToken()
+    }
+    return TokenManager.getToken() || BranchManagerAuth.getToken()
+  }
+
   // Fetch branches for the assignment modal (preload on mount so dropdown has data)
   useEffect(() => {
     const loadBranches = async () => {
-      const token = TokenManager.getToken()
+      const token = authToken()
       if (!token) return
       try {
         setBranchesLoading(true)
@@ -84,16 +93,16 @@ const itemsPerPage = 15
       }
     }
     loadBranches()
-  }, [])
+  }, [isBranchAdmin])
 
-  // Fetch coaches from API
+  // Fetch coaches from API (BM token scopes list to managed branch only)
   useEffect(() => {
     const fetchCoaches = async () => {
       try {
         setLoading(true)
         setError(null)
 
-        const token = TokenManager.getToken()
+        const token = authToken()
         if (!token) {
           throw new Error("Authentication token not found. Please login again.")
         }
@@ -111,7 +120,7 @@ const itemsPerPage = 15
     }
 
     fetchCoaches()
-  }, [])
+  }, [isBranchAdmin])
 
   const handleAssignClick = () => {
     setShowAssignPopup(true)
@@ -127,7 +136,7 @@ const itemsPerPage = 15
       setAssignmentLoading(true)
       setAssignmentError(null)
 
-      const token = TokenManager.getToken()
+      const token = authToken()
       if (!token) {
         throw new Error("Authentication token not found. Please login again.")
       }
@@ -178,7 +187,7 @@ const itemsPerPage = 15
 
     setIsSendingCredentials(true)
     try {
-      const token = TokenManager.getToken()
+      const token = authToken()
       if (!token) {
         throw new Error("Authentication token not found. Please login again.")
       }
@@ -220,7 +229,7 @@ const itemsPerPage = 15
 
   const toggleCoachStatus = async (coachId: string) => {
     try {
-      const token = TokenManager.getToken()
+      const token = authToken()
       if (!token) {
         throw new Error("Authentication token not found. Please login again.")
       }

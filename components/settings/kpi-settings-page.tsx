@@ -54,6 +54,10 @@ const emptyForm = {
   is_active: true,
 }
 
+function normalizeKpiCode(code: string) {
+  return code.trim().toUpperCase().replace(/ /g, "_")
+}
+
 export default function KpiSettingsPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -63,6 +67,7 @@ export default function KpiSettingsPage() {
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<KpiDefinition | null>(null)
   const [form, setForm] = useState(emptyForm)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [activeOnly, setActiveOnly] = useState(false)
 
   const load = useCallback(async () => {
@@ -92,6 +97,7 @@ export default function KpiSettingsPage() {
   const openCreate = () => {
     setEditing(null)
     setForm(emptyForm)
+    setSaveError(null)
     setOpen(true)
   }
 
@@ -108,6 +114,7 @@ export default function KpiSettingsPage() {
       sort_order: String(kpi.sort_order ?? 100),
       is_active: Boolean(kpi.is_active),
     })
+    setSaveError(null)
     setOpen(true)
   }
 
@@ -125,31 +132,55 @@ export default function KpiSettingsPage() {
 
   const handleSave = async () => {
     if (!form.code.trim() || !form.name.trim()) {
-      toast.error("Code and name are required")
+      const msg = "Code and name are required"
+      setSaveError(msg)
+      toast.error(msg)
+      return
+    }
+    const normalizedCode = normalizeKpiCode(form.code)
+    const duplicate = kpis.find(
+      (k) => k.id !== editing?.id && normalizeKpiCode(k.code) === normalizedCode
+    )
+    if (duplicate) {
+      const msg = "A KPI with this code already exists"
+      setSaveError(msg)
+      toast.error(msg)
       return
     }
     const weight = parseFloat(form.weight)
     const maxScore = parseFloat(form.max_score)
     const minScore = parseFloat(form.min_score)
     if (!(weight > 0)) {
-      toast.error("Weight must be greater than 0")
+      const msg = "Weight must be greater than 0"
+      setSaveError(msg)
+      toast.error(msg)
       return
     }
     if (form.weight_unit === "percent" && weight > 100) {
-      toast.error("Percent weight cannot exceed 100")
+      const msg = "Percent weight cannot exceed 100"
+      setSaveError(msg)
+      toast.error(msg)
       return
     }
     if (!(maxScore > 0)) {
-      toast.error("Maximum score must be greater than 0")
+      const msg = "Maximum score must be greater than 0"
+      setSaveError(msg)
+      toast.error(msg)
       return
     }
-    if (minScore < 0 || minScore > maxScore) {
-      toast.error("Min score must be between 0 and max score")
+    if (minScore < 0 || minScore >= maxScore) {
+      const msg =
+        minScore === maxScore
+          ? "Min score and max score cannot be the same"
+          : "Min score must be between 0 and max score"
+      setSaveError(msg)
+      toast.error(msg)
       return
     }
 
     try {
       setSaving(true)
+      setSaveError(null)
       const payload = buildPayload()
       const result = editing
         ? await kpiDefinitionAPI.update(editing.id, payload)
@@ -159,7 +190,9 @@ export default function KpiSettingsPage() {
       setOpen(false)
       await load()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Save failed")
+      const msg = err instanceof Error ? err.message : "Save failed"
+      setSaveError(msg)
+      toast.error(msg)
     } finally {
       setSaving(false)
     }
@@ -357,18 +390,33 @@ export default function KpiSettingsPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next)
+          if (!next) setSaveError(null)
+        }}
+      >
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? "Edit KPI" : "Add KPI"}</DialogTitle>
           </DialogHeader>
+          {saveError ? (
+            <Alert variant="destructive" className="mb-1">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{saveError}</AlertDescription>
+            </Alert>
+          ) : null}
           <div className="grid gap-3 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Code</Label>
                 <Input
                   value={form.code}
-                  onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
+                  onChange={(e) => {
+                    if (saveError) setSaveError(null)
+                    setForm((f) => ({ ...f, code: e.target.value }))
+                  }}
                   placeholder="TECHNIQUE"
                 />
               </div>
