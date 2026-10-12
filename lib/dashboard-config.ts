@@ -196,49 +196,7 @@ const SUPER_ADMIN_MENU: NavItem[] = [
 
 const BRANCH_ADMIN_MENU: NavItem[] = [
   { label: "Dashboard", path: BRANCH_ADMIN_BASE, icon: LayoutDashboard, permissionId: "dashboard" },
-  {
-    label: "Partners",
-    path: `${BRANCH_ADMIN_BASE}/partner-profiles`,
-    icon: Handshake,
-    overflowOnly: true,
-    permissionId: "partners",
-    children: [
-      { label: "Partner Profiles", path: `${BRANCH_ADMIN_BASE}/partner-profiles`, icon: Handshake, permissionId: "partners" },
-      { label: "Partner Branding", path: `${BRANCH_ADMIN_BASE}/partner-branding`, icon: ImageIcon, permissionId: "partners" },
-      { label: "Partner Masters", path: `${BRANCH_ADMIN_BASE}/partner-masters`, icon: Award, permissionId: "partners" },
-      { label: "Partner Gallery", path: `${BRANCH_ADMIN_BASE}/partner-gallery`, icon: Images, permissionId: "partners" },
-      { label: "Partner Testimonials", path: `${BRANCH_ADMIN_BASE}/partner-testimonials`, icon: MessageSquareQuote, permissionId: "partners" },
-      { label: "Partner Team", path: `${BRANCH_ADMIN_BASE}/partner-team`, icon: UserCog, permissionId: "partners" },
-      { label: "Partner SEO", path: `${BRANCH_ADMIN_BASE}/partner-seo`, icon: Search, permissionId: "partners" },
-    ],
-  },
   { label: "Coaches", path: `${BRANCH_ADMIN_BASE}/coaches`, icon: Users, permissionId: "coaches" },
-  {
-    label: "Coach ops",
-    path: `${BRANCH_ADMIN_BASE}/coach-approvals`,
-    icon: UserCheck,
-    overflowOnly: true,
-    permissionId: "coaches",
-    children: [
-      { label: "Coach Approvals", path: `${BRANCH_ADMIN_BASE}/coach-approvals`, icon: UserCheck, permissionId: "coaches" },
-      { label: "Coach Availability", path: `${BRANCH_ADMIN_BASE}/coach-availability`, icon: Clock, permissionId: "coaches" },
-      { label: "Coach Subscriptions", path: `${BRANCH_ADMIN_BASE}/coach-subscriptions`, icon: CreditCard, permissionId: "coaches" },
-    ],
-  },
-  {
-    label: "CRM",
-    path: `${BRANCH_ADMIN_BASE}/leads`,
-    icon: UserPlus,
-    overflowOnly: true,
-    permissionId: "crm",
-    children: [
-      { label: "Leads", path: `${BRANCH_ADMIN_BASE}/leads`, icon: UserPlus, permissionId: "crm" },
-      { label: "Callbacks", path: `${BRANCH_ADMIN_BASE}/callbacks`, icon: Phone, permissionId: "crm" },
-      { label: "Demo Schedules", path: `${BRANCH_ADMIN_BASE}/demo-schedules`, icon: CalendarClock, permissionId: "crm" },
-      { label: "Demo Bookings", path: `${BRANCH_ADMIN_BASE}/demo-bookings`, icon: CalendarCheck, permissionId: "crm" },
-      { label: "Training Requests", path: `${BRANCH_ADMIN_BASE}/training-requests`, icon: ClipboardList, permissionId: "crm" },
-    ],
-  },
   { label: "Students", path: `${BRANCH_ADMIN_BASE}/students`, icon: GraduationCap, permissionId: "students" },
   { label: "Courses", path: `${BRANCH_ADMIN_BASE}/courses`, icon: BookOpen, permissionId: "courses" },
   {
@@ -256,26 +214,14 @@ const BRANCH_ADMIN_MENU: NavItem[] = [
   },
   { label: "Reports", path: `${BRANCH_ADMIN_BASE}/reports`, icon: BarChart, permissionId: "reports" },
   { label: "KPI Assessments", path: `${BRANCH_ADMIN_BASE}/kpi-assessments`, icon: ClipboardList },
+  { label: "Leads", path: `${BRANCH_ADMIN_BASE}/leads`, icon: UserPlus, overflowOnly: true, permissionId: "crm" },
+  { label: "Coach Availability", path: `${BRANCH_ADMIN_BASE}/coach-availability`, icon: Clock, overflowOnly: true, permissionId: "coaches" },
+  { label: "Demo Bookings", path: `${BRANCH_ADMIN_BASE}/demo-bookings`, icon: CalendarCheck, overflowOnly: true, permissionId: "crm" },
+  { label: "Training Requests", path: `${BRANCH_ADMIN_BASE}/training-requests`, icon: ClipboardList, overflowOnly: true, permissionId: "crm" },
   { label: "Invoices", path: `${BRANCH_ADMIN_BASE}/invoices`, icon: FileText, overflowOnly: true, permissionId: "payments" },
-  { label: "Billing Cycles", path: `${BRANCH_ADMIN_BASE}/billing-cycles`, icon: CalendarCheck, overflowOnly: true, permissionId: "payments" },
   { label: "Testimonials", path: `${BRANCH_ADMIN_BASE}/testimonials`, icon: MessageSquare, overflowOnly: true },
   { label: "Champions", path: `${BRANCH_ADMIN_BASE}/champions`, icon: Trophy, overflowOnly: true },
-  { label: "Registration Forms", path: `${BRANCH_ADMIN_BASE}/registration-forms`, icon: FileText, overflowOnly: true },
   { label: "Events", path: `${BRANCH_ADMIN_BASE}/events`, icon: CalendarClock, overflowOnly: true, permissionId: "events" },
-  { label: "Event Registrations", path: `${BRANCH_ADMIN_BASE}/event-registrations`, icon: ClipboardList, overflowOnly: true, permissionId: "events" },
-  { label: "Coach Sessions", path: `${BRANCH_ADMIN_BASE}/coach-session-bookings`, icon: CalendarClock, overflowOnly: true, permissionId: "coaches" },
-  { label: "Course Syllabus", path: `${BRANCH_ADMIN_BASE}/course-syllabus`, icon: BookOpen, overflowOnly: true, permissionId: "courses" },
-  {
-    label: "Settings",
-    path: `${BRANCH_ADMIN_BASE}/settings`,
-    icon: Settings,
-    overflowOnly: true,
-    permissionId: "settings",
-    children: [
-      { label: "Notification Templates", path: `${BRANCH_ADMIN_BASE}/settings/notification-templates`, permissionId: "settings" },
-      { label: "Notification Delivery", path: `${BRANCH_ADMIN_BASE}/settings/notification-delivery`, permissionId: "settings" },
-    ],
-  },
 ]
 
 const STUDENT_MENU: NavItem[] = [

@@ -4,10 +4,19 @@ import { BranchManagerAuth } from "./branchManagerAuth"
 
 export const LEAD_STATUSES = [
   { value: "new", label: "New" },
+  { value: "pending_acceptance", label: "Pending acceptance" },
+  { value: "assigned", label: "Assigned" },
   { value: "contacted", label: "Contacted" },
   { value: "qualified", label: "Qualified" },
   { value: "converted", label: "Converted" },
   { value: "lost", label: "Lost" },
+] as const
+
+export const LEAD_PRIORITIES = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+  { value: "urgent", label: "Urgent" },
 ] as const
 
 export const LEAD_FOLLOW_UP_ACTIONS = [
@@ -20,6 +29,7 @@ export const LEAD_FOLLOW_UP_ACTIONS = [
 ] as const
 
 export type LeadStatus = (typeof LEAD_STATUSES)[number]["value"]
+export type LeadPriority = (typeof LEAD_PRIORITIES)[number]["value"]
 
 export type LeadRow = {
   id: string
@@ -36,6 +46,7 @@ export type LeadRow = {
   capture_count?: number
   duplicate_merged?: boolean
   status?: string | null
+  priority?: string | null
   next_follow_up_at?: string | null
   last_follow_up_at?: string | null
   last_follow_up_note?: string | null
@@ -97,6 +108,7 @@ class LeadAPI {
     sort?: string
     coach_assignment_status?: string
     unassigned_coach?: boolean
+    priority?: string
     skip?: number
     limit?: number
   } = {}) {
@@ -112,6 +124,7 @@ class LeadAPI {
     if (params.coach_assignment_status && params.coach_assignment_status !== "all")
       qs.set("coach_assignment_status", params.coach_assignment_status)
     if (params.unassigned_coach) qs.set("unassigned_coach", "true")
+    if (params.priority && params.priority !== "all") qs.set("priority", params.priority)
     qs.set("skip", String(params.skip ?? 0))
     qs.set("limit", String(params.limit ?? 25))
     const res = await fetch(getBackendApiUrl(`leads?${qs.toString()}`), {
@@ -157,11 +170,15 @@ class LeadAPI {
     return res.json() as Promise<{ lead: LeadRow; follow_ups: LeadFollowUp[] }>
   }
 
-  async updateStatus(id: string, status: string, note?: string) {
+  async updateStatus(id: string, status: string, note?: string, priority?: string) {
     const res = await fetch(getBackendApiUrl(`leads/${encodeURIComponent(id)}`), {
       method: "PATCH",
       headers: authHeaders(true),
-      body: JSON.stringify({ status, note: note || null }),
+      body: JSON.stringify({
+        status,
+        note: note || null,
+        ...(priority ? { priority } : {}),
+      }),
     })
     if (!res.ok) throw new Error(await parseError(res))
     return res.json() as Promise<LeadRow>
@@ -198,4 +215,8 @@ export const leadAPI = new LeadAPI()
 
 export function leadStatusLabel(status?: string | null) {
   return LEAD_STATUSES.find((s) => s.value === status)?.label || status || "—"
+}
+
+export function leadPriorityLabel(priority?: string | null) {
+  return LEAD_PRIORITIES.find((p) => p.value === priority)?.label || priority || "Medium"
 }

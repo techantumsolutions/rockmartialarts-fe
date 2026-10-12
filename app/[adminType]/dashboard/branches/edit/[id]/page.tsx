@@ -19,6 +19,12 @@ import { useToast } from "@/hooks/use-toast"
 import { dropdownAPI, DropdownOption } from "@/lib/dropdownAPI"
 import { useGeographyDropdowns } from "@/hooks/use-geography-dropdowns"
 import { WEEKDAY_CHECKLIST_ORDER, formatWeekdayRanges } from "@/lib/formatWeekdayRanges"
+import { coachAvailabilityAPI } from "@/lib/coachAvailabilityAPI"
+import {
+  batchAssignmentError,
+  type AssignmentBatch,
+  type AvailabilityWindow,
+} from "@/lib/batchCoachAssignment"
 import {
   normalizeAssignmentsCourses,
   buildCourseSchedulePayload,
@@ -173,6 +179,9 @@ export default function EditBranch() {
   const [categories, setCategories] = useState<Category[]>([])
   const [isLoadingCategories, setIsLoadingCategories] = useState(true)
   const [coaches, setCoaches] = useState<{ id: string; name: string }[]>([])
+  const [trainers, setTrainers] = useState<{ id: string; name: string }[]>([])
+  const [externalBatches, setExternalBatches] = useState<AssignmentBatch[]>([])
+  const [availabilityByCoach, setAvailabilityByCoach] = useState<Record<string, AvailabilityWindow[] | undefined>>({})
   const [masterDurations, setMasterDurations] = useState<MasterDuration[]>([])
   const pricingHydratedRef = useRef(false)
   const [isLoadingCoaches, setIsLoadingCoaches] = useState(true)
@@ -311,6 +320,70 @@ export default function EditBranch() {
           }))
 
           setCoaches(branchManagerOptions)
+          const trainerRows: { id: string; name: string }[] = []
+          let skip = 0
+          while (skip < 1000) {
+            const coachResponse = await fetch(
+              getBackendApiUrl(`coaches?active_only=true&limit=100&skip=${skip}`),
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                },
+              }
+            )
+            if (!coachResponse.ok) break
+            const coachData = await coachResponse.json()
+            const page = Array.isArray(coachData.coaches) ? coachData.coaches : []
+            for (const coach of page) {
+              const name =
+                coach.full_name ||
+                `${coach.personal_info?.first_name || ""} ${coach.personal_info?.last_name || ""}`.trim() ||
+                coach.contact_info?.email ||
+                "Coach"
+              if (coach.id) trainerRows.push({ id: String(coach.id), name })
+            }
+            if (page.length < 100) break
+            skip += 100
+          }
+          setTrainers(trainerRows)
+
+          const branchListResponse = await fetch(
+            getBackendApiUrl("branches?skip=0&limit=100&active_only=true&include_stats=false"),
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          )
+          if (branchListResponse.ok) {
+            const branchList = await branchListResponse.json()
+            const rows: AssignmentBatch[] = []
+            for (const branch of branchList.branches || []) {
+              if (!branch?.id || branch.id === branchId) continue
+              const branchName = branch.branch?.name || branch.name || "Branch"
+              for (const entry of branch.assignments?.course_schedule || []) {
+                if (entry?.is_available === false) continue
+                const batches = Array.isArray(entry?.batches) ? entry.batches : []
+                batches.forEach((saved: any, index: number) => {
+                  const coachId = String(saved?.coach_id || saved?.coachId || "").trim()
+                  if (!coachId) return
+                  rows.push({
+                    id: String(saved.batch_id || saved.id || `${entry.course_id || "course"}-${index}`),
+                    coachId,
+                    days: Array.isArray(saved.days) ? saved.days.map(String) : [],
+                    startTime: String(saved.start_time || saved.startTime || ""),
+                    endTime: String(saved.end_time || saved.endTime || ""),
+                    batchName: saved.batch_name || saved.name || "",
+                    branchName,
+                    branchId: String(branch.id),
+                  })
+                })
+              }
+            }
+            setExternalBatches(rows)
+          }
         } else {
           toast({
             title: "Error",
@@ -434,6 +507,29 @@ export default function EditBranch() {
 
     loadData()
   }, [])
+
+  useEffect(() => {
+    if (trainers.length === 0) return
+    let cancelled = false
+    Promise.all(
+      trainers.map(async (trainer) => {
+        try {
+          const availability = await coachAvailabilityAPI.getForCoach(trainer.id)
+          return [trainer.id, availability.weekly_slots || []] as const
+        } catch {
+          return [trainer.id, undefined] as const
+        }
+      })
+    ).then((entries) => {
+      if (cancelled) return
+      const next: Record<string, AvailabilityWindow[] | undefined> = {}
+      for (const [id, slots] of entries) next[id] = slots
+      setAvailabilityByCoach(next)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [trainers])
 
   // Fetch master durations for per-duration pricing in batches
   useEffect(() => {
@@ -734,6 +830,51 @@ export default function EditBranch() {
     return Object.keys(newErrors).length === 0
   }
 
+  const assignmentErrorFor = (batch: {
+    id: string
+    coach_id: string
+    days?: string[]
+    start_time: string
+    end_time: string
+    batch_name?: string
+  }) => {
+    const coachId = (batch.coach_id || "").trim()
+    if (!coachId || !trainers.some((trainer) => trainer.id === coachId)) return null
+    const current: AssignmentBatch = {
+      id: batch.id,
+      coachId,
+      days: batch.days || [],
+      startTime: batch.start_time,
+      endTime: batch.end_time,
+      batchName: batch.batch_name,
+      branchName: formData.branch.name || "This branch",
+      branchId,
+    }
+    const others: AssignmentBatch[] = []
+    for (const course of formData.assignments.courses) {
+      if (course.is_available === false) continue
+      for (const other of course.batches) {
+        const otherCoach = (other.coach_id || "").trim()
+        if (!otherCoach || other.id === batch.id) continue
+        if (!trainers.some((trainer) => trainer.id === otherCoach)) continue
+        others.push({
+          id: other.id,
+          coachId: otherCoach,
+          days: other.days || [],
+          startTime: other.start_time,
+          endTime: other.end_time,
+          batchName: other.batch_name,
+          branchName: current.branchName,
+          branchId,
+        })
+      }
+    }
+    for (const external of externalBatches) {
+      if (trainers.some((trainer) => trainer.id === external.coachId)) others.push(external)
+    }
+    return batchAssignmentError(current, availabilityByCoach[coachId], others)
+  }
+
   // Submit form
   const handleSubmit = async () => {
     if (!validateForm()) {
@@ -743,6 +884,21 @@ export default function EditBranch() {
         variant: "destructive",
       })
       return
+    }
+
+    for (const course of formData.assignments.courses) {
+      if (course.is_available === false) continue
+      for (const batch of course.batches) {
+        const assignmentError = assignmentErrorFor(batch)
+        if (assignmentError) {
+          toast({
+            title: "Trainer schedule",
+            description: assignmentError,
+            variant: "destructive",
+          })
+          return
+        }
+      }
     }
 
     setIsSubmitting(true)
@@ -1356,13 +1512,23 @@ export default function EditBranch() {
                                         <SelectItem value={BATCH_COACH_UNASSIGNED}>
                                           No trainer assigned
                                         </SelectItem>
-                                        {coaches.map((coach) => (
-                                          <SelectItem key={coach.id} value={coach.id}>
-                                            {coach.name}
+                                        {trainers.map((trainer) => (
+                                          <SelectItem key={trainer.id} value={trainer.id}>
+                                            {trainer.name}
                                           </SelectItem>
                                         ))}
+                                        {(batch.coach_id || "").trim() &&
+                                          !trainers.some((trainer) => trainer.id === batch.coach_id) && (
+                                            <SelectItem value={batch.coach_id}>
+                                              {coaches.find((coach) => coach.id === batch.coach_id)?.name ||
+                                                "Current assignment"}
+                                            </SelectItem>
+                                          )}
                                       </SelectContent>
                                     </Select>
+                                    {assignmentErrorFor(batch) && (
+                                      <p className="text-xs text-red-500">{assignmentErrorFor(batch)}</p>
+                                    )}
                                   </div>
                                   <div className="space-y-2 col-span-full">
                                     <Label className="text-xs text-gray-600 font-medium">Duration Pricing (₹)</Label>

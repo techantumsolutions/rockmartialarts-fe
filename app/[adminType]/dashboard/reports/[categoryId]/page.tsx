@@ -33,6 +33,7 @@ import { ReportsBreadcrumb } from "@/components/breadcrumb"
 import { notFound } from 'next/navigation'
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { getActiveBranchId } from "@/lib/activeBranch"
 import {
   exportBranchReport,
   exportFinancialReport,
@@ -345,23 +346,11 @@ function CategoryReportsPageContent() {
   useEffect(() => {
     if (!isBranchAdminRoute || (categoryId !== "financial" && categoryId !== "student")) return
     let cancelled = false
-    const applyBranchScope = (bm: { branch_id?: string; managed_branches?: string[] } | null) => {
-      if (!bm || cancelled) return
-      const bid = bm.branch_id || bm.managed_branches?.[0]
-      if (bid) {
-        setFilters((prev) => (prev.branch_id === bid ? prev : { ...prev, branch_id: bid }))
-      }
-    }
     const bm = BranchManagerAuth.getCurrentUser()
-    if (!bm || bm.role !== "branch_manager") return
-    applyBranchScope(bm)
-    // Student reports: refresh managed_branches so the dropdown cannot list other branches
-    if (categoryId === "student") {
-      void BranchManagerAuth.fetchManagedBranches()
-        .then(() => {
-          if (!cancelled) applyBranchScope(BranchManagerAuth.getCurrentUser())
-        })
-        .catch(() => {})
+    if (!bm || bm.role !== "branch_manager" || cancelled) return
+    const bid = getActiveBranchId()
+    if (bid) {
+      setFilters((prev) => (prev.branch_id === bid ? prev : { ...prev, branch_id: bid }))
     }
     return () => {
       cancelled = true
@@ -672,6 +661,8 @@ function CategoryReportsPageContent() {
     if (!isBranchAdminRoute) return []
     const bm = BranchManagerAuth.getCurrentUser()
     if (!bm || bm.role !== "branch_manager") return []
+    const activeId = getActiveBranchId()
+    if (activeId) return [activeId]
     const fromManaged = Array.isArray(bm.managed_branches)
       ? bm.managed_branches.map((id) => String(id)).filter(Boolean)
       : []
@@ -897,7 +888,8 @@ function CategoryReportsPageContent() {
   const buildFinancialApiFilters = () => {
     const bmBranch =
       isBranchAdminRoute && BranchManagerAuth.getCurrentUser()?.role === "branch_manager"
-        ? BranchManagerAuth.getCurrentUser()?.branch_id ||
+        ? getActiveBranchId() ||
+          BranchManagerAuth.getCurrentUser()?.branch_id ||
           BranchManagerAuth.getCurrentUser()?.managed_branches?.[0]
         : undefined
 

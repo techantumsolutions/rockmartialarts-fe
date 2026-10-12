@@ -107,8 +107,10 @@ const itemsPerPage = 15
           throw new Error("Authentication token not found. Please login again.")
         }
 
+        // Branch admin: the API keeps coaches whose branch_id is a branch this
+        // login manages (branches.manager_id). Do not send branch_assignment.branch_id;
+        // that field can still point at a different branch.
         const coachesData = await fetchAllCoaches(token, { activeOnly: false })
-        console.log("Coaches fetched successfully:", { coaches: coachesData, total: coachesData.length })
         setCoaches(coachesData)
 
       } catch (error) {

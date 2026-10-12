@@ -14,6 +14,7 @@ import { paymentAPI, PaymentStats, Payment } from "@/lib/paymentAPI"
 import { branchAPI } from "@/lib/branchAPI"
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { getActiveBranchId } from "@/lib/activeBranch"
 
 
 export default function SuperAdminDashboard() {
@@ -40,6 +41,12 @@ export default function SuperAdminDashboard() {
   // Time period filter
   const [timePeriod, setTimePeriod] = useState<string>("this-month")
   const role = useDashboardRole()
+
+  useEffect(() => {
+    if (role !== "branch_admin") return
+    const branchId = getActiveBranchId()
+    if (branchId) setSelectedBranch(branchId)
+  }, [role])
 
   // Get token from either TokenManager (superadmin) or BranchManagerAuth (branch admin)
   const getAuthToken = useCallback(() => {

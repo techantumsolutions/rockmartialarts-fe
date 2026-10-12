@@ -2,7 +2,7 @@ import { getBackendApiUrl } from "./config"
 import { TokenManager } from "./tokenManager"
 import { BranchManagerAuth } from "./branchManagerAuth"
 import { getCoachAuthHeaders } from "./coachAuth"
-import type { LeadRow } from "./leadAPI"
+import type { LeadFollowUp, LeadRow } from "./leadAPI"
 
 export type LeadCoachAssignment = {
   id: string
@@ -21,6 +21,8 @@ export type LeadCoachAssignment = {
   responded_at?: string | null
   response_note?: string | null
   decline_reason?: string | null
+  lead_status?: string | null
+  lead_priority?: string | null
 }
 
 export type EligibleCoach = {
@@ -160,6 +162,55 @@ class LeadCoachAssignmentAPI {
     )
     if (!res.ok) throw new Error(await parseError(res))
     return res.json()
+  }
+
+  async followUps(assignmentId: string) {
+    const res = await fetch(
+      getBackendApiUrl(
+        `lead-coach-assignments/${encodeURIComponent(assignmentId)}/follow-ups`
+      ),
+      { headers: { ...getCoachAuthHeaders(), "Cache-Control": "no-cache" }, cache: "no-store" }
+    )
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{ follow_ups: LeadFollowUp[]; total: number }>
+  }
+
+  async createFollowUp(
+    assignmentId: string,
+    body: {
+      note?: string
+      action?: string
+      status?: string
+      next_follow_up_at?: string | null
+    }
+  ) {
+    const res = await fetch(
+      getBackendApiUrl(
+        `lead-coach-assignments/${encodeURIComponent(assignmentId)}/follow-ups`
+      ),
+      {
+        method: "POST",
+        headers: { ...getCoachAuthHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }
+    )
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{ message: string; lead: LeadRow; follow_up: LeadFollowUp }>
+  }
+
+  async updateLeadStatus(assignmentId: string, status: string) {
+    const res = await fetch(
+      getBackendApiUrl(
+        `lead-coach-assignments/${encodeURIComponent(assignmentId)}/lead-status`
+      ),
+      {
+        method: "PATCH",
+        headers: { ...getCoachAuthHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      }
+    )
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{ message: string; lead: LeadRow }>
   }
 }
 

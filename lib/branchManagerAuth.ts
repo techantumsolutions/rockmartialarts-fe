@@ -1,6 +1,7 @@
 // Branch Manager Authentication utility
 import { getBackendApiUrl } from "@/lib/config"
 import { isTokenExpired } from "@/lib/sessionAuth"
+import { clearActiveBranch, getActiveBranchId } from "@/lib/activeBranch"
 
 export interface BranchManagerUser {
   id: string
@@ -130,10 +131,13 @@ export const BranchManagerAuth = {
 
     if (!token) return { "Content-Type": "application/json" }
 
-    return {
+    const headers: Record<string, string> = {
       "Content-Type": "application/json",
       "Authorization": `${tokenType} ${token}`
     }
+    const activeBranchId = getActiveBranchId()
+    if (activeBranchId) headers["X-Active-Branch-Id"] = activeBranchId
+    return headers
   },
 
   // Clear all authentication data
@@ -147,6 +151,7 @@ export const BranchManagerAuth = {
     localStorage.removeItem("token_expiration")
     localStorage.removeItem("branch_manager")
     localStorage.removeItem("user")
+    clearActiveBranch()
   },
 
   // Check if user is authenticated branch manager

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -66,13 +66,34 @@ interface Course {
 
 interface Coach {
   id: string
-  full_name: string
-  contact_info: {
-    email: string
-    phone: string
+  full_name?: string
+  personal_info?: {
+    first_name?: string
+    last_name?: string
   }
-  areas_of_expertise: string[]
-  is_active: boolean
+  contact_info?: {
+    email?: string
+    phone?: string
+  }
+  areas_of_expertise?: string[]
+  is_active?: boolean
+}
+
+function coachDisplayName(coach: Coach) {
+  const fromParts = [coach.personal_info?.first_name, coach.personal_info?.last_name]
+    .filter(Boolean)
+    .join(" ")
+    .trim()
+  const name = (coach.full_name || "").trim()
+  if (name && name !== coach.id) return name
+  return fromParts || "Coach"
+}
+
+function isIdLike(value: string) {
+  return (
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) ||
+    /^[0-9a-f]{24}$/i.test(value)
+  )
 }
 
 export default function BranchDetailPage() {
@@ -84,6 +105,8 @@ export default function BranchDetailPage() {
   const [branch, setBranch] = useState<BranchDetails | null>(null)
   const [courses, setCourses] = useState<Course[]>([])
   const [coaches, setCoaches] = useState<Coach[]>([])
+  const [expertiseNames, setExpertiseNames] = useState<Record<string, string>>({})
+  const lookedUpExpertise = useRef<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -157,21 +180,81 @@ export default function BranchDetailPage() {
 
   const fetchBranchCoaches = async (token: string) => {
     try {
-      const response = await fetch(`/api/backend/coaches?branch_id=${branchId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-
-      if (response.ok) {
+      const pageSize = 100
+      const collected: Coach[] = []
+      for (let skip = 0; skip < 1000; skip += pageSize) {
+        const response = await fetch(
+          `/api/backend/coaches?branch_id=${encodeURIComponent(branchId)}&active_only=false&skip=${skip}&limit=${pageSize}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        )
+        if (!response.ok) break
         const data = await response.json()
-        setCoaches(data.coaches || [])
+        const batch: Coach[] = data.coaches || []
+        collected.push(...batch)
+        const total = typeof data.total === "number" ? data.total : collected.length
+        if (batch.length === 0 || collected.length >= total) break
       }
+      setCoaches(collected)
     } catch (err) {
       console.error('Error fetching branch coaches:', err)
     }
   }
+
+  useEffect(() => {
+    const token = TokenManager.getToken()
+    if (!token) return
+    const known: Record<string, string> = {}
+    courses.forEach((course) => {
+      if (course.id && course.name) known[course.id] = course.name
+    })
+    if (Object.keys(known).length > 0) {
+      setExpertiseNames((prev) => ({ ...known, ...prev }))
+    }
+    const missing = Array.from(
+      new Set(coaches.flatMap((coach) => coach.areas_of_expertise || []))
+    ).filter(
+      (value) =>
+        value &&
+        isIdLike(value) &&
+        !known[value] &&
+        !lookedUpExpertise.current.has(value)
+    )
+    if (missing.length === 0) return
+    missing.forEach((id) => lookedUpExpertise.current.add(id))
+    Promise.all(
+      missing.map(async (id) => {
+        try {
+          const res = await fetch(`/api/backend/courses/${encodeURIComponent(id)}`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          })
+          if (!res.ok) return null
+          const data = await res.json()
+          const name = data?.title || data?.name
+          return name ? ([id, String(name)] as const) : null
+        } catch {
+          return null
+        }
+      })
+    ).then((pairs) => {
+      const resolved = pairs.filter((pair): pair is readonly [string, string] => !!pair)
+      if (resolved.length === 0) return
+      setExpertiseNames((prev) => {
+        const next = { ...prev }
+        resolved.forEach(([id, name]) => {
+          next[id] = name
+        })
+        return next
+      })
+    })
+  }, [coaches, courses])
 
   const handleEdit = () => {
     router.push(`${basePath}/branches/edit/${branchId}`)
@@ -404,8 +487,8 @@ export default function BranchDetailPage() {
                     <p>No courses assigned to this branch yet</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {courses.slice(0, 5).map((course) => (
+                  <div className="max-h-[28rem] space-y-4 overflow-y-auto pr-1">
+                    {courses.map((course) => (
                       <div key={course.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                         <div>
                           <h4 className="font-medium">{course.name}</h4>
@@ -433,17 +516,6 @@ export default function BranchDetailPage() {
                         </Button>
                       </div>
                     ))}
-                    {courses.length > 5 && (
-                      <div className="flex justify-center pt-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => router.push(`${basePath}/courses`)}
-                        >
-                          View All Courses
-                        </Button>
-                      </div>
-                    )}
                   </div>
                 )}
               </CardContent>
@@ -465,13 +537,17 @@ export default function BranchDetailPage() {
                     <p>No coaches assigned to this branch yet</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {coaches.slice(0, 5).map((coach) => (
+                  <div className="max-h-[28rem] space-y-4 overflow-y-auto pr-1">
+                    {coaches.map((coach) => {
+                      const expertiseLabels = (coach.areas_of_expertise || [])
+                        .map((expertise) => expertiseNames[expertise] || (isIdLike(expertise) ? "" : expertise))
+                        .filter(Boolean)
+                      return (
                       <div key={coach.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg text-[#7D8592]">
                         <div>
-                          <h4 className="font-medium">{coach.full_name}</h4>
+                          <h4 className="font-medium">{coachDisplayName(coach)}</h4>
                           <div className="flex items-center space-x-4 mt-1">
-                            <span className="text-sm">{coach.contact_info.email}</span>
+                            <span className="text-sm">{coach.contact_info?.email || "—"}</span>
                             <Badge
                               variant={coach.is_active ? "default" : "secondary"}
                               className={`text-xs ${coach.is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}
@@ -479,16 +555,16 @@ export default function BranchDetailPage() {
                               {coach.is_active ? "Active" : "Inactive"}
                             </Badge>
                           </div>
-                          {coach.areas_of_expertise.length > 0 && (
+                          {expertiseLabels.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-2">
-                              {coach.areas_of_expertise.slice(0, 3).map((expertise, index) => (
+                              {expertiseLabels.slice(0, 3).map((expertise, index) => (
                                 <Badge key={index} variant="outline" className="text-xs rounded bg-[#D9D9D9] text-[#7D8592]">
                                   {expertise}
                                 </Badge>
                               ))}
-                              {coach.areas_of_expertise.length > 3 && (
+                              {expertiseLabels.length > 3 && (
                                 <Badge variant="outline" className="text-xs">
-                                  +{coach.areas_of_expertise.length - 3} more
+                                  +{expertiseLabels.length - 3} more
                                 </Badge>
                               )}
                             </div>
@@ -503,18 +579,8 @@ export default function BranchDetailPage() {
                           View
                         </Button>
                       </div>
-                    ))}
-                    {coaches.length > 5 && (
-                      <div className="flex justify-center pt-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => router.push(`${basePath}/coaches`)}
-                        >
-                          View All Coaches
-                        </Button>
-                      </div>
-                    )}
+                      )
+                    })}
                   </div>
                 )}
               </CardContent>
