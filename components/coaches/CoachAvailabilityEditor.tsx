@@ -56,6 +56,7 @@ export default function CoachAvailabilityEditor({
   const [notes, setNotes] = useState("")
   const [timezone, setTimezone] = useState("Asia/Kolkata")
   const [updatedAt, setUpdatedAt] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -127,6 +128,7 @@ export default function CoachAvailabilityEditor({
   }
 
   const handleSave = async () => {
+    setSaveError(null)
     if (locationIds.length === 0) {
       toast({
         title: "Select locations",
@@ -170,9 +172,11 @@ export default function CoachAvailabilityEditor({
       setUpdatedAt(avail.updated_at || null)
       toast({ title: "Availability saved" })
     } catch (e) {
+      const message = e instanceof Error ? e.message : "Error"
+      setSaveError(message)
       toast({
         title: "Save failed",
-        description: e instanceof Error ? e.message : "Error",
+        description: message,
         variant: "destructive",
       })
     } finally {
@@ -213,6 +217,7 @@ export default function CoachAvailabilityEditor({
               Last updated {new Date(updatedAt).toLocaleString()}
             </p>
           )}
+          {saveError && <p className="text-sm text-red-600 mt-2">{saveError}</p>}
         </div>
         <Button onClick={handleSave} disabled={saving} className="gap-2 bg-[#4F5077] hover:bg-[#3d3e5c]">
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}

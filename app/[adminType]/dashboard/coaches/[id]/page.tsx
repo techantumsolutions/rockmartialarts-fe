@@ -27,6 +27,7 @@ import {
 } from "lucide-react"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
+import { coachAvailabilityAPI, type WeeklySlot } from "@/lib/coachAvailabilityAPI"
 
 interface CoachDetails {
   id: string
@@ -59,6 +60,14 @@ interface CoachDetails {
   retention_rate?: number
 }
 
+interface CoachBatch {
+  batch_name: string
+  days: string[]
+  start_time: string
+  end_time: string
+  branch_name?: string
+}
+
 interface CourseAssignment {
   id: string
   course_name: string
@@ -66,7 +75,39 @@ interface CourseAssignment {
   enrolled_students: number
   schedule?: string
   branch_name?: string
+  batches: CoachBatch[]
   status: 'active' | 'completed' | 'upcoming'
+}
+
+const WEEKDAY_SHORT: Record<string, string> = {
+  monday: "Mon",
+  tuesday: "Tue",
+  wednesday: "Wed",
+  thursday: "Thu",
+  friday: "Fri",
+  saturday: "Sat",
+  sunday: "Sun",
+}
+
+function formatBatchDays(days: string[]) {
+  if (!days.length) return "Not set"
+  return days.map((day) => WEEKDAY_SHORT[day.toLowerCase()] || day).join(", ")
+}
+
+function formatClock(value: string) {
+  const match = /^(\d{1,2}):(\d{2})/.exec((value || "").trim())
+  if (!match) return value
+  let hour = Number(match[1])
+  const suffix = hour >= 12 ? "PM" : "AM"
+  hour = hour % 12 || 12
+  return `${hour}:${match[2]} ${suffix}`
+}
+
+function formatBatchTiming(start: string, end: string) {
+  const startLabel = start ? formatClock(start) : ""
+  const endLabel = end ? formatClock(end) : ""
+  if (startLabel && endLabel) return `${startLabel} – ${endLabel}`
+  return startLabel || endLabel || "Not set"
 }
 
 interface StudentAssignment {
@@ -89,6 +130,8 @@ export default function CoachDetailPage() {
 
   const [coach, setCoach] = useState<CoachDetails | null>(null)
   const [courseAssignments, setCourseAssignments] = useState<CourseAssignment[]>([])
+  const [availabilitySlots, setAvailabilitySlots] = useState<WeeklySlot[]>([])
+  const [availabilityLoading, setAvailabilityLoading] = useState(true)
   const [studentAssignments, setStudentAssignments] = useState<StudentAssignment[]>([])
   const [loading, setLoading] = useState(true)
   const [coursesLoading, setCoursesLoading] = useState(true)
@@ -144,6 +187,7 @@ export default function CoachDetailPage() {
       const token = TokenManager.getToken()
       if (!token) {
         setError("Authentication required. Please login again.")
+        setAvailabilityLoading(false)
         return
       }
 
@@ -158,6 +202,7 @@ export default function CoachDetailPage() {
       if (!coachResponse.ok) {
         if (coachResponse.status === 404) {
           setError("Coach not found")
+          setAvailabilityLoading(false)
           return
         }
         throw new Error(`Failed to fetch coach: ${coachResponse.status}`)
@@ -169,7 +214,8 @@ export default function CoachDetailPage() {
       // Fetch related data in parallel
       await Promise.all([
         fetchCourseAssignments(token),
-        fetchStudentAssignments(token)
+        fetchStudentAssignments(token),
+        fetchAvailability()
       ])
 
     } catch (err: any) {
@@ -177,6 +223,18 @@ export default function CoachDetailPage() {
       setError(err.message || 'Failed to load coach details')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchAvailability = async () => {
+    try {
+      setAvailabilityLoading(true)
+      const availability = await coachAvailabilityAPI.getForCoach(coachId)
+      setAvailabilitySlots(availability.weekly_slots || [])
+    } catch {
+      setAvailabilitySlots([])
+    } finally {
+      setAvailabilityLoading(false)
     }
   }
 
@@ -202,15 +260,27 @@ export default function CoachDetailPage() {
         setCourseNameById((prev) => ({ ...prev, ...names }))
 
         // Transform API response to match frontend interface
-        const transformedCourses: CourseAssignment[] = courses.map((course: any) => ({
-          id: course.id,
-          course_name: course.name || course.title || 'Unknown Course',
-          difficulty_level: course.difficulty_level || 'Beginner',
-          enrolled_students: course.enrolled_students || 0,
-          schedule: course.schedule || 'Schedule TBD',
-          branch_name: course.branch_assignments?.[0]?.branch_name || 'Unknown Branch',
-          status: 'active' as const
-        }))
+        const transformedCourses: CourseAssignment[] = courses.map((course: any) => {
+          const batches: CoachBatch[] = Array.isArray(course.batches)
+            ? course.batches.map((batch: any, index: number) => ({
+                batch_name: batch.batch_name || `Batch ${index + 1}`,
+                days: Array.isArray(batch.days) ? batch.days.filter(Boolean).map(String) : [],
+                start_time: batch.start_time || "",
+                end_time: batch.end_time || "",
+                branch_name: batch.branch_name || "",
+              }))
+            : []
+          return {
+            id: course.id,
+            course_name: course.name || course.title || 'Unknown Course',
+            difficulty_level: course.difficulty_level || 'Beginner',
+            enrolled_students: course.enrolled_students || 0,
+            schedule: batches.length > 0 ? undefined : (course.schedule || 'Schedule TBD'),
+            branch_name: course.branch_assignments?.[0]?.branch_name || batches[0]?.branch_name || 'Unknown Branch',
+            batches,
+            status: 'active' as const
+          }
+        })
 
         setCourseAssignments(transformedCourses)
       } else {
@@ -616,13 +686,70 @@ export default function CoachDetailPage() {
                           )}
                         </div>
 
-                        {course.schedule && (
+                        {course.batches.length > 0 ? (
+                          <div className="mt-3 max-h-64 space-y-2 overflow-y-auto">
+                            {course.batches.map((batch, index) => (
+                              <div
+                                key={`${course.id}-${batch.batch_name}-${index}`}
+                                className="rounded-md bg-white px-3 py-2 text-sm"
+                              >
+                                <p className="font-medium text-[#4F5077]">{batch.batch_name}</p>
+                                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                                  <span>
+                                    <span className="font-medium">Days:</span> {formatBatchDays(batch.days)}
+                                  </span>
+                                  <span>
+                                    <span className="font-medium">Timing:</span> {formatBatchTiming(batch.start_time, batch.end_time)}
+                                  </span>
+                                  {batch.branch_name && batch.branch_name !== course.branch_name && (
+                                    <span>
+                                      <span className="font-medium">Branch:</span> {batch.branch_name}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : course.schedule ? (
                           <div className="mt-2 text-sm ">
                             <span className="font-medium">Schedule:</span> {course.schedule}
                           </div>
-                        )}
+                        ) : null}
                       </div>
                     ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center font-bold text-[#4F5077]">
+                  <Clock className="w-5 h-5 mr-2" />
+                  Availability
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-[#7D8592]">
+                {availabilityLoading ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-1/2" />
+                    <Skeleton className="h-4 w-1/3" />
+                  </div>
+                ) : availabilitySlots.length === 0 ? (
+                  <p className="text-sm text-gray-500">Availability is not set.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {availabilitySlots.map((slot, index) => {
+                      const dayName = slot.weekday
+                        ? slot.weekday.charAt(0).toUpperCase() + slot.weekday.slice(1).toLowerCase()
+                        : "Day"
+                      return (
+                        <div key={`${slot.weekday}-${slot.start_time}-${index}`} className="rounded-md bg-gray-50 px-3 py-2 text-sm">
+                          <span className="font-medium text-[#4F5077]">{dayName}</span>
+                          <span className="ml-3">{formatBatchTiming(slot.start_time, slot.end_time)}</span>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </CardContent>

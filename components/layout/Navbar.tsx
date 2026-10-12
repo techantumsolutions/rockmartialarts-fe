@@ -26,6 +26,7 @@ import {
   type NavItem,
 } from "@/lib/dashboard-config"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { useActiveBranch } from "@/lib/activeBranch"
 import { usePermissions } from "@/hooks/use-permissions"
 
 interface NavbarProps {
@@ -38,6 +39,7 @@ export default function Navbar({ role }: NavbarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [profileImage, setProfileImage] = useState<string>("")
   const { hasPermission } = usePermissions(role)
+  const { branches: assignedBranches, active: activeBranch, setActive: setActiveBranch } = useActiveBranch()
 
   const { cms } = useCMS()
   const menuItems = useMemo(
@@ -191,19 +193,40 @@ export default function Navbar({ role }: NavbarProps) {
                           Categories Management
                         </DropdownMenuItem>
                       )}
-                      {role === "branch_admin" && (
-                        <DropdownMenuItem
-                          onClick={() => router.push(`${basePath}/payment-tracking`)}
-                          className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200"
-                        >
-                          Payment Tracking
-                        </DropdownMenuItem>
-                      )}
                     </DropdownMenuContent>
                   </DropdownMenuPortal>
                 </DropdownMenu>
               )}
             </nav>
+
+            {role === "branch_admin" && assignedBranches.length > 1 && activeBranch && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="flex items-center gap-1 max-w-[9.5rem] sm:max-w-[14rem] h-8 px-2 sm:px-3 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200 text-sm font-semibold text-gray-800"
+                    title={activeBranch.name}
+                  >
+                    <span className="truncate">{activeBranch.name}</span>
+                    <ChevronDown className="w-3 h-3 flex-shrink-0 text-gray-600" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuPortal>
+                  <DropdownMenuContent align="end" className="w-56 z-[1000] bg-white/95 backdrop-blur-md border border-gray-200/50 shadow-xl rounded-lg p-2" sideOffset={8}>
+                    {assignedBranches.map((branch) => (
+                      <DropdownMenuItem
+                        key={branch.id}
+                        onClick={() => setActiveBranch(branch)}
+                        className={`cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium transition-colors duration-200 ${
+                          branch.id === activeBranch.id ? "text-[#E1BB33]" : "text-gray-700 hover:text-gray-900"
+                        }`}
+                      >
+                        {branch.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenuPortal>
+              </DropdownMenu>
+            )}
 
             <NotificationDropdown />
 

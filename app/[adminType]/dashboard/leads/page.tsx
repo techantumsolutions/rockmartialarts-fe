@@ -25,9 +25,11 @@ import { RefreshCw, Search } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import {
   LEAD_FOLLOW_UP_ACTIONS,
+  LEAD_PRIORITIES,
   LEAD_STATUSES,
   leadAPI,
   type LeadFollowUp,
+  type LeadPriority,
   type LeadRow,
   type LeadStatus,
 } from "@/lib/leadAPI"
@@ -39,16 +41,31 @@ import { TokenManager } from "@/lib/tokenManager"
 
 const STATUS_BADGE: Record<LeadStatus, string> = {
   new: "bg-gray-100 text-gray-800 border-gray-200",
+  pending_acceptance: "bg-violet-50 text-violet-800 border-violet-200",
+  assigned: "bg-indigo-50 text-indigo-800 border-indigo-200",
   contacted: "bg-blue-50 text-blue-800 border-blue-200",
   qualified: "bg-amber-50 text-amber-900 border-amber-200",
   converted: "bg-green-50 text-green-800 border-green-200",
   lost: "bg-red-50 text-red-800 border-red-200",
 }
 
+const PRIORITY_BADGE: Record<LeadPriority, string> = {
+  low: "bg-gray-100 text-gray-700 border-gray-200",
+  medium: "bg-sky-50 text-sky-800 border-sky-200",
+  high: "bg-orange-50 text-orange-800 border-orange-200",
+  urgent: "bg-red-50 text-red-800 border-red-200",
+}
+
 function normalizeStatus(raw?: string | null): LeadStatus {
   const s = (raw || "").trim().toLowerCase()
   if (LEAD_STATUSES.some((x) => x.value === s)) return s as LeadStatus
   return "new"
+}
+
+function normalizePriority(raw?: string | null): LeadPriority {
+  const s = (raw || "").trim().toLowerCase()
+  if (LEAD_PRIORITIES.some((x) => x.value === s)) return s as LeadPriority
+  return "medium"
 }
 
 function sourceLabel(row: LeadRow) {
@@ -108,6 +125,7 @@ export default function LeadsPage() {
   const [sourceFilter, setSourceFilter] = useState<string>("all")
   const [dueFilter, setDueFilter] = useState<string>("all")
   const [coachFilter, setCoachFilter] = useState<string>("all")
+  const [priorityFilter, setPriorityFilter] = useState<string>("all")
   const [sourceOptions, setSourceOptions] = useState<
     { value: string; label: string; count: number }[]
   >([])
@@ -166,6 +184,7 @@ export default function LeadsPage() {
         unassigned_coach: coachFilter === "unassigned",
         coach_assignment_status:
           coachFilter !== "all" && coachFilter !== "unassigned" ? coachFilter : undefined,
+        priority: priorityFilter,
       })
       setLeads(Array.isArray(data.leads) ? data.leads : [])
       setTotal(typeof data.total === "number" ? data.total : 0)
@@ -175,7 +194,7 @@ export default function LeadsPage() {
     } finally {
       setLoading(false)
     }
-  }, [skip, search, statusFilter, sourceFilter, dueFilter, coachFilter])
+  }, [skip, search, statusFilter, sourceFilter, dueFilter, coachFilter, priorityFilter])
 
   useEffect(() => {
     load()
@@ -247,6 +266,28 @@ export default function LeadsPage() {
       setLeads((rows) => rows.map((r) => (r.id === id ? { ...r, status: previous } : r)))
       toast({
         title: "Could not update status",
+        description: e instanceof Error ? e.message : "Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  const updatePriority = async (id: string, status: LeadStatus, previous: LeadPriority, next: LeadPriority) => {
+    if (previous === next) return
+    setLeads((rows) => rows.map((r) => (r.id === id ? { ...r, priority: next } : r)))
+    setSavingId(id)
+    try {
+      const updated = await leadAPI.updateStatus(id, status, undefined, next)
+      setLeads((rows) => rows.map((r) => (r.id === id ? { ...r, ...updated } : r)))
+      if (activeLead?.id === id) {
+        setActiveLead((prev) => (prev ? { ...prev, ...updated } : prev))
+      }
+    } catch (e) {
+      setLeads((rows) => rows.map((r) => (r.id === id ? { ...r, priority: previous } : r)))
+      toast({
+        title: "Could not update priority",
         description: e instanceof Error ? e.message : "Please try again.",
         variant: "destructive",
       })
@@ -379,6 +420,25 @@ export default function LeadsPage() {
                 </SelectContent>
               </Select>
               <Select
+                value={priorityFilter}
+                onValueChange={(v) => {
+                  setSkip(0)
+                  setPriorityFilter(v)
+                }}
+              >
+                <SelectTrigger className="h-10 w-full sm:w-[150px] bg-white">
+                  <SelectValue placeholder="All priorities" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All priorities</SelectItem>
+                  {LEAD_PRIORITIES.map((p) => (
+                    <SelectItem key={p.value} value={p.value}>
+                      {p.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
                 value={sourceFilter}
                 onValueChange={(v) => {
                   setSkip(0)
@@ -455,6 +515,7 @@ export default function LeadsPage() {
                       <th className="px-3 py-2 font-semibold">Source</th>
                       <th className="px-3 py-2 font-semibold">Branch</th>
                       <th className="px-3 py-2 font-semibold">Status</th>
+                      <th className="px-3 py-2 font-semibold">Priority</th>
                       <th className="px-3 py-2 font-semibold">Coach</th>
                       <th className="px-3 py-2 font-semibold">Next follow-up</th>
                       <th className="px-3 py-2 font-semibold">Date</th>
@@ -463,6 +524,7 @@ export default function LeadsPage() {
                   <tbody>
                     {leads.map((row) => {
                       const status = normalizeStatus(row.status)
+                      const priority = normalizePriority(row.priority)
                       const overdue = isOverdue(row.next_follow_up_at, row.status)
                       return (
                         <tr
@@ -521,6 +583,31 @@ export default function LeadsPage() {
                                 {LEAD_STATUSES.map((s) => (
                                   <SelectItem key={s.value} value={s.value}>
                                     {s.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </td>
+                          <td
+                            className="px-3 py-2 min-w-[130px]"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Select
+                              value={priority}
+                              disabled={savingId === row.id}
+                              onValueChange={(v) =>
+                                void updatePriority(row.id, status, priority, v as LeadPriority)
+                              }
+                            >
+                              <SelectTrigger
+                                className={`h-8 text-xs border ${PRIORITY_BADGE[priority]}`}
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {LEAD_PRIORITIES.map((p) => (
+                                  <SelectItem key={p.value} value={p.value}>
+                                    {p.label}
                                   </SelectItem>
                                 ))}
                               </SelectContent>

@@ -14,6 +14,7 @@ import { User, Mail, Phone, Calendar, Shield, Edit, Save, X, Loader2 } from "luc
 import { useToast } from "@/hooks/use-toast"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { SuperAdminAuth } from "@/lib/auth"
+import { fetchAssignedBranches } from "@/lib/activeBranch"
 
 interface BranchManagerProfile {
   id: string
@@ -21,6 +22,7 @@ interface BranchManagerProfile {
   email: string
   phone?: string
   branch_name?: string
+  branch_names?: string[]
   branch_id?: string
   is_active: boolean
   created_at: string
@@ -78,13 +80,23 @@ export default function BranchManagerProfilePage() {
           const result = await response.json()
           const data = result.branch_manager || result.data || result
           if (data) {
+            let branchNames: string[] = []
+            if (isBranchManager) {
+              try {
+                const assigned = await fetchAssignedBranches(token)
+                branchNames = assigned.map((branch) => branch.name).filter(Boolean)
+              } catch {
+                branchNames = []
+              }
+            }
             const profileData: BranchManagerProfile = {
               id: data.id,
               full_name: data.full_name || "User",
               email: data.email || "",
               phone: data.phone || "",
-              branch_name: data.branch_assignment?.branch_name || data.branch_name || "",
-              branch_id: data.branch_assignment?.branch_id || data.branch_id || "",
+              branch_names: branchNames,
+              branch_name: branchNames.join(", "),
+              branch_id: branchNames.length ? "" : data.branch_id || "",
               is_active: data.is_active !== undefined ? data.is_active : true,
               created_at: data.created_at || new Date().toISOString(),
               updated_at: data.updated_at || new Date().toISOString()
@@ -182,8 +194,9 @@ export default function BranchManagerProfilePage() {
             full_name: updatedData.full_name || "Branch Manager",
             email: updatedData.email || "",
             phone: updatedData.phone || "",
-            branch_name: updatedData.branch_assignment?.branch_name || profile?.branch_name || "",
-            branch_id: updatedData.branch_assignment?.branch_id || profile?.branch_id || "",
+            branch_names: profile?.branch_names || [],
+            branch_name: profile?.branch_name || "",
+            branch_id: profile?.branch_id || "",
             is_active: updatedData.is_active !== undefined ? updatedData.is_active : true,
             created_at: updatedData.created_at || new Date().toISOString(),
             updated_at: updatedData.updated_at || new Date().toISOString()
@@ -358,15 +371,19 @@ export default function BranchManagerProfilePage() {
                       </div>
                     </div>
 
-                    {profile.branch_name && (
+                    {(profile.branch_names?.length || profile.branch_name) ? (
                       <div className="flex items-start space-x-3 min-w-0">
                         <User className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-gray-900">Branch</p>
-                          <p className="text-xs text-gray-500 break-words">{profile.branch_name}</p>
+                          <div className="text-xs text-gray-500 break-words">
+                            {(profile.branch_names?.length ? profile.branch_names : [profile.branch_name]).map((name, index) => (
+                              <p key={`${name}-${index}`} className="break-words">{name}</p>
+                            ))}
+                          </div>
                         </div>
                       </div>
-                    )}
+                    ) : null}
 
                     <div className="flex items-start space-x-3 min-w-0">
                       <Calendar className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
@@ -470,7 +487,13 @@ export default function BranchManagerProfilePage() {
                       </Label>
                       <div className="flex items-start space-x-2 min-w-0">
                         <Shield className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
-                        <span className="text-gray-900 break-words min-w-0">{profile.branch_name || "Not assigned"}</span>
+                        <span className="text-gray-900 break-words min-w-0">
+                          {profile.branch_names?.length
+                            ? profile.branch_names.map((name, index) => (
+                                <span key={`${name}-${index}`} className="block break-words">{name}</span>
+                              ))
+                            : profile.branch_name || "Not assigned"}
+                        </span>
                       </div>
                     </div>
                   </div>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { usePathname } from "next/navigation"
 import { Loader2, Plus, RefreshCw, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,6 +20,7 @@ import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { TokenManager } from "@/lib/tokenManager"
 import { getBackendApiUrl } from "@/lib/config"
+import { getActiveBranchId } from "@/lib/activeBranch"
 import {
   ACADEMY_EVENT_REMINDER_OFFSETS,
   ACADEMY_EVENT_STATUSES,
@@ -106,6 +108,8 @@ const STATUS_CLASS: Record<string, string> = {
 
 export default function AcademyEventsAdminPage() {
   const { toast } = useToast()
+  const pathname = usePathname()
+  const isBranchAdmin = pathname?.includes("/branch-admin") ?? false
   const [events, setEvents] = useState<AcademyEvent[]>([])
   const [branches, setBranches] = useState<BranchOpt[]>([])
   const [loading, setLoading] = useState(true)
@@ -134,9 +138,9 @@ export default function AcademyEventsAdminPage() {
       const data = await res.json()
       const list = data.branches || data || []
       setBranches(
-        (Array.isArray(list) ? list : []).map((b: { id: string; name?: string }) => ({
+        (Array.isArray(list) ? list : []).map((b: { id: string; name?: string; branch?: { name?: string } }) => ({
           id: b.id,
-          name: b.name || b.id,
+          name: b.branch?.name || b.name || b.id,
         }))
       )
     } catch {
@@ -165,6 +169,12 @@ export default function AcademyEventsAdminPage() {
   useEffect(() => {
     loadBranches()
   }, [loadBranches])
+
+  useEffect(() => {
+    if (!isBranchAdmin) return
+    const branchId = getActiveBranchId()
+    if (branchId) setBranchFilter(branchId)
+  }, [isBranchAdmin])
 
   useEffect(() => {
     load()
@@ -428,13 +438,13 @@ export default function AcademyEventsAdminPage() {
           </div>
           <div>
             <Label>Branch</Label>
-            <Select value={branchFilter} onValueChange={setBranchFilter}>
+            <Select value={branchFilter} onValueChange={setBranchFilter} disabled={isBranchAdmin}>
               <SelectTrigger>
                 <SelectValue placeholder="All branches" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All branches</SelectItem>
-                {branches.map((b) => (
+                {!isBranchAdmin && <SelectItem value="all">All branches</SelectItem>}
+                {(isBranchAdmin ? branches.filter((b) => b.id === branchFilter) : branches).map((b) => (
                   <SelectItem key={b.id} value={b.id}>
                     {b.name}
                   </SelectItem>

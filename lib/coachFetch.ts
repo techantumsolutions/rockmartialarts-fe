@@ -3,9 +3,10 @@ import { getBackendApiUrl } from "@/lib/config"
 /** Fetch all coaches with pagination (includes inactive by default). */
 export async function fetchAllCoaches(
   token: string,
-  options?: { activeOnly?: boolean }
+  options?: { activeOnly?: boolean; branchId?: string }
 ): Promise<any[]> {
   const activeOnly = options?.activeOnly ?? false
+  const branchId = (options?.branchId || "").trim()
   const headers = {
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
@@ -13,8 +14,13 @@ export async function fetchAllCoaches(
 
   const all: any[] = []
   for (let skip = 0; skip < 1000; skip += 100) {
+    const branchQuery = branchId
+      ? `&branch_id=${encodeURIComponent(branchId)}`
+      : ""
     const res = await fetch(
-      getBackendApiUrl(`coaches?active_only=${activeOnly}&limit=100&skip=${skip}`),
+      getBackendApiUrl(
+        `coaches?active_only=${activeOnly}&limit=100&skip=${skip}${branchQuery}`
+      ),
       { headers }
     )
     if (!res.ok) break

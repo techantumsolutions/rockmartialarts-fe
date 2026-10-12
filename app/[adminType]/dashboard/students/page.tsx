@@ -261,7 +261,7 @@ const itemsPerPage = 15
         studentsArray.sort((a, b) => {
           const ta = a.created_at ? new Date(a.created_at).getTime() : 0
           const tb = b.created_at ? new Date(b.created_at).getTime() : 0
-          return tb - ta
+          return ta - tb
         })
 
         setStudents(studentsArray)
@@ -351,7 +351,7 @@ const itemsPerPage = 15
         list.sort((a: { created_at?: string }, b: { created_at?: string }) => {
           const ta = a.created_at ? new Date(a.created_at).getTime() : 0
           const tb = b.created_at ? new Date(b.created_at).getTime() : 0
-          return tb - ta
+          return ta - tb
         })
         setUnassignedStudents(list)
       } else {
@@ -1005,7 +1005,7 @@ const paginatedStudents = filteredStudents.slice(
                 ) : (
                   paginatedStudents.map((student, index) => (
                     <tr key={student.id} className="border-b hover:bg-gray-50 text-[#6B7A99] text-sm">
-                      <td className="py-4 px-4 align-top text-sm font-medium text-[#4F5077]">{filteredStudents.length - ((currentPage - 1) * itemsPerPage + index)}</td>
+                      <td className="py-4 px-4 align-top text-sm font-medium text-[#4F5077]">{(currentPage - 1) * itemsPerPage + index + 1}</td>
                       <td className="py-4 px-6 align-top">
                         <div className="flex flex-col gap-1.5 min-w-[12rem] max-w-[16rem]">
                           <span className="font-medium text-[#4F5077]">

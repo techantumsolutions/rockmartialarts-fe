@@ -18,6 +18,8 @@ import { TokenManager } from "@/lib/tokenManager"
 import { SafeImage } from "@/components/ui/safe-image"
 import { extractUploadUrl, uploadFile } from "@/lib/upload"
 import { useToast } from "@/hooks/use-toast"
+import { WEEKDAY_CHECKLIST_ORDER } from "@/lib/formatWeekdayRanges"
+import { coachAvailabilityAPI } from "@/lib/coachAvailabilityAPI"
 
 // Interface definitions for API data
 interface Branch {
@@ -112,6 +114,9 @@ export default function AddCoachPage() {
   const [courses, setCourses] = useState<Course[]>([])
   const [isLoadingCourses, setIsLoadingCourses] = useState(true)
 
+  const [availabilitySlots, setAvailabilitySlots] = useState<
+    { weekday: string; start_time: string; end_time: string }[]
+  >([])
   const [formData, setFormData] = useState({
     // Personal Information
     firstName: "",
@@ -751,6 +756,17 @@ export default function AddCoachPage() {
       }
     }
 
+    availabilitySlots.forEach((slot, index) => {
+      if (!slot.weekday || !slot.start_time || !slot.end_time) {
+        newErrors.availability = "Each availability row needs a day, start time, and end time"
+        return
+      }
+      if (slot.end_time <= slot.start_time) {
+        newErrors.availability = "Availability end time must be after the start time"
+      }
+      if (index > 20) newErrors.availability = "Too many availability rows"
+    })
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -873,11 +889,34 @@ export default function AddCoachPage() {
 
       console.log("Coach created successfully:", result)
 
+      const newCoachId = result.coach_id || result.coach?.id || result.id
+      if (newCoachId && availabilitySlots.length > 0) {
+        try {
+          await coachAvailabilityAPI.updateForCoach(newCoachId, {
+            timezone: "Asia/Kolkata",
+            service_location_ids: [],
+            weekly_slots: availabilitySlots.map((slot) => ({
+              weekday: slot.weekday,
+              start_time: slot.start_time,
+              end_time: slot.end_time,
+              service_location_id: null,
+            })),
+          })
+        } catch (availabilityError) {
+          toast({
+            title: "Coach created",
+            description:
+              availabilityError instanceof Error
+                ? `Availability was not saved. ${availabilityError.message}`
+                : "Availability was not saved.",
+            variant: "destructive",
+          })
+        }
+      }
+
       // Store the created coach ID for sending credentials
-      if (result.coach && result.coach.id) {
-        setCreatedCoachId(result.coach.id)
-      } else if (result.id) {
-        setCreatedCoachId(result.id)
+      if (newCoachId) {
+        setCreatedCoachId(newCoachId)
       }
 
       setShowSuccessPopup(true)
@@ -1560,6 +1599,91 @@ export default function AddCoachPage() {
                   </Select>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-[#4F5077]">Availability</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-[#7D8592]">
+              <p className="text-sm">Days and times this coach can be assigned to a batch.</p>
+              {availabilitySlots.map((slot, index) => (
+                <div key={`availability-${index}`} className="grid grid-cols-1 md:grid-cols-[1fr_140px_140px_auto] gap-3 items-end">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Day</Label>
+                    <Select
+                      value={slot.weekday}
+                      onValueChange={(value) =>
+                        setAvailabilitySlots((rows) =>
+                          rows.map((row, rowIndex) => (rowIndex === index ? { ...row, weekday: value } : row))
+                        )
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Day" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {WEEKDAY_CHECKLIST_ORDER.map((day) => (
+                          <SelectItem key={day} value={day}>
+                            {day}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Start time</Label>
+                    <Input
+                      type="time"
+                      value={slot.start_time}
+                      onChange={(e) =>
+                        setAvailabilitySlots((rows) =>
+                          rows.map((row, rowIndex) =>
+                            rowIndex === index ? { ...row, start_time: e.target.value } : row
+                          )
+                        )
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">End time</Label>
+                    <Input
+                      type="time"
+                      value={slot.end_time}
+                      onChange={(e) =>
+                        setAvailabilitySlots((rows) =>
+                          rows.map((row, rowIndex) =>
+                            rowIndex === index ? { ...row, end_time: e.target.value } : row
+                          )
+                        )
+                      }
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-10 px-3"
+                    onClick={() => setAvailabilitySlots((rows) => rows.filter((_, rowIndex) => rowIndex !== index))}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+              {errors.availability && <p className="text-xs text-red-500">{errors.availability}</p>}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  setAvailabilitySlots((rows) => [
+                    ...rows,
+                    { weekday: "Monday", start_time: "06:00", end_time: "08:00" },
+                  ])
+                }
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add time
+              </Button>
             </CardContent>
           </Card>
 

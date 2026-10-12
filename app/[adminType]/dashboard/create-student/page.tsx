@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { getBackendApiUrl } from "@/lib/config"
+import { getActiveBranch, getActiveBranchId } from "@/lib/activeBranch"
 import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -70,6 +71,7 @@ export default function CreateStudent() {
   const router = useRouter()
   const basePath = useDashboardBasePath()
   const isSuperAdmin = useDashboardRole() === "super_admin"
+  const isBranchAdmin = useDashboardRole() === "branch_admin"
   const { toast } = useToast()
   
   // Loading states
@@ -413,8 +415,15 @@ export default function CreateStudent() {
     loadCoursesForBranch()
   }, [formData.branch])
 
+  useEffect(() => {
+    if (!isBranchAdmin) return
+    const branchId = getActiveBranchId()
+    if (branchId) setFormData((prev) => (prev.branch === branchId ? prev : { ...prev, branch: branchId }))
+  }, [isBranchAdmin])
+
   // Clear branch selection when location changes
   useEffect(() => {
+    if (isBranchAdmin) return
     if (formData.branch && formData.location) {
       // Check if current branch is still valid for the selected location
       const branchExists = branches.find(branch => branch.id === formData.branch)
@@ -490,7 +499,8 @@ export default function CreateStudent() {
 
     try {
       // Check if payment processing is required
-      const requiresPayment = formData.course && formData.branch && formData.category
+      const branchId = (isBranchAdmin ? getActiveBranchId() : null) || formData.branch
+      const requiresPayment = formData.course && branchId && formData.category
 
       if (requiresPayment) {
         // Use payment processing endpoint for complete registration with payment
@@ -523,7 +533,7 @@ export default function CreateStudent() {
             ...(isSuperAdmin && formData.studentLevel ? { student_level: formData.studentLevel } : {}),
           },
           course_id: formData.course,
-          branch_id: formData.branch,
+          branch_id: branchId,
           category_id: formData.category,
           duration: formData.duration || "3-months",
           payment_method: "cash" // Default to cash for manual registrations
@@ -581,9 +591,9 @@ export default function CreateStudent() {
             course_id: formData.course,
             duration: formData.duration || "3-months"
           } : undefined,
-          branch: formData.branch ? {
+          branch: branchId ? {
             location_id: formData.location,
-            branch_id: formData.branch
+            branch_id: branchId
           } : undefined
         }
 
@@ -1232,9 +1242,9 @@ export default function CreateStudent() {
                           <Building2Icon className="w-5 h-5 text-gray-400" />
                         </div>
                         <Select
-                          value={formData.branch}
+                          value={isBranchAdmin ? (getActiveBranchId() || formData.branch) : formData.branch}
                           onValueChange={(value) => handleInputChange("branch", value)}
-                          disabled={!formData.location || isLoadingBranches}
+                          disabled={isBranchAdmin || !formData.location || isLoadingBranches}
                         >
                           <SelectTrigger className={cn(
                             "!w-full !h-14 !pl-12 !pr-4 !py-4 !text-base !bg-gray-50 !border-gray-200 !rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent !min-h-14",
@@ -1250,7 +1260,11 @@ export default function CreateStudent() {
                             } className="text-gray-500" />
                           </SelectTrigger>
                           <SelectContent className="rounded-xl border border-gray-200 bg-white shadow-lg max-h-60">
-                            {branches.length > 0 ? (
+                            {isBranchAdmin && getActiveBranch() ? (
+                              <SelectItem value={getActiveBranch()!.id} className="!py-3 !pl-3 pr-8 text-base">
+                                {getActiveBranch()!.name}
+                              </SelectItem>
+                            ) : branches.length > 0 ? (
                               branches
                                 .filter((branch) => branch && branch.id && branch.id.trim() !== '')
                                 .map((branch) => (
