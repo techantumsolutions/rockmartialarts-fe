@@ -212,8 +212,18 @@ class DashboardAPI extends BaseAPI {
   /**
    * Get all courses for dashboard metrics
    */
-  async getCourses(token: string): Promise<any> {
-    return await this.makeRequest('/api/courses', {
+  async getCourses(token: string, params?: {
+    skip?: number
+    limit?: number
+    active_only?: boolean
+  }): Promise<any> {
+    const searchParams = new URLSearchParams()
+    if (params?.skip !== undefined) searchParams.append('skip', params.skip.toString())
+    if (params?.limit !== undefined) searchParams.append('limit', params.limit.toString())
+    if (params?.active_only !== undefined) searchParams.append('active_only', params.active_only.toString())
+
+    const query = searchParams.toString()
+    return await this.makeRequest(`/api/courses${query ? `?${query}` : ''}`, {
       method: 'GET',
       token
     })
