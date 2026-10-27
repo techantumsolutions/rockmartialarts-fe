@@ -1180,7 +1180,10 @@ const paginatedStudents = filteredStudents.slice(
     variant="outline"
     size="sm"
     disabled={currentPage === 1}
-    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+    onClick={() => {
+      setCurrentPage((prev) => Math.max(prev - 1, 1))
+      window.scrollTo({ top: 0, behavior: "smooth" })
+    }}
   >
     Previous
   </Button>
@@ -1189,7 +1192,10 @@ const paginatedStudents = filteredStudents.slice(
   {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
     <Button
       key={page}
-      onClick={() => setCurrentPage(page)}
+      onClick={() => {
+        setCurrentPage(page)
+        window.scrollTo({ top: 0, behavior: "smooth" })
+      }}
       className={`${
         currentPage === page
           ? "bg-yellow-400 hover:bg-yellow-500 text-black"
@@ -1207,7 +1213,10 @@ const paginatedStudents = filteredStudents.slice(
     variant="outline"
     size="sm"
     disabled={currentPage === totalPages}
-    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+    onClick={() => {
+      setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+      window.scrollTo({ top: 0, behavior: "smooth" })
+    }}
   >
     Next
   </Button>

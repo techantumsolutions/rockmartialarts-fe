@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Search, Edit, ToggleLeft, ToggleRight, ChevronDown, Eye } from "lucide-react"
+import { Search, Edit, ToggleLeft, ToggleRight, Eye } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useRouter, usePathname } from "next/navigation"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
@@ -57,8 +57,6 @@ export default function CourseListPage() {
   const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [showBranchDropdown, setShowBranchDropdown] = useState<string | null>(null)
-
   // Fetch courses from API (branch admin: only courses assigned to managed branches)
   useEffect(() => {
     const fetchCourses = async () => {
@@ -219,7 +217,7 @@ export default function CourseListPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredCourses.map((course, index) => (
+                  {filteredCourses.map((course) => (
                     <tr key={course.id} className={`border-b hover:bg-gray-50 ${!(course.enabled ?? true) ? "opacity-50" : ""}`}>
                       <td className="py-4 px-6">
                         <div className="flex items-center space-x-3">
@@ -230,28 +228,7 @@ export default function CourseListPage() {
                         </div>
                       </td>
                       <td className="py-4 px-6">
-                        <div className="relative">
-                          <span className="text-[#6B7A99]">{course.branches || 0} Branches</span>
-                          {index === 1 && showBranchDropdown === course.id && course.branchLocations && (
-                            <div className="absolute top-8 left-0 bg-white border rounded-lg shadow-lg p-2 z-10 min-w-[150px]">
-                              {course.branchLocations.map((location, idx) => (
-                                <div key={idx} className="py-1 px-2 hover:bg-gray-100 cursor-pointer text-sm">
-                                  {location}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          {index === 1 && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setShowBranchDropdown(showBranchDropdown === course.id ? null : course.id)}
-                              className="ml-2 p-1 h-6 w-6"
-                            >
-                              <ChevronDown className="w-3 h-3" />
-                            </Button>
-                          )}
-                        </div>
+                        <span className="text-[#6B7A99]">{course.branches || 0} Branches</span>
                       </td>
                       <td className="py-4 px-6">
                         <span className="text-[#6B7A99]">{course.coachs || 0} coachs</span>

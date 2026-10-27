@@ -1379,6 +1379,60 @@ export default function StudentDetailPage() {
               </CardContent>
             </Card>
 
+            {/* Quick Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center font-bold text-[#4D5077]">Quick Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-[#7F8592]">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={handleEdit}
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Student Details
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() =>
+                    router.push(`${basePath}/enrollments?student_id=${encodeURIComponent(studentId)}`)
+                  }
+                >
+                  <BookOpen className="w-4 h-4 mr-2" />
+                  Manage Enrollments
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() =>
+                    router.push(
+                      `${basePath}/payment-tracking?student_id=${encodeURIComponent(studentId)}`
+                    )
+                  }
+                >
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  View Payment History
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() =>
+                    router.push(
+                      `${basePath}/attendance?student_id=${encodeURIComponent(studentId)}`
+                    )
+                  }
+                >
+                  <Clock className="w-4 h-4 mr-2" />
+                  View Attendance Records
+                </Button>
+              </CardContent>
+            </Card>
+
           </div>
         </div>
       </div>
