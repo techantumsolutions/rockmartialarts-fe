@@ -300,13 +300,15 @@ const paginatedCoaches = filteredCoaches.slice(
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-[#4F5077]">Coach list</h1>
           <div className="flex space-x-3">
-            <Button
-              onClick={() => router.push(`${basePath}/coach-approvals`)}
-              variant="outline"
-              className="border-[#4F5077] text-[#4F5077] px-4 py-2 rounded-lg font-medium"
-            >
-              Coach Approvals
-            </Button>
+            {!isBranchAdmin && (
+              <Button
+                onClick={() => router.push(`${basePath}/coach-approvals`)}
+                variant="outline"
+                className="border-[#4F5077] text-[#4F5077] px-4 py-2 rounded-lg font-medium"
+              >
+                Coach Approvals
+              </Button>
+            )}
             <Button
               onClick={() => router.push(`${basePath}/coach-availability`)}
               variant="outline"

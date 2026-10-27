@@ -16,13 +16,54 @@ import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { getActiveBranchId } from "@/lib/activeBranch"
 
+interface CourseCoachReference {
+  id?: string
+  instructor_id?: string
+  coach_id?: string
+  instructor_name?: string
+  coach_name?: string
+  full_name?: string
+  name?: string
+}
+
+interface DashboardCourse {
+  id?: string
+  title?: string
+  name?: string
+  course_name?: string
+  instructor_assignments?: CourseCoachReference[]
+  instructors?: CourseCoachReference[]
+  assigned_coaches?: CourseCoachReference[]
+}
+
+interface CoachCourseAssignment {
+  course_id?: string
+  course_name?: string
+  id?: string
+  title?: string
+}
+
+type DashboardCoach = Coach & {
+  assigned_courses?: CoachCourseAssignment[]
+}
+
+interface CoachCourseOption {
+  id: string
+  name: string
+  coachIds: string[]
+  coachNames: string[]
+}
 
 export default function SuperAdminDashboard() {
   const router = useRouter()
   const basePath = useDashboardBasePath()
   // State management
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null)
-  const [coaches, setCoaches] = useState<Coach[]>([])
+  const [coaches, setCoaches] = useState<DashboardCoach[]>([])
+  const [courses, setCourses] = useState<CoachCourseOption[]>([])
+  const [selectedCourseId, setSelectedCourseId] = useState("")
+  const [coursesLoading, setCoursesLoading] = useState(false)
+  const [coursesError, setCoursesError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [coachesLoading, setCoachesLoading] = useState(true)
@@ -156,11 +197,32 @@ export default function SuperAdminDashboard() {
           return
         }
 
-        const response = await dashboardAPI.getCoaches(token, {
-          limit: 5,
-          active_only: true
-        })
-        setCoaches(response.coaches || [])
+        if (role === "branch_admin") {
+          const pageSize = 100
+          const allCoaches: DashboardCoach[] = []
+          let skip = 0
+          let pageSizeReturned: number
+
+          do {
+            const response = await dashboardAPI.getCoaches(token, {
+              skip,
+              limit: pageSize,
+              active_only: true
+            })
+            const page = response.coaches || []
+            allCoaches.push(...page)
+            pageSizeReturned = page.length
+            skip += pageSizeReturned
+          } while (pageSizeReturned === pageSize)
+
+          setCoaches(allCoaches)
+        } else {
+          const response = await dashboardAPI.getCoaches(token, {
+            limit: 5,
+            active_only: true
+          })
+          setCoaches(response.coaches || [])
+        }
       } catch (err: any) {
         console.error("Error fetching coaches:", err)
         setCoachesError(err.message || "Failed to fetch coaches")
@@ -170,7 +232,96 @@ export default function SuperAdminDashboard() {
     }
 
     fetchCoaches()
-  }, [getAuthToken])
+  }, [getAuthToken, role])
+
+  useEffect(() => {
+    if (role !== "branch_admin") return
+
+    const fetchCourses = async () => {
+      try {
+        setCoursesLoading(true)
+        setCoursesError(null)
+
+        const token = getAuthToken()
+        if (!token) {
+          setCoursesError("Authentication required. Please login again.")
+          return
+        }
+
+        const pageSize = 100
+        const courseList: DashboardCourse[] = []
+        let skip = 0
+        let pageSizeReturned: number
+
+        do {
+          const response = await dashboardAPI.getCourses(token, {
+            skip,
+            limit: pageSize,
+            active_only: true
+          })
+          const page = Array.isArray(response) ? response : response?.courses
+          if (!Array.isArray(page)) {
+            throw new Error("The courses response was invalid. Please try again.")
+          }
+          courseList.push(...page)
+          pageSizeReturned = page.length
+          skip += pageSizeReturned
+        } while (pageSizeReturned === pageSize)
+
+        const options: CoachCourseOption[] = courseList
+          .filter((course): course is DashboardCourse & { id: string } =>
+            typeof course.id === "string" &&
+            Boolean(course.title || course.name || course.course_name)
+          )
+          .map((course) => {
+            const references = [
+              ...(course.instructor_assignments || []),
+              ...(course.instructors || []),
+              ...(course.assigned_coaches || [])
+            ]
+
+            return {
+              id: course.id,
+              name: course.title || course.name || course.course_name || "",
+              coachIds: references
+                .map((reference) => reference.instructor_id || reference.coach_id || reference.id)
+                .filter((id): id is string => Boolean(id)),
+              coachNames: references
+                .map((reference) => reference.instructor_name || reference.coach_name || reference.full_name || reference.name)
+                .filter((name): name is string => Boolean(name))
+                .map((name) => name.trim().toLowerCase())
+            }
+          })
+
+        setCourses(options)
+        setSelectedCourseId((current) =>
+          options.some((course) => course.id === current) ? current : ""
+        )
+      } catch (err) {
+        console.error("Error fetching dashboard courses:", err)
+        setCoursesError(err instanceof Error ? err.message : "Failed to fetch courses.")
+      } finally {
+        setCoursesLoading(false)
+      }
+    }
+
+    void fetchCourses()
+  }, [getAuthToken, role])
+
+  const selectedCourse = courses.find((course) => course.id === selectedCourseId)
+  const visibleCoaches = role === "branch_admin" && selectedCourse
+    ? coaches.filter((coach) =>
+        selectedCourse.coachIds.includes(coach.id) ||
+        selectedCourse.coachNames.includes(coach.full_name.trim().toLowerCase()) ||
+        coach.assigned_courses?.some((assignment) =>
+          assignment.course_id === selectedCourse.id ||
+          assignment.id === selectedCourse.id ||
+          assignment.course_name?.trim().toLowerCase() === selectedCourse.name.trim().toLowerCase() ||
+          assignment.title?.trim().toLowerCase() === selectedCourse.name.trim().toLowerCase()
+        ) ||
+        coach.assignment_details?.courses?.includes(selectedCourse.id)
+      )
+    : coaches
 
   // Fetch payment data — re-runs when timePeriod changes
   useEffect(() => {
@@ -496,20 +647,48 @@ export default function SuperAdminDashboard() {
                 <CardTitle className="text-[var(--brand-dark)]">List of coaches</CardTitle>
                 <div className="flex items-center space-x-2">
                   <span className="text-sm text-black">Filter by:</span>
-                  <Select defaultValue="branch">
-                    <SelectTrigger className="w-20 bg-[#F1F1F1]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="branch">BRANCH</SelectItem>
-                      <SelectItem value="rating">Rating</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {role === "branch_admin" ? (
+                    <Select
+                      value={selectedCourseId}
+                      onValueChange={setSelectedCourseId}
+                      disabled={coursesLoading || Boolean(coursesError) || courses.length === 0}
+                    >
+                      <SelectTrigger className="w-[180px] bg-[#F1F1F1]">
+                        <SelectValue placeholder={coursesLoading ? "Loading courses..." : "Select course"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {courses.map((course) => (
+                          <SelectItem key={course.id} value={course.id}>
+                            {course.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Select defaultValue="branch">
+                      <SelectTrigger className="w-20 bg-[#F1F1F1]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="branch">BRANCH</SelectItem>
+                        <SelectItem value="rating">Rating</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
+                {role === "branch_admin" && coursesError && (
+                  <div className="flex items-center space-x-2 text-sm text-red-600" role="alert">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>{coursesError}</span>
+                  </div>
+                )}
+                {role === "branch_admin" && !coursesLoading && !coursesError && courses.length === 0 && (
+                  <p className="text-sm text-gray-500">No courses are available to filter by.</p>
+                )}
                 {coachesLoading ? (
                   // Loading state for coaches
                   Array.from({ length: 3 }).map((_, index) => (
@@ -534,14 +713,16 @@ export default function SuperAdminDashboard() {
                     <AlertCircle className="w-5 h-5" />
                     <span>{coachesError}</span>
                   </div>
-                ) : coaches.length === 0 ? (
+                ) : visibleCoaches.length === 0 ? (
                   // No coaches found
                   <div className="text-center py-4 text-gray-500">
-                    No coaches found
+                    {selectedCourse
+                      ? `No coaches are assigned to ${selectedCourse.name}.`
+                      : "No coaches found"}
                   </div>
                 ) : (
                   // Display coaches
-                  coaches.map((coach) => (
+                  visibleCoaches.map((coach) => (
                     <div key={coach.id} className="">
                       <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
