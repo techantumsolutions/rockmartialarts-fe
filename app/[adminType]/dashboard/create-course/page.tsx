@@ -17,6 +17,8 @@ import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/AuthContext"
 import { TokenManager } from "@/lib/tokenManager"
+import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { getActiveBranchId } from "@/lib/activeBranch"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { CourseMediaResourcesFields } from "@/components/dashboard/CourseMediaResourcesFields"
 import CourseFormSections, { PageContent } from "@/components/dashboard/CourseFormSections"
@@ -350,7 +352,10 @@ export default function CreateCoursePage() {
         }
       }
 
-      const token = TokenManager.getToken()
+      let token = TokenManager.getToken() || BranchManagerAuth.getToken()
+      if (!token && typeof window !== "undefined") {
+        token = localStorage.getItem("access_token") || localStorage.getItem("token")
+      }
 
       if (!token) {
         toast({
@@ -363,12 +368,18 @@ export default function CreateCoursePage() {
 
       console.log('Creating course with data:', apiData)
       
+      const activeBranchId = getActiveBranchId()
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+      if (activeBranchId) {
+        headers['X-Active-Branch-Id'] = activeBranchId
+      }
+
       const response = await fetch(getBackendApiUrl('courses'), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers,
         body: JSON.stringify(apiData)
       })
 

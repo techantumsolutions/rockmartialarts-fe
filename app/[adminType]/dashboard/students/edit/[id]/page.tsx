@@ -44,6 +44,19 @@ function resolveDurationSelectValue(
   return raw
 }
 
+/** Normalize stored/entered phone to 10-digit Indian mobile (strip +91 / 91 / leading 0). */
+function normalizeIndianMobileDigits(raw: string, countryCode?: string | null): string {
+  let digits = String(raw || "").replace(/\D/g, "")
+  const ccDigits = String(countryCode || "").replace(/\D/g, "")
+  if (ccDigits && digits.startsWith(ccDigits) && digits.length > 10) {
+    digits = digits.slice(ccDigits.length)
+  }
+  if (digits.length === 12 && digits.startsWith("91")) digits = digits.slice(2)
+  if (digits.length === 11 && digits.startsWith("0")) digits = digits.slice(1)
+  if (digits.length > 10) digits = digits.slice(-10)
+  return digits.slice(0, 10)
+}
+
 interface Branch {
   id: string
   name: string
@@ -404,7 +417,10 @@ export default function EditStudent() {
           firstName: studentData.first_name || "",
           lastName: studentData.last_name || "",
           email: studentData.email || "",
-          contactNumber: studentData.phone?.replace(studentData.country_code, "") || "",
+          contactNumber: normalizeIndianMobileDigits(
+            studentData.phone || "",
+            studentData.country_code || "+91"
+          ),
           countryCode: studentData.country_code || "+91",
           gender: studentData.gender || "",
           dob: studentData.date_of_birth ? format(new Date(studentData.date_of_birth), "yyyy-MM-dd") : "",
@@ -677,8 +693,11 @@ export default function EditStudent() {
     if (formData.password && formData.password.length > 0 && formData.password.length < 6) {
       newErrors.password = "Password must be at least 6 characters long"
     }
-    if (formData.contactNumber && !/^[0-9]{10}$/.test(formData.contactNumber.replace(/\s+/g, ''))) {
-      newErrors.contactNumber = "Please enter a valid 10-digit phone number"
+    {
+      const mobile = normalizeIndianMobileDigits(formData.contactNumber, formData.countryCode)
+      if (formData.contactNumber.trim() && !/^[6-9]\d{9}$/.test(mobile)) {
+        newErrors.contactNumber = "Please enter a valid 10-digit phone number"
+      }
     }
     if (enrollmentStartDate && enrollmentEndDate && enrollmentEndDate.getTime() < enrollmentStartDate.getTime()) {
       newErrors.enrollmentEnd = "End date must be on or after start date"
@@ -716,9 +735,10 @@ export default function EditStudent() {
       const token = TokenManager.getToken()
       if (!token) throw new Error("Authentication token not found.")
 
+      const mobileDigits = normalizeIndianMobileDigits(formData.contactNumber, formData.countryCode)
       const apiPayload = {
         email: formData.email,
-        phone: `${formData.countryCode}${formData.contactNumber}`,
+        phone: `${formData.countryCode || "+91"}${mobileDigits}`,
         first_name: formData.firstName,
         last_name: formData.lastName,
         date_of_birth: formData.dob || undefined,

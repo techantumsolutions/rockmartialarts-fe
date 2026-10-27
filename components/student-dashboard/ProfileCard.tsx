@@ -3,9 +3,9 @@
 import { useRef, useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { PerformanceProfile } from "@/lib/student-performance-types"
-import { Camera, Loader2, User } from "lucide-react"
+import { Camera, Loader2, User, X } from "lucide-react"
 import { getBackendApiUrl } from "@/lib/config"
-import { toast } from "sonner"
+import { useToast } from "@/hooks/use-toast"
 
 function fmtJoin(d?: string | null) {
   if (!d) return "—"
@@ -36,6 +36,14 @@ function savePhoto(studentId: string, url: string) {
   try {
     const map = JSON.parse(localStorage.getItem(PHOTO_STORAGE_KEY) || "{}")
     map[studentId] = url
+    localStorage.setItem(PHOTO_STORAGE_KEY, JSON.stringify(map))
+  } catch {}
+}
+
+function clearSavedPhoto(studentId: string) {
+  try {
+    const map = JSON.parse(localStorage.getItem(PHOTO_STORAGE_KEY) || "{}")
+    delete map[studentId]
     localStorage.setItem(PHOTO_STORAGE_KEY, JSON.stringify(map))
   } catch {}
 }
@@ -112,41 +120,100 @@ export function ProfileCard({
   studentId?: string | null
   onPhotoUpdated?: () => void
 }) {
+  const { toast } = useToast()
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
+  const [removing, setRemoving] = useState(false)
   const [localImage, setLocalImage] = useState<string | null>(null)
+  const [photoRemoved, setPhotoRemoved] = useState(false)
+  const [photoError, setPhotoError] = useState<string | null>(null)
+
+  const showPhotoError = (message: string) => {
+    setPhotoError(message)
+    toast({
+      title: "Upload error",
+      description: message,
+      variant: "destructive",
+    })
+  }
 
   useEffect(() => {
+    setPhotoRemoved(false)
     if (studentId) {
       const saved = getSavedPhoto(studentId)
       if (saved) setLocalImage(saved)
+      else setLocalImage(null)
+    } else {
+      setLocalImage(null)
     }
   }, [studentId])
 
-  const displayImage = localImage || profile.profile_image || null
+  const displayImage = photoRemoved ? null : localImage || profile.profile_image || null
   const initials = (profile.name || "?").charAt(0).toUpperCase()
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 2 * 1024 * 1024) { toast.error("Image must be 2 MB or smaller."); return }
-    if (file.type !== "image/jpeg" && file.type !== "image/png") { toast.error("Please choose a JPG or PNG image."); return }
+    setPhotoError(null)
+
+    // Enforce 2 MB client-side (show inline + toast; do not start upload)
+    if (file.size > 2 * 1024 * 1024) {
+      const sizeMb = (file.size / (1024 * 1024)).toFixed(1)
+      showPhotoError(`Image is ${sizeMb} MB. Maximum allowed size is 2 MB.`)
+      if (fileRef.current) fileRef.current.value = ""
+      return
+    }
+    if (file.type !== "image/jpeg" && file.type !== "image/png") {
+      showPhotoError("Please choose a JPG or PNG image.")
+      if (fileRef.current) fileRef.current.value = ""
+      return
+    }
 
     const token = getToken()
-    if (!token) { toast.error("Please log in again."); return }
+    if (!token) {
+      showPhotoError("Please log in again.")
+      return
+    }
 
     setUploading(true)
     try {
       const imageUrl = await uploadPhoto(file, token, studentId ?? null)
       if (studentId) savePhoto(studentId, imageUrl)
       setLocalImage(imageUrl)
-      toast.success("Profile photo updated")
+      setPhotoRemoved(false)
+      setPhotoError(null)
+      toast({ title: "Profile photo updated" })
       onPhotoUpdated?.()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Upload failed")
+      showPhotoError(err instanceof Error ? err.message : "Upload failed")
     } finally {
       setUploading(false)
       if (fileRef.current) fileRef.current.value = ""
+    }
+  }
+
+  const handleRemovePhoto = async () => {
+    if (!displayImage || uploading || removing) return
+    const token = getToken()
+    setRemoving(true)
+    setPhotoError(null)
+    try {
+      if (studentId && token) {
+        await fetch(getBackendApiUrl(`student/profile/${encodeURIComponent(studentId)}`), {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ profile_image: null }),
+        }).catch(() => {})
+      }
+      if (studentId) clearSavedPhoto(studentId)
+      setLocalImage(null)
+      setPhotoRemoved(true)
+      toast({ title: "Profile photo removed" })
+      onPhotoUpdated?.()
+    } catch (err) {
+      showPhotoError(err instanceof Error ? err.message : "Could not remove photo")
+    } finally {
+      setRemoving(false)
     }
   }
 
@@ -160,25 +227,46 @@ export function ProfileCard({
       </CardHeader>
       <CardContent>
         <div className="flex flex-col sm:flex-row gap-4 items-start">
-          <div className="relative group shrink-0">
-            <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-amber-200 bg-amber-50 flex items-center justify-center">
+          <div className="shrink-0 w-[5.75rem]">
+            <div className="relative group h-20 w-20 mx-auto">
+              <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-amber-200 bg-amber-50 flex items-center justify-center">
+                {displayImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={displayImage} alt={profile.name || ""} className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-2xl font-bold text-amber-600">{initials}</span>
+                )}
+              </div>
               {displayImage ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={displayImage} alt={profile.name || ""} className="h-full w-full object-cover" />
-              ) : (
-                <span className="text-2xl font-bold text-amber-600">{initials}</span>
-              )}
+                <button
+                  type="button"
+                  onClick={() => void handleRemovePhoto()}
+                  disabled={uploading || removing}
+                  className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 disabled:opacity-50 z-10"
+                  title="Remove photo"
+                  aria-label="Remove photo"
+                >
+                  {removing ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading || removing}
+                className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-md hover:bg-amber-600 transition-colors disabled:opacity-50 z-10"
+                title="Change photo"
+              >
+                {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+              </button>
+              <input ref={fileRef} type="file" accept="image/jpeg,image/png" className="hidden" onChange={handleFileChange} />
             </div>
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              disabled={uploading}
-              className="absolute bottom-0 right-0 h-7 w-7 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-md hover:bg-amber-600 transition-colors disabled:opacity-50"
-              title="Change photo"
-            >
-              {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
-            </button>
-            <input ref={fileRef} type="file" accept="image/jpeg,image/png" className="hidden" onChange={handleFileChange} />
+            {photoError ? (
+              <p className="mt-3 text-center text-xs font-medium text-red-600 leading-snug" role="alert">
+                {photoError}
+              </p>
+            ) : (
+              <p className="mt-3 text-center text-[10px] text-slate-500 leading-snug">JPG/PNG, max 2 MB</p>
+            )}
           </div>
           <div className="grid gap-3 sm:grid-cols-2 text-sm text-slate-700 flex-1 min-w-0">
             <div>
