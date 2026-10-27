@@ -14,6 +14,17 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import WeeklySlotTimePicker from "@/components/coaches/WeeklySlotTimePicker"
 import { useToast } from "@/hooks/use-toast"
 import {
   WEEKDAYS,
@@ -56,6 +67,7 @@ export default function CoachAvailabilityEditor({
   const [timezone, setTimezone] = useState("Asia/Kolkata")
   const [updatedAt, setUpdatedAt] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [slotToDelete, setSlotToDelete] = useState<{ index: number; slot: WeeklySlot } | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -126,8 +138,26 @@ export default function CoachAvailabilityEditor({
     setSlots((prev) => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)))
   }
 
+  const formatSlotTime = (timeStr?: string): string => {
+    if (!timeStr) return ""
+    const match = /^(\d{1,2}):(\d{2})/.exec(timeStr.trim())
+    if (!match) return timeStr
+    let h = Number(match[1])
+    const m = match[2]
+    const suffix = h >= 12 ? "PM" : "AM"
+    h = h % 12 || 12
+    return `${String(h).padStart(2, "0")}:${m} ${suffix}`
+  }
+
   const removeSlot = (index: number) => {
     setSlots((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const confirmDeleteSlot = () => {
+    if (slotToDelete !== null) {
+      removeSlot(slotToDelete.index)
+      setSlotToDelete(null)
+    }
   }
 
   const handleSave = async () => {
@@ -295,18 +325,16 @@ export default function CoachAvailabilityEditor({
                 </div>
                 <div className="md:col-span-2">
                   <Label className="text-xs text-[#6B7A99]">Start</Label>
-                  <Input
-                    type="time"
+                  <WeeklySlotTimePicker
                     value={slot.start_time}
-                    onChange={(e) => updateSlot(index, { start_time: e.target.value })}
+                    onChange={(val) => updateSlot(index, { start_time: val })}
                   />
                 </div>
                 <div className="md:col-span-2">
                   <Label className="text-xs text-[#6B7A99]">End</Label>
-                  <Input
-                    type="time"
+                  <WeeklySlotTimePicker
                     value={slot.end_time}
-                    onChange={(e) => updateSlot(index, { end_time: e.target.value })}
+                    onChange={(val) => updateSlot(index, { end_time: val })}
                   />
                 </div>
                 <div className="md:col-span-4">
@@ -317,10 +345,11 @@ export default function CoachAvailabilityEditor({
                 </div>
                 <div className="md:col-span-2 flex justify-end">
                   <Button
+                    type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={() => removeSlot(index)}
-                    className="text-red-600"
+                    onClick={() => setSlotToDelete({ index, slot })}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
                     title="Remove slot"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -366,6 +395,33 @@ export default function CoachAvailabilityEditor({
           />
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={slotToDelete !== null}
+        onOpenChange={(open) => !open && setSlotToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete time slot?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this weekly time slot
+              {slotToDelete?.slot
+                ? ` (${(slotToDelete.slot.weekday || "").charAt(0).toUpperCase() + (slotToDelete.slot.weekday || "").slice(1)}: ${formatSlotTime(slotToDelete.slot.start_time)} – ${formatSlotTime(slotToDelete.slot.end_time)})`
+                : ""}
+              ? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteSlot}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
