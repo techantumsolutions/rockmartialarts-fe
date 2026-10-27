@@ -21,6 +21,7 @@ function inferDashboardBasePath(pathname: string): string {
 interface Row {
   id: string
   student_id?: string
+  student_name?: string
   course_id?: string
   branch_id?: string
   course_name?: string
@@ -176,8 +177,27 @@ export default function ManageEnrollmentsPage() {
                     className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-4 rounded-lg border bg-white"
                   >
                     <div>
-                      <p className="font-medium text-gray-900">{r.course_name || r.course_id || "Course"}</p>
-                      <p className="text-sm text-gray-600">{r.branch_name || r.branch_id || "Branch"}</p>
+                      {courseId ? (
+                        <>
+                          <p className="font-medium text-gray-900">
+                            {r.student_name || "Unknown student"}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {r.course_name || "Course"}
+                            {" · "}
+                            {r.branch_name || "Branch"}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="font-medium text-gray-900">
+                            {r.course_name || "Unknown course"}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {r.branch_name || "Unknown branch"}
+                          </p>
+                        </>
+                      )}
                       {r.enrollment_date && (
                         <p className="text-xs text-gray-500 mt-1">
                           Enrolled {new Date(r.enrollment_date).toLocaleDateString()}
