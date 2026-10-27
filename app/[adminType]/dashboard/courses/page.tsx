@@ -105,11 +105,14 @@ export default function CourseListPage() {
 
 
 
-  // Enhanced search functionality - search across multiple fields
+  // Branch admins search the displayed course name; other admins keep the broader search.
   const filteredCourses = courses.filter((course) => {
-    if (!searchTerm) return true
+    const searchLower = searchTerm.trim().toLowerCase()
+    if (!searchLower) return true
+    if (isBranchAdmin) {
+      return (course.name || course.title || "").toLowerCase().includes(searchLower)
+    }
 
-    const searchLower = searchTerm.toLowerCase()
     return (
       course.title?.toLowerCase().includes(searchLower) ||
       course.id?.toLowerCase().includes(searchLower) ||
@@ -197,7 +200,7 @@ export default function CourseListPage() {
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-black w-4 h-4" />
             <Input
-              placeholder="Search by name, ID, Location"
+              placeholder={isBranchAdmin ? "Search by course name" : "Search by name, ID, Location"}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"

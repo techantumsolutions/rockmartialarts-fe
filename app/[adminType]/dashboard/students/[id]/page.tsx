@@ -325,6 +325,51 @@ export default function StudentDetailPage() {
   const fetchEnrollmentHistory = async (token: string) => {
     try {
       setEnrollmentsLoading(true)
+      if (isBranchAdmin) {
+        const studentsResponse = await fetch(getBackendApiUrl("users/students/details"), {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+        })
+        if (!studentsResponse.ok) {
+          throw new Error(`Failed to load branch students (${studentsResponse.status})`)
+        }
+
+        const studentsData = await studentsResponse.json()
+        const listedStudent = studentsData.students?.find(
+          (candidate: any) => candidate.id === studentId || candidate.student_id === studentId
+        )
+        if (!listedStudent) {
+          throw new Error("Student is not available in the branches assigned to this manager")
+        }
+
+        const enrollments = listedStudent.enrollments || listedStudent.courses || []
+        setEnrollmentHistory(enrollments.map((enrollment: any, index: number) => ({
+          id: enrollment.id || enrollment.enrollment_id || `${studentId}-${index}`,
+          course_name: enrollment.course_name || "Unknown Course",
+          enrollment_date: enrollment.enrollment_date || enrollment.created_at || new Date().toISOString(),
+          start_date: enrollment.start_date,
+          end_date: enrollment.end_date,
+          next_due_date: enrollment.next_due_date || enrollment.end_date,
+          completion_date: enrollment.completion_date,
+          status: deriveEnrollmentStatus(enrollment),
+          progress: enrollment.progress || 0,
+          grade: enrollment.grade,
+          is_active: enrollment.is_active,
+          payment_status: enrollment.payment_status,
+          fee_amount: enrollment.fee_amount,
+          batch_ref: enrollment.batch_ref,
+          course_id: enrollment.course_id,
+          branch_id: enrollment.branch_id,
+          duration_id: enrollment.duration_id,
+          updated_at: enrollment.updated_at,
+          created_at: enrollment.created_at,
+        })))
+        return
+      }
+
       const enrollmentResponse = await fetch(getBackendApiUrl(`users/${studentId}/enrollments`), {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -375,6 +420,51 @@ export default function StudentDetailPage() {
   const fetchPaymentHistory = async (token: string) => {
     try {
       setPaymentsLoading(true)
+      if (isBranchAdmin) {
+        const payments: any[] = []
+        let skip = 0
+        let total = Number.POSITIVE_INFINITY
+
+        while (skip < total) {
+          const response = await fetch(
+            getBackendApiUrl(`payments?skip=${skip}&limit=100`),
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          )
+          if (!response.ok) {
+            throw new Error(`Failed to fetch branch payments (${response.status})`)
+          }
+
+          const data = await response.json()
+          const pagePayments = Array.isArray(data.payments) ? data.payments : []
+          payments.push(...pagePayments.filter((payment: any) => payment.student_id === studentId))
+          total = Number.isFinite(data.total) ? data.total : skip + pagePayments.length
+          if (pagePayments.length === 0) break
+          skip += pagePayments.length
+        }
+
+        const history: PaymentRecord[] = payments.map((payment: any) => ({
+          id: payment.id || `payment-${Date.now()}`,
+          amount: payment.amount || 0,
+          payment_date: payment.payment_date || payment.created_at || new Date().toISOString(),
+          payment_method: payment.payment_method || 'Unknown',
+          status: payment.payment_status === 'paid' ? 'completed' as const :
+                  payment.payment_status === 'pending' ? 'pending' as const : 'failed' as const,
+          description: payment.description || `${payment.course_name || 'Course'} - ${payment.payment_type || 'Payment'}`,
+          notes: payment.notes,
+          transaction_id: payment.transaction_id,
+          gateway_payment_label: payment.gateway_payment_label,
+          updated_at: payment.updated_at,
+          created_at: payment.created_at,
+        }))
+        setPaymentHistory(history)
+        return
+      }
+
       const paymentResponse = await fetch(getBackendApiUrl(`users/${studentId}/payments`), {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -580,7 +670,7 @@ export default function StudentDetailPage() {
     )
   }
 
-  if (error) {
+  if (error && !student) {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -632,6 +722,11 @@ export default function StudentDetailPage() {
     <div className="min-h-screen bg-gray-50">
       
       <div className="px-4 sm:px-6 lg:px-8 py-8">
+        {error && (
+          <div role="alert" className="mb-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {error}
+          </div>
+        )}
         {/* Header */}
         <div className="mb-8">
           {/* Mobile: row 1 = back + actions, row 2 = name + status */}
