@@ -20,7 +20,9 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Loader2, Save, Settings2 } from "lucide-react"
-import { toast } from "sonner"
+import { toast, Toaster as SonnerToaster } from "sonner"
+import { Label } from "@/components/ui/label"
+import { useToast } from "@/hooks/use-toast"
 
 function authHeaders(): HeadersInit {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") || localStorage.getItem("access_token") : null
@@ -48,10 +50,12 @@ export function StudentPerformanceDashboardClient({
   title?: string
 }) {
   const router = useRouter()
+  const { toast: appToast } = useToast()
   const [studentId, setStudentId] = useState<string | null>(initialStudentId || null)
   const [data, setData] = useState<StudentPerformanceDashboardPayload | null>(null)
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
+  const [achievementsSaveMsg, setAchievementsSaveMsg] = useState<string | null>(null)
 
   const [medals, setMedals] = useState({ gold: 0, silver: 0, bronze: 0, comps: 0, certs: 0 })
   const [skills, setSkills] = useState({ strength: "", speed: "", flex: "", tech: "" })
@@ -203,6 +207,7 @@ export function StudentPerformanceDashboardClient({
 
   const saveMedals = async () => {
     if (!sid) return
+    setAchievementsSaveMsg(null)
     try {
       await putJson(`student/achievements/${encodeURIComponent(sid)}`, {
         gold_medals: Number(medals.gold) || 0,
@@ -211,10 +216,26 @@ export function StudentPerformanceDashboardClient({
         competitions_participated: Number(medals.comps) || 0,
         certificates_earned: Number(medals.certs) || 0,
       })
-      toast.success("Achievements saved")
+      // Admin layout has no Sonner host by default — mount one below and use both toast systems
+      toast.success("Achievements saved", {
+        description: "Student achievements were updated successfully.",
+      })
+      appToast({
+        title: "Achievements saved",
+        description: "Student achievements were updated successfully.",
+      })
+      setAchievementsSaveMsg("Achievements saved successfully.")
+      window.setTimeout(() => setAchievementsSaveMsg(null), 4000)
       void load()
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Save failed")
+      const msg = e instanceof Error ? e.message : "Save failed"
+      toast.error(msg)
+      appToast({
+        title: "Save failed",
+        description: msg,
+        variant: "destructive",
+      })
+      setAchievementsSaveMsg(null)
     }
   }
 
@@ -375,12 +396,32 @@ export function StudentPerformanceDashboardClient({
                   </Button>
                 </TabsContent>
                 <TabsContent value="achievements" className="space-y-3 pt-4">
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                    <Input type="number" min={0} value={medals.gold} onChange={(e) => setMedals({ ...medals, gold: Number(e.target.value) })} placeholder="Gold" />
-                    <Input type="number" min={0} value={medals.silver} onChange={(e) => setMedals({ ...medals, silver: Number(e.target.value) })} placeholder="Silver" />
-                    <Input type="number" min={0} value={medals.bronze} onChange={(e) => setMedals({ ...medals, bronze: Number(e.target.value) })} placeholder="Bronze" />
-                    <Input type="number" min={0} value={medals.comps} onChange={(e) => setMedals({ ...medals, comps: Number(e.target.value) })} placeholder="Comps" />
-                    <Input type="number" min={0} value={medals.certs} onChange={(e) => setMedals({ ...medals, certs: Number(e.target.value) })} placeholder="Certs" />
+                  {achievementsSaveMsg ? (
+                    <p className="text-sm text-green-800 bg-green-50 border border-green-200 rounded-md px-3 py-2" role="status">
+                      {achievementsSaveMsg}
+                    </p>
+                  ) : null}
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="perf-gold-medals" className="text-xs text-slate-600">Gold medals</Label>
+                      <Input id="perf-gold-medals" type="number" min={0} value={medals.gold} onChange={(e) => setMedals({ ...medals, gold: Number(e.target.value) })} placeholder="0" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="perf-silver-medals" className="text-xs text-slate-600">Silver medals</Label>
+                      <Input id="perf-silver-medals" type="number" min={0} value={medals.silver} onChange={(e) => setMedals({ ...medals, silver: Number(e.target.value) })} placeholder="0" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="perf-bronze-medals" className="text-xs text-slate-600">Bronze medals</Label>
+                      <Input id="perf-bronze-medals" type="number" min={0} value={medals.bronze} onChange={(e) => setMedals({ ...medals, bronze: Number(e.target.value) })} placeholder="0" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="perf-competitions" className="text-xs text-slate-600">Competitions participated</Label>
+                      <Input id="perf-competitions" type="number" min={0} value={medals.comps} onChange={(e) => setMedals({ ...medals, comps: Number(e.target.value) })} placeholder="0" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="perf-certificates" className="text-xs text-slate-600">Certificates earned</Label>
+                      <Input id="perf-certificates" type="number" min={0} value={medals.certs} onChange={(e) => setMedals({ ...medals, certs: Number(e.target.value) })} placeholder="0" />
+                    </div>
                   </div>
                   <Button onClick={() => void saveMedals()} className="bg-amber-500 hover:bg-amber-600 text-white">
                     <Save className="h-4 w-4 mr-2" /> Save achievements
@@ -427,10 +468,11 @@ export function StudentPerformanceDashboardClient({
         ) : null}
       </div>
     )
-  }, [loading, err, data, canEdit, sid, medals, skills, goal, fb, war, belt, load, kpiMetrics, kpiLoading, kpiPeriodId, kpiCourseId, loadKpiMetrics])
+  }, [loading, err, data, canEdit, sid, medals, skills, goal, fb, war, belt, load, kpiMetrics, kpiLoading, kpiPeriodId, kpiCourseId, loadKpiMetrics, achievementsSaveMsg])
 
   return (
     <div className="space-y-6">
+      <SonnerToaster richColors position="top-center" closeButton />
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
