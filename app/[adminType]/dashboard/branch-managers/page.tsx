@@ -484,16 +484,16 @@ const filteredManagers = branchManagers.filter((manager) => {
   return (
     <div className="min-h-screen bg-gray-50">
       
-      <main className="w-full p-4 lg:px-8">
-        <div className=" mx-auto">
+      <main className="w-full min-w-0 p-4 lg:px-8">
+        <div className="mx-auto min-w-0">
           {/* Header */}
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
-            <div>
+          <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center mb-6 gap-4">
+            <div className="min-w-0">
               <h1 className="text-2xl font-bold text-[#4F5077]">Branch Managers</h1>
             </div>
             <Button
               onClick={() => router.push(`${basePath}/branch-managers/create`)}
-              className="bg-yellow-400 hover:bg-yellow-500 text-white font-medium"
+              className="w-full lg:w-auto shrink-0 bg-yellow-400 hover:bg-yellow-500 text-white font-medium"
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Branch Manager
@@ -502,20 +502,20 @@ const filteredManagers = branchManagers.filter((manager) => {
 
           {/* Search and Filters */}
           <Card className="mb-6">
-            <CardContent className="p-6">
+            <CardContent className="p-4 lg:p-6">
               <div className="flex flex-col lg:flex-row gap-4">
-                <div className="relative flex-1">
+                <div className="relative flex-1 min-w-0">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
                     placeholder="Search by name, email, or branch..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 w-full"
                   />
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto shrink-0">
                   <Select value={selectedStatus} onValueChange={(value) => setSelectedStatus(value)}>
-                    <SelectTrigger className="w-40">
+                    <SelectTrigger className="w-full sm:flex-1 lg:w-40">
                       <SelectValue placeholder="Filter by status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -525,7 +525,7 @@ const filteredManagers = branchManagers.filter((manager) => {
                     </SelectContent>
                   </Select>
                  <Select value={selectedBranch} onValueChange={(value) => setSelectedBranch(value)}>
-                  <SelectTrigger className="w-40">
+                  <SelectTrigger className="w-full sm:flex-1 lg:w-40">
                     <SelectValue placeholder="Filter by branch" />
                   </SelectTrigger>
                   <SelectContent>
@@ -572,149 +572,151 @@ const filteredManagers = branchManagers.filter((manager) => {
           )}
 
           {/* Branch Managers List */}
-          <Card>
+          <Card className="overflow-hidden">
             <CardContent className="p-0">
               {currentManagers.length === 0 ? (
-                <div className="text-center py-12">
+                <div className="text-center py-12 px-4">
                   <p className="text-gray-500 mb-4">No branch managers found</p>
                   <Button
                     onClick={() => router.push(`${basePath}/branch-managers/create`)}
-                    className="bg-yellow-400 hover:bg-yellow-500 text-black"
+                    className="w-full sm:w-auto bg-yellow-400 hover:bg-yellow-500 text-black"
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Add First Branch Manager
                   </Button>
                 </div>
               ) : (
-                <>
-                  {/* Table Header */}
-                  <div className="grid grid-cols-12 gap-4 p-4 bg-gray-50 border-b font-medium text-sm text-gray-700">
-                    <div className="col-span-3">Manager</div>
-                    <div className="col-span-2">Branch</div>
-                    <div className="col-span-2">Contact</div>
-                    <div className="col-span-2">Designation</div>
-                    <div className="col-span-1">Status</div>
-                    <div className="col-span-2">Actions</div>
-                  </div>
+                <div className="overflow-x-auto">
+                  <div className="min-w-[900px]">
+                    {/* Table Header */}
+                    <div className="grid grid-cols-12 gap-4 p-4 bg-gray-50 border-b font-medium text-sm text-gray-700">
+                      <div className="col-span-3">Manager</div>
+                      <div className="col-span-2">Branch</div>
+                      <div className="col-span-2">Contact</div>
+                      <div className="col-span-2">Designation</div>
+                      <div className="col-span-1">Status</div>
+                      <div className="col-span-2">Actions</div>
+                    </div>
 
-                  {/* Table Body */}
-                  <div className="divide-y divide-gray-200">
-                    {currentManagers.map((manager) => (
-                      <div key={manager.id} className="grid grid-cols-12 gap-4 p-4 hover:bg-gray-50 transition-colors">
-                        <div className="col-span-3 flex items-center space-x-3">
-                          <Avatar className="w-10 h-10">
-                            <AvatarImage src="" />
-                            <AvatarFallback>
-                              {manager.full_name ? manager.full_name.split(' ').map(n => n[0]).join('').toUpperCase() : 'BM'}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="font-medium text-gray-900">{manager.full_name}</p>
-                            <p className="text-sm text-gray-500">
-                              {manager.created_at ? new Date(manager.created_at).toLocaleDateString() : 'No date'}
+                    {/* Table Body */}
+                    <div className="divide-y divide-gray-200">
+                      {currentManagers.map((manager) => (
+                        <div key={manager.id} className="grid grid-cols-12 gap-4 p-4 hover:bg-gray-50 transition-colors">
+                          <div className="col-span-3 flex items-center space-x-3 min-w-0">
+                            <Avatar className="w-10 h-10 shrink-0">
+                              <AvatarImage src="" />
+                              <AvatarFallback>
+                                {manager.full_name ? manager.full_name.split(' ').map(n => n[0]).join('').toUpperCase() : 'BM'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <p className="font-medium text-gray-900 truncate">{manager.full_name}</p>
+                              <p className="text-sm text-gray-500">
+                                {manager.created_at ? new Date(manager.created_at).toLocaleDateString() : 'No date'}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="col-span-2 flex items-center min-w-0">
+                            <div className="min-w-0">
+                              <p className="font-medium text-gray-900 truncate">
+                                {manager.branch_assignment?.branch_name || 'Unassigned'}
+                              </p>
+                              <p className="text-sm text-gray-500">Branch Manager</p>
+                            </div>
+                          </div>
+                          
+                          <div className="col-span-2 flex items-center min-w-0">
+                            <div className="min-w-0 w-full">
+                              <p className="text-sm text-gray-900 break-all">{manager.contact_info?.email || manager.email || 'No email'}</p>
+                              <p className="text-sm text-gray-500">{manager.contact_info?.phone || 'No phone'}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="col-span-2 flex items-center min-w-0">
+                            <p className="text-sm text-gray-900 truncate">
+                              {manager.professional_info?.designation || 'Branch Manager'}
                             </p>
                           </div>
-                        </div>
-                        
-                        <div className="col-span-2 flex items-center">
-                          <div>
-                            <p className="font-medium text-gray-900">
-                              {manager.branch_assignment?.branch_name || 'Unassigned'}
-                            </p>
-                            <p className="text-sm text-gray-500">Branch Manager</p>
+                          
+                          <div className="col-span-1 flex items-center">
+                            <Badge variant={manager.is_active ? "default" : "secondary"}>
+                              {manager.is_active ? "Active" : "Inactive"}
+                            </Badge>
+                          </div>
+                          
+                          <div className="col-span-2 flex items-center space-x-1">
+                            {/* View Button */}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => router.push(`${basePath}/branch-managers/${manager.id}`)}
+                              className="p-1 h-8 w-8"
+                              title="View Branch Manager"
+                            >
+                              <Eye className="w-4 h-4 text-gray-600" />
+                            </Button>
+
+                            {/* Edit Button */}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => router.push(`${basePath}/branch-managers/edit/${manager.id}`)}
+                              className="p-1 h-8 w-8"
+                              title="Edit Branch Manager"
+                            >
+                              <Edit className="w-4 h-4 text-gray-600" />
+                            </Button>
+
+                            {/* Send Credentials Button */}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleSendCredentials(manager)}
+                              className="p-1 h-8 w-8"
+                              title="Send Credentials"
+                            >
+                              <Mail className="w-4 h-4 text-blue-600" />
+                            </Button>
+
+                            {/* Toggle Status Button */}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => toggleManagerStatus(manager.id, manager.is_active)}
+                              className="p-1 h-8 w-8"
+                              title={manager.is_active ? "Deactivate" : "Activate"}
+                            >
+                              {manager.is_active ? (
+                                <ToggleRight className="w-4 h-4 text-green-600" />
+                              ) : (
+                                <ToggleLeft className="w-4 h-4 text-orange-600" />
+                              )}
+                            </Button>
+
+                            {/* Delete Button */}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDeleteClick(manager.id)}
+                              className="p-1 h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              title="Delete Branch Manager"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           </div>
                         </div>
-                        
-                        <div className="col-span-2 flex items-center">
-                          <div>
-                            <p className="text-sm text-gray-900">{manager.contact_info?.email || manager.email || 'No email'}</p>
-                            <p className="text-sm text-gray-500">{manager.contact_info?.phone || 'No phone'}</p>
-                          </div>
-                        </div>
-                        
-                        <div className="col-span-2 flex items-center">
-                          <p className="text-sm text-gray-900">
-                            {manager.professional_info?.designation || 'Branch Manager'}
-                          </p>
-                        </div>
-                        
-                        <div className="col-span-1 flex items-center">
-                          <Badge variant={manager.is_active ? "default" : "secondary"}>
-                            {manager.is_active ? "Active" : "Inactive"}
-                          </Badge>
-                        </div>
-                        
-                        <div className="col-span-2 flex items-center space-x-1">
-                          {/* View Button */}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => router.push(`${basePath}/branch-managers/${manager.id}`)}
-                            className="p-1 h-8 w-8"
-                            title="View Branch Manager"
-                          >
-                            <Eye className="w-4 h-4 text-gray-600" />
-                          </Button>
-
-                          {/* Edit Button */}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => router.push(`${basePath}/branch-managers/edit/${manager.id}`)}
-                            className="p-1 h-8 w-8"
-                            title="Edit Branch Manager"
-                          >
-                            <Edit className="w-4 h-4 text-gray-600" />
-                          </Button>
-
-                          {/* Send Credentials Button */}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleSendCredentials(manager)}
-                            className="p-1 h-8 w-8"
-                            title="Send Credentials"
-                          >
-                            <Mail className="w-4 h-4 text-blue-600" />
-                          </Button>
-
-                          {/* Toggle Status Button */}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => toggleManagerStatus(manager.id, manager.is_active)}
-                            className="p-1 h-8 w-8"
-                            title={manager.is_active ? "Deactivate" : "Activate"}
-                          >
-                            {manager.is_active ? (
-                              <ToggleRight className="w-4 h-4 text-green-600" />
-                            ) : (
-                              <ToggleLeft className="w-4 h-4 text-orange-600" />
-                            )}
-                          </Button>
-
-                          {/* Delete Button */}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDeleteClick(manager.id)}
-                            className="p-1 h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                            title="Delete Branch Manager"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </>
+                </div>
               )}
             </CardContent>
           </Card>
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex justify-center items-center space-x-2 mt-6">
+            <div className="flex flex-wrap justify-center items-center gap-2 mt-6">
               <Button
                 variant="outline"
                 size="sm"
@@ -751,13 +753,13 @@ const filteredManagers = branchManagers.filter((manager) => {
 
       {/* Delete Confirmation Popup */}
       {showDeletePopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Delete Branch Manager</h3>
             <p className="text-gray-600 mb-6">
               Are you sure you want to delete this branch manager? This action cannot be undone.
             </p>
-            <div className="flex justify-end space-x-3">
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -765,6 +767,7 @@ const filteredManagers = branchManagers.filter((manager) => {
                   setSelectedManager(null)
                 }}
                 disabled={isDeleting}
+                className="w-full sm:w-auto"
               >
                 Cancel
               </Button>
@@ -772,6 +775,7 @@ const filteredManagers = branchManagers.filter((manager) => {
                 variant="destructive"
                 onClick={handleDeleteConfirm}
                 disabled={isDeleting}
+                className="w-full sm:w-auto"
               >
                 {isDeleting ? (
                   <>
@@ -789,14 +793,14 @@ const filteredManagers = branchManagers.filter((manager) => {
 
       {/* Send Credentials Popup */}
       {showSendCredentialsPopup && selectedManagerForCredentials && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Send Login Credentials</h3>
-            <p className="text-gray-600 mb-6">
+            <p className="text-gray-600 mb-6 break-words">
               Send login credentials to <strong>{selectedManagerForCredentials.full_name}</strong> at{" "}
               <strong>{selectedManagerForCredentials.contact_info?.email}</strong>?
             </p>
-            <div className="flex justify-end space-x-3">
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -804,13 +808,14 @@ const filteredManagers = branchManagers.filter((manager) => {
                   setSelectedManagerForCredentials(null)
                 }}
                 disabled={isSendingCredentials}
+                className="w-full sm:w-auto"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleSendCredentialsConfirm}
                 disabled={isSendingCredentials}
-                className="bg-green-600 hover:bg-green-700 text-white"
+                className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white"
               >
                 {isSendingCredentials ? (
                   <>

@@ -525,8 +525,8 @@ export default function PaymentTrackingPage() {
 
         {/* Live revenue cards (Super Admin only) */}
         {isSuperAdmin && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <Card>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 items-stretch">
+            <Card className="h-full flex flex-col">
               <CardHeader className="py-4">
                 <CardTitle className="text-sm font-medium text-gray-700">Total Revenue (All time)</CardTitle>
               </CardHeader>
@@ -536,7 +536,7 @@ export default function PaymentTrackingPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="h-full flex flex-col">
               <CardHeader className="py-4">
                 <CardTitle className="text-sm font-medium text-gray-700">Custom Duration Revenue</CardTitle>
               </CardHeader>
@@ -550,13 +550,21 @@ export default function PaymentTrackingPage() {
                     <div className="text-xs text-gray-500 mb-1">End</div>
                     <Input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} />
                   </div>
-                  <Button
-                    onClick={() => void fetchAnalytics()}
-                    disabled={analyticsLoading || !periodStart || !periodEnd}
-                    className="h-9"
-                  >
-                    Apply
-                  </Button>
+                  {(periodStart || periodEnd) ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-9"
+                      disabled={analyticsLoading}
+                      onClick={() => {
+                        setPeriodStart("")
+                        setPeriodEnd("")
+                        setPeriodRevenue(null)
+                      }}
+                    >
+                      Clear
+                    </Button>
+                  ) : null}
                 </div>
                 <div className="text-2xl font-semibold text-gray-900 mt-3">
                   {periodRevenue == null ? "—" : formatCurrency(periodRevenue)}
@@ -564,19 +572,26 @@ export default function PaymentTrackingPage() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="py-4">
+            <Card className="h-full flex flex-col">
+              <CardHeader className="py-4 shrink-0">
                 <CardTitle className="text-sm font-medium text-gray-700">Branch-wise Revenue</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2 max-h-[120px] overflow-auto pr-1">
+                {/* Mobile/tablet: all branches. Desktop (lg+): 4 rows + visible smooth scrollbar */}
+                <div
+                  className={
+                    branchRevenue.length > 4
+                      ? "space-y-2 lg:max-h-[6.5rem] lg:overflow-y-scroll lg:scroll-smooth lg:pr-1 lg:[scrollbar-width:thin] lg:[scrollbar-color:#9ca3af_#f3f4f6] lg:[&::-webkit-scrollbar]:w-1.5 lg:[&::-webkit-scrollbar-track]:bg-gray-100 lg:[&::-webkit-scrollbar-track]:rounded-full lg:[&::-webkit-scrollbar-thumb]:bg-gray-400 lg:[&::-webkit-scrollbar-thumb]:rounded-full lg:[&::-webkit-scrollbar-thumb]:hover:bg-gray-500"
+                      : "space-y-2"
+                  }
+                >
                   {branchRevenue.length === 0 ? (
                     <div className="text-sm text-gray-500">{analyticsLoading ? "Loading…" : "No data"}</div>
                   ) : (
-                    branchRevenue.slice(0, 8).map((r) => (
-                      <div key={r.branch_id} className="flex items-center justify-between gap-3">
-                        <div className="text-sm text-gray-700 truncate">{r.branch_name}</div>
-                        <div className="text-sm font-medium text-gray-900 whitespace-nowrap">
+                    branchRevenue.map((r) => (
+                      <div key={r.branch_id} className="flex items-center justify-between gap-3 h-5">
+                        <div className="text-sm leading-5 text-gray-700 truncate">{r.branch_name}</div>
+                        <div className="text-sm leading-5 font-medium text-gray-900 whitespace-nowrap">
                           {formatCurrency(r.total_revenue)}
                         </div>
                       </div>

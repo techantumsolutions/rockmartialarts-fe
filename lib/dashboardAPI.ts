@@ -139,13 +139,14 @@ class DashboardAPI extends BaseAPI {
     limit?: number
     active_only?: boolean
     area_of_expertise?: string
+    branch_id?: string
   }): Promise<CoachesResponse> {
     let endpoint = '/api/coaches'
 
     if (params) {
       const searchParams = new URLSearchParams()
       Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined) {
+        if (value !== undefined && value !== null && value !== '') {
           searchParams.append(key, value.toString())
         }
       })

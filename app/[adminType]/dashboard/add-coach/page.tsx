@@ -13,8 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, User, Award, MapPin, Phone, X, Plus } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useDashboardBasePath, useDashboardRole } from "@/lib/useDashboardBasePath"
-import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
 import { SafeImage } from "@/components/ui/safe-image"
 import { extractUploadUrl, uploadFile } from "@/lib/upload"
@@ -769,17 +768,6 @@ export default function AddCoachPage() {
     return cleaned
   }
 
-  const dashboardRole = useDashboardRole()
-  const isBranchManager = () => {
-    if (dashboardRole === "branch_admin") return true
-    if (typeof window === "undefined") return false
-    const path = window.location.pathname
-    if (path.includes("branch-manager") || path.includes("branch-admin")) return true
-    if (Boolean(BranchManagerAuth.getCurrentUser())) return true
-    const role = (TokenManager.getUser()?.role || "").toLowerCase()
-    return role === "branch_manager" || role === "branch_admin" || role === "coach_admin"
-  }
-
   const FIELD_ORDER = [
     "firstName",
     "lastName",
@@ -891,27 +879,21 @@ export default function AddCoachPage() {
     })
 
     setErrors(newErrors)
-
-    const hasErrors = Object.keys(newErrors).length > 0
-    // Scroll up specifically for Branch Manager role
-    if (hasErrors && isBranchManager()) {
-      scrollToFirstError(newErrors)
-    }
-
-    return !hasErrors
+    return newErrors
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!validateForm()) {
-      if (isBranchManager()) {
-        toast({
-          title: "Required Fields Missing",
-          description: "Please fill out all highlighted fields.",
-          variant: "destructive",
-        })
-      }
+    const newErrors = validateForm()
+    if (Object.keys(newErrors).length > 0) {
+      const firstKey = FIELD_ORDER.find((key) => newErrors[key]) || Object.keys(newErrors)[0]
+      toast({
+        title: "Validation Error",
+        description: newErrors[firstKey] || "Please fill out all required fields.",
+        variant: "destructive",
+      })
+      scrollToFirstError(newErrors)
       return
     }
 
