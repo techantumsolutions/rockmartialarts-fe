@@ -245,11 +245,39 @@ export default function SuperAdminDashboard() {
 
           setCoaches(allCoaches)
         } else {
-          const response = await dashboardAPI.getCoaches(token, {
+          // Super-admin: branch filter + course name map (for courses display)
+          const coachParams: {
+            limit: number
+            active_only: boolean
+            branch_id?: string
+          } = {
             limit: 5,
-            active_only: true
-          })
+            active_only: true,
+          }
+          if (coachBranchFilter && coachBranchFilter !== "all") {
+            coachParams.branch_id = coachBranchFilter
+          }
+
+          const [response, coursesResponse] = await Promise.all([
+            dashboardAPI.getCoaches(token, coachParams),
+            Object.keys(courseNameById).length === 0
+              ? dashboardAPI.getPublicCourses({ active_only: true, limit: 500 }).catch(() => null)
+              : Promise.resolve(null),
+          ])
           setCoaches(response.coaches || [])
+
+          if (coursesResponse) {
+            const map: Record<string, string> = {}
+            const courseList =
+              coursesResponse?.courses ||
+              (Array.isArray(coursesResponse) ? coursesResponse : [])
+            for (const course of courseList) {
+              const id = String(course?.id || "").trim()
+              if (!id) continue
+              map[id] = String(course.title || course.name || id)
+            }
+            setCourseNameById(map)
+          }
         }
       } catch (err: any) {
         console.error("Error fetching coaches:", err)
@@ -749,9 +777,11 @@ export default function SuperAdminDashboard() {
                 ) : visibleCoaches.length === 0 ? (
                   // No coaches found
                   <div className="text-center py-4 text-gray-500">
-                    {selectedCourse
+                    {role === "branch_admin" && selectedCourse
                       ? `No coaches are assigned to ${selectedCourse.name}.`
-                      : "No coaches found"}
+                      : coachBranchFilter !== "all"
+                        ? "No coaches found for this branch"
+                        : "No coaches found"}
                   </div>
                 ) : (
                   // Display coaches
