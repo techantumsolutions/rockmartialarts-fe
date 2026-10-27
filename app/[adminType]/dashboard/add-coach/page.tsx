@@ -732,13 +732,116 @@ export default function AddCoachPage() {
     }))
   }
 
+  function formatIndianPhoneNumber(value: string): string {
+    let digits = value.replace(/\D/g, "")
+    if (digits.length === 12 && digits.startsWith("91")) {
+      digits = digits.slice(2)
+    } else if (digits.length === 11 && digits.startsWith("0")) {
+      digits = digits.slice(1)
+    }
+    return digits.slice(0, 10)
+  }
+
+  function normalizeToYYYYMMDD(dateStr?: string | null): string {
+    if (!dateStr || !dateStr.trim()) return ""
+    const cleaned = dateStr.trim()
+    if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) {
+      return cleaned
+    }
+    const ymdMatch = cleaned.match(/^(\d{4})[-/:.](\d{1,2})[-/:.](\d{1,2})$/)
+    if (ymdMatch) {
+      const [, y, m, d] = ymdMatch
+      return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`
+    }
+    const dmyMatch = cleaned.match(/^(\d{1,2})[-/:.](\d{1,2})[-/:.](\d{4})$/)
+    if (dmyMatch) {
+      const [, d, m, y] = dmyMatch
+      return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`
+    }
+    const parsed = new Date(cleaned)
+    if (!isNaN(parsed.getTime())) {
+      const y = parsed.getFullYear()
+      const m = String(parsed.getMonth() + 1).padStart(2, "0")
+      const d = String(parsed.getDate()).padStart(2, "0")
+      return `${y}-${m}-${d}`
+    }
+    return cleaned
+  }
+
+  const FIELD_ORDER = [
+    "firstName",
+    "lastName",
+    "email",
+    "phone",
+    "gender",
+    "dateOfBirth",
+    "password",
+    "designation",
+    "experience",
+    "category",
+    "subCategory",
+    "branch",
+    "displayOrder",
+    "availability",
+    "emergencyContactPhone",
+  ]
+
+  const scrollToFirstError = (validationErrors: Record<string, string>) => {
+    const firstErrorKey = FIELD_ORDER.find((key) => Boolean(validationErrors[key]))
+    if (!firstErrorKey) return
+
+    const inputElement =
+      document.getElementById(firstErrorKey) ||
+      document.querySelector(`[name="${firstErrorKey}"]`)
+
+    // Always prefer the field's label or parent container so the label is fully visible when scrolled
+    const labelElement =
+      document.querySelector(`label[for="${firstErrorKey}"]`) ||
+      document.querySelector(`[data-label-for="${firstErrorKey}"]`)
+
+    const scrollTarget =
+      labelElement ||
+      inputElement?.closest(".space-y-2") ||
+      inputElement?.parentElement ||
+      inputElement
+
+    if (scrollTarget) {
+      // 130px offset gives ample breathing room below the sticky navbar to display the field label
+      const navOffset = 130
+      const elementPosition = scrollTarget.getBoundingClientRect().top
+      const offsetPosition = elementPosition + window.pageYOffset - navOffset
+
+      window.scrollTo({
+        top: Math.max(0, offsetPosition),
+        behavior: "smooth",
+      })
+
+      setTimeout(() => {
+        const focusable = inputElement?.matches("input, select, textarea, button")
+          ? inputElement
+          : inputElement?.querySelector<HTMLElement>("input, select, textarea, button")
+
+        if (focusable && typeof focusable.focus === "function") {
+          focusable.focus({ preventScroll: true })
+        }
+      }, 350)
+    }
+  }
+
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {}
 
     if (!formData.firstName.trim()) newErrors.firstName = "First name is required"
     if (!formData.lastName.trim()) newErrors.lastName = "Last name is required"
     if (!formData.email.trim()) newErrors.email = "Email is required"
-    if (!formData.phone.trim()) newErrors.phone = "Phone number is required"
+    if (!formData.phone.trim()) {
+      newErrors.phone = "Phone number is required"
+    } else if (!/^[6-9]\d{9}$/.test(formData.phone.trim())) {
+      newErrors.phone = "Please enter a valid 10-digit Indian phone number (starting with 6, 7, 8, or 9)"
+    }
+    if (formData.emergencyContactPhone && !/^[6-9]\d{9}$/.test(formData.emergencyContactPhone.trim())) {
+      newErrors.emergencyContactPhone = "Please enter a valid 10-digit Indian phone number"
+    }
     if (!formData.password.trim()) {
       newErrors.password = "Password is required"
     } else if (formData.password.length < 8) {
@@ -747,6 +850,14 @@ export default function AddCoachPage() {
       newErrors.password = "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"
     }
     if (!formData.gender) newErrors.gender = "Gender is required"
+    if (!formData.dateOfBirth.trim()) {
+      newErrors.dateOfBirth = "Date of birth is required"
+    } else {
+      const normalizedDob = normalizeToYYYYMMDD(formData.dateOfBirth)
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedDob)) {
+        newErrors.dateOfBirth = "Please enter a valid date"
+      }
+    }
     if (!formData.designation) newErrors.designation = "Designation is required"
     if (!formData.experience) newErrors.experience = "Experience is required"
     if (formData.displayOrder.trim()) {
@@ -768,13 +879,21 @@ export default function AddCoachPage() {
     })
 
     setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    return newErrors
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!validateForm()) {
+    const newErrors = validateForm()
+    if (Object.keys(newErrors).length > 0) {
+      const firstKey = FIELD_ORDER.find((key) => newErrors[key]) || Object.keys(newErrors)[0]
+      toast({
+        title: "Validation Error",
+        description: newErrors[firstKey] || "Please fill out all required fields.",
+        variant: "destructive",
+      })
+      scrollToFirstError(newErrors)
       return
     }
 
@@ -787,7 +906,7 @@ export default function AddCoachPage() {
           first_name: formData.firstName,
           last_name: formData.lastName,
           gender: formData.gender,
-          date_of_birth: formData.dateOfBirth
+          date_of_birth: normalizeToYYYYMMDD(formData.dateOfBirth)
         },
         contact_info: {
           email: formData.email,
@@ -817,7 +936,7 @@ export default function AddCoachPage() {
         assignment_details: {
           courses: formData.courses,  // Include course assignments
           salary: formData.salary ? parseFloat(formData.salary) : null,
-          join_date: formData.joinDate || null
+          join_date: normalizeToYYYYMMDD(formData.joinDate) || null
         },
         emergency_contact: {
           name: formData.emergencyContactName || null,
@@ -1022,9 +1141,12 @@ export default function AddCoachPage() {
                   <Label htmlFor="phone">Phone Number *</Label>
                   <Input
                     id="phone"
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="Enter phone number"
+                    onChange={(e) => setFormData({ ...formData, phone: formatIndianPhoneNumber(e.target.value) })}
+                    placeholder="10-digit Indian phone number"
                     className={errors.phone ? "border-red-500" : ""}
                   />
                   {errors.phone && <p className="text-red-500 text-sm">{errors.phone}</p>}
@@ -1038,7 +1160,7 @@ export default function AddCoachPage() {
                     value={formData.gender} 
                     onValueChange={(value) => setFormData({ ...formData, gender: value })}
                   >
-                    <SelectTrigger className={errors.gender ? "border-red-500" : ""}>
+                    <SelectTrigger id="gender" className={errors.gender ? "border-red-500" : ""}>
                       <SelectValue placeholder="Select gender" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1053,13 +1175,15 @@ export default function AddCoachPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                  <Label htmlFor="dateOfBirth">Date of Birth *</Label>
                   <Input
                     id="dateOfBirth"
                     type="date"
                     value={formData.dateOfBirth}
                     onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                    className={errors.dateOfBirth ? "border-red-500" : ""}
                   />
+                  {errors.dateOfBirth && <p className="text-red-500 text-sm">{errors.dateOfBirth}</p>}
                 </div>
 
                 <div className="space-y-2">
@@ -1227,7 +1351,7 @@ export default function AddCoachPage() {
                     value={formData.designation} 
                     onValueChange={(value) => setFormData({ ...formData, designation: value })}
                   >
-                    <SelectTrigger className={errors.designation ? "border-red-500" : ""}>
+                    <SelectTrigger id="designation" className={errors.designation ? "border-red-500" : ""}>
                       <SelectValue placeholder="Select designation" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1247,7 +1371,7 @@ export default function AddCoachPage() {
                     value={formData.experience} 
                     onValueChange={(value) => setFormData({ ...formData, experience: value })}
                   >
-                    <SelectTrigger className={errors.experience ? "border-red-500" : ""}>
+                    <SelectTrigger id="experience" className={errors.experience ? "border-red-500" : ""}>
                       <SelectValue placeholder="Select experience" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1574,10 +1698,15 @@ export default function AddCoachPage() {
                   <Label htmlFor="emergencyContactPhone">Contact Phone</Label>
                   <Input
                     id="emergencyContactPhone"
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
                     value={formData.emergencyContactPhone}
-                    onChange={(e) => setFormData({ ...formData, emergencyContactPhone: e.target.value })}
-                    placeholder="Emergency contact phone"
+                    onChange={(e) => setFormData({ ...formData, emergencyContactPhone: formatIndianPhoneNumber(e.target.value) })}
+                    placeholder="10-digit Indian phone number"
+                    className={errors.emergencyContactPhone ? "border-red-500" : ""}
                   />
+                  {errors.emergencyContactPhone && <p className="text-red-500 text-sm">{errors.emergencyContactPhone}</p>}
                 </div>
 
                 <div className="space-y-2">

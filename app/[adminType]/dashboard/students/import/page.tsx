@@ -205,21 +205,35 @@ export default function BulkImportStudentsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <main className="w-full mx-auto py-4 sm:py-6 px-4 lg:px-8">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6">
-          <div className="mb-4 sm:mb-0">
-            <h1 className="text-2xl sm:text-3xl font-bold text-[#4F5077] mb-2">Bulk Import Students</h1>
-            <p className="text-gray-600 text-sm">
+        <div className="mb-6">
+          {/* Title row: tablet portrait (md–lg) keeps Back beside the title */}
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <h1 className="text-2xl sm:text-3xl font-bold text-[#4F5077] min-w-0">
+              Bulk Import Students
+            </h1>
+            <Button
+              variant="outline"
+              onClick={() => router.push(`${basePath}/students`)}
+              className="hidden md:inline-flex lg:hidden shrink-0 whitespace-nowrap items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Students
+            </Button>
+          </div>
+          {/* Mobile + desktop: same placement as before (below / right of description) */}
+          <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start">
+            <p className="text-gray-600 text-sm flex-1 min-w-0">
               Upload a CSV or Excel file to add existing students to branches. Include payment fields for reminders (email/SMS/WhatsApp later).
             </p>
+            <Button
+              variant="outline"
+              onClick={() => router.push(`${basePath}/students`)}
+              className="inline-flex md:hidden lg:inline-flex shrink-0 whitespace-nowrap items-center gap-2 self-start"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Students
+            </Button>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => router.push(`${basePath}/students`)}
-            className="flex items-center gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Students
-          </Button>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-6">
