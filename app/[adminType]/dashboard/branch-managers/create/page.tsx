@@ -337,7 +337,11 @@ export default function CreateBranchManagerPage() {
     if (!formData.firstName.trim()) newErrors.firstName = "First name is required"
     if (!formData.lastName.trim()) newErrors.lastName = "Last name is required"
     if (!formData.email.trim()) newErrors.email = "Email is required"
-    if (!formData.phone.trim()) newErrors.phone = "Phone number is required"
+    if (!formData.phone.trim()) {
+      newErrors.phone = "Phone number is required"
+    } else if (!/^[6-9]\d{9}$/.test(formData.phone.trim())) {
+      newErrors.phone = "Enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9"
+    }
     if (!formData.password.trim()) {
       newErrors.password = "Password is required"
     } else if (formData.password.length < 8) {
@@ -349,15 +353,54 @@ export default function CreateBranchManagerPage() {
     if (!formData.designation) newErrors.designation = "Designation is required"
 
     setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    return newErrors
   }
 
+  const scrollToFirstError = (newErrors: { [key: string]: string }) => {
+    const fieldOrder = [
+      "firstName",
+      "lastName",
+      "email",
+      "password",
+      "phone",
+      "gender",
+      "designation",
+    ]
+    const firstKey = fieldOrder.find((key) => newErrors[key]) || Object.keys(newErrors)[0]
+    if (!firstKey) return
 
+    // Wait for error styles to paint, then scroll and stop on the first invalid field
+    requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        const el = document.getElementById(firstKey)
+        if (!el) return
+        el.scrollIntoView({ behavior: "smooth", block: "center" })
+        if (typeof (el as HTMLElement).focus === "function") {
+          try {
+            ;(el as HTMLElement).focus({ preventScroll: true })
+          } catch {
+            ;(el as HTMLElement).focus()
+          }
+        }
+      }, 50)
+    })
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!validateForm()) {
+    const newErrors = validateForm()
+    if (Object.keys(newErrors).length > 0) {
+      const firstKey =
+        ["firstName", "lastName", "email", "password", "phone", "gender", "designation"].find(
+          (key) => newErrors[key]
+        ) || Object.keys(newErrors)[0]
+      toast({
+        title: "Validation Error",
+        description: newErrors[firstKey] || "Please fill in all required fields.",
+        variant: "destructive",
+      })
+      scrollToFirstError(newErrors)
       return
     }
 
@@ -546,9 +589,15 @@ export default function CreateBranchManagerPage() {
                   <Label htmlFor="phone">Phone Number *</Label>
                   <Input
                     id="phone"
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="Enter phone number"
+                    onChange={(e) => {
+                      const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 10)
+                      setFormData({ ...formData, phone: digitsOnly })
+                    }}
+                    placeholder="10-digit mobile number"
                     className={errors.phone ? "border-red-500" : ""}
                   />
                   {errors.phone && <p className="text-red-500 text-sm">{errors.phone}</p>}
@@ -562,7 +611,7 @@ export default function CreateBranchManagerPage() {
                     value={formData.gender}
                     onValueChange={(value) => setFormData({ ...formData, gender: value })}
                   >
-                    <SelectTrigger className={errors.gender ? "border-red-500" : ""}>
+                    <SelectTrigger id="gender" className={errors.gender ? "border-red-500" : ""}>
                       <SelectValue placeholder="Select gender" />
                     </SelectTrigger>
                     <SelectContent>
@@ -680,7 +729,7 @@ export default function CreateBranchManagerPage() {
                     value={formData.designation}
                     onValueChange={(value) => setFormData({ ...formData, designation: value })}
                   >
-                    <SelectTrigger className={errors.designation ? "border-red-500" : ""}>
+                    <SelectTrigger id="designation" className={errors.designation ? "border-red-500" : ""}>
                       <SelectValue placeholder="Select designation" />
                     </SelectTrigger>
                     <SelectContent>

@@ -386,25 +386,26 @@ export default function AttendanceOverviewPage() {
                 </div>
               </div>
               
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto min-w-0">
                 <Button
                   onClick={fetchAttendanceOverview}
                   variant="outline"
                   disabled={loading}
+                  className="w-full sm:w-auto"
                 >
                   <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                   Refresh
                 </Button>
                 <Button
                   onClick={() => router.push(`${basePath}/attendance/students`)}
-                  className="bg-blue-600 hover:bg-blue-700"
+                  className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
                 >
                   <Users className="h-4 w-4 mr-2" />
                   Manage Students
                 </Button>
                 <Button
                   onClick={() => router.push(`${basePath}/attendance/coaches`)}
-                  className="bg-green-600 hover:bg-green-700"
+                  className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
                 >
                   <Award className="h-4 w-4 mr-2" />
                   Manage Coaches
@@ -498,11 +499,12 @@ export default function AttendanceOverviewPage() {
           <Card className="cursor-pointer hover:shadow-lg transition-shadow"
                 onClick={() => router.push(`${basePath}/attendance/students`)}>
             <CardContent className="p-6">
-              <div className="flex items-center justify-between">
+              {/* Mobile + tablet: arrow bottom-right; desktop (lg+) unchanged */}
+              <div className="relative block lg:flex lg:items-center lg:justify-between">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">Student Attendance</h3>
                   <p className="text-gray-600 mb-4">Manage attendance for all students across branches</p>
-                  <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-4 pr-8 lg:pr-0">
                     <div className="flex items-center">
                       <CheckCircle className="h-4 w-4 text-green-600 mr-1" />
                       <span className="text-sm text-green-600">{stats.student_present_today} Present</span>
@@ -517,7 +519,7 @@ export default function AttendanceOverviewPage() {
                     </div>
                   </div>
                 </div>
-                <ArrowRight className="h-6 w-6 text-gray-400" />
+                <ArrowRight className="h-6 w-6 text-gray-400 shrink-0 absolute right-0 bottom-0 lg:static" />
               </div>
             </CardContent>
           </Card>
@@ -525,11 +527,12 @@ export default function AttendanceOverviewPage() {
           <Card className="cursor-pointer hover:shadow-lg transition-shadow"
                 onClick={() => router.push(`${basePath}/attendance/coaches`)}>
             <CardContent className="p-6">
-              <div className="flex items-center justify-between">
+              {/* Mobile + tablet: arrow bottom-right; desktop (lg+) unchanged */}
+              <div className="relative block lg:flex lg:items-center lg:justify-between">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">Coach Attendance</h3>
                   <p className="text-gray-600 mb-4">Manage attendance for all coaches across branches</p>
-                  <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-4 pr-8 lg:pr-0">
                     <div className="flex items-center">
                       <CheckCircle className="h-4 w-4 text-green-600 mr-1" />
                       <span className="text-sm text-green-600">{stats.coach_present_today} Present</span>
@@ -544,7 +547,7 @@ export default function AttendanceOverviewPage() {
                     </div>
                   </div>
                 </div>
-                <ArrowRight className="h-6 w-6 text-gray-400" />
+                <ArrowRight className="h-6 w-6 text-gray-400 shrink-0 absolute right-0 bottom-0 lg:static" />
               </div>
             </CardContent>
           </Card>

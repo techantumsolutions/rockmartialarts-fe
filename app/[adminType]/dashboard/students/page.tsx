@@ -781,7 +781,7 @@ const paginatedStudents = filteredStudents.slice(
     <div className="min-h-screen bg-gray-50 min-w-0">
       {/* Main Content */}
       <div className="w-full min-w-0">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-4 sm:mb-6">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-4 sm:mb-6 pt-2 sm:pt-3">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-xl sm:text-2xl font-bold text-[#4F5077]">Student list</h1>
             <Button

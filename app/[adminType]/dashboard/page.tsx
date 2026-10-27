@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Star, Users, BookOpen, Loader2, AlertCircle, CreditCard } from "lucide-react"
+import { Users, BookOpen, Loader2, AlertCircle, CreditCard } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Header from "@/components/layout/Header"
 import { useRouter } from "next/navigation"
@@ -23,6 +23,8 @@ export default function SuperAdminDashboard() {
   // State management
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null)
   const [coaches, setCoaches] = useState<Coach[]>([])
+  const [courseNameById, setCourseNameById] = useState<Record<string, string>>({})
+  const [coachBranchFilter, setCoachBranchFilter] = useState<string>("all")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [coachesLoading, setCoachesLoading] = useState(true)
@@ -143,7 +145,33 @@ export default function SuperAdminDashboard() {
     fetchBranches()
   }, [getAuthToken])
 
-  // Fetch coaches list (only on mount, not affected by time filter)
+  const getCoachCourseNames = useCallback(
+    (coach: Coach): string[] => {
+      const assigned = Array.isArray(coach.assignment_details?.courses)
+        ? coach.assignment_details.courses
+        : []
+      const expertise = Array.isArray(coach.areas_of_expertise)
+        ? coach.areas_of_expertise
+        : []
+      const source = assigned.length > 0 ? assigned : expertise
+      const ids = Array.from(
+        new Set(
+          source
+            .map((id) => String(id || "").trim())
+            .filter(Boolean)
+        )
+      )
+      if (ids.length === 0) return []
+      const names = ids
+        .map((id) => courseNameById[id])
+        .filter((name): name is string => Boolean(name))
+      if (names.length > 0) return names
+      return [`${ids.length} course${ids.length === 1 ? "" : "s"}`]
+    },
+    [courseNameById]
+  )
+
+  // Fetch coaches list — re-runs when branch filter changes
   useEffect(() => {
     const fetchCoaches = async () => {
       try {
@@ -156,11 +184,38 @@ export default function SuperAdminDashboard() {
           return
         }
 
-        const response = await dashboardAPI.getCoaches(token, {
+        const coachParams: {
+          limit: number
+          active_only: boolean
+          branch_id?: string
+        } = {
           limit: 5,
-          active_only: true
-        })
+          active_only: true,
+        }
+        if (coachBranchFilter && coachBranchFilter !== "all") {
+          coachParams.branch_id = coachBranchFilter
+        }
+
+        const [response, coursesResponse] = await Promise.all([
+          dashboardAPI.getCoaches(token, coachParams),
+          Object.keys(courseNameById).length === 0
+            ? dashboardAPI.getPublicCourses({ active_only: true, limit: 500 }).catch(() => null)
+            : Promise.resolve(null),
+        ])
         setCoaches(response.coaches || [])
+
+        if (coursesResponse) {
+          const map: Record<string, string> = {}
+          const courseList =
+            coursesResponse?.courses ||
+            (Array.isArray(coursesResponse) ? coursesResponse : [])
+          for (const course of courseList) {
+            const id = String(course?.id || "").trim()
+            if (!id) continue
+            map[id] = String(course.title || course.name || id)
+          }
+          setCourseNameById(map)
+        }
       } catch (err: any) {
         console.error("Error fetching coaches:", err)
         setCoachesError(err.message || "Failed to fetch coaches")
@@ -170,7 +225,9 @@ export default function SuperAdminDashboard() {
     }
 
     fetchCoaches()
-  }, [getAuthToken])
+    // courseNameById intentionally omitted — only fetch courses once when empty
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [getAuthToken, coachBranchFilter])
 
   // Fetch payment data — re-runs when timePeriod changes
   useEffect(() => {
@@ -495,14 +552,21 @@ export default function SuperAdminDashboard() {
               <div className="flex justify-between items-center">
                 <CardTitle className="text-[var(--brand-dark)]">List of coaches</CardTitle>
                 <div className="flex items-center space-x-2">
-                  <span className="text-sm text-black">Filter by:</span>
-                  <Select defaultValue="branch">
-                    <SelectTrigger className="w-20 bg-[#F1F1F1]">
-                      <SelectValue />
+                  <span className="text-sm text-black shrink-0">Filter by:</span>
+                  <Select
+                    value={coachBranchFilter}
+                    onValueChange={setCoachBranchFilter}
+                  >
+                    <SelectTrigger className="w-40 bg-[#F1F1F1]">
+                      <SelectValue placeholder="Branch" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="branch">BRANCH</SelectItem>
-                      <SelectItem value="rating">Rating</SelectItem>
+                      <SelectItem value="all">All branches</SelectItem>
+                      {branches.map((branch) => (
+                        <SelectItem key={branch.id} value={branch.id}>
+                          {branch.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -521,11 +585,7 @@ export default function SuperAdminDashboard() {
                           <div className="h-3 w-16 bg-gray-200 rounded animate-pulse"></div>
                         </div>
                       </div>
-                      <div className="flex space-x-1">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <div key={i} className="w-4 h-4 bg-gray-200 rounded animate-pulse"></div>
-                        ))}
-                      </div>
+                      <div className="h-3 w-28 bg-gray-200 rounded animate-pulse"></div>
                     </div>
                   ))
                 ) : coachesError ? (
@@ -537,15 +597,19 @@ export default function SuperAdminDashboard() {
                 ) : coaches.length === 0 ? (
                   // No coaches found
                   <div className="text-center py-4 text-gray-500">
-                    No coaches found
+                    {coachBranchFilter !== "all"
+                      ? "No coaches found for this branch"
+                      : "No coaches found"}
                   </div>
                 ) : (
                   // Display coaches
-                  coaches.map((coach) => (
+                  coaches.map((coach) => {
+                    const courseNames = getCoachCourseNames(coach)
+                    return (
                     <div key={coach.id} className="">
-                      <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <Avatar className="w-10 h-10">
+                      <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center space-x-3 min-w-0">
+                        <Avatar className="w-10 h-10 shrink-0">
                           <AvatarImage src="" />
                           <AvatarFallback>
                             {coach.full_name
@@ -554,35 +618,38 @@ export default function SuperAdminDashboard() {
                               .join("")}
                           </AvatarFallback>
                         </Avatar>
-                        <div>
+                        <div className="min-w-0">
                           <p className="font-medium text-sm">{coach.full_name}</p>
                           <p className="text-xs text-gray-500">
                             {(() => {
-                              const raw = coach.areas_of_expertise?.[0]
-                              const looksLikeId =
-                                typeof raw === "string" &&
-                                /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-                                  raw.trim()
-                                )
-                              if (raw && !looksLikeId) return raw
-                              return coach.branch_id ? `Branch: ${coach.branch_id.slice(0, 8)}…` : "Coach"
+                              const branchName = coach.branch_id
+                                ? branches.find((b) => b.id === coach.branch_id)?.name
+                                : null
+                              if (branchName) return branchName
+                              return coach.branch_id
+                                ? `Branch: ${coach.branch_id.slice(0, 8)}…`
+                                : "Unassigned"
                             })()}
                           </p>
                         </div>
                       </div>
-                      <div className="flex">
-                        {/* Default 5-star rating for now - can be enhanced later */}
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`w-4 h-4 ${i < 5 ? "text-yellow-400 fill-current" : "text-gray-300"}`}
-                          />
-                        ))}
+                      <div className="text-right max-w-[48%] min-w-0 shrink-0">
+                        {courseNames.length > 0 ? (
+                          <p
+                            className="text-xs text-gray-600 line-clamp-2"
+                            title={courseNames.join(", ")}
+                          >
+                            {courseNames.join(", ")}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-gray-400">No courses</p>
+                        )}
                       </div>
                       </div>
                       <hr  className="mt-2 mb-2"/>
                     </div>
-                  ))
+                    )
+                  })
                 )}
                 {coaches.length > 0 && (
                   <div className="">

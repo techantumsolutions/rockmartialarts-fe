@@ -730,20 +730,20 @@ export default function CreateBranchPage() {
   return (
     <>
       <Header title="Create Branch" role={useDashboardRole()} />
-      <div className="p-8 pt-4">
+      <div className="p-4 pt-4 md:p-8 md:pt-4">
         <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:space-x-4 md:gap-0">
             <Button
               variant="ghost"
               onClick={() => router.push(`${basePath}/branches`)}
-              className="flex items-center"
+              className="flex items-center self-start px-2 md:px-4"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
             <div>
-              <h1 className="text-3xl font-bold text-[#4F5077]">Create Branch</h1>
-              <p className="text-gray-500">Add a new branch to your organization</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-[#4F5077]">Create Branch</h1>
+              <p className="text-sm md:text-base text-gray-500">Add a new branch to your organization</p>
             </div>
           </div>
         </div>
@@ -758,7 +758,7 @@ export default function CreateBranchPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="branchName">Branch Name *</Label>
                   <Input
@@ -775,7 +775,7 @@ export default function CreateBranchPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="branchCode">Branch Code *</Label>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 md:flex-row">
                     <Input
                       id="branchCode"
                       value={formData.branch.code}
@@ -784,8 +784,9 @@ export default function CreateBranchPage() {
                         branch: { ...formData.branch, code: e.target.value }
                       })}
                       placeholder="Auto-generated"
+                      className="min-w-0 flex-1"
                     />
-                    <Button size="sm" onClick={generateBranchCode}>
+                    <Button size="sm" onClick={generateBranchCode} className="w-full md:w-auto shrink-0">
                       Regenerate
                     </Button>
                   </div>
@@ -793,8 +794,8 @@ export default function CreateBranchPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between rounded-md border border-gray-100 bg-gray-50 px-3 py-3 gap-3">
-                <div className="space-y-0.5">
+              <div className="flex flex-col gap-3 rounded-md border border-gray-100 bg-gray-50 px-3 py-3 md:flex-row md:items-center md:justify-between">
+                <div className="space-y-0.5 min-w-0">
                   <Label htmlFor="isCollaborationPartner" className="text-sm font-medium">
                     Is Collaboration Partner
                   </Label>
@@ -802,7 +803,7 @@ export default function CreateBranchPage() {
                     Default is No. Partner branding and CMS features only apply when Yes.
                   </p>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
                   <span className="text-xs text-gray-500">
                     {formData.is_collaboration_partner ? "Yes" : "No"}
                   </span>
@@ -819,7 +820,7 @@ export default function CreateBranchPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email *</Label>
                   <Input
@@ -974,7 +975,7 @@ export default function CreateBranchPage() {
                 {errors.area && <p className="text-xs text-red-500">{errors.area}</p>}
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="city">City</Label>
                   <Input
@@ -1092,19 +1093,20 @@ export default function CreateBranchPage() {
 
                     return (
                       <div key={course.id} className="border rounded-lg p-3 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
+                        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                          <div className="flex items-start space-x-2 min-w-0">
                             <Checkbox
                               checked={isSelected}
                               onCheckedChange={() => handleCourseToggle(course.id)}
+                              className="mt-0.5 shrink-0"
                             />
-                            <div>
-                              <p className="font-medium">{course.title}</p>
+                            <div className="min-w-0">
+                              <p className="font-medium break-words">{course.title}</p>
                               <p className="text-xs text-gray-500">{course.code}</p>
                             </div>
                           </div>
                           {isSelected && selectedCourse && (
-                            <label className="flex items-center gap-1.5 text-xs text-gray-600 shrink-0">
+                            <label className="flex items-center gap-1.5 text-xs text-gray-600 shrink-0 self-start md:self-auto pl-6 md:pl-0">
                               <Checkbox
                                 checked={selectedCourse.is_available !== false}
                                 onCheckedChange={(checked) => {
@@ -1128,7 +1130,7 @@ export default function CreateBranchPage() {
 
                         {/* Batches for selected course */}
                         {isSelected && selectedCourse && (
-                          <div className="ml-6 space-y-2">
+                          <div className="ml-0 md:ml-6 space-y-2">
                             <Label className="text-sm">Batches</Label>
                             {selectedCourse.batches.map((batch) => (
                               <div
@@ -1251,55 +1253,57 @@ export default function CreateBranchPage() {
                                           }))
                                         }
                                         return (
-                                          <div key={dur.id} className="flex items-center gap-2 py-1 border-b border-gray-100 last:border-0">
-                                            <span className="text-xs text-gray-700 w-24 shrink-0 font-medium">{dur.name}</span>
-                                            <Input
-                                              type="text"
-                                              inputMode="decimal"
-                                              placeholder={pricingType === "flat" ? "Flat price" : "Monthly fee"}
-                                              value={fpd[dur.id] ?? ""}
-                                              onChange={(e) => {
-                                                updateBatchField("fee_per_duration", {
-                                                  ...(batch.fee_per_duration || {}),
-                                                  [dur.id]: e.target.value
-                                                })
-                                              }}
-                                              className="h-7 w-28 text-sm"
-                                            />
-                                            <div className="flex items-center gap-1 shrink-0">
-                                              <button
-                                                type="button"
-                                                className={`px-2 py-0.5 text-xs rounded-l border ${pricingType === "monthly" ? "bg-blue-100 text-blue-800 border-blue-300" : "bg-gray-50 text-gray-500 border-gray-200"}`}
-                                                onClick={() => {
-                                                  updateBatchField("pricing_type_per_duration", {
-                                                    ...(batch.pricing_type_per_duration || {}),
-                                                    [dur.id]: "monthly"
+                                          <div key={dur.id} className="flex flex-col gap-2 py-2 border-b border-gray-100 last:border-0 md:flex-row md:items-center md:gap-2 md:py-1">
+                                            <span className="text-xs text-gray-700 md:w-24 shrink-0 font-medium">{dur.name}</span>
+                                            <div className="flex flex-wrap items-center gap-2 min-w-0">
+                                              <Input
+                                                type="text"
+                                                inputMode="decimal"
+                                                placeholder={pricingType === "flat" ? "Flat price" : "Monthly fee"}
+                                                value={fpd[dur.id] ?? ""}
+                                                onChange={(e) => {
+                                                  updateBatchField("fee_per_duration", {
+                                                    ...(batch.fee_per_duration || {}),
+                                                    [dur.id]: e.target.value
                                                   })
                                                 }}
-                                              >
-                                                Monthly
-                                              </button>
-                                              <button
-                                                type="button"
-                                                className={`px-2 py-0.5 text-xs rounded-r border ${pricingType === "flat" ? "bg-green-100 text-green-800 border-green-300" : "bg-gray-50 text-gray-500 border-gray-200"}`}
-                                                onClick={() => {
-                                                  updateBatchField("pricing_type_per_duration", {
-                                                    ...(batch.pricing_type_per_duration || {}),
-                                                    [dur.id]: "flat"
-                                                  })
-                                                }}
-                                              >
-                                                Flat
-                                              </button>
+                                                className="h-7 w-full max-w-[11rem] md:w-28 text-sm"
+                                              />
+                                              <div className="flex items-center gap-1 shrink-0">
+                                                <button
+                                                  type="button"
+                                                  className={`px-2 py-0.5 text-xs rounded-l border ${pricingType === "monthly" ? "bg-blue-100 text-blue-800 border-blue-300" : "bg-gray-50 text-gray-500 border-gray-200"}`}
+                                                  onClick={() => {
+                                                    updateBatchField("pricing_type_per_duration", {
+                                                      ...(batch.pricing_type_per_duration || {}),
+                                                      [dur.id]: "monthly"
+                                                    })
+                                                  }}
+                                                >
+                                                  Monthly
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  className={`px-2 py-0.5 text-xs rounded-r border ${pricingType === "flat" ? "bg-green-100 text-green-800 border-green-300" : "bg-gray-50 text-gray-500 border-gray-200"}`}
+                                                  onClick={() => {
+                                                    updateBatchField("pricing_type_per_duration", {
+                                                      ...(batch.pricing_type_per_duration || {}),
+                                                      [dur.id]: "flat"
+                                                    })
+                                                  }}
+                                                >
+                                                  Flat
+                                                </button>
+                                              </div>
+                                              {fpd[dur.id] && pricingType === "monthly" && dur.duration_months > 1 && (
+                                                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                                  = ₹{(parseFloat(fpd[dur.id]) * dur.duration_months).toLocaleString("en-IN")} total
+                                                </span>
+                                              )}
+                                              {fpd[dur.id] && pricingType === "flat" && (
+                                                <span className="text-xs text-green-600 whitespace-nowrap">Fixed price</span>
+                                              )}
                                             </div>
-                                            {fpd[dur.id] && pricingType === "monthly" && dur.duration_months > 1 && (
-                                              <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                                = ₹{(parseFloat(fpd[dur.id]) * dur.duration_months).toLocaleString("en-IN")} total
-                                              </span>
-                                            )}
-                                            {fpd[dur.id] && pricingType === "flat" && (
-                                              <span className="text-xs text-green-600 whitespace-nowrap">Fixed price</span>
-                                            )}
                                           </div>
                                         )
                                       })}
@@ -1358,34 +1362,38 @@ export default function CreateBranchPage() {
               {/* Timings */}
               <div className="space-y-2">
                 <Label>Operating Hours</Label>
-                <div className="grid grid-cols-4 gap-2">
-                  <Select
-                    value={newTiming.day}
-                    onValueChange={(value) => setNewTiming({ ...newTiming, day: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Day" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {daysOfWeek.map((day) => (
-                        <SelectItem key={day} value={day}>{day}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <div className="col-span-2 md:col-span-1 min-w-0">
+                    <Select
+                      value={newTiming.day}
+                      onValueChange={(value) => setNewTiming({ ...newTiming, day: value })}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Day" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {daysOfWeek.map((day) => (
+                          <SelectItem key={day} value={day}>{day}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
                   <Input
                     type="time"
                     value={newTiming.open}
                     onChange={(e) => setNewTiming({ ...newTiming, open: e.target.value })}
+                    className="min-w-0"
                   />
 
                   <Input
                     type="time"
                     value={newTiming.close}
                     onChange={(e) => setNewTiming({ ...newTiming, close: e.target.value })}
+                    className="min-w-0"
                   />
 
-                  <Button onClick={addTiming} size="sm">
+                  <Button onClick={addTiming} size="sm" className="col-span-2 md:col-span-1 w-full">
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
@@ -1408,10 +1416,11 @@ export default function CreateBranchPage() {
               {/* Holidays */}
               <div className="space-y-2">
                 <Label>Holidays</Label>
-                <div className="flex gap-2">
+                <div className="flex gap-2 min-w-0">
                   <Input
                     type="date"
                     id="holidayDate"
+                    className="w-full min-w-0"
                     onChange={(e) => {
                       if (e.target.value) {
                         addHoliday(e.target.value)
@@ -1426,10 +1435,18 @@ export default function CreateBranchPage() {
                     {formData.operational_details.holidays.map((holiday) => (
                       <Badge key={holiday} variant="secondary" className="flex items-center gap-1">
                         {new Date(holiday).toLocaleDateString()}
-                        <X
-                          className="h-3 w-3 cursor-pointer"
-                          onClick={() => removeHoliday(holiday)}
-                        />
+                        <button
+                          type="button"
+                          aria-label="Remove holiday"
+                          className="inline-flex items-center justify-center rounded-sm text-red-500 hover:text-red-600"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            removeHoliday(holiday)
+                          }}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
                       </Badge>
                     ))}
                   </div>
@@ -1525,17 +1542,18 @@ export default function CreateBranchPage() {
         </div>
 
         {/* Form Actions */}
-        <div className="mt-6 flex justify-end space-x-4">
+        <div className="mt-6 flex flex-col-reverse gap-3 md:flex-row md:justify-end md:space-x-4 md:gap-0">
           <Button
             variant="outline"
             onClick={() => router.push(`${basePath}/branches`)}
+            className="w-full md:w-auto"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="bg-[#FA6669] hover:bg-[#e55557]"
+            className="w-full md:w-auto bg-[#FA6669] hover:bg-[#e55557]"
           >
             {isSubmitting ? "Creating..." : "Create Branch"}
           </Button>
@@ -1544,8 +1562,8 @@ export default function CreateBranchPage() {
 
       {/* Success Popup */}
       {showSuccessPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-96">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-96">
             <CardContent className="pt-6">
               <div className="text-center space-y-4">
                 <div className="text-green-500 text-6xl">✓</div>

@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
   SelectContent,
@@ -71,8 +70,19 @@ export default function CoachAvailabilityEditor({
           : coachAvailabilityAPI.getMine(),
       ])
       setOptions(opts)
-      setLocationIds(avail.service_location_ids || [])
-      setSlots(avail.weekly_slots?.length ? avail.weekly_slots : [])
+      // Use the branch already allocated on the coach profile (not editable here)
+      const allocatedIds =
+        (opts.coach_service_location_ids && opts.coach_service_location_ids.length > 0
+          ? opts.coach_service_location_ids
+          : avail.service_location_ids) || []
+      const allocatedId = allocatedIds[0] || ""
+      setLocationIds(allocatedId ? [allocatedId] : [])
+      const loadedSlots = avail.weekly_slots?.length ? avail.weekly_slots : []
+      setSlots(
+        allocatedId
+          ? loadedSlots.map((s) => ({ ...s, service_location_id: allocatedId }))
+          : loadedSlots
+      )
       setNotes(avail.notes || "")
       setTimezone(avail.timezone || opts.timezone_default || "Asia/Kolkata")
       setUpdatedAt(avail.updated_at || null)
@@ -88,6 +98,13 @@ export default function CoachAvailabilityEditor({
   }, [load])
 
   const locations = options?.locations || []
+  const allocatedBranchId = locationIds[0] || ""
+  const allocatedBranchName = useMemo(() => {
+    if (!allocatedBranchId) return null
+    const fromOpts = locations.find((l) => l.id === allocatedBranchId)
+    if (fromOpts?.name) return fromOpts.name
+    return allocatedBranchId
+  }, [allocatedBranchId, locations])
 
   const slotsByDay = useMemo(() => {
     const map: Record<string, WeeklySlot[]> = {}
@@ -100,22 +117,8 @@ export default function CoachAvailabilityEditor({
     return map
   }, [slots])
 
-  const toggleLocation = (id: string, checked: boolean) => {
-    setLocationIds((prev) => {
-      if (checked) return prev.includes(id) ? prev : [...prev, id]
-      return prev.filter((x) => x !== id)
-    })
-    if (!checked) {
-      setSlots((prev) =>
-        prev.map((s) =>
-          s.service_location_id === id ? { ...s, service_location_id: null } : s
-        )
-      )
-    }
-  }
-
   const addSlot = () => {
-    const defaultLoc = locationIds[0] || null
+    const defaultLoc = allocatedBranchId || null
     setSlots((prev) => [...prev, { ...emptySlot(), service_location_id: defaultLoc }])
   }
 
@@ -129,10 +132,10 @@ export default function CoachAvailabilityEditor({
 
   const handleSave = async () => {
     setSaveError(null)
-    if (locationIds.length === 0) {
+    if (!allocatedBranchId) {
       toast({
-        title: "Select locations",
-        description: "Choose at least one service location.",
+        title: "No branch assigned",
+        description: "This coach has no allocated branch. Assign a branch on the coach profile first.",
         variant: "destructive",
       })
       return
@@ -151,13 +154,13 @@ export default function CoachAvailabilityEditor({
     try {
       const payload = {
         timezone,
-        service_location_ids: locationIds,
+        service_location_ids: [allocatedBranchId],
         weekly_slots: slots.map((s) => ({
           id: s.id,
           weekday: s.weekday,
           start_time: s.start_time,
           end_time: s.end_time,
-          service_location_id: s.service_location_id || null,
+          service_location_id: allocatedBranchId,
           notes: s.notes || null,
         })),
         notes: notes.trim() || null,
@@ -166,8 +169,13 @@ export default function CoachAvailabilityEditor({
         ? await coachAvailabilityAPI.updateForCoach(coachId, payload)
         : await coachAvailabilityAPI.updateMine(payload)
       const avail = result.availability
-      setLocationIds(avail.service_location_ids || [])
-      setSlots(avail.weekly_slots || [])
+      setLocationIds([allocatedBranchId])
+      setSlots(
+        (avail.weekly_slots || []).map((s) => ({
+          ...s,
+          service_location_id: allocatedBranchId,
+        }))
+      )
       setNotes(avail.notes || "")
       setUpdatedAt(avail.updated_at || null)
       toast({ title: "Availability saved" })
@@ -227,29 +235,23 @@ export default function CoachAvailabilityEditor({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base text-[#4F5077]">Service locations</CardTitle>
+          <CardTitle className="text-base text-[#4F5077]">Service location</CardTitle>
         </CardHeader>
         <CardContent>
-          {locations.length === 0 ? (
-            <p className="text-sm text-gray-500">No locations available.</p>
-          ) : (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {locations.map((loc) => {
-                const checked = locationIds.includes(loc.id)
-                return (
-                  <label
-                    key={loc.id}
-                    className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer hover:bg-gray-50"
-                  >
-                    <Checkbox
-                      checked={checked}
-                      onCheckedChange={(v) => toggleLocation(loc.id, Boolean(v))}
-                    />
-                    <span className="text-[#4F5077]">{loc.name}</span>
-                  </label>
-                )
-              })}
+          {allocatedBranchId ? (
+            <div className="max-w-md space-y-1">
+              <Label className="text-xs text-[#6B7A99]">Allocated branch</Label>
+              <div className="rounded-md border bg-gray-50 px-3 py-2 text-sm font-medium text-[#4F5077]">
+                {allocatedBranchName}
+              </div>
+              <p className="text-xs text-gray-500">
+                Branch is set on the coach profile and cannot be changed here.
+              </p>
             </div>
+          ) : (
+            <p className="text-sm text-amber-700">
+              No branch is allocated to this coach. Assign a branch on the coach profile first.
+            </p>
           )}
         </CardContent>
       </Card>
@@ -309,28 +311,9 @@ export default function CoachAvailabilityEditor({
                 </div>
                 <div className="md:col-span-4">
                   <Label className="text-xs text-[#6B7A99]">Location</Label>
-                  <Select
-                    value={slot.service_location_id || "__any__"}
-                    onValueChange={(v) =>
-                      updateSlot(index, {
-                        service_location_id: v === "__any__" ? null : v,
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Any selected location" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__any__">Any selected location</SelectItem>
-                      {locations
-                        .filter((l) => locationIds.includes(l.id))
-                        .map((l) => (
-                          <SelectItem key={l.id} value={l.id}>
-                            {l.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="h-9 flex items-center rounded-md border bg-gray-50 px-3 text-sm text-[#4F5077] truncate">
+                    {allocatedBranchName || "No branch allocated"}
+                  </div>
                 </div>
                 <div className="md:col-span-2 flex justify-end">
                   <Button

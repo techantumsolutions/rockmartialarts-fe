@@ -9,11 +9,11 @@ import {
 } from "@/lib/coachFetch"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, Edit, X, Eye, Handshake, ImageIcon, Award, Images, MessageSquareQuote, UserCog, SearchCode } from "lucide-react"
+import { Search, Edit, X, Eye, Handshake, ImageIcon, Award, Images, MessageSquareQuote, UserCog, SearchCode, ChevronLeft, ChevronRight } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { useRouter, usePathname } from "next/navigation"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
@@ -104,7 +104,86 @@ export default function BranchesList() {
   const [assignmentError, setAssignmentError] = useState<string | null>(null)
   // Add state for pagination
 const [currentPage, setCurrentPage] = useState(1)
-const itemsPerPage = 15
+const itemsPerPage = 10
+
+  // Mobile action-button scroll
+  const actionScrollRef = useRef<HTMLDivElement>(null)
+  const [canScrollActionsLeft, setCanScrollActionsLeft] = useState(false)
+  const [canScrollActionsRight, setCanScrollActionsRight] = useState(false)
+
+  const updateActionScrollArrows = useCallback(() => {
+    const el = actionScrollRef.current
+    if (!el) {
+      setCanScrollActionsLeft(false)
+      setCanScrollActionsRight(false)
+      return
+    }
+    const { scrollLeft, scrollWidth, clientWidth } = el
+    setCanScrollActionsLeft(scrollLeft > 2)
+    setCanScrollActionsRight(scrollLeft + clientWidth < scrollWidth - 2)
+  }, [])
+
+  useEffect(() => {
+    const el = actionScrollRef.current
+    if (!el) return
+    updateActionScrollArrows()
+    const onScroll = () => updateActionScrollArrows()
+    el.addEventListener("scroll", onScroll, { passive: true })
+    window.addEventListener("resize", updateActionScrollArrows)
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateActionScrollArrows) : null
+    ro?.observe(el)
+    const t = window.setTimeout(updateActionScrollArrows, 100)
+    return () => {
+      el.removeEventListener("scroll", onScroll)
+      window.removeEventListener("resize", updateActionScrollArrows)
+      ro?.disconnect()
+      window.clearTimeout(t)
+    }
+  }, [updateActionScrollArrows])
+
+  const scrollActionsToFullyVisible = (direction: -1 | 1) => {
+    const el = actionScrollRef.current
+    if (!el) return
+    const items = Array.from(el.children) as HTMLElement[]
+    if (items.length === 0) return
+
+    const viewLeft = el.scrollLeft
+    const viewRight = viewLeft + el.clientWidth
+    const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth)
+    const epsilon = 2
+    let targetScroll = el.scrollLeft
+
+    if (direction === 1) {
+      const target = items.find((item) => item.offsetLeft + item.offsetWidth > viewRight + epsilon)
+      if (!target) {
+        targetScroll = maxScroll
+      } else {
+        const left = target.offsetLeft
+        const right = left + target.offsetWidth
+        targetScroll = left
+        if (targetScroll + el.clientWidth < right) {
+          targetScroll = right - el.clientWidth
+        }
+      }
+    } else {
+      const target = [...items].reverse().find((item) => item.offsetLeft < viewLeft - epsilon)
+      if (!target) {
+        targetScroll = 0
+      } else {
+        const left = target.offsetLeft
+        const right = left + target.offsetWidth
+        targetScroll = left
+        if (targetScroll + el.clientWidth < right) {
+          targetScroll = right - el.clientWidth
+        }
+      }
+    }
+
+    el.scrollTo({
+      left: Math.max(0, Math.min(maxScroll, targetScroll)),
+      behavior: "smooth",
+    })
+  }
 
   // Fetch branches from API
   useEffect(() => {
@@ -393,8 +472,12 @@ const itemsPerPage = 15
     return "—"
   }
 
-  // Enhanced search functionality - filter branches based on search term
+  // Enhanced search functionality - filter branches based on search term.
+  // Collaboration partners are managed under Partners pages, not this Branches list.
   const filteredBranches = branches.filter((branch) => {
+    if (branch.is_collaboration_partner || branch.allows_collaboration) {
+      return false
+    }
     if (!searchTerm) return true
 
     const searchLower = searchTerm.toLowerCase()
@@ -418,32 +501,82 @@ const paginatedBranches = filteredBranches.slice(
 
   return (
     <div className="w-full p-4 lg:px-8 overflow-x-hidden">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-6">
           <h1 className="text-2xl font-bold text-[#4F5077]">Branches list</h1>
-          <div className="flex space-x-3">
-            {!BranchManagerAuth.isAuthenticated() && (
-              <>
+          {!BranchManagerAuth.isAuthenticated() && (
+            <>
+              {/* Mobile: horizontal scroll + arrows */}
+              <div className="flex items-center gap-1 w-full min-w-0 sm:hidden">
+                <button
+                  type="button"
+                  aria-label="Scroll actions left"
+                  onClick={() => scrollActionsToFullyVisible(-1)}
+                  disabled={!canScrollActionsLeft}
+                  className={`shrink-0 flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-opacity ${
+                    canScrollActionsLeft ? "opacity-100" : "opacity-0 pointer-events-none"
+                  }`}
+                >
+                  <ChevronLeft className="h-4 w-4 text-gray-700" />
+                </button>
+                <div
+                  ref={actionScrollRef}
+                  className="flex flex-1 min-w-0 flex-nowrap items-center gap-2 overflow-x-auto scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                >
+                  <Button
+                    onClick={() => router.push(`${basePath}/create-branch`)}
+                    className="bg-yellow-400 hover:bg-yellow-500 text-white px-4 py-2 rounded-lg font-medium shrink-0"
+                  >
+                    + Add Branch
+                  </Button>
+                  <Button
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-4 shrink-0"
+                    onClick={handleOpenAssignModal}
+                  >
+                    Assign Manager
+                  </Button>
+                  <Button
+                    className="bg-green-500 hover:bg-green-600 text-white px-4 shrink-0"
+                    onClick={() => router.push(`${basePath}/branch-managers`)}
+                  >
+                    Branch Managers
+                  </Button>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Scroll actions right"
+                  onClick={() => scrollActionsToFullyVisible(1)}
+                  disabled={!canScrollActionsRight}
+                  className={`shrink-0 flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-opacity ${
+                    canScrollActionsRight ? "opacity-100" : "opacity-0 pointer-events-none"
+                  }`}
+                >
+                  <ChevronRight className="h-4 w-4 text-gray-700" />
+                </button>
+              </div>
+
+              {/* Desktop / tablet: normal row */}
+              <div className="hidden sm:flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
                 <Button
                   onClick={() => router.push(`${basePath}/create-branch`)}
-                  className="bg-yellow-400 hover:bg-yellow-500 text-white px-6 py-2 rounded-lg font-medium"
+                  className="bg-yellow-400 hover:bg-yellow-500 text-white px-4 sm:px-6 py-2 rounded-lg font-medium shrink-0"
                 >
                   + Add Branch
                 </Button>
                 <Button
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-6"
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 sm:px-6 shrink-0"
                   onClick={handleOpenAssignModal}
                 >
                   Assign Manager
                 </Button>
                 <Button
-                  className="bg-green-500 hover:bg-green-600 text-white px-6"
+                  className="bg-green-500 hover:bg-green-600 text-white px-4 sm:px-6 shrink-0"
                   onClick={() => router.push(`${basePath}/branch-managers`)}
                 >
                   Branch Managers
                 </Button>
-              </>
-            )}
-          </div>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="mb-6">
@@ -452,7 +585,10 @@ const paginatedBranches = filteredBranches.slice(
             <Input
               placeholder="Search by name, ID, Location"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value)
+                setCurrentPage(1)
+              }}
               className="pl-10"
             />
           </div>
@@ -752,6 +888,7 @@ const paginatedBranches = filteredBranches.slice(
           </table>
         </div>
 
+       {totalPages > 1 ? (
        <div className="flex items-center justify-center space-x-2 mt-6">
   <Button
     variant="outline"
@@ -786,6 +923,7 @@ const paginatedBranches = filteredBranches.slice(
     Next
   </Button>
 </div>
+       ) : null}
 
       {showAssignPopup && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
