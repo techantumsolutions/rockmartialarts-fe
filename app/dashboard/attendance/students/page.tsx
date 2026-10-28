@@ -53,6 +53,7 @@ import DashboardHeader from "@/components/dashboard-header"
 import { SuperAdminAuth } from "@/lib/auth"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { TokenManager } from "@/lib/tokenManager"
+import { getActiveBranch, getActiveBranchId } from "@/lib/activeBranch"
 import { formatTimeIST } from "@/lib/formatRegisteredDate"
 import { useToast } from "@/hooks/use-toast"
 
@@ -62,14 +63,19 @@ function getAttendanceAuthHeaders(): Record<string, string> | null {
   const onBranchAdmin =
     path.startsWith("/branch-admin/") || path.startsWith("/branch-manager-dashboard/")
   const bmUser = BranchManagerAuth.getCurrentUser()
+  const activeBranchId = getActiveBranchId()
   // Branch-admin must use BM token so the API scopes to managed branches only.
   if (onBranchAdmin || bmUser?.role === "branch_manager") {
     const token = BranchManagerAuth.getToken() || TokenManager.getToken()
     if (token) {
-      return {
+      const headers: Record<string, string> = {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       }
+      if (activeBranchId) {
+        headers["X-Active-Branch-Id"] = activeBranchId
+      }
+      return headers
     }
   }
   if (SuperAdminAuth.isAuthenticated()) {
@@ -77,10 +83,14 @@ function getAttendanceAuthHeaders(): Record<string, string> | null {
   }
   const token = BranchManagerAuth.getToken() || TokenManager.getToken()
   if (!token) return null
-  return {
+  const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
   }
+  if (activeBranchId) {
+    headers["X-Active-Branch-Id"] = activeBranchId
+  }
+  return headers
 }
 
 function isAttendanceAuthenticated(): boolean {
@@ -293,15 +303,21 @@ export default function SuperAdminStudentAttendancePage() {
 
     const managedIds = getManagedBranchIds()
     const bm = BranchManagerAuth.getCurrentUser()
+    const activeBranchId = getActiveBranchId()
     const lockedId =
-      (bm?.branch_id && managedIds.includes(String(bm.branch_id))
+      (activeBranchId && (managedIds.length === 0 || managedIds.includes(activeBranchId))
+        ? activeBranchId
+        : null) ||
+      (selectedBranch !== "all" && (managedIds.length === 0 || managedIds.includes(selectedBranch))
+        ? selectedBranch
+        : null) ||
+      (bm?.branch_id && (managedIds.length === 0 || managedIds.includes(String(bm.branch_id)))
         ? String(bm.branch_id)
         : null) ||
-      (selectedBranch !== "all" ? selectedBranch : null) ||
       managedIds[0] ||
       ""
     const matchesBranch = isBranchAdminRoute
-      ? !lockedId || String(record.branch_id) === lockedId
+      ? !lockedId || !record.branch_id || String(record.branch_id) === lockedId
       : selectedBranch === "all" || record.branch_id === selectedBranch
     const matchesCourse = selectedCourse === "all" || record.course_id === selectedCourse
     const matchesStatus = selectedStatus === "all" || record.status === selectedStatus
@@ -353,6 +369,7 @@ export default function SuperAdminStudentAttendancePage() {
         }))
         if (isBranchAdminRoute) {
           const managedIds = getManagedBranchIds()
+          const activeBranchId = getActiveBranchId()
           if (managedIds.length > 0) {
             branchList = branchList.filter((b: Branch) => managedIds.includes(String(b.id)))
           }
@@ -360,9 +377,13 @@ export default function SuperAdminStudentAttendancePage() {
             setSelectedBranch(branchList[0].id)
           } else if (branchList.length > 1) {
             const bm = BranchManagerAuth.getCurrentUser()
-            const preferred = bm?.branch_id && managedIds.includes(String(bm.branch_id))
-              ? String(bm.branch_id)
-              : branchList[0].id
+            const preferred =
+              (activeBranchId && branchList.some((b: Branch) => b.id === activeBranchId)
+                ? activeBranchId
+                : null) ||
+              (bm?.branch_id && managedIds.includes(String(bm.branch_id))
+                ? String(bm.branch_id)
+                : branchList[0].id)
             setSelectedBranch(preferred)
           }
         }
@@ -420,20 +441,25 @@ export default function SuperAdminStudentAttendancePage() {
       const dateStr = format(selectedDate, 'yyyy-MM-dd')
       const managedIds = getManagedBranchIds()
       const bmUser = BranchManagerAuth.getCurrentUser()
-      // Lock to the BM's own branch (prefer assigned branch_id over a broad managed list).
+      const activeBranchId = getActiveBranchId()
+      // Lock to the BM's active or assigned branch
       const lockedBranchId =
         (isBranchAdminRoute &&
-          ((bmUser?.branch_id && managedIds.includes(String(bmUser.branch_id))
-            ? String(bmUser.branch_id)
+          ((activeBranchId && (managedIds.length === 0 || managedIds.includes(activeBranchId))
+            ? activeBranchId
             : null) ||
-            (selectedBranch && selectedBranch !== "all" && managedIds.includes(selectedBranch)
+            (selectedBranch && selectedBranch !== "all" && (managedIds.length === 0 || managedIds.includes(selectedBranch))
               ? selectedBranch
               : null) ||
+            (bmUser?.branch_id && (managedIds.length === 0 || managedIds.includes(String(bmUser.branch_id)))
+              ? String(bmUser.branch_id)
+              : null) ||
             managedIds[0] ||
-            (bmUser?.branch_id ? String(bmUser.branch_id) : ""))) ||
+            "")) ||
         ""
       const lockedBranchName =
         (lockedBranchId && branches.find((b) => b.id === lockedBranchId)?.name) ||
+        (activeBranchId && getActiveBranch()?.name) ||
         bmUser?.branch_name ||
         ""
       const qs = new URLSearchParams({ date: dateStr })
@@ -454,16 +480,20 @@ export default function SuperAdminStudentAttendancePage() {
         console.log("✅ Attendance data received:", data)
 
         let students = data.students || []
-        // Branch-admin: only students linked to the locked branch; never show other-branch-only rows.
-        if (isBranchAdminRoute && lockedBranchId) {
-          students = students.filter((student: any) => {
-            const bid = String(student.branch_id || "")
-            const fromBranches = Array.isArray(student.branches)
-              ? student.branches.map((b: any) => String(b?.id || "")).filter(Boolean)
-              : []
-            const ids = Array.from(new Set([bid, ...fromBranches].filter(Boolean)))
-            return ids.includes(lockedBranchId)
-          })
+        // When the backend has already applied the branch scope (for Branch Manager or when branch_id was sent),
+        // do not discard valid backend roster entries due to a conflicting or missing student.branch_id.
+        if (isBranchAdminRoute && lockedBranchId && !qs.has("branch_id")) {
+          const bm = BranchManagerAuth.getCurrentUser()
+          if (bm?.role !== "branch_manager") {
+            students = students.filter((student: any) => {
+              const bid = String(student.branch_id || "")
+              const fromBranches = Array.isArray(student.branches)
+                ? student.branches.map((b: any) => String(b?.id || "")).filter(Boolean)
+                : []
+              const ids = Array.from(new Set([bid, ...fromBranches].filter(Boolean)))
+              return ids.length === 0 || ids.includes(lockedBranchId)
+            })
+          }
         }
 
         const records: AttendanceRecord[] = students.map((student: any) => {
