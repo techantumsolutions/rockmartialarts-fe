@@ -175,11 +175,9 @@ export default function BranchManagerCoursesList() {
   }, [])
 
   // Filter courses based on search term
+  const normalizedSearchTerm = searchTerm.trim().toLowerCase()
   const filteredCourses = courses.filter(course =>
-    course.course_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    course.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    course.level.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    course.description.toLowerCase().includes(searchTerm.toLowerCase())
+    course.course_name.toLowerCase().includes(normalizedSearchTerm)
   )
 
   // Pagination
@@ -319,10 +317,13 @@ export default function BranchManagerCoursesList() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
                   type="text"
-                  placeholder="Search courses by name, category, level, or description..."
+                  placeholder="Search by course name..."
                   className="pl-10"
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value)
+                    setCurrentPage(1)
+                  }}
                 />
               </div>
             </div>
