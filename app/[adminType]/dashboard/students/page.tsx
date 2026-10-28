@@ -13,6 +13,8 @@ import { Switch } from "@/components/ui/switch"
 import { useRouter, useParams, usePathname, useSearchParams } from "next/navigation"
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { getActiveBranchId } from "@/lib/activeBranch"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 import { formatRegisteredDateTime, formatRegisteredDateOnly } from "@/lib/formatRegisteredDate"
 import {
   buildStudentListQuery,
@@ -367,6 +369,7 @@ const itemsPerPage = 15
 
   const handleAssignClick = async () => {
     fetchBranchesAndCourses()
+    if (isBranchAdmin) setSelectedBranch(getActiveBranchId() || "")
     setShowAssignPopup(true)
     setUnassignedStudents([])
     await fetchUnassignedStudents()
@@ -414,7 +417,8 @@ const itemsPerPage = 15
   }
 
   const handleAssignConfirm = async () => {
-    if (!selectedStudent || !selectedBranch || selectedCourses.length === 0) {
+    const branchId = isBranchAdmin ? getActiveBranchId() || selectedBranch : selectedBranch
+    if (!selectedStudent || !branchId || selectedCourses.length === 0) {
       setAssignmentError("Please select a student, branch, and at least one course")
       return
     }
@@ -438,7 +442,7 @@ const itemsPerPage = 15
         body: JSON.stringify({
           branch: {
             location_id: "hyderabad", // Default location
-            branch_id: selectedBranch
+            branch_id: branchId
           },
           course: selectedCourses.length > 0 ? {
             category_id: "martial-arts", // Default category
@@ -453,8 +457,8 @@ const itemsPerPage = 15
         throw new Error(errorData.detail || errorData.message || `Failed to assign student (${response.status})`)
       }
 
-      const assignedBranchName = branches.find((b: any) => b.id === selectedBranch)?.branch?.name
-        || branches.find((b: any) => b.id === selectedBranch)?.name
+      const assignedBranchName = branches.find((b: any) => b.id === branchId)?.branch?.name
+        || branches.find((b: any) => b.id === branchId)?.name
         || "Assigned"
       setStudents(prevStudents =>
         prevStudents.map(student =>
@@ -463,7 +467,7 @@ const itemsPerPage = 15
                 ...student,
                 branch_info: {
                   location_id: "hyderabad",
-                  branch_id: selectedBranch,
+                  branch_id: branchId,
                   branch_name: assignedBranchName
                 },
                 course_info: selectedCourses.length > 0 ? {
@@ -1336,24 +1340,28 @@ const paginatedStudents = filteredStudents.slice(
               {/* Branch Dropdown */}
               <div>
                 <label className="block text-sm font-medium mb-2">Select Branch</label>
-                <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a branch..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {branches.map((branch) => {
-                      const branchName = branch.branch?.name || branch.name
-                      const address = branch.branch?.address || branch.address
-                      const addressText = address ? `${address.area}, ${address.city}` : 'No address'
+                {isBranchAdmin ? (
+                  <BranchSelectionField readOnly />
+                ) : (
+                  <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a branch..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {branches.map((branch) => {
+                        const branchName = branch.branch?.name || branch.name
+                        const address = branch.branch?.address || branch.address
+                        const addressText = address ? `${address.area}, ${address.city}` : 'No address'
 
-                      return (
-                        <SelectItem key={branch.id} value={branch.id}>
-                          {branchName} - {addressText}
-                        </SelectItem>
-                      )
-                    })}
-                  </SelectContent>
-                </Select>
+                        return (
+                          <SelectItem key={branch.id} value={branch.id}>
+                            {branchName} - {addressText}
+                          </SelectItem>
+                        )
+                      })}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               {/* Course Selection */}

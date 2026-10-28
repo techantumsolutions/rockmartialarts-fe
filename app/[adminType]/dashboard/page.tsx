@@ -506,7 +506,7 @@ export default function SuperAdminDashboard() {
               <Card className="h-48 rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
                 <CardContent className="px-4">
                   <div className="flex justify-between flex-col gap-10">
-                    <div className="flex flex-col xl:flex-row justify-between mt-4">
+                    <div className={`flex flex-col xl:flex-row justify-between mt-4 ${role === "branch_admin" ? "gap-2" : ""}`}>
                       <p className="text-xs font-base text-[var(--brand-muted)]">{timePeriodLabel} Collection</p>
                       <Badge variant="secondary" className="bg-gray-100 text-xs">
                         {selectedBranchName ?? "All Branches"}

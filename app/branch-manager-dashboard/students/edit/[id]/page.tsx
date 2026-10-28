@@ -11,12 +11,14 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { CalendarIcon, MapPinIcon, Building2Icon, FolderIcon, BookOpenIcon, ClockIcon, UserIcon, MailIcon, PhoneIcon } from "lucide-react"
+import { CalendarIcon, MapPinIcon, FolderIcon, BookOpenIcon, ClockIcon, UserIcon, MailIcon, PhoneIcon } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { useRouter, useParams } from "next/navigation"
 import Header from "@/components/layout/Header"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { getActiveBranchId } from "@/lib/activeBranch"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 
 interface Branch {
   id: string
@@ -52,6 +54,12 @@ export default function BranchManagerEditStudent() {
   const router = useRouter()
   const params = useParams()
   const studentId = params.id as string
+  const branchManager = BranchManagerAuth.getCurrentUser()
+  const headerBranchId =
+    getActiveBranchId() ||
+    branchManager?.branch_id ||
+    branchManager?.managed_branches?.[0] ||
+    ""
 
   // Loading states
   const [isLoading, setIsLoading] = useState(true)
@@ -64,7 +72,6 @@ export default function BranchManagerEditStudent() {
 
   // API Loading states
   const [isLoadingLocations, setIsLoadingLocations] = useState(true)
-  const [isLoadingBranches, setIsLoadingBranches] = useState(true)
   const [isLoadingCourses, setIsLoadingCourses] = useState(true)
   const [isLoadingCategories, setIsLoadingCategories] = useState(true)
 
@@ -106,6 +113,17 @@ export default function BranchManagerEditStudent() {
     emergencyContactPhone: "",
     emergencyContactRelation: "",
   })
+
+  const selectedManagerBranch = branches.find((branch) => branch.id === headerBranchId)
+
+  useEffect(() => {
+    if (!headerBranchId) return
+    setFormData((current) =>
+      current.branch === headerBranchId
+        ? current
+        : { ...current, branch: headerBranchId }
+    )
+  }, [headerBranchId])
 
   // Dynamic data will be loaded from APIs
   const durations = [
@@ -314,7 +332,6 @@ export default function BranchManagerEditStudent() {
       }
 
       try {
-        setIsLoadingBranches(true)
         const response = await fetch(getBackendApiUrl(`branches/public/by-location/${formData.location}?active_only=true`))
 
         if (response.ok) {
@@ -327,8 +344,6 @@ export default function BranchManagerEditStudent() {
       } catch (error) {
         console.error('Error loading branches for location:', error)
         setBranches([])
-      } finally {
-        setIsLoadingBranches(false)
       }
     }
 
@@ -337,6 +352,7 @@ export default function BranchManagerEditStudent() {
 
   // Clear branch selection when location changes
   useEffect(() => {
+    if (headerBranchId) return
     if (formData.branch && formData.location) {
       // Check if current branch is still valid for the selected location
       const branchExists = branches.find(branch => branch.id === formData.branch)
@@ -344,7 +360,7 @@ export default function BranchManagerEditStudent() {
         setFormData(prev => ({ ...prev, branch: "" }))
       }
     }
-  }, [branches, formData.branch, formData.location])
+  }, [branches, formData.branch, formData.location, headerBranchId])
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {}
@@ -355,7 +371,7 @@ export default function BranchManagerEditStudent() {
     if (!formData.gender) newErrors.gender = "Gender is required"
     if (!formData.dob) newErrors.dob = "Date of birth is required"
     if (!formData.location) newErrors.location = "Location is required"
-    if (!formData.branch) newErrors.branch = "Branch is required"
+    if (!headerBranchId && !formData.branch) newErrors.branch = "Branch is required"
     if (!formData.course) newErrors.course = "Course is required"
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Please enter a valid email address"
@@ -393,9 +409,9 @@ export default function BranchManagerEditStudent() {
           course_id: formData.course,
           duration: formData.duration || "3-months"
         } : undefined,
-        branch: formData.branch ? {
+        branch: (headerBranchId || formData.branch) ? {
           location_id: formData.location || "hyderabad",
-          branch_id: formData.branch
+          branch_id: headerBranchId || formData.branch
         } : undefined
       }
 
@@ -745,53 +761,14 @@ export default function BranchManagerEditStudent() {
 
                     <div>
                       <Label className="block text-sm font-medium mb-2">Branch <span className="text-red-500">*</span></Label>
-                      <Select
-                        value={formData.branch}
-                        onValueChange={(value) => handleInputChange("branch", value)}
-                        disabled={!formData.location || isLoadingBranches}
-                      >
-                        <SelectTrigger className={cn(
+                      <BranchSelectionField
+                        id="branch"
+                        branchName={selectedManagerBranch?.name}
+                        className={cn(
                           "!w-full !h-14 !pl-12 !text-base !bg-gray-50 !border-gray-200 !rounded-xl",
-                          errors.branch && "!border-red-500 !bg-red-50",
-                          (!formData.location || isLoadingBranches) && "opacity-50 cursor-not-allowed"
-                        )}>
-                          <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10 pointer-events-none">
-                            <Building2Icon className="w-5 h-5 text-gray-400" />
-                          </div>
-                          <SelectValue placeholder={
-                            isLoadingBranches
-                              ? "Loading branches..."
-                              : !formData.location
-                                ? "Select location first"
-                                : "Select Branch"
-                          } />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {branches.length > 0 ? (
-                            branches.map((branch) => (
-                              <SelectItem key={branch.id} value={branch.id}>
-                                <div className="flex flex-col">
-                                  <span className="font-medium">{branch.name}</span>
-                                  <span className="text-xs text-gray-500">
-                                    {branch.code}
-                                  </span>
-                                </div>
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <div className="p-4 text-center text-gray-500">
-                              <p className="text-sm">
-                                {!formData.location
-                                  ? "Please select a location first"
-                                  : isLoadingBranches
-                                    ? "Loading branches..."
-                                    : "No branches available for selected location"
-                                }
-                              </p>
-                            </div>
-                          )}
-                        </SelectContent>
-                      </Select>
+                          errors.branch && "!border-red-500 !bg-red-50"
+                        )}
+                      />
                       {errors.branch && <p className="text-red-500 text-sm mt-1">{errors.branch}</p>}
                     </div>
                   </div>

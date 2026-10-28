@@ -9,6 +9,9 @@ import { Search, Download, Filter, FileText, TrendingUp, AlertCircle, Loader2, R
 import { useRouter, useParams } from "next/navigation"
 import { reportsAPI, ReportFilters, ReportFilterOptions } from "@/lib/reportsAPI"
 import { useAuth } from "@/contexts/AuthContext"
+import { getBackendApiUrl } from "@/lib/config"
+import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { getActiveBranchId } from "@/lib/activeBranch"
 import { toast } from "sonner"
 import ErrorBoundary from "@/components/error-boundary"
 import { useReportsApi } from "@/hooks/useApiWithRetry"
@@ -177,11 +180,13 @@ function ReportsPageContent() {
   const adminType = (params?.adminType as string) || "super-admin"
   const basePath = `/${adminType}/dashboard`
   const { user, token } = useAuth()
+  const isBranchAdminDashboard = basePath.startsWith("/branch-admin/dashboard")
 
   // Enhanced state management with performance monitoring
   const [searchTerm, setSearchTerm] = useState("")
   const [categoryLoading, setCategoryLoading] = useState<string | null>(null)
   const [lastError, setLastError] = useState<string | null>(null)
+  const [reportRowCounts, setReportRowCounts] = useState<Record<string, number | null>>({})
 
   // Performance monitoring
   const { logPerformance } = usePerformanceMonitor('ReportsPage')
@@ -216,6 +221,137 @@ function ReportsPageContent() {
       // The API call will be triggered automatically by the hook
     }
   }, [token, resetApiState])
+
+  useEffect(() => {
+    if (!isBranchAdminDashboard) return
+
+    let cancelled = false
+    const loadReportRowCounts = async () => {
+      const branchManagerToken = BranchManagerAuth.getToken() || token
+      const branchManager = BranchManagerAuth.getCurrentUser()
+      const branchId =
+        getActiveBranchId() ||
+        branchManager?.branch_id ||
+        branchManager?.managed_branches?.[0]
+
+      if (!branchManagerToken || !branchId) {
+        console.error("Unable to load branch-admin report counts: missing token or active branch")
+        if (!cancelled) {
+          setReportRowCounts(Object.fromEntries(REPORT_CATEGORIES.map(({ id }) => [id, null])))
+        }
+        return
+      }
+
+      const branchFilters = { branch_id: branchId }
+      const countRequests: Array<[string, () => Promise<number>]> = [
+        ["student", async () => {
+          const response = await reportsAPI.listStudentReportRows(branchManagerToken, {
+            ...branchFilters,
+            skip: 0,
+            limit: 1,
+          })
+          return Number(response.total ?? response.students?.length ?? 0)
+        }],
+        ["coach", async () => {
+          const response = await reportsAPI.getCoachReports(branchManagerToken, {
+            ...branchFilters,
+            skip: 0,
+            limit: 1,
+          })
+          return Number(response.pagination?.total ?? response.coachs?.length ?? 0)
+        }],
+        ["course", async () => {
+          const response = await reportsAPI.getCourseReports(branchManagerToken, {
+            ...branchFilters,
+            skip: 0,
+            limit: 1,
+          })
+          return Number(response.pagination?.total ?? response.courses?.length ?? 0)
+        }],
+        ["branch", async () => {
+          const response = await reportsAPI.getBranchReports(branchManagerToken, {
+            ...branchFilters,
+            skip: 0,
+            limit: 1,
+          })
+          return Number(response.pagination?.total ?? response.branches?.length ?? 0)
+        }],
+        ["financial", async () => {
+          const response = await reportsAPI.getFinancialReports(branchManagerToken, {
+            ...branchFilters,
+            skip: 0,
+            limit: 1,
+          })
+          return Number(response.pagination?.total ?? response.payments?.length ?? 0)
+        }],
+        ...(["enrollments", "renewals", "leads", "events"] as const).map(
+          (categoryId): [string, () => Promise<number>] => [
+            categoryId,
+            async () => {
+              const response = await reportsAPI.getOperationalReports(
+                branchManagerToken,
+                categoryId,
+                { ...branchFilters, skip: 0, limit: 1 }
+              )
+              return Number(response.total ?? response.rows?.length ?? 0)
+            },
+          ]
+        ),
+        ["attendance", async () => {
+          const endDate = new Date()
+          const startDate = new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000)
+          const formatDate = (date: Date) => {
+            const year = date.getFullYear()
+            const month = String(date.getMonth() + 1).padStart(2, "0")
+            const day = String(date.getDate()).padStart(2, "0")
+            return `${year}-${month}-${day}`
+          }
+          const params = new URLSearchParams({
+            start_date: formatDate(startDate),
+            end_date: formatDate(endDate),
+            branch_id: branchId,
+          })
+          const response = await fetch(
+            getBackendApiUrl(`attendance/reports?${params.toString()}`),
+            {
+              headers: { Authorization: `Bearer ${branchManagerToken}` },
+              cache: "no-store",
+            }
+          )
+          if (!response.ok) {
+            throw new Error(`Failed to load attendance report count (${response.status})`)
+          }
+          const data = await response.json()
+          return Number(data.summary?.total ?? data.attendance_records?.length ?? 0)
+        }],
+      ]
+
+      if (!cancelled) {
+        setReportRowCounts(Object.fromEntries(countRequests.map(([id]) => [id, null])))
+      }
+
+      await Promise.all(
+        countRequests.map(async ([categoryId, loadCount]) => {
+          try {
+            const count = await loadCount()
+            if (!cancelled) {
+              setReportRowCounts((current) => ({ ...current, [categoryId]: count }))
+            }
+          } catch (error) {
+            console.error(`Unable to load ${categoryId} report row count:`, error)
+            if (!cancelled) {
+              setReportRowCounts((current) => ({ ...current, [categoryId]: null }))
+            }
+          }
+        })
+      )
+    }
+
+    void loadReportRowCounts()
+    return () => {
+      cancelled = true
+    }
+  }, [isBranchAdminDashboard, token])
 
   // Handle API errors with user feedback
   useEffect(() => {
@@ -453,7 +589,7 @@ function ReportsPageContent() {
                     Description
                   </th>
                   <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
-                    Reports
+                    {isBranchAdminDashboard ? "Records" : "Reports"}
                   </th>
                   <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
                     Action
@@ -484,7 +620,13 @@ function ReportsPageContent() {
                         {category.description}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
-                        {category.reports.length} available
+                        {isBranchAdminDashboard
+                          ? reportRowCounts[category.id] === undefined
+                            ? "Loading..."
+                            : reportRowCounts[category.id] === null
+                              ? "Unavailable"
+                              : `${reportRowCounts[category.id]} records`
+                          : `${category.reports.length} available`}
                       </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         <Button

@@ -23,6 +23,7 @@ import {
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 import { reportsAPI, ReportFilters, ReportFilterOptions } from "@/lib/reportsAPI"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
@@ -140,6 +141,7 @@ export default function IndividualReportPage() {
   const params = useParams()
   const router = useRouter()
   const basePath = useDashboardBasePath()
+  const isBranchAdminRoute = basePath.startsWith("/branch-admin/dashboard")
   const { user, token } = useAuth()
   
   const categoryId = params.categoryId as string
@@ -488,22 +490,26 @@ export default function IndividualReportPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Branch
                 </label>
-                <Select
-                  value={filters.branch_id || "all"}
-                  onValueChange={(value) => handleFilterChange('branch_id', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Branch" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Branches</SelectItem>
-                    {filterOptions?.filter_options?.branches?.filter(branch => branch.id && branch.name).map((branch) => (
-                      <SelectItem key={branch.id} value={branch.id}>
-                        {branch.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {isBranchAdminRoute ? (
+                  <BranchSelectionField readOnly />
+                ) : (
+                  <Select
+                    value={filters.branch_id || "all"}
+                    onValueChange={(value) => handleFilterChange('branch_id', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Branch" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Branches</SelectItem>
+                      {filterOptions?.filter_options?.branches?.filter(branch => branch.id && branch.name).map((branch) => (
+                        <SelectItem key={branch.id} value={branch.id}>
+                          {branch.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               {/* Course Filter - Show for relevant categories */}

@@ -15,11 +15,19 @@ import { ArrowLeft, User, Award, MapPin, Phone, X, Loader2, AlertCircle } from "
 import { useRouter, useParams } from "next/navigation"
 import Header from "@/components/layout/Header"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { getActiveBranchId } from "@/lib/activeBranch"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 
 export default function BranchManagerEditCoachPage() {
   const router = useRouter()
   const params = useParams()
   const coachId = params.id as string
+  const branchManager = BranchManagerAuth.getCurrentUser()
+  const headerBranchId =
+    getActiveBranchId() ||
+    branchManager?.branch_id ||
+    branchManager?.managed_branches?.[0] ||
+    ""
 
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -78,6 +86,15 @@ export default function BranchManagerEditCoachPage() {
   const [isLoadingSpecializations, setIsLoadingSpecializations] = useState(true)
   const [isLoadingBranches, setIsLoadingBranches] = useState(true)
   const [isLoadingCourses, setIsLoadingCourses] = useState(true)
+
+  useEffect(() => {
+    if (!headerBranchId) return
+    setFormData((current) =>
+      current.branch === headerBranchId
+        ? current
+        : { ...current, branch: headerBranchId }
+    )
+  }, [headerBranchId])
 
   // Debug effect to log branch selection state
   useEffect(() => {
@@ -548,7 +565,7 @@ export default function BranchManagerEditCoachPage() {
           certifications: formData.certifications ? formData.certifications.split(',').map(cert => cert.trim()) : []
         },
         areas_of_expertise: formData.specializations,
-        branch_id: formData.branch || null,  // Include branch assignment
+        branch_id: headerBranchId || formData.branch || null,
         assignment_details: {
           courses: formData.courses,  // Include course assignments
           salary: formData.salary ? parseFloat(formData.salary) : null,
@@ -976,34 +993,10 @@ export default function BranchManagerEditCoachPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="branch">Assign to Branch</Label>
-                  {isLoadingBranches ? (
-                    <div className="flex items-center justify-center py-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600"></div>
-                      <span className="ml-2 text-sm text-gray-600">Loading branches...</span>
-                    </div>
-                  ) : (
-                    <Select
-                      value={formData.branch && branches.some(b => b.id === formData.branch) ? formData.branch : ""}
-                      onValueChange={(value) => setFormData({ ...formData, branch: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select branch" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {branches.length === 0 ? (
-                          <div className="p-4 text-center text-gray-500">
-                            <p>No branches available</p>
-                          </div>
-                        ) : (
-                          branches.map((branch) => (
-                            <SelectItem key={branch.id || branch} value={branch.id || branch}>
-                              {branch.name || branch}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                  )}
+                  <BranchSelectionField
+                    id="branch"
+                    branchName={branches.find((branch) => branch.id === headerBranchId)?.name}
+                  />
                 </div>
 
                 <div className="space-y-2">

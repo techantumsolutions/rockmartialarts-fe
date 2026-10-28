@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import {
   CHAMPION_STATUSES,
   championAPI,
@@ -47,6 +48,9 @@ const STATUS_CLASS: Record<string, string> = {
 
 export default function ChampionsAdminPage() {
   const { toast } = useToast()
+  const isBranchAdminDashboard = useDashboardBasePath().startsWith(
+    "/branch-admin/"
+  )
   const [champions, setChampions] = useState<Champion[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -257,7 +261,7 @@ export default function ChampionsAdminPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
+          <div className={isBranchAdminDashboard ? "space-y-1" : undefined}>
             <Label>Status</Label>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger>
@@ -273,7 +277,7 @@ export default function ChampionsAdminPage() {
               </SelectContent>
             </Select>
           </div>
-          <div>
+          <div className={isBranchAdminDashboard ? "space-y-1" : undefined}>
             <Label>Search</Label>
             <Input
               value={search}
@@ -297,7 +301,7 @@ export default function ChampionsAdminPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div>
+              <div className={isBranchAdminDashboard ? "space-y-1" : undefined}>
                 <Label>Name</Label>
                 <Input
                   value={form.name}
@@ -305,7 +309,7 @@ export default function ChampionsAdminPage() {
                   placeholder="e.g. Priya Sharma"
                 />
               </div>
-              <div>
+              <div className={isBranchAdminDashboard ? "space-y-1" : undefined}>
                 <Label>Slug (optional)</Label>
                 <Input
                   value={form.slug}
@@ -313,7 +317,7 @@ export default function ChampionsAdminPage() {
                   placeholder="auto from name"
                 />
               </div>
-              <div>
+              <div className={isBranchAdminDashboard ? "space-y-1" : undefined}>
                 <Label>Headline</Label>
                 <Input
                   value={form.headline}
@@ -323,7 +327,7 @@ export default function ChampionsAdminPage() {
                   placeholder="e.g. National Gold Medalist 2024"
                 />
               </div>
-              <div>
+              <div className={isBranchAdminDashboard ? "space-y-1" : undefined}>
                 <Label>Short bio</Label>
                 <Textarea
                   rows={2}
@@ -334,7 +338,7 @@ export default function ChampionsAdminPage() {
                   placeholder="One or two lines for cards"
                 />
               </div>
-              <div>
+              <div className={isBranchAdminDashboard ? "space-y-1" : undefined}>
                 <Label>Success story / content</Label>
                 <Textarea
                   rows={6}
@@ -454,7 +458,7 @@ export default function ChampionsAdminPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
+                <div className={isBranchAdminDashboard ? "space-y-1" : undefined}>
                   <Label>Status</Label>
                   <Select
                     value={form.status}
@@ -474,7 +478,7 @@ export default function ChampionsAdminPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
+                <div className={isBranchAdminDashboard ? "space-y-1" : undefined}>
                   <Label>Display order</Label>
                   <Input
                     type="number"

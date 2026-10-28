@@ -19,6 +19,7 @@ import {
 import Header from "@/components/layout/Header"
 import { reportsAPI, CourseReportsResponse, CourseReportFiltersResponse, CourseData } from "@/lib/reportsAPI"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 import { toast } from "sonner"
 
 interface FilterState {
@@ -347,22 +348,7 @@ export default function BranchManagerCourseReportPage() {
                 {/* Branch Dropdown - Filter to show only managed branches */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
-                  <Select
-                    value={filters.branch_id || "all"}
-                    onValueChange={(value) => handleFilterChange('branch_id', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Branch" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Managed Branches</SelectItem>
-                      {filterOptions?.filters?.branches?.map((branch) => (
-                        <SelectItem key={branch.id} value={branch.id}>
-                          {branch.name}
-                        </SelectItem>
-                      )) || []}
-                    </SelectContent>
-                  </Select>
+                  <BranchSelectionField readOnly />
                 </div>
 
                 {/* Category Dropdown */}

@@ -435,6 +435,8 @@ const paginatedCoaches = filteredCoaches.slice(
                               size="sm"
                               onClick={() => toggleCoachStatus(coach.id)}
                               className="p-1 h-8 w-8"
+                              title={coach.is_active ? "Deactivate Coach" : "Activate Coach"}
+                              aria-label={coach.is_active ? "Deactivate Coach" : "Activate Coach"}
                             >
                               {coach.is_active ? (
                                 <ToggleRight className="w-4 h-4 text-green-600" />

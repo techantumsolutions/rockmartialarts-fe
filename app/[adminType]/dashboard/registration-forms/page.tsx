@@ -21,6 +21,8 @@ import { useToast } from "@/hooks/use-toast"
 import { TokenManager } from "@/lib/tokenManager"
 import { getBackendApiUrl } from "@/lib/config"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { getActiveBranchId } from "@/lib/activeBranch"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 import { uploadFile } from "@/lib/upload"
 
 type AvailabilityType = "global" | "branch" | "course" | "branch_course"
@@ -87,6 +89,7 @@ export default function RegistrationFormsPage() {
   const params = useParams()
   const adminType = ((params?.adminType as string) || "super-admin").toLowerCase().replace(/_/g, "-")
   const isSuperAdmin = adminType === "super-admin"
+  const isBranchAdmin = adminType === "branch-admin"
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [rows, setRows] = useState<Row[]>([])
@@ -99,6 +102,7 @@ export default function RegistrationFormsPage() {
   const [uploading, setUploading] = useState(false)
 
   const bmManaged = BranchManagerAuth.getCurrentUser()?.managed_branches || []
+  const selectedManagerBranch = getActiveBranchId() || bmManaged[0] || ""
   const branchOptions = isSuperAdmin
     ? branches
     : branches.filter((b) => bmManaged.includes(b.id))
@@ -170,9 +174,9 @@ export default function RegistrationFormsPage() {
     setForm({
       ...emptyForm,
       availability_type: isSuperAdmin ? "global" : "branch",
-      branch_ids: !isSuperAdmin && bmManaged[0] ? [bmManaged[0]] : [],
-      branch_course_pairs: !isSuperAdmin && bmManaged[0]
-        ? [{ branch_id: bmManaged[0], course_id: "" }]
+      branch_ids: !isSuperAdmin && selectedManagerBranch ? [selectedManagerBranch] : [],
+      branch_course_pairs: !isSuperAdmin && selectedManagerBranch
+        ? [{ branch_id: selectedManagerBranch, course_id: "" }]
         : [{ branch_id: "", course_id: "" }],
     })
     setDialogOpen(true)
@@ -187,11 +191,16 @@ export default function RegistrationFormsPage() {
       status: r.status === "active" ? "active" : "inactive",
       display_order: r.display_order ?? 0,
       availability_type: r.availability_type,
-      branch_ids: [...(r.branch_ids || [])],
+      branch_ids: !isSuperAdmin && selectedManagerBranch
+        ? [selectedManagerBranch]
+        : [...(r.branch_ids || [])],
       course_ids: [...(r.course_ids || [])],
       branch_course_pairs:
         r.branch_course_pairs?.length > 0
-          ? r.branch_course_pairs.map((p) => ({ ...p }))
+          ? r.branch_course_pairs.map((p) => ({
+              ...p,
+              branch_id: !isSuperAdmin && selectedManagerBranch ? selectedManagerBranch : p.branch_id,
+            }))
           : [{ branch_id: "", course_id: "" }],
     })
     setDialogOpen(true)
@@ -228,7 +237,7 @@ export default function RegistrationFormsPage() {
       ...f,
       branch_course_pairs: [
         ...f.branch_course_pairs,
-        { branch_id: !isSuperAdmin && bmManaged[0] ? bmManaged[0] : "", course_id: "" },
+        { branch_id: !isSuperAdmin && selectedManagerBranch ? selectedManagerBranch : "", course_id: "" },
       ],
     }))
   }
@@ -273,7 +282,12 @@ export default function RegistrationFormsPage() {
       return
     }
 
-    const pairs = form.branch_course_pairs.filter((p) => p.branch_id && p.course_id)
+    const pairs = form.branch_course_pairs
+      .filter((p) => p.branch_id && p.course_id)
+      .map((pair) => ({
+        ...pair,
+        branch_id: !isSuperAdmin && selectedManagerBranch ? selectedManagerBranch : pair.branch_id,
+      }))
 
     setSaving(true)
     try {
@@ -517,21 +531,25 @@ export default function RegistrationFormsPage() {
                 {form.branch_course_pairs.map((pair, index) => (
                   <div key={index} className="flex flex-wrap gap-2 items-end">
                     <div className="flex-1 min-w-[120px]">
-                      <Select
-                        value={pair.branch_id}
-                        onValueChange={(v) => updatePair(index, "branch_id", v)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Branch" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {branchOptions.map((b) => (
-                            <SelectItem key={b.id} value={b.id}>
-                              {b.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {isBranchAdmin ? (
+                        <BranchSelectionField readOnly />
+                      ) : (
+                        <Select
+                          value={pair.branch_id}
+                          onValueChange={(v) => updatePair(index, "branch_id", v)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Branch" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {branchOptions.map((b) => (
+                              <SelectItem key={b.id} value={b.id}>
+                                {b.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                     </div>
                     <div className="flex-1 min-w-[120px]">
                       <Select

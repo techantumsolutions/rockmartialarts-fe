@@ -20,7 +20,7 @@ import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { TokenManager } from "@/lib/tokenManager"
 import { getBackendApiUrl } from "@/lib/config"
-import { getActiveBranchId } from "@/lib/activeBranch"
+import { getActiveBranchId, useActiveBranch } from "@/lib/activeBranch"
 import {
   ACADEMY_EVENT_REMINDER_OFFSETS,
   ACADEMY_EVENT_STATUSES,
@@ -109,7 +109,12 @@ const STATUS_CLASS: Record<string, string> = {
 export default function AcademyEventsAdminPage() {
   const { toast } = useToast()
   const pathname = usePathname()
+  const { active: activeBranch } = useActiveBranch()
   const isBranchAdmin = pathname?.includes("/branch-admin") ?? false
+  const fieldSpacingClass = isBranchAdmin ? "space-y-2" : undefined
+  const defaultBranchId = isBranchAdmin
+    ? activeBranch?.id || getActiveBranchId() || ""
+    : ""
   const [events, setEvents] = useState<AcademyEvent[]>([])
   const [branches, setBranches] = useState<BranchOpt[]>([])
   const [loading, setLoading] = useState(true)
@@ -120,9 +125,16 @@ export default function AcademyEventsAdminPage() {
   const [branchFilter, setBranchFilter] = useState("all")
   const [search, setSearch] = useState("")
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [form, setForm] = useState({ ...EMPTY_FORM })
+  const [form, setForm] = useState({ ...EMPTY_FORM, branch_id: defaultBranchId })
   const [reminderLogs, setReminderLogs] = useState<AcademyEventReminderLog[]>([])
   const [reminderBusy, setReminderBusy] = useState(false)
+  const branchOptions =
+    activeBranch && !branches.some((branch) => branch.id === activeBranch.id)
+      ? [{ id: activeBranch.id, name: activeBranch.name }, ...branches]
+      : branches
+  const formBranchName =
+    branchOptions.find((branch) => branch.id === form.branch_id)?.name ||
+    (form.branch_id ? form.branch_id : activeBranch?.name || "No branch selected")
 
   const loadBranches = useCallback(async () => {
     try {
@@ -172,9 +184,12 @@ export default function AcademyEventsAdminPage() {
 
   useEffect(() => {
     if (!isBranchAdmin) return
-    const branchId = getActiveBranchId()
-    if (branchId) setBranchFilter(branchId)
-  }, [isBranchAdmin])
+    if (!defaultBranchId) return
+    setBranchFilter(defaultBranchId)
+    if (!editingId) {
+      setForm((prev) => ({ ...prev, branch_id: defaultBranchId }))
+    }
+  }, [defaultBranchId, editingId, isBranchAdmin])
 
   useEffect(() => {
     load()
@@ -182,7 +197,7 @@ export default function AcademyEventsAdminPage() {
 
   const startCreate = () => {
     setEditingId(null)
-    setForm({ ...EMPTY_FORM })
+    setForm({ ...EMPTY_FORM, branch_id: defaultBranchId })
     setReminderLogs([])
   }
 
@@ -310,7 +325,7 @@ export default function AcademyEventsAdminPage() {
         toast({ title: "Event created" })
       }
       setEditingId(null)
-      setForm({ ...EMPTY_FORM })
+      setForm({ ...EMPTY_FORM, branch_id: defaultBranchId })
       await load()
     } catch (e) {
       toast({
@@ -404,7 +419,7 @@ export default function AcademyEventsAdminPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <div>
+          <div className={fieldSpacingClass}>
             <Label>Status</Label>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger>
@@ -420,7 +435,7 @@ export default function AcademyEventsAdminPage() {
               </SelectContent>
             </Select>
           </div>
-          <div>
+          <div className={fieldSpacingClass}>
             <Label>Type</Label>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
               <SelectTrigger>
@@ -436,23 +451,27 @@ export default function AcademyEventsAdminPage() {
               </SelectContent>
             </Select>
           </div>
-          <div>
+          <div className={fieldSpacingClass}>
             <Label>Branch</Label>
-            <Select value={branchFilter} onValueChange={setBranchFilter} disabled={isBranchAdmin}>
-              <SelectTrigger>
-                <SelectValue placeholder="All branches" />
-              </SelectTrigger>
-              <SelectContent>
-                {!isBranchAdmin && <SelectItem value="all">All branches</SelectItem>}
-                {(isBranchAdmin ? branches.filter((b) => b.id === branchFilter) : branches).map((b) => (
-                  <SelectItem key={b.id} value={b.id}>
-                    {b.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {isBranchAdmin ? (
+              <Input value={activeBranch?.name || "No branch selected"} readOnly aria-readonly="true" />
+            ) : (
+              <Select value={branchFilter} onValueChange={setBranchFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All branches" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All branches</SelectItem>
+                  {branches.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
-          <div>
+          <div className={fieldSpacingClass}>
             <Label>Search</Label>
             <Input
               value={search}
@@ -476,7 +495,7 @@ export default function AcademyEventsAdminPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div>
+              <div className={fieldSpacingClass}>
                 <Label>Title</Label>
                 <Input
                   value={form.title}
@@ -485,7 +504,7 @@ export default function AcademyEventsAdminPage() {
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div>
+                <div className={fieldSpacingClass}>
                   <Label>Type</Label>
                   <Select
                     value={form.event_type}
@@ -503,7 +522,7 @@ export default function AcademyEventsAdminPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
+                <div className={fieldSpacingClass}>
                   <Label>Status</Label>
                   <Select
                     value={form.status}
@@ -524,7 +543,7 @@ export default function AcademyEventsAdminPage() {
                   </Select>
                 </div>
               </div>
-              <div>
+              <div className={fieldSpacingClass}>
                 <Label>Slug (optional)</Label>
                 <Input
                   value={form.slug}
@@ -532,7 +551,7 @@ export default function AcademyEventsAdminPage() {
                   placeholder="auto from title"
                 />
               </div>
-              <div>
+              <div className={fieldSpacingClass}>
                 <Label>Short description</Label>
                 <Input
                   value={form.short_description}
@@ -541,7 +560,7 @@ export default function AcademyEventsAdminPage() {
                   }
                 />
               </div>
-              <div>
+              <div className={fieldSpacingClass}>
                 <Label>Description</Label>
                 <Textarea
                   rows={3}
@@ -552,7 +571,7 @@ export default function AcademyEventsAdminPage() {
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div>
+                <div className={fieldSpacingClass}>
                   <Label>Start</Label>
                   <Input
                     type="datetime-local"
@@ -562,7 +581,7 @@ export default function AcademyEventsAdminPage() {
                     }
                   />
                 </div>
-                <div>
+                <div className={fieldSpacingClass}>
                   <Label>End</Label>
                   <Input
                     type="datetime-local"
@@ -573,7 +592,7 @@ export default function AcademyEventsAdminPage() {
                   />
                 </div>
               </div>
-              <div>
+              <div className={fieldSpacingClass}>
                 <Label>Venue</Label>
                 <Input
                   value={form.venue}
@@ -581,7 +600,7 @@ export default function AcademyEventsAdminPage() {
                   placeholder="Hall / dojo name"
                 />
               </div>
-              <div>
+              <div className={fieldSpacingClass}>
                 <Label>Venue address</Label>
                 <Input
                   value={form.venue_address}
@@ -590,29 +609,33 @@ export default function AcademyEventsAdminPage() {
                   }
                 />
               </div>
-              <div>
+              <div className={fieldSpacingClass}>
                 <Label>Branch</Label>
-                <Select
-                  value={form.branch_id || "none"}
-                  onValueChange={(v) =>
-                    setForm({ ...form, branch_id: v === "none" ? "" : v })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Optional branch" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No branch</SelectItem>
-                    {branches.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {isBranchAdmin ? (
+                  <Input value={formBranchName} readOnly aria-readonly="true" />
+                ) : (
+                  <Select
+                    value={form.branch_id || "none"}
+                    onValueChange={(v) =>
+                      setForm({ ...form, branch_id: v === "none" ? "" : v })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Optional branch" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No branch</SelectItem>
+                      {branchOptions.map((b) => (
+                        <SelectItem key={b.id} value={b.id}>
+                          {b.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div>
+                <div className={fieldSpacingClass}>
                   <Label>Fee (INR)</Label>
                   <Input
                     type="number"
@@ -624,7 +647,7 @@ export default function AcademyEventsAdminPage() {
                   />
                   <p className="text-xs text-gray-400 mt-1">0 = free</p>
                 </div>
-                <div>
+                <div className={fieldSpacingClass}>
                   <Label>Capacity</Label>
                   <Input
                     type="number"
@@ -637,7 +660,7 @@ export default function AcademyEventsAdminPage() {
                   />
                 </div>
               </div>
-              <div>
+              <div className={fieldSpacingClass}>
                 <Label>Thumbnail URL</Label>
                 <Input
                   value={form.thumbnail_url}
@@ -647,7 +670,7 @@ export default function AcademyEventsAdminPage() {
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div>
+                <div className={fieldSpacingClass}>
                   <Label>Sort order</Label>
                   <Input
                     type="number"
@@ -836,7 +859,7 @@ export default function AcademyEventsAdminPage() {
                   </div>
                 ) : null}
               </div>
-              <div>
+              <div className={fieldSpacingClass}>
                 <Label>SEO title</Label>
                 <Input
                   value={form.seo_title}
@@ -845,7 +868,7 @@ export default function AcademyEventsAdminPage() {
                   }
                 />
               </div>
-              <div>
+              <div className={fieldSpacingClass}>
                 <Label>SEO description</Label>
                 <Textarea
                   rows={2}
