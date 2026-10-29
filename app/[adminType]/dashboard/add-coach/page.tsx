@@ -2329,7 +2329,7 @@ export default function AddCoachPage() {
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Start time</Label>
-                    {isBranchManager() ? (
+                    {isBranchAdmin ? (
                       <WeeklySlotTimePicker
                         value={slot.start_time}
                         onChange={(val) =>
@@ -2356,7 +2356,7 @@ export default function AddCoachPage() {
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">End time</Label>
-                    {isBranchManager() ? (
+                    {isBranchAdmin ? (
                       <WeeklySlotTimePicker
                         value={slot.end_time}
                         onChange={(val) =>
