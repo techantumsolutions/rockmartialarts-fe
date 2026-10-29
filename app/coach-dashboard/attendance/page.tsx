@@ -1000,19 +1000,6 @@ export default function CoachAttendancePage() {
                               <XCircle className="h-3 w-3" />
                             )}
                           </Button>
-                          <Button
-                            size="sm"
-                            variant={record.status === "late" ? "secondary" : "outline"}
-                            onClick={() => handleMarkAttendance(record.id, "late")}
-                            disabled={saveStatus[record.id] === 'saving'}
-                            className={record.status === "late" ? "bg-yellow-600 hover:bg-yellow-700 text-white" : ""}
-                          >
-                            {saveStatus[record.id] === 'saving' && record.status === "late" ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <Clock className="h-3 w-3" />
-                            )}
-                          </Button>
                         </div>
 
                         {/* Save Status Indicator */}
