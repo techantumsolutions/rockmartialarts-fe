@@ -33,6 +33,9 @@ import {
   type CoachAvailability,
   type WeeklySlot,
 } from "@/lib/coachAvailabilityAPI"
+import { getBackendApiUrl } from "@/lib/config"
+import { TokenManager } from "@/lib/tokenManager"
+import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
 type Props = {
   /** When omitted, uses /me endpoints (coach self-service). */
@@ -68,26 +71,78 @@ export default function CoachAvailabilityEditor({
   const [updatedAt, setUpdatedAt] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [slotToDelete, setSlotToDelete] = useState<{ index: number; slot: WeeklySlot } | null>(null)
+  const [coachProfile, setCoachProfile] = useState<{ branch_id?: string | null; branch_name?: string } | null>(null)
+  const [branchMap, setBranchMap] = useState<Record<string, { name: string; code?: string }>>({})
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const [opts, avail] = await Promise.all([
+      const [opts, avail, profileRes, branchesRes] = await Promise.all([
         coachId
           ? coachAvailabilityAPI.optionsForCoach(coachId)
           : coachAvailabilityAPI.optionsMine(),
         coachId
           ? coachAvailabilityAPI.getForCoach(coachId)
           : coachAvailabilityAPI.getMine(),
+        // Also fetch profile to get authoritative assigned branch
+        (async () => {
+          try {
+            const token = BranchManagerAuth.getToken() || TokenManager.getToken()
+            const endpoint = coachId ? `coaches/${coachId}` : `coaches/me`
+            const res = await fetch(getBackendApiUrl(endpoint), {
+              headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+              cache: "no-store",
+            })
+            if (res.ok) return await res.json()
+          } catch {
+            // ignore
+          }
+          if (typeof window !== "undefined" && !coachId) {
+            try {
+              const raw = localStorage.getItem("coach")
+              if (raw) return JSON.parse(raw)
+            } catch {
+              // ignore
+            }
+          }
+          return null
+        })(),
+        // Also fetch public branches for reliable name resolution
+        (async () => {
+          try {
+            const res = await fetch(getBackendApiUrl("branches/public/all"), { cache: "no-store" })
+            if (res.ok) {
+              const data = await res.json()
+              const list = Array.isArray(data?.branches) ? data.branches : (Array.isArray(data) ? data : [])
+              const map: Record<string, { name: string; code?: string }> = {}
+              list.forEach((b: any) => {
+                const id = b.id || b._id
+                const name = b.name || b.branch?.name
+                const code = b.code || b.branch?.code || ""
+                if (id && name) map[id] = { name, code }
+              })
+              return map
+            }
+          } catch {
+            // ignore
+          }
+          return {}
+        })(),
       ])
+
       setOptions(opts)
-      // Use the branch already allocated on the coach profile (not editable here)
-      const allocatedIds =
-        (opts.coach_service_location_ids && opts.coach_service_location_ids.length > 0
-          ? opts.coach_service_location_ids
-          : avail.service_location_ids) || []
-      const allocatedId = allocatedIds[0] || ""
+      if (profileRes) setCoachProfile(profileRes)
+      if (branchesRes) setBranchMap(branchesRes)
+
+      // Use the branch already allocated on the coach profile (authoritative)
+      const allocatedId =
+        profileRes?.branch_id ||
+        opts.allocated_branch_id ||
+        opts.coach_service_location_ids?.[0] ||
+        avail.service_location_ids?.[0] ||
+        ""
+
       setLocationIds(allocatedId ? [allocatedId] : [])
       const loadedSlots = avail.weekly_slots?.length ? avail.weekly_slots : []
       setSlots(
@@ -113,10 +168,15 @@ export default function CoachAvailabilityEditor({
   const allocatedBranchId = locationIds[0] || ""
   const allocatedBranchName = useMemo(() => {
     if (!allocatedBranchId) return null
+    if (branchMap[allocatedBranchId]?.name) {
+      const b = branchMap[allocatedBranchId]
+      return b.code ? `${b.name} (${b.code})` : b.name
+    }
     const fromOpts = locations.find((l) => l.id === allocatedBranchId)
     if (fromOpts?.name) return fromOpts.name
+    if (coachProfile?.branch_name) return coachProfile.branch_name
     return allocatedBranchId
-  }, [allocatedBranchId, locations])
+  }, [allocatedBranchId, branchMap, locations, coachProfile])
 
   const slotsByDay = useMemo(() => {
     const map: Record<string, WeeklySlot[]> = {}
