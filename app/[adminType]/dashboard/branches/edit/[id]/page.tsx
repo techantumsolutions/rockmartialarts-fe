@@ -673,6 +673,18 @@ export default function EditBranch() {
 
   // Remove batch from a course
   const removeBatchFromCourse = (courseId: string, batchId: string) => {
+    const targetCourse = formData.assignments.courses.find(c => c.course_id === courseId)
+    if (targetCourse && targetCourse.batches.length <= 1) {
+      const courseDef = courses.find(c => c.id === courseId)
+      const courseName = courseDef?.title || courseDef?.code || "This course"
+      toast({
+        title: "Batch Required",
+        description: `"${courseName}" must have at least one batch to be assigned to this branch. To remove this course, uncheck it from the list.`,
+        variant: "destructive",
+      })
+      return
+    }
+
     setFormData({
       ...formData,
       assignments: {
@@ -884,6 +896,20 @@ export default function EditBranch() {
         variant: "destructive",
       })
       return
+    }
+
+    // Validate that every assigned course has at least one batch
+    for (const courseAssignment of formData.assignments.courses) {
+      if (!courseAssignment.batches || courseAssignment.batches.length === 0) {
+        const courseDef = courses.find(c => c.id === courseAssignment.course_id)
+        const courseTitle = courseDef?.title || courseDef?.code || "Assigned course"
+        toast({
+          title: "Batch Required",
+          description: `"${courseTitle}" must have at least one batch before it can be assigned to this branch. Please add a batch or uncheck the course.`,
+          variant: "destructive",
+        })
+        return
+      }
     }
 
     for (const course of formData.assignments.courses) {
@@ -1423,6 +1449,11 @@ export default function EditBranch() {
                         {isSelected && selectedCourse && (
                           <div className="ml-6 space-y-2">
                             <Label className="text-sm">Batches</Label>
+                            {selectedCourse.batches.length === 0 && (
+                              <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
+                                This course does not have any batches. At least one batch is required to assign this course to this branch.
+                              </p>
+                            )}
                             {selectedCourse.batches.map((batch) => (
                               <div
                                 key={batch.id}
