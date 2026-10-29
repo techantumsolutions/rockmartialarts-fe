@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, User, Award, MapPin, Phone, X, Plus, Building2, AlertCircle, Clock } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
+import { useActiveBranch } from "@/lib/activeBranch"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
 import { extractUploadUrl, uploadFile } from "@/lib/upload"
@@ -37,6 +38,7 @@ import {
   type AssignmentBatch,
   type AvailabilityWindow,
 } from "@/lib/batchCoachAssignment"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 
 // Interface definitions for API data
 interface Branch {
@@ -120,6 +122,8 @@ export default function EditCoachPage() {
   const router = useRouter()
   const params = useParams()
   const basePath = useDashboardBasePath()
+  const isBranchAdmin = basePath.startsWith("/branch-admin")
+  const { active: activeBranch } = useActiveBranch()
   const coachId = params.id as string
   const { toast } = useToast()
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
@@ -164,11 +168,11 @@ export default function EditCoachPage() {
     // Professional Information
     designation: "",
     experience: "",
-    qualifications: [] as Array<{name: string, year: string}>,
+    qualifications: [] as Array<{ name: string, year: string }>,
     certifications: "",
     category: "",
     subCategory: "",
-    certificates: [] as Array<{title: string, file: File | null, preview: string}>,
+    certificates: [] as Array<{ title: string, file: File | null, preview: string }>,
     category: "",
     subCategory: "",
     certificationFiles: [] as File[],
@@ -197,6 +201,14 @@ export default function EditCoachPage() {
     homepageRating: "",
     displayOrder: "",
   })
+
+  useEffect(() => {
+    if (isBranchAdmin && activeBranch?.id) {
+      setFormData((prev) => (
+        prev.branch === activeBranch.id ? prev : { ...prev, branch: activeBranch.id }
+      ))
+    }
+  }, [activeBranch?.id, isBranchAdmin])
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
   const [categories, setCategories] = useState<any[]>([])
@@ -243,7 +255,7 @@ export default function EditCoachPage() {
   const updateQualification = (index: number, field: 'name' | 'year', value: string) => {
     setFormData(prev => ({
       ...prev,
-      qualifications: prev.qualifications.map((q, i) => 
+      qualifications: prev.qualifications.map((q, i) =>
         i === index ? { ...q, [field]: value } : q
       )
     }))
@@ -267,7 +279,7 @@ export default function EditCoachPage() {
   const updateCertificateTitle = (index: number, title: string) => {
     setFormData(prev => ({
       ...prev,
-      certificates: prev.certificates.map((c, i) => 
+      certificates: prev.certificates.map((c, i) =>
         i === index ? { ...c, title } : c
       )
     }))
@@ -279,7 +291,7 @@ export default function EditCoachPage() {
       const preview = URL.createObjectURL(file)
       setFormData(prev => ({
         ...prev,
-        certificates: prev.certificates.map((c, i) => 
+        certificates: prev.certificates.map((c, i) =>
           i === index ? { ...c, file, preview } : c
         )
       }))
@@ -309,7 +321,7 @@ export default function EditCoachPage() {
       setSubCategories([])
       return
     }
-    
+
     try {
       const token = TokenManager.getToken()
       const url = getBackendApiUrl(`categories?parent_id=${categoryId}&active_only=true`)
@@ -320,7 +332,7 @@ export default function EditCoachPage() {
           'Content-Type': 'application/json'
         }
       })
-      
+
       console.log('Subcategories response status:', response.status)
       if (response.ok) {
         const data = await response.json()
@@ -349,7 +361,7 @@ export default function EditCoachPage() {
           'Content-Type': 'application/json'
         }
       })
-      
+
       if (response.ok) {
         const data = await response.json()
         console.log('Designations data received:', data)
@@ -511,7 +523,7 @@ export default function EditCoachPage() {
     try {
       setIsLoadingCategories(true)
       const response = await fetch(getBackendApiUrl('categories/public/all'))
-      
+
       if (response.ok) {
         const data = await response.json()
         setCategories(data.categories || [])
@@ -531,7 +543,7 @@ export default function EditCoachPage() {
     }
   }
 
-    // Load data from APIs — coach profile (re-run only when coach id changes)
+  // Load data from APIs — coach profile (re-run only when coach id changes)
   useEffect(() => {
     const fetchCoachData = async () => {
       try {
@@ -664,12 +676,12 @@ export default function EditCoachPage() {
         setIsLoadingBranches(true)
 
         // TODO: Upload certification files first if any exist
-      // if (formData.certificationFiles.length > 0) {
-      //   const uploadedUrls = await uploadCertifications(formData.certificationFiles)
-      //   coachData.professional_info.certifications = uploadedUrls
-      // }
+        // if (formData.certificationFiles.length > 0) {
+        //   const uploadedUrls = await uploadCertifications(formData.certificationFiles)
+        //   coachData.professional_info.certifications = uploadedUrls
+        // }
 
-      // Get authentication token
+        // Get authentication token
         let token = TokenManager.getToken()
 
         // If no token, try to get one using superadmin credentials for testing
@@ -1071,14 +1083,75 @@ export default function EditCoachPage() {
     }
   }
 
+  const FIELD_ORDER = [
+    "firstName",
+    "lastName",
+    "email",
+    "password",
+    "phone",
+    "gender",
+    "designation",
+    "experience",
+    "qualifications",
+    "displayOrder",
+  ]
+
+  const scrollToFirstError = (validationErrors: Record<string, string>) => {
+    const firstErrorKey = FIELD_ORDER.find((key) => Boolean(validationErrors[key]))
+    if (!firstErrorKey) return
+
+    const inputElement =
+      document.getElementById(firstErrorKey) ||
+      document.querySelector(`[name="${firstErrorKey}"]`)
+
+    const labelElement =
+      document.querySelector(`label[for="${firstErrorKey}"]`) ||
+      document.querySelector(`[data-label-for="${firstErrorKey}"]`)
+
+    const scrollTarget =
+      labelElement ||
+      inputElement?.closest(".space-y-2, .space-y-3") ||
+      inputElement?.parentElement ||
+      inputElement
+
+    if (scrollTarget) {
+      const navOffset = 130
+      const elementPosition = scrollTarget.getBoundingClientRect().top
+      const offsetPosition = elementPosition + window.pageYOffset - navOffset
+
+      window.scrollTo({
+        top: Math.max(0, offsetPosition),
+        behavior: "smooth",
+      })
+
+      setTimeout(() => {
+        const focusable = inputElement?.matches("input, select, textarea, button")
+          ? inputElement
+          : inputElement?.querySelector<HTMLElement>("input, select, textarea, button")
+
+        if (focusable && typeof focusable.focus === "function") {
+          focusable.focus({ preventScroll: true })
+        }
+      }, 350)
+    }
+  }
+
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {}
 
     if (!formData.firstName.trim()) newErrors.firstName = "First name is required"
     if (!formData.lastName.trim()) newErrors.lastName = "Last name is required"
-    if (!formData.email.trim()) newErrors.email = "Email is required"
-    if (!formData.phone.trim()) newErrors.phone = "Phone number is required"
-    // Password is optional for edit mode
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required"
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      newErrors.email = "Please enter a valid email address"
+    }
+    if (!formData.phone.trim()) {
+      newErrors.phone = "Phone number is required"
+    } else if (!/^[6-9]\d{9}$/.test(formData.phone.trim())) {
+      newErrors.phone = "Please enter a valid 10-digit Indian phone number (starting with 6, 7, 8, or 9)"
+    }
+    // Password is optional for edit mode — only validate when provided
     if (formData.password.trim()) {
       if (formData.password.length < 8) {
         newErrors.password = "Password must be at least 8 characters long"
@@ -1089,6 +1162,14 @@ export default function EditCoachPage() {
     if (!formData.gender) newErrors.gender = "Gender is required"
     if (!formData.designation) newErrors.designation = "Designation is required"
     if (!formData.experience) newErrors.experience = "Experience is required"
+    const validQualifications = formData.qualifications.filter(
+      (q) => q.name.trim() && q.year.trim()
+    )
+    if (validQualifications.length === 0) {
+      newErrors.qualifications = "At least one qualification with name and year is required"
+    } else if (formData.qualifications.some((q) => Boolean(q.name.trim()) !== Boolean(q.year.trim()))) {
+      newErrors.qualifications = "Each qualification needs both a name and a year"
+    }
     if (formData.displayOrder.trim()) {
       const n = parseInt(formData.displayOrder, 10)
       if (!Number.isInteger(n) || n < 0 || n > 999999) {
@@ -1097,13 +1178,21 @@ export default function EditCoachPage() {
     }
 
     setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    return newErrors
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!validateForm()) {
+    const newErrors = validateForm()
+    if (Object.keys(newErrors).length > 0) {
+      const firstKey = FIELD_ORDER.find((key) => newErrors[key]) || Object.keys(newErrors)[0]
+      toast({
+        title: "Validation Error",
+        description: newErrors[firstKey] || "Please fill out all required fields.",
+        variant: "destructive",
+      })
+      scrollToFirstError(newErrors)
       return
     }
 
@@ -1161,7 +1250,7 @@ export default function EditCoachPage() {
           certifications: formData.certificates.map(c => c.title)  // Will be replaced with URLs after upload
         },
         areas_of_expertise: formData.courses || [],
-        branch_id: formData.branch || null,  // Include branch assignment
+        branch_id: (isBranchAdmin ? activeBranch?.id : formData.branch) || null,
         assignment_details: {
           courses: formData.courses,  // Include course assignments
           salary: formData.salary ? parseFloat(formData.salary) : null,
@@ -1349,7 +1438,7 @@ export default function EditCoachPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
-            
+
                 <span className="text-[#4F5077]">Personal Information</span>
               </CardTitle>
             </CardHeader>
@@ -1395,17 +1484,17 @@ export default function EditCoachPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password *</Label>
+                  <Label htmlFor="password">Password (optional)</Label>
                   <PasswordInput
                     id="password"
                     value={formData.password}
                     onChange={(e) => patchFormData({ password: e.target.value })}
-                    placeholder="Enter secure password"
+                    placeholder="Leave blank to keep current password"
                     className={errors.password ? "border-red-500" : ""}
                   />
                   {errors.password && <p className="text-red-500 text-sm">{errors.password}</p>}
                   <p className="text-xs text-gray-500">
-                    Password must be at least 8 characters with uppercase, lowercase, number, and special character
+                    Leave blank to keep the current password. If set, must be at least 8 characters with uppercase, lowercase, number, and special character.
                   </p>
                 </div>
 
@@ -1425,11 +1514,11 @@ export default function EditCoachPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="gender">Gender *</Label>
-                  <Select 
-                    value={formData.gender} 
+                  <Select
+                    value={formData.gender}
                     onValueChange={(value) => patchFormData({ gender: value })}
                   >
-                    <SelectTrigger className={errors.gender ? "border-red-500" : ""}>
+                    <SelectTrigger id="gender" className={errors.gender ? "border-red-500" : ""}>
                       <SelectValue placeholder="Select gender" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1455,8 +1544,8 @@ export default function EditCoachPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="country">Country</Label>
-                  <Select 
-                    value={formData.country} 
+                  <Select
+                    value={formData.country}
                     onValueChange={(value) => patchFormData({ country: value })}
                   >
                     <SelectTrigger>
@@ -1664,7 +1753,7 @@ export default function EditCoachPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
-          
+
                 <span className="text-[#4F5077]">Professional Information</span>
               </CardTitle>
             </CardHeader>
@@ -1672,11 +1761,11 @@ export default function EditCoachPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="designation">Designation *</Label>
-                  <Select 
-                    value={formData.designation} 
+                  <Select
+                    value={formData.designation}
                     onValueChange={(value) => patchFormData({ designation: value })}
                   >
-                    <SelectTrigger className={errors.designation ? "border-red-500" : ""}>
+                    <SelectTrigger id="designation" className={errors.designation ? "border-red-500" : ""}>
                       <SelectValue placeholder="Select designation" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1692,11 +1781,11 @@ export default function EditCoachPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="experience">Experience *</Label>
-                  <Select 
-                    value={formData.experience} 
+                  <Select
+                    value={formData.experience}
                     onValueChange={(value) => patchFormData({ experience: value })}
                   >
-                    <SelectTrigger className={errors.experience ? "border-red-500" : ""}>
+                    <SelectTrigger id="experience" className={errors.experience ? "border-red-500" : ""}>
                       <SelectValue placeholder="Select experience" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1712,72 +1801,72 @@ export default function EditCoachPage() {
               </div>
 
               <div className="space-y-2">
-              <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
-                {isLoadingCategories ? (
-                  <div className="flex items-center justify-center py-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600"></div>
-                    <span className="ml-2 text-sm text-gray-600">Loading categories...</span>
-                  </div>
-                ) : (
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category</Label>
+                  {isLoadingCategories ? (
+                    <div className="flex items-center justify-center py-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600"></div>
+                      <span className="ml-2 text-sm text-gray-600">Loading categories...</span>
+                    </div>
+                  ) : (
+                    <Select
+                      value={formData.category}
+                      onValueChange={(value) => {
+                        patchFormData({ category: value, subCategory: "" })
+                        loadSubCategories(value)
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.length === 0 ? (
+                          <div className="p-4 text-center text-gray-500">
+                            <p>No categories available</p>
+                          </div>
+                        ) : (
+                          categories.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="subCategory">Sub Category</Label>
                   <Select
-                    value={formData.category}
-                    onValueChange={(value) => {
-                      patchFormData({ category: value, subCategory: "" })
-                      loadSubCategories(value)
-                    }}
+                    value={formData.subCategory}
+                    onValueChange={(value) => patchFormData({ subCategory: value })}
+                    disabled={!formData.category || subCategories.length === 0}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue placeholder={!formData.category ? "Select category first" : "Select sub category"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.length === 0 ? (
+                      {subCategories.length === 0 ? (
                         <div className="p-4 text-center text-gray-500">
-                          <p>No categories available</p>
+                          <p>No sub categories available</p>
                         </div>
                       ) : (
-                        categories.map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            {cat.name}
+                        subCategories.map((subCat) => (
+                          <SelectItem key={subCat.id} value={subCat.id}>
+                            {subCat.name}
                           </SelectItem>
                         ))
                       )}
                     </SelectContent>
                   </Select>
-                )}
+                </div>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="subCategory">Sub Category</Label>
-                <Select
-                  value={formData.subCategory}
-                  onValueChange={(value) => patchFormData({ subCategory: value })}
-                  disabled={!formData.category || subCategories.length === 0}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={!formData.category ? "Select category first" : "Select sub category"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subCategories.length === 0 ? (
-                      <div className="p-4 text-center text-gray-500">
-                        <p>No sub categories available</p>
-                      </div>
-                    ) : (
-                      subCategories.map((subCat) => (
-                        <SelectItem key={subCat.id} value={subCat.id}>
-                          {subCat.name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
 
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <Label>Qualifications *</Label>
+                <div className="space-y-3" id="qualifications">
+                  <Label data-label-for="qualifications">Qualifications *</Label>
                   {formData.qualifications.map((qual, index) => (
                     <div key={index} className="flex gap-2 items-end">
                       <div className="flex-1">
@@ -1785,7 +1874,7 @@ export default function EditCoachPage() {
                           value={qual.name}
                           onValueChange={(value) => updateQualification(index, 'name', value)}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className={errors.qualifications ? "border-red-500" : ""}>
                             <SelectValue placeholder="Select qualification" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1829,6 +1918,9 @@ export default function EditCoachPage() {
                     <Plus className="w-4 h-4 mr-2" />
                     Add Qualification
                   </Button>
+                  {errors.qualifications && (
+                    <p className="text-red-500 text-sm">{errors.qualifications}</p>
+                  )}
                 </div>
 
                 <div className="space-y-3">
@@ -1893,7 +1985,9 @@ export default function EditCoachPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="branch">Assign to Branch</Label>
-                  {isLoadingBranches ? (
+                  {isBranchAdmin ? (
+                    <BranchSelectionField readOnly />
+                  ) : isLoadingBranches ? (
                     <div className="flex items-center justify-center py-2">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600"></div>
                       <span className="ml-2 text-sm text-gray-600">Loading branches...</span>
@@ -1979,9 +2073,8 @@ export default function EditCoachPage() {
                       return (
                         <div
                           key={courseAssignment.course_id}
-                          className={`border rounded-lg transition-colors overflow-hidden ${
-                            isCourseSelected ? "border-blue-300 bg-blue-50/20" : "border-gray-200 bg-white"
-                          }`}
+                          className={`border rounded-lg transition-colors overflow-hidden ${isCourseSelected ? "border-blue-300 bg-blue-50/20" : "border-gray-200 bg-white"
+                            }`}
                         >
                           {/* Course Header */}
                           <div className="p-3.5 flex items-center justify-between gap-3 bg-white">
@@ -2016,11 +2109,10 @@ export default function EditCoachPage() {
                             {courseBatches.length > 0 && (
                               <Badge
                                 variant={selectedBatchesCount > 0 ? "default" : "outline"}
-                                className={`text-xs shrink-0 ${
-                                  selectedBatchesCount > 0
+                                className={`text-xs shrink-0 ${selectedBatchesCount > 0
                                     ? "bg-blue-600 hover:bg-blue-600 text-white"
                                     : "text-gray-500 border-gray-300"
-                                }`}
+                                  }`}
                               >
                                 {selectedBatchesCount > 0
                                   ? `${selectedBatchesCount} of ${courseBatches.length} batch${courseBatches.length > 1 ? "es" : ""}`
@@ -2042,13 +2134,12 @@ export default function EditCoachPage() {
                                 return (
                                   <div
                                     key={batch.id}
-                                    className={`p-2.5 rounded-md border transition-all ${
-                                      isBatchAssigned
+                                    className={`p-2.5 rounded-md border transition-all ${isBatchAssigned
                                         ? batchError
                                           ? "bg-red-50/70 border-red-300"
                                           : "bg-white border-blue-200 shadow-xs"
                                         : "bg-white border-gray-200 hover:border-gray-300"
-                                    }`}
+                                      }`}
                                   >
                                     <div className="flex items-start justify-between gap-3">
                                       <div className="flex items-start space-x-2.5 flex-1 min-w-0">
@@ -2109,11 +2200,10 @@ export default function EditCoachPage() {
                                     {/* Conflict / Availability Warning */}
                                     {batchError && (
                                       <div
-                                        className={`mt-2 flex items-start gap-1.5 text-xs rounded p-2 ${
-                                          isBatchAssigned
+                                        className={`mt-2 flex items-start gap-1.5 text-xs rounded p-2 ${isBatchAssigned
                                             ? "bg-red-50 text-red-700 border border-red-200 font-medium"
                                             : "bg-amber-50 text-amber-800 border border-amber-200"
-                                        }`}
+                                          }`}
                                       >
                                         <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-current" />
                                         <span>{batchError}</span>
@@ -2199,8 +2289,8 @@ export default function EditCoachPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="emergencyContactRelation">Relation</Label>
-                  <Select 
-                    value={formData.emergencyContactRelation} 
+                  <Select
+                    value={formData.emergencyContactRelation}
                     onValueChange={(value) => patchFormData({ emergencyContactRelation: value })}
                   >
                     <SelectTrigger>

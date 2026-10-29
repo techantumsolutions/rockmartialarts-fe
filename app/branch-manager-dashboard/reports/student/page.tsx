@@ -21,6 +21,7 @@ import {
 import Header from "@/components/layout/Header"
 import { reportsAPI } from "@/lib/reportsAPI"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 import { toast } from "sonner"
 
 // Branch interface (same as superadmin)
@@ -508,28 +509,7 @@ export default function BranchManagerStudentReports() {
                 {/* Branch Dropdown */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
-                  <Select
-                    value={filters.branch_id || "all"}
-                    onValueChange={(value) => handleFilterChange('branch_id', value)}
-                    disabled={branchesLoading}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={branchesLoading ? "Loading branches..." : "Select Branch"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Branches</SelectItem>
-                      {branches.filter(branch => branch.id && branch.branch?.name).map((branch) => (
-                        <SelectItem key={branch.id} value={branch.id}>
-                          {branch.branch?.name || 'N/A'} ({branch.branch?.code || branch.id})
-                        </SelectItem>
-                      ))}
-                      {branchesError && (
-                        <SelectItem value="" disabled>
-                          Error loading branches
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
+                  <BranchSelectionField readOnly />
                   {branchesError && (
                     <p className="text-sm text-red-600 mt-1">
                       {branchesError}
@@ -770,18 +750,13 @@ export default function BranchManagerStudentReports() {
                               <div className="text-sm">
                                 {student.courses && student.courses.length > 0 ? (
                                   <div className="space-y-1">
-                                    {student.courses.slice(0, 2).map((course: any, idx: number) => (
+                                    {student.courses.map((course: any, idx: number) => (
                                       <div key={idx} className="flex items-center">
                                         <span className="inline-flex px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded">
                                           {course.name || course.title || 'Unknown Course'}
                                         </span>
                                       </div>
                                     ))}
-                                    {student.courses.length > 2 && (
-                                      <p className="text-xs text-gray-500">
-                                        +{student.courses.length - 2} more
-                                      </p>
-                                    )}
                                   </div>
                                 ) : (
                                   <span className="text-gray-400 text-xs">No courses</span>

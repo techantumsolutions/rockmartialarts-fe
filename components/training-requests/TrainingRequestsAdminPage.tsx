@@ -1,10 +1,12 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { usePathname } from "next/navigation"
 import { Loader2, RefreshCw, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -75,6 +77,8 @@ function detailsOf(req: TrainingRequest | null): Record<string, unknown> {
 
 export default function TrainingRequestsAdminPage() {
   const { toast } = useToast()
+  const pathname = usePathname()
+  const isBranchAdmin = pathname?.startsWith("/branch-admin/") ?? false
   const [rows, setRows] = useState<TrainingRequest[]>([])
   const [total, setTotal] = useState(0)
   const [skip, setSkip] = useState(0)
@@ -423,25 +427,29 @@ export default function TrainingRequestsAdminPage() {
                     <SelectItem value="waived">Waived</SelectItem>
                   </SelectContent>
                 </Select>
-                <Select
-                  value={branchFilter}
-                  onValueChange={(v) => {
-                    setSkip(0)
-                    setBranchFilter(v)
-                  }}
-                >
-                  <SelectTrigger className="h-10 bg-white">
-                    <SelectValue placeholder="All branches" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All branches</SelectItem>
-                    {branches.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {isBranchAdmin ? (
+                  <BranchSelectionField readOnly className="h-10 bg-white" />
+                ) : (
+                  <Select
+                    value={branchFilter}
+                    onValueChange={(v) => {
+                      setSkip(0)
+                      setBranchFilter(v)
+                    }}
+                  >
+                    <SelectTrigger className="h-10 bg-white">
+                      <SelectValue placeholder="All branches" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All branches</SelectItem>
+                      {branches.map((b) => (
+                        <SelectItem key={b.id} value={b.id}>
+                          {b.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 <Select
                   value={coachFilter}
                   onValueChange={(v) => {

@@ -2,7 +2,7 @@
 
 import { getBackendApiUrl } from "@/lib/config"
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -27,6 +27,7 @@ interface BranchManagerProfile {
   is_active: boolean
   created_at: string
   updated_at: string
+  role_label: string
 }
 
 interface FormErrors {
@@ -35,12 +36,14 @@ interface FormErrors {
 
 export default function BranchManagerProfilePage() {
   const router = useRouter()
+  const params = useParams<{ adminType?: string }>()
   const { toast } = useToast()
   const [profile, setProfile] = useState<BranchManagerProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errors, setErrors] = useState<FormErrors>({})
+  const [isSuperAdminProfile, setIsSuperAdminProfile] = useState(false)
   
   const [formData, setFormData] = useState({
     full_name: "",
@@ -49,26 +52,31 @@ export default function BranchManagerProfilePage() {
   })
 
   useEffect(() => {
-    // Allow both branch admin and super admin
-    const isBranchManager = BranchManagerAuth.isAuthenticated()
-    const isSuperAdmin = SuperAdminAuth.isAuthenticated()
+    const onSuperAdminRoute = String(params?.adminType || "") === "super-admin"
+    // Prefer route context so /super-admin/dashboard/profile always uses superadmin identity
+    // even if a branch-manager token also exists in storage.
+    const isSuperAdmin = onSuperAdminRoute
+      ? SuperAdminAuth.isAuthenticated()
+      : SuperAdminAuth.isAuthenticated() && !BranchManagerAuth.isAuthenticated()
+    const isBranchManager = !isSuperAdmin && BranchManagerAuth.isAuthenticated()
     if (!isBranchManager && !isSuperAdmin) {
-      router.push("/superadmin/login")
+      router.push(onSuperAdminRoute ? "/superadmin/login" : "/branch-manager/login")
       return
     }
+    setIsSuperAdminProfile(isSuperAdmin)
 
     // Load profile data
     const loadProfile = async () => {
       try {
         setLoading(true)
 
-        const token = isBranchManager ? BranchManagerAuth.getToken() : SuperAdminAuth.getToken()
+        const token = isSuperAdmin ? SuperAdminAuth.getToken() : BranchManagerAuth.getToken()
         if (!token) {
-          router.push(isBranchManager ? "/branch-manager/login" : "/superadmin/login")
+          router.push(isSuperAdmin ? "/superadmin/login" : "/branch-manager/login")
           return
         }
 
-        const response = await fetch(isBranchManager ? getBackendApiUrl('branch-managers/me') : getBackendApiUrl('superadmin/me'), {
+        const response = await fetch(isSuperAdmin ? getBackendApiUrl('superadmin/me') : getBackendApiUrl('branch-managers/me'), {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -88,6 +96,14 @@ export default function BranchManagerProfilePage() {
               } catch {
                 branchNames = []
               }
+              // Fallback to stored branch_assignment on the manager record
+              if (!branchNames.length) {
+                const assignmentName =
+                  data.branch_assignment?.branch_name ||
+                  data.branch_name ||
+                  ""
+                if (assignmentName) branchNames = [assignmentName]
+              }
             }
             const profileData: BranchManagerProfile = {
               id: data.id,
@@ -96,10 +112,11 @@ export default function BranchManagerProfilePage() {
               phone: data.phone || "",
               branch_names: branchNames,
               branch_name: branchNames.join(", "),
-              branch_id: branchNames.length ? "" : data.branch_id || "",
+              branch_id: branchNames.length ? "" : data.branch_id || data.branch_assignment?.branch_id || "",
               is_active: data.is_active !== undefined ? data.is_active : true,
               created_at: data.created_at || new Date().toISOString(),
-              updated_at: data.updated_at || new Date().toISOString()
+              updated_at: data.updated_at || new Date().toISOString(),
+              role_label: isSuperAdmin ? "Super Admin" : "Branch Manager",
             }
 
             setProfile(profileData)
@@ -110,7 +127,7 @@ export default function BranchManagerProfilePage() {
             })
           }
         } else if (response.status === 401) {
-          router.push(isBranchManager ? "/branch-manager/login" : "/superadmin/login")
+          router.push(isSuperAdmin ? "/superadmin/login" : "/branch-manager/login")
         } else {
           throw new Error("Failed to load profile")
         }
@@ -128,7 +145,7 @@ export default function BranchManagerProfilePage() {
     }
 
     loadProfile()
-  }, [router, toast])
+  }, [router, toast, params?.adminType])
 
   const validateForm = () => {
     const newErrors: FormErrors = {}
@@ -165,13 +182,15 @@ export default function BranchManagerProfilePage() {
     setIsSubmitting(true)
 
     try {
-      const token = BranchManagerAuth.getToken()
+      const token = isSuperAdminProfile ? SuperAdminAuth.getToken() : BranchManagerAuth.getToken()
       if (!token) {
-        router.push("/superadmin/login")
+        router.push(isSuperAdminProfile ? "/superadmin/login" : "/branch-manager/login")
         return
       }
 
-      const response = await fetch(getBackendApiUrl('superadmin/me'), {
+      const response = await fetch(
+        getBackendApiUrl(isSuperAdminProfile ? "superadmin/me" : "branch-managers/me"),
+        {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -187,19 +206,20 @@ export default function BranchManagerProfilePage() {
       if (response.ok) {
         const result = await response.json()
         // Handle both possible response structures from backend
-        const updatedData = result.data || result.branch_manager
+        const updatedData = result.data || result.branch_manager || result
         if (updatedData) {
           const profileData: BranchManagerProfile = {
             id: updatedData.id,
-            full_name: updatedData.full_name || "Branch Manager",
+            full_name: updatedData.full_name || profile?.full_name || "User",
             email: updatedData.email || "",
             phone: updatedData.phone || "",
             branch_names: profile?.branch_names || [],
             branch_name: profile?.branch_name || "",
             branch_id: profile?.branch_id || "",
             is_active: updatedData.is_active !== undefined ? updatedData.is_active : true,
-            created_at: updatedData.created_at || new Date().toISOString(),
-            updated_at: updatedData.updated_at || new Date().toISOString()
+            created_at: updatedData.created_at || profile?.created_at || new Date().toISOString(),
+            updated_at: updatedData.updated_at || new Date().toISOString(),
+            role_label: profile?.role_label || (isSuperAdminProfile ? "Super Admin" : "Branch Manager"),
           }
 
           setProfile(profileData)
@@ -212,7 +232,7 @@ export default function BranchManagerProfilePage() {
           })
         }
       } else if (response.status === 401) {
-        router.push("/superadmin/login")
+        router.push(isSuperAdminProfile ? "/superadmin/login" : "/branch-manager/login")
       } else {
         const errorData = await response.json()
         toast({
@@ -367,11 +387,11 @@ export default function BranchManagerProfilePage() {
                       <Shield className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-gray-900">Role</p>
-                        <p className="text-xs text-gray-500 break-words">Branch Manager</p>
+                        <p className="text-xs text-gray-500 break-words">{profile.role_label}</p>
                       </div>
                     </div>
 
-                    {(profile.branch_names?.length || profile.branch_name) ? (
+                    {!isSuperAdminProfile && (profile.branch_names?.length || profile.branch_name) ? (
                       <div className="flex items-start space-x-3 min-w-0">
                         <User className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
                         <div className="min-w-0 flex-1">
@@ -481,21 +501,23 @@ export default function BranchManagerProfilePage() {
                       )}
                     </div>
 
-                    <div className="space-y-2 min-w-0">
-                      <Label className="text-sm font-medium text-gray-700">
-                        Branch Assignment
-                      </Label>
-                      <div className="flex items-start space-x-2 min-w-0">
-                        <Shield className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
-                        <span className="text-gray-900 break-words min-w-0">
-                          {profile.branch_names?.length
-                            ? profile.branch_names.map((name, index) => (
-                                <span key={`${name}-${index}`} className="block break-words">{name}</span>
-                              ))
-                            : profile.branch_name || "Not assigned"}
-                        </span>
+                    {!isSuperAdminProfile && (
+                      <div className="space-y-2 min-w-0">
+                        <Label className="text-sm font-medium text-gray-700">
+                          Branch Assignment
+                        </Label>
+                        <div className="flex items-start space-x-2 min-w-0">
+                          <Shield className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+                          <span className="text-gray-900 break-words min-w-0">
+                            {profile.branch_names?.length
+                              ? profile.branch_names.map((name, index) => (
+                                  <span key={`${name}-${index}`} className="block break-words">{name}</span>
+                                ))
+                              : profile.branch_name || "Not assigned"}
+                          </span>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
                   <Separator />

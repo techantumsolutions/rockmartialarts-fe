@@ -29,6 +29,9 @@ import { useToast } from "@/hooks/use-toast"
 import paymentAPI from "@/lib/paymentAPI"
 import { getBackendApiUrl } from "@/lib/config"
 import { TokenManager } from "@/lib/tokenManager"
+import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { getActiveBranchId } from "@/lib/activeBranch"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 
 interface Payment {
   id: string
@@ -108,6 +111,13 @@ export default function PaymentTrackingPage() {
 
   const adminType = String(params?.adminType || "super-admin")
   const isSuperAdmin = adminType.toLowerCase() === "super-admin"
+  const branchManager = BranchManagerAuth.getCurrentUser()
+  const headerBranchId =
+    getActiveBranchId() ||
+    branchManager?.branch_id ||
+    branchManager?.managed_branches?.[0] ||
+    ""
+  const effectiveBranchFilter = isSuperAdmin ? branchFilter : headerBranchId || branchFilter
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -127,7 +137,7 @@ export default function PaymentTrackingPage() {
           ...(periodStart ? { start_date: periodStart } : {}),
           ...(periodEnd ? { end_date: periodEnd } : {}),
           ...(debouncedStudentSearch ? { search: debouncedStudentSearch } : {}),
-          ...(branchFilter !== "all" ? { branch_id: branchFilter } : {}),
+          ...(effectiveBranchFilter !== "all" ? { branch_id: effectiveBranchFilter } : {}),
         },
         token
       )
@@ -194,7 +204,7 @@ export default function PaymentTrackingPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, periodStart, periodEnd, debouncedStudentSearch, branchFilter, isSuperAdmin])
+  }, [page, pageSize, periodStart, periodEnd, debouncedStudentSearch, effectiveBranchFilter, isSuperAdmin])
 
   const fetchStats = useCallback(async () => {
     try {
@@ -202,7 +212,7 @@ export default function PaymentTrackingPage() {
       const qsScoped = new URLSearchParams()
       if (periodStart) qsScoped.set("start_date", periodStart)
       if (periodEnd) qsScoped.set("end_date", periodEnd)
-      if (branchFilter !== "all") qsScoped.set("branch_id", branchFilter)
+      if (effectiveBranchFilter !== "all") qsScoped.set("branch_id", effectiveBranchFilter)
       qsScoped.set("_ts", String(Date.now()))
 
       const headers: HeadersInit = {
@@ -246,7 +256,7 @@ export default function PaymentTrackingPage() {
     } catch (error) {
       console.error("Error fetching payment stats:", error)
     }
-  }, [periodStart, periodEnd, branchFilter, isSuperAdmin])
+  }, [periodStart, periodEnd, effectiveBranchFilter, isSuperAdmin])
 
   const fetchAnalytics = useCallback(async () => {
     try {
@@ -263,7 +273,7 @@ export default function PaymentTrackingPage() {
       const periodQs = new URLSearchParams()
       if (periodStart) periodQs.set("start_date", periodStart)
       if (periodEnd) periodQs.set("end_date", periodEnd)
-      if (branchFilter !== "all") periodQs.set("branch_id", branchFilter)
+      if (effectiveBranchFilter !== "all") periodQs.set("branch_id", effectiveBranchFilter)
       periodQs.set("_ts", String(Date.now()))
 
       const [statsRes, revRes] = await Promise.all([
@@ -305,7 +315,7 @@ export default function PaymentTrackingPage() {
     } finally {
       setAnalyticsLoading(false)
     }
-  }, [periodStart, periodEnd, branchFilter])
+  }, [periodStart, periodEnd, effectiveBranchFilter])
 
   useEffect(() => {
     const loadBranches = async () => {
@@ -341,12 +351,12 @@ export default function PaymentTrackingPage() {
   useEffect(() => {
     if (!filtersReadyRef.current) return
     void Promise.all([fetchPayments(), fetchStats(), fetchAnalytics()])
-  }, [page, branchFilter, periodStart, periodEnd, debouncedStudentSearch, fetchPayments, fetchStats, fetchAnalytics])
+  }, [page, effectiveBranchFilter, periodStart, periodEnd, debouncedStudentSearch, fetchPayments, fetchStats, fetchAnalytics])
 
   useEffect(() => {
     if (!filtersReadyRef.current) return
     setPage(1)
-  }, [branchFilter, periodStart, periodEnd, debouncedStudentSearch])
+  }, [effectiveBranchFilter, periodStart, periodEnd, debouncedStudentSearch])
 
   const formatCurrency = (amount: number) => {
     const v = Number(amount)
@@ -405,8 +415,8 @@ export default function PaymentTrackingPage() {
 
       await paymentAPI.exportPayments({
         format: "csv",
-        ...(branchFilter && branchFilter !== "all" && branchFilter !== "unassigned"
-          ? { branch_id: branchFilter }
+        ...(effectiveBranchFilter && effectiveBranchFilter !== "all" && effectiveBranchFilter !== "unassigned"
+          ? { branch_id: effectiveBranchFilter }
           : {}),
       })
 
@@ -544,11 +554,39 @@ export default function PaymentTrackingPage() {
                 <div className="flex flex-wrap items-end gap-2">
                   <div className="flex-1 min-w-[140px]">
                     <div className="text-xs text-gray-500 mb-1">Start</div>
-                    <Input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} />
+                    <Input
+                      type="date"
+                      min="1000-01-01"
+                      max="9999-12-31"
+                      value={periodStart}
+                      onChange={(e) => {
+                        const raw = e.target.value || ""
+                        const match = /^(\d+)-(\d{2})-(\d{2})$/.exec(raw)
+                        if (!match) {
+                          setPeriodStart(raw.slice(0, 10))
+                          return
+                        }
+                        setPeriodStart(`${match[1].slice(0, 4)}-${match[2]}-${match[3]}`)
+                      }}
+                    />
                   </div>
                   <div className="flex-1 min-w-[140px]">
                     <div className="text-xs text-gray-500 mb-1">End</div>
-                    <Input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} />
+                    <Input
+                      type="date"
+                      min="1000-01-01"
+                      max="9999-12-31"
+                      value={periodEnd}
+                      onChange={(e) => {
+                        const raw = e.target.value || ""
+                        const match = /^(\d+)-(\d{2})-(\d{2})$/.exec(raw)
+                        if (!match) {
+                          setPeriodEnd(raw.slice(0, 10))
+                          return
+                        }
+                        setPeriodEnd(`${match[1].slice(0, 4)}-${match[2]}-${match[3]}`)
+                      }}
+                    />
                   </div>
                   {(periodStart || periodEnd) ? (
                     <Button
@@ -605,21 +643,27 @@ export default function PaymentTrackingPage() {
 
         <div className="flex flex-wrap items-center justify-between gap-4 border-1 shadow overflow-x-auto p-6 mb-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-medium text-gray-700">Select Branch:</span>
-            <Select value={branchFilter} onValueChange={setBranchFilter} disabled={branchesLoading}>
-              <SelectTrigger className="w-48 bg-gray-100 text-gray-600 border-0">
-                <SelectValue placeholder={branchesLoading ? "Loading…" : "Choose branch"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All branches</SelectItem>
-                <SelectItem value="unassigned">No branch on record</SelectItem>
-                {branchOptions.map((b) => (
-                  <SelectItem key={b.id} value={b.id}>
-                    {b.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <span className="text-sm font-medium text-gray-700">
+              {isSuperAdmin ? "Select Branch:" : "Branch:"}
+            </span>
+            {isSuperAdmin ? (
+              <Select value={branchFilter} onValueChange={setBranchFilter} disabled={branchesLoading}>
+                <SelectTrigger className="w-48 bg-gray-100 text-gray-600 border-0">
+                  <SelectValue placeholder={branchesLoading ? "Loading…" : "Choose branch"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All branches</SelectItem>
+                  <SelectItem value="unassigned">No branch on record</SelectItem>
+                  {branchOptions.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <BranchSelectionField />
+            )}
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -861,7 +905,10 @@ export default function PaymentTrackingPage() {
                 variant="outline"
                 size="sm"
                 disabled={safePage <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                onClick={() => {
+                  setPage((p) => Math.max(1, p - 1))
+                  window.scrollTo({ top: 0, behavior: "smooth" })
+                }}
               >
                 Prev
               </Button>
@@ -873,7 +920,10 @@ export default function PaymentTrackingPage() {
                 variant="outline"
                 size="sm"
                 disabled={safePage >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() => {
+                  setPage((p) => Math.min(totalPages, p + 1))
+                  window.scrollTo({ top: 0, behavior: "smooth" })
+                }}
               >
                 Next
               </Button>

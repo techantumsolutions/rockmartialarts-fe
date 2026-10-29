@@ -82,7 +82,10 @@ export default function Navbar({ role }: NavbarProps) {
     setIsMobileMenuOpen(false)
   }
 
-  const isActivePath = (path: string) => pathname === path || pathname.startsWith(path + "/")
+  const isActivePath = (path: string) =>
+    path === basePath
+      ? pathname === path
+      : pathname === path || pathname.startsWith(path + "/")
 
   const navButtonClass = (item: NavItem) =>
     `pb-2 px-1 text-sm font-semibold whitespace-nowrap cursor-pointer transition-all duration-300 hover:scale-105 ${

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { format } from "date-fns"
 import {
+  ArrowLeft,
   CalendarIcon,
   Download,
   Search,
@@ -255,12 +256,21 @@ export default function AttendanceReportsPage() {
     <main className="w-full p-4 lg:px-8 mx-auto max-w-6xl space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="flex items-center space-x-1 px-0 mb-1 text-gray-600 hover:text-gray-900 hover:bg-transparent"
+            onClick={() => router.push(`${basePath}/attendance`)}
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to Attendance</span>
+          </Button>
           <h1 className="text-2xl font-bold text-gray-900">Attendance Reports</h1>
           <p className="text-gray-600 text-sm mt-1">
             History by student, branch, date, status, and method (including biometric).
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-nowrap items-center gap-2 shrink-0">
           <Button variant="outline" onClick={fetchReports} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} />
             Refresh

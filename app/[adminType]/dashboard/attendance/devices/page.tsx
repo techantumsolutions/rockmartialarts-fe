@@ -26,6 +26,8 @@ import { toast } from "sonner"
 import { getBackendApiUrl } from "@/lib/config"
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { getActiveBranchId } from "@/lib/activeBranch"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import {
   biometricDeviceAPI,
@@ -59,6 +61,12 @@ export default function BiometricDevicesPage() {
   const router = useRouter()
   const basePath = useDashboardBasePath()
   const isBranchAdmin = basePath.includes("branch-admin")
+  const branchManager = BranchManagerAuth.getCurrentUser()
+  const headerBranchId =
+    getActiveBranchId() ||
+    branchManager?.branch_id ||
+    branchManager?.managed_branches?.[0] ||
+    ""
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -69,6 +77,7 @@ export default function BiometricDevicesPage() {
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<BiometricDevice | null>(null)
   const [form, setForm] = useState(emptyForm)
+  const effectiveBranchFilter = isBranchAdmin ? headerBranchId || branchFilter : branchFilter
   const [ingestStats, setIngestStats] = useState<{
     processed_last_7_days?: number
     unmatched_last_7_days?: number
@@ -148,7 +157,7 @@ export default function BiometricDevicesPage() {
     try {
       const data = await biometricDeviceAPI.list({
         status: statusFilter,
-        branch_id: branchFilter === "all" ? undefined : branchFilter,
+        branch_id: effectiveBranchFilter === "all" ? undefined : effectiveBranchFilter,
         limit: 200,
       })
       setDevices(data.devices || [])
@@ -158,7 +167,7 @@ export default function BiometricDevicesPage() {
     } finally {
       setLoading(false)
     }
-  }, [statusFilter, branchFilter, router, isBranchAdmin])
+  }, [statusFilter, effectiveBranchFilter, router, isBranchAdmin])
 
   useEffect(() => {
     loadBranches()
@@ -174,8 +183,9 @@ export default function BiometricDevicesPage() {
 
   const openCreate = () => {
     setEditing(null)
-    const defaultBranch =
-      branchFilter !== "all"
+    const defaultBranch = isBranchAdmin
+      ? headerBranchId
+      : branchFilter !== "all"
         ? branchFilter
         : branches.length === 1
           ? branches[0].id
@@ -190,7 +200,7 @@ export default function BiometricDevicesPage() {
       name: device.name || "",
       vendor: device.vendor || "essl",
       vendor_device_id: device.vendor_device_id || "",
-      branch_id: device.branch_id || "",
+      branch_id: isBranchAdmin ? headerBranchId : device.branch_id || "",
       status: (device.status as BiometricDeviceStatus) || "active",
       location_note: device.location_note || "",
       ip_address: device.ip_address || "",
@@ -209,7 +219,7 @@ export default function BiometricDevicesPage() {
         name: form.name.trim(),
         vendor: form.vendor.trim() || "essl",
         vendor_device_id: form.vendor_device_id.trim(),
-        branch_id: form.branch_id,
+        branch_id: isBranchAdmin ? headerBranchId : form.branch_id,
         status: form.status,
         location_note: form.location_note.trim() || null,
         ip_address: form.ip_address.trim() || null,
@@ -349,7 +359,12 @@ export default function BiometricDevicesPage() {
             <CardTitle className="text-base">Filters</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {!isBranchAdmin || branches.length > 1 ? (
+            {isBranchAdmin ? (
+              <div>
+                <Label className="mb-1 block">Branch</Label>
+                <BranchSelectionField branchName={branches.find((branch) => branch.id === headerBranchId)?.name} />
+              </div>
+            ) : (
               <div>
                 <Label className="mb-1 block">Branch</Label>
                 <Select value={branchFilter} onValueChange={setBranchFilter}>
@@ -367,7 +382,7 @@ export default function BiometricDevicesPage() {
                   </SelectContent>
                 </Select>
               </div>
-            ) : null}
+            )}
             <div>
               <Label className="mb-1 block">Status</Label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -475,8 +490,8 @@ export default function BiometricDevicesPage() {
           <DialogHeader>
             <DialogTitle>{editing ? "Edit biometric device" : "Add biometric device"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
               <Label>Device name *</Label>
               <Input
                 value={form.name}
@@ -485,7 +500,7 @@ export default function BiometricDevicesPage() {
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
+              <div className="space-y-2">
                 <Label>Vendor</Label>
                 <Input
                   value={form.vendor}
@@ -493,7 +508,7 @@ export default function BiometricDevicesPage() {
                   placeholder="essl"
                 />
               </div>
-              <div>
+              <div className="space-y-2">
                 <Label>Vendor device ID / serial *</Label>
                 <Input
                   value={form.vendor_device_id}
@@ -502,26 +517,30 @@ export default function BiometricDevicesPage() {
                 />
               </div>
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>Branch *</Label>
-              <Select
-                value={form.branch_id || undefined}
-                onValueChange={(v) => setForm((f) => ({ ...f, branch_id: v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select branch" />
-                </SelectTrigger>
-                <SelectContent>
-                  {branches.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      {b.name}
-                      {b.code ? ` (${b.code})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {isBranchAdmin ? (
+                <BranchSelectionField branchName={branches.find((branch) => branch.id === headerBranchId)?.name} />
+              ) : (
+                <Select
+                  value={form.branch_id || undefined}
+                  onValueChange={(v) => setForm((f) => ({ ...f, branch_id: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select branch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {branches.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.name}
+                        {b.code ? ` (${b.code})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>Status</Label>
               <Select
                 value={form.status}
@@ -540,7 +559,7 @@ export default function BiometricDevicesPage() {
               </Select>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
+              <div className="space-y-2">
                 <Label>Location note</Label>
                 <Input
                   value={form.location_note}
@@ -548,7 +567,7 @@ export default function BiometricDevicesPage() {
                   placeholder="Reception, Floor 1"
                 />
               </div>
-              <div>
+              <div className="space-y-2">
                 <Label>IP address (optional)</Label>
                 <Input
                   value={form.ip_address}

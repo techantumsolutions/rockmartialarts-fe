@@ -378,9 +378,9 @@ export default function LeadsPage() {
           </Card>
         </div>
 
-        <Card>
+        <Card className="gap-2">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Leads</CardTitle>
+            <CardTitle className="text-2xl">Leads</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <form
@@ -506,19 +506,30 @@ export default function LeadsPage() {
             ) : leads.length === 0 ? (
               <p className="text-gray-500 text-sm py-8 text-center">No leads found.</p>
             ) : (
-              <div className="overflow-x-auto border rounded-lg">
-                <table className="w-full text-sm text-left">
+              <div className="overflow-x-auto lg:overflow-x-visible border rounded-lg">
+                <table className="w-full table-fixed text-sm text-left">
+                  <colgroup>
+                    <col className="w-[15%]" />
+                    <col className="w-[11%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[12%]" />
+                    <col className="w-[12%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[12%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[8%]" />
+                  </colgroup>
                   <thead className="bg-gray-100 text-gray-700">
                     <tr>
-                      <th className="px-3 py-2 font-semibold">Name</th>
-                      <th className="px-3 py-2 font-semibold">Phone</th>
-                      <th className="px-3 py-2 font-semibold">Source</th>
-                      <th className="px-3 py-2 font-semibold">Branch</th>
-                      <th className="px-3 py-2 font-semibold">Status</th>
-                      <th className="px-3 py-2 font-semibold">Priority</th>
-                      <th className="px-3 py-2 font-semibold">Coach</th>
-                      <th className="px-3 py-2 font-semibold">Next follow-up</th>
-                      <th className="px-3 py-2 font-semibold">Date</th>
+                      <th className="px-2 py-2 font-semibold">Name</th>
+                      <th className="px-2 py-2 font-semibold">Phone</th>
+                      <th className="px-2 py-2 font-semibold">Source</th>
+                      <th className="px-2 py-2 font-semibold">Branch</th>
+                      <th className="px-2 py-2 font-semibold">Status</th>
+                      <th className="px-2 py-2 font-semibold">Priority</th>
+                      <th className="px-2 py-2 font-semibold">Coach</th>
+                      <th className="px-2 py-2 font-semibold">Next follow-up</th>
+                      <th className="px-2 py-2 font-semibold">Date</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -536,21 +547,21 @@ export default function LeadsPage() {
                           }`}
                           onClick={() => void openDetail(row)}
                         >
-                          <td className="px-3 py-2">
-                            <div>{row.name}</div>
+                          <td className="px-2 py-2 align-top break-words">
+                            <div className="font-medium text-gray-900 break-words">{row.name}</div>
                             {row.course ? (
-                              <div className="text-xs text-gray-500">{row.course}</div>
+                              <div className="text-xs text-gray-500 break-words">{row.course}</div>
                             ) : null}
                             {row.last_follow_up_note ? (
-                              <div className="text-xs text-gray-400 line-clamp-1 max-w-[180px]">
+                              <div className="text-xs text-gray-400 line-clamp-2 break-words">
                                 {row.last_follow_up_note}
                               </div>
                             ) : null}
                           </td>
-                          <td className="px-3 py-2 whitespace-nowrap">{row.phone}</td>
-                          <td className="px-3 py-2">
+                          <td className="px-2 py-2 align-top break-all">{row.phone}</td>
+                          <td className="px-2 py-2 align-top">
                             <div className="flex flex-wrap gap-1 items-center">
-                              <Badge variant="outline" className="text-xs font-normal">
+                              <Badge variant="outline" className="text-xs font-normal max-w-full whitespace-normal break-words">
                                 {sourceLabel(row)}
                               </Badge>
                               {(row.capture_count || 1) > 1 && (
@@ -560,11 +571,11 @@ export default function LeadsPage() {
                               )}
                             </div>
                           </td>
-                          <td className="px-3 py-2">
+                          <td className="px-2 py-2 align-top break-words">
                             {row.branch_name?.trim() ? row.branch_name : "—"}
                           </td>
                           <td
-                            className="px-3 py-2 min-w-[160px]"
+                            className="px-2 py-2 align-top"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <Select
@@ -575,7 +586,7 @@ export default function LeadsPage() {
                               }
                             >
                               <SelectTrigger
-                                className={`h-8 text-xs border ${STATUS_BADGE[status]}`}
+                                className={`h-8 w-full min-w-0 text-xs border ${STATUS_BADGE[status]}`}
                               >
                                 <SelectValue />
                               </SelectTrigger>
@@ -589,7 +600,7 @@ export default function LeadsPage() {
                             </Select>
                           </td>
                           <td
-                            className="px-3 py-2 min-w-[130px]"
+                            className="px-2 py-2 align-top"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <Select
@@ -600,7 +611,7 @@ export default function LeadsPage() {
                               }
                             >
                               <SelectTrigger
-                                className={`h-8 text-xs border ${PRIORITY_BADGE[priority]}`}
+                                className={`h-8 w-full min-w-0 text-xs border ${PRIORITY_BADGE[priority]}`}
                               >
                                 <SelectValue />
                               </SelectTrigger>
@@ -613,23 +624,23 @@ export default function LeadsPage() {
                               </SelectContent>
                             </Select>
                           </td>
-                          <td className="px-3 py-2">
+                          <td className="px-2 py-2 align-top break-words">
                             {row.assigned_coach_name ? (
                               <div>
-                                <div className="text-gray-800">{row.assigned_coach_name}</div>
-                                <div className="text-[11px] text-gray-500">
+                                <div className="text-gray-800 break-words">{row.assigned_coach_name}</div>
+                                <div className="text-[11px] text-gray-500 break-words">
                                   {assignmentStatusLabel(row.coach_assignment_status)}
                                 </div>
                               </div>
                             ) : (
-                              <span className="text-gray-400">
+                              <span className="text-gray-400 break-words">
                                 {row.coach_assignment_status === "declined"
                                   ? "Declined · reassign"
                                   : "Unassigned"}
                               </span>
                             )}
                           </td>
-                          <td className="px-3 py-2 whitespace-nowrap">
+                          <td className="px-2 py-2 align-top break-words">
                             {row.next_follow_up_at ? (
                               <span
                                 className={
@@ -643,7 +654,7 @@ export default function LeadsPage() {
                               <span className="text-gray-400">—</span>
                             )}
                           </td>
-                          <td className="px-3 py-2 whitespace-nowrap text-gray-600">
+                          <td className="px-2 py-2 align-top break-words text-gray-600">
                             {fmtDate(row.created_at)}
                           </td>
                         </tr>

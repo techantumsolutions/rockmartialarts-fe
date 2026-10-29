@@ -76,7 +76,7 @@ export default function CoursesPage() {
                   <Link
                     key={c.id}
                     href={`/courses/${toCourseSlug(c)}`}
-                    className="group block rounded-xl border border-gray-800 bg-gray-900/50 overflow-hidden hover:border-[#FFB70F] transition-colors"
+                    className="group flex h-full flex-col rounded-xl border border-gray-800 bg-gray-900/50 overflow-hidden hover:border-[#FFB70F] transition-colors"
                   >
                     <div className="aspect-[4/3] bg-gray-800 overflow-hidden">
                       <SafeImage
@@ -85,7 +85,7 @@ export default function CoursesPage() {
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                     </div>
-                    <div className="p-5">
+                    <div className="flex flex-1 flex-col p-5">
                       <h2 className="text-xl font-bold text-[#FFB70F] group-hover:text-white transition-colors mb-1">
                         {c.title || c.name || c.code || "Course"}
                       </h2>
@@ -95,7 +95,7 @@ export default function CoursesPage() {
                       {c.description && (
                         <p className="text-gray-400 text-sm line-clamp-2">{c.description}</p>
                       )}
-                      <span className="inline-flex items-center gap-1 text-[#FFB70F] font-medium text-sm mt-3 group-hover:gap-2 transition-all">
+                      <span className="mt-auto inline-flex items-center gap-1 pt-3 text-[#FFB70F] font-medium text-sm group-hover:gap-2 transition-all">
                         View details <ArrowRight className="w-4 h-4" />
                       </span>
                     </div>

@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter, usePathname } from "next/navigation"
+import { useState, useEffect, useMemo } from "react"
+import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import { format, parseISO } from "date-fns"
 import {
   BarChart,
@@ -148,6 +148,9 @@ interface AttendanceRecord {
   student_name: string
   course_id: string
   course_name: string
+  batch_ref?: string | null
+  batch_refs?: string[]
+  batch_name?: string | null
   branch_id: string
   branch_name: string
   email: string
@@ -175,11 +178,34 @@ interface AttendanceStats {
   attendance_rate: number
 }
 
+interface BatchOption {
+  batch_ref: string
+  label: string
+  short_label?: string
+  full_label?: string
+  name?: string | null
+  start_time?: string
+  end_time?: string
+  days?: string[]
+}
+
 interface Branch {
   id: string
   name: string
   branch?: {
     name: string
+    assignments?: {
+      course_schedule?: Array<{
+        course_id?: string
+        batches?: Array<Record<string, any>>
+      }>
+    }
+  }
+  assignments?: {
+    course_schedule?: Array<{
+      course_id?: string
+      batches?: Array<Record<string, any>>
+    }>
   }
 }
 
@@ -193,6 +219,7 @@ export default function SuperAdminStudentAttendancePage() {
   const { toast } = useToast()
   const router = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const usesDashboardLayoutNav =
     !!pathname &&
     (pathname.startsWith("/super-admin/dashboard") ||
@@ -203,6 +230,12 @@ export default function SuperAdminStudentAttendancePage() {
     !!pathname &&
     (pathname.startsWith("/branch-admin/") ||
       pathname.startsWith("/branch-manager-dashboard/"))
+
+  /** Deep-link `?branch=` from Branch-wise Overview — super-admin only */
+  const isSuperAdminRoute = !!pathname && pathname.startsWith("/super-admin/")
+  const superAdminBranchFromUrl = isSuperAdminRoute
+    ? (searchParams.get("branch") || "").trim()
+    : ""
 
   const getManagedBranchIds = (): string[] => {
     if (!isBranchAdminRoute) return []
@@ -247,9 +280,22 @@ export default function SuperAdminStudentAttendancePage() {
   // Filter state
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
-  const [selectedBranch, setSelectedBranch] = useState("all")
+  const [selectedBranch, setSelectedBranch] = useState(
+    () => (superAdminBranchFromUrl || "all")
+  )
   const [selectedCourse, setSelectedCourse] = useState("all")
+  const [selectedBatch, setSelectedBatch] = useState("all")
   const [selectedStatus, setSelectedStatus] = useState("all")
+  const [batchOptions, setBatchOptions] = useState<BatchOption[]>([])
+  const [batchesLoading, setBatchesLoading] = useState(false)
+
+  // Keep super-admin branch filter in sync with `?branch=` deep links only
+  useEffect(() => {
+    if (!isSuperAdminRoute) return
+    if (superAdminBranchFromUrl) {
+      setSelectedBranch(superAdminBranchFromUrl)
+    }
+  }, [isSuperAdminRoute, superAdminBranchFromUrl])
 
   // View state
   const [viewMode, setViewMode] = useState<"today" | "range">("today")
@@ -294,6 +340,83 @@ export default function SuperAdminStudentAttendancePage() {
   const [correctionReason, setCorrectionReason] = useState("")
   const [correctionSubmitting, setCorrectionSubmitting] = useState(false)
 
+  const managedBranchIdsList = getManagedBranchIds()
+  const currentActiveBranchId = getActiveBranchId()
+  const currentBmUser = BranchManagerAuth.getCurrentUser()
+
+  const effectiveBranchId =
+    (isBranchAdminRoute &&
+      ((currentActiveBranchId && (managedBranchIdsList.length === 0 || managedBranchIdsList.includes(currentActiveBranchId))
+        ? currentActiveBranchId
+        : null) ||
+        (selectedBranch && selectedBranch !== "all" && (managedBranchIdsList.length === 0 || managedBranchIdsList.includes(selectedBranch))
+          ? selectedBranch
+          : null) ||
+        (currentBmUser?.branch_id && (managedBranchIdsList.length === 0 || managedBranchIdsList.includes(String(currentBmUser.branch_id)))
+          ? String(currentBmUser.branch_id)
+          : null) ||
+        managedBranchIdsList[0] ||
+        "")) ||
+    (selectedBranch !== "all" ? selectedBranch : "")
+
+  // Fetch batches dynamically whenever course or branch changes
+  useEffect(() => {
+    if (selectedCourse === "all" || !selectedCourse) {
+      setBatchOptions([])
+      setSelectedBatch("all")
+      return
+    }
+
+    let isMounted = true
+    const loadBatches = async () => {
+      try {
+        setBatchesLoading(true)
+        const headers = getAttendanceAuthHeaders()
+        if (!headers) return
+
+        const qs = new URLSearchParams({ course_id: selectedCourse })
+        if (effectiveBranchId && effectiveBranchId !== "all") {
+          qs.set("branch_id", effectiveBranchId)
+        }
+
+        const res = await fetch(`/api/backend/attendance/batches?${qs.toString()}`, { headers })
+        if (res.ok) {
+          const data = await res.json()
+          if (!isMounted) return
+          const fetchedBatches: BatchOption[] = data.batches || []
+          setBatchOptions(fetchedBatches)
+
+          if (fetchedBatches.length === 1) {
+            setSelectedBatch(fetchedBatches[0].batch_ref)
+          } else if (
+            selectedBatch !== "all" &&
+            !fetchedBatches.some((b) => b.batch_ref === selectedBatch)
+          ) {
+            setSelectedBatch("all")
+          }
+        } else {
+          if (!isMounted) return
+          setBatchOptions([])
+          setSelectedBatch("all")
+        }
+      } catch (err) {
+        console.error("Error fetching course batches:", err)
+        if (isMounted) {
+          setBatchOptions([])
+          setSelectedBatch("all")
+        }
+      } finally {
+        if (isMounted) setBatchesLoading(false)
+      }
+    }
+
+    loadBatches()
+
+    return () => {
+      isMounted = false
+    }
+  }, [selectedCourse, effectiveBranchId])
+
   // Filter attendance records based on search and filters
   const filteredRecords = attendanceRecords.filter(record => {
     const matchesSearch = record.student_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -320,9 +443,14 @@ export default function SuperAdminStudentAttendancePage() {
       ? !lockedId || !record.branch_id || String(record.branch_id) === lockedId
       : selectedBranch === "all" || record.branch_id === selectedBranch
     const matchesCourse = selectedCourse === "all" || record.course_id === selectedCourse
+    const matchesBatch =
+      selectedBatch === "all" ||
+      !selectedBatch ||
+      record.batch_ref === selectedBatch ||
+      (record.batch_refs && record.batch_refs.includes(selectedBatch))
     const matchesStatus = selectedStatus === "all" || record.status === selectedStatus
 
-    return matchesSearch && matchesBranch && matchesCourse && matchesStatus
+    return matchesSearch && matchesBranch && matchesCourse && matchesBatch && matchesStatus
   })
 
   // Clear messages after timeout
@@ -365,7 +493,8 @@ export default function SuperAdminStudentAttendancePage() {
         const data = await response.json()
         let branchList = (data.branches || []).map((branch: any) => ({
           id: branch.id,
-          name: branch.branch?.name || branch.name || 'Unknown Branch'
+          name: branch.branch?.name || branch.name || 'Unknown Branch',
+          assignments: branch.assignments || branch.branch?.assignments
         }))
         if (isBranchAdminRoute) {
           const managedIds = getManagedBranchIds()
@@ -465,6 +594,21 @@ export default function SuperAdminStudentAttendancePage() {
       const qs = new URLSearchParams({ date: dateStr })
       if (isBranchAdminRoute && lockedBranchId) {
         qs.set("branch_id", lockedBranchId)
+      } else if (selectedBranch && selectedBranch !== "all") {
+        qs.set("branch_id", selectedBranch)
+      }
+      if (selectedCourse && selectedCourse !== "all") {
+        qs.set("course_id", selectedCourse)
+      }
+      if (selectedBatch && selectedBatch !== "all") {
+        qs.set("batch_ref", selectedBatch)
+      } else if (
+        isSuperAdminRoute &&
+        selectedBranch &&
+        selectedBranch !== "all"
+      ) {
+        // Super-admin Branch-wise Overview deep link / branch dropdown
+        qs.set("branch_id", selectedBranch)
       }
 
       console.log(`🔄 Fetching attendance data for date: ${dateStr}`)
@@ -508,12 +652,21 @@ export default function SuperAdminStudentAttendancePage() {
               ? lockedBranchName
               : branches.find((b) => b.id === student.branch_id)?.name || "Unknown Branch"
 
+          const batchRefs: string[] = Array.isArray(student.batch_refs)
+            ? student.batch_refs
+            : student.batch_ref
+              ? [String(student.batch_ref)]
+              : courses.map((c: any) => c.batch_ref).filter(Boolean)
+          const primaryBatchRef = student.batch_ref || primaryCourse.batch_ref || batchRefs[0] || null
+
           return {
             id: `${student.id}_${primaryCourse.id || 'no-course'}_${dateStr}`,
             student_id: student.id,
             student_name: student.full_name || 'Unknown Student',
             course_id: primaryCourse.id || primaryCourse.course_id || '',
             course_name: primaryCourse.name || primaryCourse.course_name || 'No Course',
+            batch_ref: primaryBatchRef,
+            batch_refs: batchRefs,
             branch_id: displayBranchId,
             branch_name: displayBranchName,
             email: student.email || '',
@@ -996,12 +1149,14 @@ export default function SuperAdminStudentAttendancePage() {
     initializeData()
   }, [])
 
-  // Fetch attendance data when date changes
+  // Fetch attendance data when date (or super-admin branch filter) changes
   useEffect(() => {
     if (branches.length > 0) {
       fetchAttendanceData()
     }
-  }, [selectedDate, branches])
+    // selectedBranch only drives refetch on super-admin (URL/dropdown branch filter)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate, branches, isSuperAdminRoute ? selectedBranch : null])
 
   // Utility functions
   const getStatusBadge = (status: string) => {
@@ -1110,13 +1265,49 @@ export default function SuperAdminStudentAttendancePage() {
 
       <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Student Attendance Management</h1>
-          <p className="text-gray-600">
-            {isBranchAdminRoute
-              ? "Manage attendance for your branch students"
-              : "Manage attendance across all branches and courses"}
-          </p>
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Student Attendance Management</h1>
+            <p className="text-gray-600">
+              {isBranchAdminRoute
+                ? "Manage attendance for your branch students"
+                : "Manage attendance across all branches and courses"}
+            </p>
+          </div>
+
+          {/* Branch Filter at top right corner under navbar */}
+          <div className="w-full sm:w-72 flex-shrink-0">
+            <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5 block">
+              Branch
+            </label>
+            {isBranchAdminRoute ? (
+              <div className="flex h-10 items-center rounded-md border border-input bg-white px-3 text-sm font-medium text-gray-800 shadow-sm">
+                <MapPin className="h-4 w-4 mr-2 text-blue-600 flex-shrink-0" />
+                <span className="truncate">
+                  {branches.length === 1
+                    ? branches[0].name
+                    : branches.find((b) => b.id === selectedBranch)?.name ||
+                      BranchManagerAuth.getCurrentUser()?.branch_name ||
+                      "Your branch"}
+                </span>
+              </div>
+            ) : (
+              <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+                <SelectTrigger className="bg-white shadow-sm">
+                  <MapPin className="h-4 w-4 mr-2 text-blue-600 flex-shrink-0" />
+                  <SelectValue placeholder="All Branches" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Branches</SelectItem>
+                  {branches.map((branch) => (
+                    <SelectItem key={branch.id} value={branch.id}>
+                      {branch.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
         </div>
 
         {/* Alerts */}
@@ -1202,13 +1393,13 @@ export default function SuperAdminStudentAttendancePage() {
           <CardContent className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
               {/* Date Picker */}
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0">
                 <label className="text-sm font-medium text-gray-700">Date</label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal">
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {format(selectedDate, "PPP")}
+                    <Button variant="outline" className="w-full min-w-0 justify-start text-left font-normal truncate">
+                      <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                      <span className="truncate">{format(selectedDate, "PPP")}</span>
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -1222,57 +1413,74 @@ export default function SuperAdminStudentAttendancePage() {
                 </Popover>
               </div>
 
-              {/* Branch Filter — branch-admin is locked to their managed branch(es) */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Branch</label>
-                {isBranchAdminRoute ? (
-                  <div className="flex h-10 items-center rounded-md border border-input bg-muted/40 px-3 text-sm text-gray-800">
-                    {branches.length === 1
-                      ? branches[0].name
-                      : branches.find((b) => b.id === selectedBranch)?.name ||
-                        BranchManagerAuth.getCurrentUser()?.branch_name ||
-                        "Your branch"}
-                  </div>
-                ) : (
-                  <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="All Branches" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Branches</SelectItem>
-                      {branches.map((branch) => (
-                        <SelectItem key={branch.id} value={branch.id}>
-                          {branch.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-
               {/* Course Filter */}
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0">
                 <label className="text-sm font-medium text-gray-700">Course</label>
                 <Select value={selectedCourse} onValueChange={setSelectedCourse}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full min-w-0 overflow-hidden text-left [&>span]:truncate [&>span]:block">
                     <SelectValue placeholder="All Courses" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-w-[340px]">
                     <SelectItem value="all">All Courses</SelectItem>
                     {courses.map((course) => (
-                      <SelectItem key={course.id} value={course.id}>
-                        {course.name}
+                      <SelectItem key={course.id} value={course.id} title={course.name}>
+                        <span className="truncate block max-w-[300px]">{course.name}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
+              {/* Batch Filter - dynamic based on course batches */}
+              <div className="space-y-2 min-w-0">
+                <label className="text-sm font-medium text-gray-700">Batch</label>
+                {selectedCourse === "all" ? (
+                  <div className="flex h-10 items-center rounded-md border border-input bg-muted/40 px-3 text-sm text-muted-foreground select-none truncate">
+                    Select course first
+                  </div>
+                ) : batchesLoading ? (
+                  <div className="flex h-10 items-center rounded-md border border-input bg-muted/20 px-3 text-sm text-muted-foreground select-none truncate">
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin mr-2 shrink-0" />
+                    <span className="truncate">Loading batches...</span>
+                  </div>
+                ) : batchOptions.length === 1 ? (
+                  <div
+                    className="flex h-10 items-center justify-between rounded-md border border-blue-200 bg-blue-50/70 px-3 text-sm text-blue-900 min-w-0 overflow-hidden"
+                    title={batchOptions[0].full_label || batchOptions[0].label}
+                  >
+                    <span className="font-semibold text-blue-700 truncate shrink-0">1 batch available</span>
+                    {batchOptions[0].name && (
+                      <span className="text-xs text-blue-600 truncate ml-2">
+                        ({batchOptions[0].name})
+                      </span>
+                    )}
+                  </div>
+                ) : batchOptions.length > 1 ? (
+                  <Select value={selectedBatch} onValueChange={setSelectedBatch}>
+                    <SelectTrigger className="w-full min-w-0 overflow-hidden text-left [&>span]:truncate [&>span]:block">
+                      <SelectValue placeholder="All Batches" />
+                    </SelectTrigger>
+                    <SelectContent className="max-w-[380px]">
+                      <SelectItem value="all">All Batches</SelectItem>
+                      {batchOptions.map((batch) => (
+                        <SelectItem key={batch.batch_ref} value={batch.batch_ref} title={batch.full_label || batch.label}>
+                          <span className="truncate block max-w-[340px]">{batch.label}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="flex h-10 items-center rounded-md border border-input bg-muted/40 px-3 text-sm text-muted-foreground select-none truncate">
+                    No batches available
+                  </div>
+                )}
+              </div>
+
               {/* Status Filter */}
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0">
                 <label className="text-sm font-medium text-gray-700">Status</label>
                 <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full min-w-0 overflow-hidden text-left [&>span]:truncate [&>span]:block">
                     <SelectValue placeholder="All Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1286,21 +1494,21 @@ export default function SuperAdminStudentAttendancePage() {
               </div>
 
               {/* Search */}
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0">
                 <label className="text-sm font-medium text-gray-700">Search</label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <div className="relative min-w-0">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 shrink-0" />
                   <Input
                     placeholder="Search students..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 w-full min-w-0"
                   />
                 </div>
               </div>
 
               {/* Actions */}
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0">
                 <label className="text-sm font-medium text-gray-700">Actions</label>
                 <div className="flex gap-2">
                   <Button
@@ -1308,8 +1516,9 @@ export default function SuperAdminStudentAttendancePage() {
                     variant="outline"
                     size="sm"
                     disabled={loading}
+                    className="shrink-0"
                   >
-                    <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`h-4 w-4 mr-2 shrink-0 ${loading ? 'animate-spin' : ''}`} />
                     Refresh
                   </Button>
                   <Button
@@ -1317,8 +1526,9 @@ export default function SuperAdminStudentAttendancePage() {
                     variant="outline"
                     size="sm"
                     disabled={filteredRecords.length === 0}
+                    className="shrink-0"
                   >
-                    <Download className="h-4 w-4 mr-2" />
+                    <Download className="h-4 w-4 mr-2 shrink-0" />
                     Export
                   </Button>
                 </div>
@@ -1385,6 +1595,7 @@ export default function SuperAdminStudentAttendancePage() {
                       setSearchTerm("")
                       setSelectedBranch("all")
                       setSelectedCourse("all")
+                      setSelectedBatch("all")
                       setSelectedStatus("all")
                     }} variant="outline" size="sm">
                       Clear Filters
@@ -1642,25 +1853,6 @@ export default function SuperAdminStudentAttendancePage() {
                                     <CheckCircle className="h-3 w-3 mr-1" />
                                   )}
                                   Present
-                                </Button>
-                                <Button
-                                  onClick={() => handleMarkAttendance(record.id, "late")}
-                                  size="sm"
-                                  variant={record.status === "late" ? "default" : "outline"}
-                                  className={`text-xs font-medium transition-all duration-200 ${
-                                    record.status === "late"
-                                      ? "bg-yellow-600 hover:bg-yellow-700 text-white shadow-md"
-                                      : "hover:bg-yellow-50 hover:border-yellow-300 hover:text-yellow-700"
-                                  }`}
-                                  disabled={isStatusButtonDisabled(record, "late")}
-                                >
-                                  {saveStatus[record.id] === "saving" &&
-                                  markActionPending[record.id] === "late" ? (
-                                    <RefreshCw className="h-3 w-3 animate-spin mr-1" />
-                                  ) : (
-                                    <Clock className="h-3 w-3 mr-1" />
-                                  )}
-                                  Late
                                 </Button>
                                 <Button
                                   onClick={() => handleMarkAttendance(record.id, "absent")}

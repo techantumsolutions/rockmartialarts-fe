@@ -46,6 +46,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import DashboardHeader from "@/components/dashboard-header"
 import { checkAuth, getAuthHeaders } from "@/lib/auth"
 import { formatTimeIST } from "@/lib/formatRegisteredDate"
@@ -132,6 +142,14 @@ export default function SuperAdminCoachAttendancePage() {
   // Saving state for individual records
   const [saveStatus, setSaveStatus] = useState<Record<string, 'idle' | 'saving' | 'success' | 'error'>>({})
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+
+  /** Reason required when changing an already-marked coach attendance status */
+  const [correctionDraft, setCorrectionDraft] = useState<{
+    recordId: string
+    status: "present" | "absent" | "late"
+  } | null>(null)
+  const [correctionReason, setCorrectionReason] = useState("")
+  const [correctionSubmitting, setCorrectionSubmitting] = useState(false)
 
   // Filter attendance records based on search and filters
   const filteredRecords = attendanceRecords.filter(record => {
@@ -323,8 +341,15 @@ export default function SuperAdminCoachAttendancePage() {
     }
   }
 
+  const isAttendanceStatusFinal = (s: string) =>
+    s === "present" || s === "late" || s === "absent"
+
   // Handle coach attendance marking
-  const handleMarkAttendance = async (recordId: string, status: "present" | "absent" | "late") => {
+  const handleMarkAttendance = async (
+    recordId: string,
+    status: "present" | "absent" | "late",
+    options?: { correctionReason?: string }
+  ): Promise<boolean> => {
     try {
       setSaveStatus(prev => ({ ...prev, [recordId]: 'saving' }))
 
@@ -333,24 +358,34 @@ export default function SuperAdminCoachAttendancePage() {
       if (!isCoachAttendanceAuthenticated()) {
         setSaveStatus(prev => ({ ...prev, [recordId]: 'error' }))
         setError("Authentication required")
-        return
+        return false
       }
 
       const record = attendanceRecords.find(r => r.id === recordId)
       if (!record) {
         setSaveStatus(prev => ({ ...prev, [recordId]: 'error' }))
         setError("Coach attendance record not found")
-        return
+        return false
+      }
+
+      // Already marked → ask for a reason before changing (first-time mark skips this)
+      if (isAttendanceStatusFinal(record.status) && !options?.correctionReason) {
+        setSaveStatus(prev => ({ ...prev, [recordId]: 'idle' }))
+        if (record.status === status) return true
+        setCorrectionDraft({ recordId, status })
+        setCorrectionReason("")
+        return true
       }
 
       const headers = getCoachAttendanceHeaders()
       if (!headers) {
         setSaveStatus(prev => ({ ...prev, [recordId]: 'error' }))
         setError("Authentication required")
-        return
+        return false
       }
 
       const checkIso = new Date().toISOString()
+      const reason = options?.correctionReason?.trim()
       const attendanceData = {
         user_id: record.coach_id,
         user_type: "coach",
@@ -358,7 +393,9 @@ export default function SuperAdminCoachAttendancePage() {
         attendance_date: `${record.date}T10:00:00Z`,
         status: status,
         check_in_time: status !== "absent" ? checkIso : null,
-        notes: `Marked by superadmin on ${format(new Date(), 'PPP')}`
+        notes: reason
+          ? `Corrected by admin on ${format(new Date(), 'PPP')}. Reason: ${reason}`
+          : `Marked by superadmin on ${format(new Date(), 'PPP')}`
       }
 
       console.log(`💾 Saving coach attendance for ${record.coach_name} with status: ${status}`)
@@ -370,11 +407,14 @@ export default function SuperAdminCoachAttendancePage() {
       })
 
       if (response.ok) {
-        const result = await response.json()
         console.log(`✅ Successfully saved coach attendance for ${record.coach_name}`)
 
         setSaveStatus(prev => ({ ...prev, [recordId]: 'success' }))
-        setSuccessMessage(`Attendance marked as ${status} for coach ${record.coach_name}`)
+        setSuccessMessage(
+          reason
+            ? `Attendance corrected to ${status} for coach ${record.coach_name}`
+            : `Attendance marked as ${status} for coach ${record.coach_name}`
+        )
 
         // Update local state
         setAttendanceRecords(prev =>
@@ -391,7 +431,7 @@ export default function SuperAdminCoachAttendancePage() {
         )
 
         // Update statistics
-        setAttendanceStats(prev => {
+        setAttendanceStats(() => {
           const updatedRecords = attendanceRecords.map(r =>
             r.id === recordId ? { ...r, status } : r
           )
@@ -412,32 +452,48 @@ export default function SuperAdminCoachAttendancePage() {
           setSaveStatus(prev => ({ ...prev, [recordId]: 'idle' }))
         }, 2000)
 
-      } else {
-        const errorText = await response.text()
-        console.warn(`❌ Failed to save coach attendance for ${record.coach_name}: ${response.status} ${errorText}`)
-        setSaveStatus(prev => ({ ...prev, [recordId]: 'error' }))
-        setError(`Failed to save coach attendance: ${response.status}`)
+        return true
       }
 
+      const errorText = await response.text()
+      console.warn(`❌ Failed to save coach attendance for ${record.coach_name}: ${response.status} ${errorText}`)
+      setSaveStatus(prev => ({ ...prev, [recordId]: 'error' }))
+      setError(`Failed to save coach attendance: ${response.status}`)
+      return false
     } catch (error) {
       console.error("❌ Error marking coach attendance:", error)
       setSaveStatus(prev => ({ ...prev, [recordId]: 'error' }))
       setError("Failed to mark coach attendance. Please try again.")
+      return false
     }
   }
 
-  const isAttendanceStatusFinal = (s: string) =>
-    s === "present" || s === "late" || s === "absent"
+  const submitCoachAttendanceCorrection = async () => {
+    if (!correctionDraft) return
+    const reason = correctionReason.trim()
+    if (reason.length < 3) {
+      setError("Enter at least 3 characters explaining this correction.")
+      return
+    }
+    const { recordId, status } = correctionDraft
+    setCorrectionSubmitting(true)
+    try {
+      const ok = await handleMarkAttendance(recordId, status, { correctionReason: reason })
+      if (ok) {
+        setCorrectionDraft(null)
+        setCorrectionReason("")
+      }
+    } finally {
+      setCorrectionSubmitting(false)
+    }
+  }
 
   const isCoachStatusButtonDisabled = (
     record: CoachAttendanceRecord,
-    role: "present" | "late" | "absent"
+    _role: "present" | "late" | "absent"
   ) => {
-    if (saveStatus[record.id] === "saving") return true
-    if (isAttendanceStatusFinal(record.status)) {
-      return record.status !== role
-    }
-    return false
+    // Keep all actions available so already-marked status can be corrected (with reason).
+    return saveStatus[record.id] === "saving" || correctionSubmitting
   }
 
   // Load initial data
@@ -850,15 +906,6 @@ export default function SuperAdminCoachAttendancePage() {
                                   Present
                                 </Button>
                                 <Button
-                                  onClick={() => handleMarkAttendance(record.id, "late")}
-                                  size="sm"
-                                  variant={record.status === "late" ? "default" : "outline"}
-                                  className="text-xs"
-                                  disabled={isCoachStatusButtonDisabled(record, "late")}
-                                >
-                                  Late
-                                </Button>
-                                <Button
                                   onClick={() => handleMarkAttendance(record.id, "absent")}
                                   size="sm"
                                   variant={record.status === "absent" ? "default" : "outline"}
@@ -964,6 +1011,72 @@ export default function SuperAdminCoachAttendancePage() {
           </div>
         </div>
       </div>
+
+      <Dialog
+        open={!!correctionDraft}
+        onOpenChange={(open) => {
+          if (!open && !correctionSubmitting) {
+            setCorrectionDraft(null)
+            setCorrectionReason("")
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm attendance correction</DialogTitle>
+            <DialogDescription>
+              This coach is already marked for the day. Confirm and enter a reason to change it.
+              First-time marking does not need this step.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-slate-600">
+              {correctionDraft
+                ? (() => {
+                    const current = attendanceRecords.find(
+                      (r) => r.id === correctionDraft.recordId
+                    )
+                    return `Change ${current?.coach_name || "coach"} from “${
+                      current?.status || "marked"
+                    }” to “${correctionDraft.status}”.`
+                  })()
+                : null}
+            </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="coach-correction-reason">Reason</Label>
+              <Textarea
+                id="coach-correction-reason"
+                rows={3}
+                placeholder="e.g. Coach arrived late; status marked incorrectly"
+                value={correctionReason}
+                onChange={(e) => setCorrectionReason(e.target.value)}
+                disabled={correctionSubmitting}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={correctionSubmitting}
+              onClick={() => {
+                setCorrectionDraft(null)
+                setCorrectionReason("")
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              disabled={correctionSubmitting || correctionReason.trim().length < 3}
+              onClick={() => void submitCoachAttendanceCorrection()}
+            >
+              {correctionSubmitting ? "Saving…" : "Save correction"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

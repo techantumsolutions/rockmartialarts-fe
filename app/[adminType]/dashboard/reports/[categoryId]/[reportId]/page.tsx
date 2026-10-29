@@ -23,6 +23,7 @@ import {
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 import { reportsAPI, ReportFilters, ReportFilterOptions } from "@/lib/reportsAPI"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
@@ -44,22 +45,6 @@ const REPORT_CATEGORIES = [
       { id: "student-course-changes", name: "Student Course Changes", icon: FileText },
       { id: "student-complaints-report", name: "Student Complaints Report", icon: FileText },
       { id: "student-demographics", name: "Student Demographics", icon: TrendingUp }
-    ]
-  },
-  {
-    id: "coach",
-    name: "Coach Reports",
-    icon: TrendingUp,
-    description: "Comprehensive system-wide reports and administrative summaries",
-    reports: [
-      { id: "system-overview-dashboard", name: "System Overview Dashboard", icon: TrendingUp },
-      { id: "coach-enrollment-report", name: "Coach Enrollment Report", icon: FileText },
-      { id: "coach-attendance-summary", name: "Coach Attendance Summary", icon: TrendingUp },
-      { id: "coach-financial-summary", name: "Coach Financial Summary", icon: FileText },
-      { id: "activity-log-report", name: "Activity Log Report", icon: FileText },
-      { id: "system-usage-analytics", name: "System Usage Analytics", icon: TrendingUp },
-      { id: "coach-user-report", name: "Coach User Report", icon: FileText },
-      { id: "notification-delivery-report", name: "Notification Delivery Report", icon: FileText }
     ]
   },
   {
@@ -140,6 +125,7 @@ export default function IndividualReportPage() {
   const params = useParams()
   const router = useRouter()
   const basePath = useDashboardBasePath()
+  const isBranchAdminRoute = basePath.startsWith("/branch-admin/dashboard")
   const { user, token } = useAuth()
   
   const categoryId = params.categoryId as string
@@ -488,22 +474,26 @@ export default function IndividualReportPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Branch
                 </label>
-                <Select
-                  value={filters.branch_id || "all"}
-                  onValueChange={(value) => handleFilterChange('branch_id', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Branch" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Branches</SelectItem>
-                    {filterOptions?.filter_options?.branches?.filter(branch => branch.id && branch.name).map((branch) => (
-                      <SelectItem key={branch.id} value={branch.id}>
-                        {branch.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {isBranchAdminRoute ? (
+                  <BranchSelectionField readOnly />
+                ) : (
+                  <Select
+                    value={filters.branch_id || "all"}
+                    onValueChange={(value) => handleFilterChange('branch_id', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Branch" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Branches</SelectItem>
+                      {filterOptions?.filter_options?.branches?.filter(branch => branch.id && branch.name).map((branch) => (
+                        <SelectItem key={branch.id} value={branch.id}>
+                          {branch.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               {/* Course Filter - Show for relevant categories */}
