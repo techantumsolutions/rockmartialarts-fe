@@ -544,11 +544,39 @@ export default function PaymentTrackingPage() {
                 <div className="flex flex-wrap items-end gap-2">
                   <div className="flex-1 min-w-[140px]">
                     <div className="text-xs text-gray-500 mb-1">Start</div>
-                    <Input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} />
+                    <Input
+                      type="date"
+                      min="1000-01-01"
+                      max="9999-12-31"
+                      value={periodStart}
+                      onChange={(e) => {
+                        const raw = e.target.value || ""
+                        const match = /^(\d+)-(\d{2})-(\d{2})$/.exec(raw)
+                        if (!match) {
+                          setPeriodStart(raw.slice(0, 10))
+                          return
+                        }
+                        setPeriodStart(`${match[1].slice(0, 4)}-${match[2]}-${match[3]}`)
+                      }}
+                    />
                   </div>
                   <div className="flex-1 min-w-[140px]">
                     <div className="text-xs text-gray-500 mb-1">End</div>
-                    <Input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} />
+                    <Input
+                      type="date"
+                      min="1000-01-01"
+                      max="9999-12-31"
+                      value={periodEnd}
+                      onChange={(e) => {
+                        const raw = e.target.value || ""
+                        const match = /^(\d+)-(\d{2})-(\d{2})$/.exec(raw)
+                        if (!match) {
+                          setPeriodEnd(raw.slice(0, 10))
+                          return
+                        }
+                        setPeriodEnd(`${match[1].slice(0, 4)}-${match[2]}-${match[3]}`)
+                      }}
+                    />
                   </div>
                   {(periodStart || periodEnd) ? (
                     <Button
@@ -861,7 +889,10 @@ export default function PaymentTrackingPage() {
                 variant="outline"
                 size="sm"
                 disabled={safePage <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                onClick={() => {
+                  setPage((p) => Math.max(1, p - 1))
+                  window.scrollTo({ top: 0, behavior: "smooth" })
+                }}
               >
                 Prev
               </Button>
@@ -873,7 +904,10 @@ export default function PaymentTrackingPage() {
                 variant="outline"
                 size="sm"
                 disabled={safePage >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() => {
+                  setPage((p) => Math.min(totalPages, p + 1))
+                  window.scrollTo({ top: 0, behavior: "smooth" })
+                }}
               >
                 Next
               </Button>

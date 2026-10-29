@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter, usePathname } from "next/navigation"
+import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import { format, parseISO } from "date-fns"
 import {
   BarChart,
@@ -183,6 +183,7 @@ export default function SuperAdminStudentAttendancePage() {
   const { toast } = useToast()
   const router = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const usesDashboardLayoutNav =
     !!pathname &&
     (pathname.startsWith("/super-admin/dashboard") ||
@@ -193,6 +194,12 @@ export default function SuperAdminStudentAttendancePage() {
     !!pathname &&
     (pathname.startsWith("/branch-admin/") ||
       pathname.startsWith("/branch-manager-dashboard/"))
+
+  /** Deep-link `?branch=` from Branch-wise Overview — super-admin only */
+  const isSuperAdminRoute = !!pathname && pathname.startsWith("/super-admin/")
+  const superAdminBranchFromUrl = isSuperAdminRoute
+    ? (searchParams.get("branch") || "").trim()
+    : ""
 
   const getManagedBranchIds = (): string[] => {
     if (!isBranchAdminRoute) return []
@@ -237,9 +244,19 @@ export default function SuperAdminStudentAttendancePage() {
   // Filter state
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
-  const [selectedBranch, setSelectedBranch] = useState("all")
+  const [selectedBranch, setSelectedBranch] = useState(
+    () => (superAdminBranchFromUrl || "all")
+  )
   const [selectedCourse, setSelectedCourse] = useState("all")
   const [selectedStatus, setSelectedStatus] = useState("all")
+
+  // Keep super-admin branch filter in sync with `?branch=` deep links only
+  useEffect(() => {
+    if (!isSuperAdminRoute) return
+    if (superAdminBranchFromUrl) {
+      setSelectedBranch(superAdminBranchFromUrl)
+    }
+  }, [isSuperAdminRoute, superAdminBranchFromUrl])
 
   // View state
   const [viewMode, setViewMode] = useState<"today" | "range">("today")
@@ -439,6 +456,13 @@ export default function SuperAdminStudentAttendancePage() {
       const qs = new URLSearchParams({ date: dateStr })
       if (isBranchAdminRoute && lockedBranchId) {
         qs.set("branch_id", lockedBranchId)
+      } else if (
+        isSuperAdminRoute &&
+        selectedBranch &&
+        selectedBranch !== "all"
+      ) {
+        // Super-admin Branch-wise Overview deep link / branch dropdown
+        qs.set("branch_id", selectedBranch)
       }
 
       console.log(`🔄 Fetching attendance data for date: ${dateStr}`)
@@ -966,12 +990,14 @@ export default function SuperAdminStudentAttendancePage() {
     initializeData()
   }, [])
 
-  // Fetch attendance data when date changes
+  // Fetch attendance data when date (or super-admin branch filter) changes
   useEffect(() => {
     if (branches.length > 0) {
       fetchAttendanceData()
     }
-  }, [selectedDate, branches])
+    // selectedBranch only drives refetch on super-admin (URL/dropdown branch filter)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate, branches, isSuperAdminRoute ? selectedBranch : null])
 
   // Utility functions
   const getStatusBadge = (status: string) => {
@@ -1612,25 +1638,6 @@ export default function SuperAdminStudentAttendancePage() {
                                     <CheckCircle className="h-3 w-3 mr-1" />
                                   )}
                                   Present
-                                </Button>
-                                <Button
-                                  onClick={() => handleMarkAttendance(record.id, "late")}
-                                  size="sm"
-                                  variant={record.status === "late" ? "default" : "outline"}
-                                  className={`text-xs font-medium transition-all duration-200 ${
-                                    record.status === "late"
-                                      ? "bg-yellow-600 hover:bg-yellow-700 text-white shadow-md"
-                                      : "hover:bg-yellow-50 hover:border-yellow-300 hover:text-yellow-700"
-                                  }`}
-                                  disabled={isStatusButtonDisabled(record, "late")}
-                                >
-                                  {saveStatus[record.id] === "saving" &&
-                                  markActionPending[record.id] === "late" ? (
-                                    <RefreshCw className="h-3 w-3 animate-spin mr-1" />
-                                  ) : (
-                                    <Clock className="h-3 w-3 mr-1" />
-                                  )}
-                                  Late
                                 </Button>
                                 <Button
                                   onClick={() => handleMarkAttendance(record.id, "absent")}

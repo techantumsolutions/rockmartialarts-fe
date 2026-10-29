@@ -1136,7 +1136,6 @@ export default function CategoriesManagementPage() {
                               <TableRow key={subCat.id} className="bg-gray-50">
                                 <TableCell>
                                   <div className="flex items-center gap-2 pl-8">
-                                    <ChevronRight className="w-3 h-3 text-gray-400" />
                                     {subCat.color_code && (
                                       <div
                                         className="w-3 h-3 rounded-full"

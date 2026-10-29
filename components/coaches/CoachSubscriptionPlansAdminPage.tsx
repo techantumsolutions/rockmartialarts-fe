@@ -71,6 +71,7 @@ export default function CoachSubscriptionPlansAdminPage() {
       is_default: Boolean(p.is_default),
       sort_order: p.sort_order ?? 100,
     })
+    window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
   const handleSave = async () => {

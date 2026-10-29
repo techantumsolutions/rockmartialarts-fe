@@ -875,14 +875,75 @@ export default function EditCoachPage() {
     }
   }
 
+  const FIELD_ORDER = [
+    "firstName",
+    "lastName",
+    "email",
+    "password",
+    "phone",
+    "gender",
+    "designation",
+    "experience",
+    "qualifications",
+    "displayOrder",
+  ]
+
+  const scrollToFirstError = (validationErrors: Record<string, string>) => {
+    const firstErrorKey = FIELD_ORDER.find((key) => Boolean(validationErrors[key]))
+    if (!firstErrorKey) return
+
+    const inputElement =
+      document.getElementById(firstErrorKey) ||
+      document.querySelector(`[name="${firstErrorKey}"]`)
+
+    const labelElement =
+      document.querySelector(`label[for="${firstErrorKey}"]`) ||
+      document.querySelector(`[data-label-for="${firstErrorKey}"]`)
+
+    const scrollTarget =
+      labelElement ||
+      inputElement?.closest(".space-y-2, .space-y-3") ||
+      inputElement?.parentElement ||
+      inputElement
+
+    if (scrollTarget) {
+      const navOffset = 130
+      const elementPosition = scrollTarget.getBoundingClientRect().top
+      const offsetPosition = elementPosition + window.pageYOffset - navOffset
+
+      window.scrollTo({
+        top: Math.max(0, offsetPosition),
+        behavior: "smooth",
+      })
+
+      setTimeout(() => {
+        const focusable = inputElement?.matches("input, select, textarea, button")
+          ? inputElement
+          : inputElement?.querySelector<HTMLElement>("input, select, textarea, button")
+
+        if (focusable && typeof focusable.focus === "function") {
+          focusable.focus({ preventScroll: true })
+        }
+      }, 350)
+    }
+  }
+
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {}
 
     if (!formData.firstName.trim()) newErrors.firstName = "First name is required"
     if (!formData.lastName.trim()) newErrors.lastName = "Last name is required"
-    if (!formData.email.trim()) newErrors.email = "Email is required"
-    if (!formData.phone.trim()) newErrors.phone = "Phone number is required"
-    // Password is optional for edit mode
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required"
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      newErrors.email = "Please enter a valid email address"
+    }
+    if (!formData.phone.trim()) {
+      newErrors.phone = "Phone number is required"
+    } else if (!/^[6-9]\d{9}$/.test(formData.phone.trim())) {
+      newErrors.phone = "Please enter a valid 10-digit Indian phone number (starting with 6, 7, 8, or 9)"
+    }
+    // Password is optional for edit mode — only validate when provided
     if (formData.password.trim()) {
       if (formData.password.length < 8) {
         newErrors.password = "Password must be at least 8 characters long"
@@ -893,6 +954,14 @@ export default function EditCoachPage() {
     if (!formData.gender) newErrors.gender = "Gender is required"
     if (!formData.designation) newErrors.designation = "Designation is required"
     if (!formData.experience) newErrors.experience = "Experience is required"
+    const validQualifications = formData.qualifications.filter(
+      (q) => q.name.trim() && q.year.trim()
+    )
+    if (validQualifications.length === 0) {
+      newErrors.qualifications = "At least one qualification with name and year is required"
+    } else if (formData.qualifications.some((q) => Boolean(q.name.trim()) !== Boolean(q.year.trim()))) {
+      newErrors.qualifications = "Each qualification needs both a name and a year"
+    }
     if (formData.displayOrder.trim()) {
       const n = parseInt(formData.displayOrder, 10)
       if (!Number.isInteger(n) || n < 0 || n > 999999) {
@@ -901,13 +970,21 @@ export default function EditCoachPage() {
     }
 
     setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    return newErrors
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!validateForm()) {
+    const newErrors = validateForm()
+    if (Object.keys(newErrors).length > 0) {
+      const firstKey = FIELD_ORDER.find((key) => newErrors[key]) || Object.keys(newErrors)[0]
+      toast({
+        title: "Validation Error",
+        description: newErrors[firstKey] || "Please fill out all required fields.",
+        variant: "destructive",
+      })
+      scrollToFirstError(newErrors)
       return
     }
 
@@ -1144,17 +1221,17 @@ export default function EditCoachPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password *</Label>
+                  <Label htmlFor="password">Password (optional)</Label>
                   <PasswordInput
                     id="password"
                     value={formData.password}
                     onChange={(e) => patchFormData({ password: e.target.value })}
-                    placeholder="Enter secure password"
+                    placeholder="Leave blank to keep current password"
                     className={errors.password ? "border-red-500" : ""}
                   />
                   {errors.password && <p className="text-red-500 text-sm">{errors.password}</p>}
                   <p className="text-xs text-gray-500">
-                    Password must be at least 8 characters with uppercase, lowercase, number, and special character
+                    Leave blank to keep the current password. If set, must be at least 8 characters with uppercase, lowercase, number, and special character.
                   </p>
                 </div>
 
@@ -1178,7 +1255,7 @@ export default function EditCoachPage() {
                     value={formData.gender} 
                     onValueChange={(value) => patchFormData({ gender: value })}
                   >
-                    <SelectTrigger className={errors.gender ? "border-red-500" : ""}>
+                    <SelectTrigger id="gender" className={errors.gender ? "border-red-500" : ""}>
                       <SelectValue placeholder="Select gender" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1425,7 +1502,7 @@ export default function EditCoachPage() {
                     value={formData.designation} 
                     onValueChange={(value) => patchFormData({ designation: value })}
                   >
-                    <SelectTrigger className={errors.designation ? "border-red-500" : ""}>
+                    <SelectTrigger id="designation" className={errors.designation ? "border-red-500" : ""}>
                       <SelectValue placeholder="Select designation" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1445,7 +1522,7 @@ export default function EditCoachPage() {
                     value={formData.experience} 
                     onValueChange={(value) => patchFormData({ experience: value })}
                   >
-                    <SelectTrigger className={errors.experience ? "border-red-500" : ""}>
+                    <SelectTrigger id="experience" className={errors.experience ? "border-red-500" : ""}>
                       <SelectValue placeholder="Select experience" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1525,8 +1602,8 @@ export default function EditCoachPage() {
 
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <Label>Qualifications *</Label>
+                <div className="space-y-3" id="qualifications">
+                  <Label data-label-for="qualifications">Qualifications *</Label>
                   {formData.qualifications.map((qual, index) => (
                     <div key={index} className="flex gap-2 items-end">
                       <div className="flex-1">
@@ -1534,7 +1611,7 @@ export default function EditCoachPage() {
                           value={qual.name}
                           onValueChange={(value) => updateQualification(index, 'name', value)}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className={errors.qualifications ? "border-red-500" : ""}>
                             <SelectValue placeholder="Select qualification" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1578,6 +1655,9 @@ export default function EditCoachPage() {
                     <Plus className="w-4 h-4 mr-2" />
                     Add Qualification
                   </Button>
+                  {errors.qualifications && (
+                    <p className="text-red-500 text-sm">{errors.qualifications}</p>
+                  )}
                 </div>
 
                 <div className="space-y-3">

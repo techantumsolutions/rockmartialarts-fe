@@ -475,8 +475,8 @@ export default function BiometricDevicesPage() {
           <DialogHeader>
             <DialogTitle>{editing ? "Edit biometric device" : "Add biometric device"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
               <Label>Device name *</Label>
               <Input
                 value={form.name}
@@ -485,7 +485,7 @@ export default function BiometricDevicesPage() {
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
+              <div className="space-y-2">
                 <Label>Vendor</Label>
                 <Input
                   value={form.vendor}
@@ -493,7 +493,7 @@ export default function BiometricDevicesPage() {
                   placeholder="essl"
                 />
               </div>
-              <div>
+              <div className="space-y-2">
                 <Label>Vendor device ID / serial *</Label>
                 <Input
                   value={form.vendor_device_id}
@@ -502,7 +502,7 @@ export default function BiometricDevicesPage() {
                 />
               </div>
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>Branch *</Label>
               <Select
                 value={form.branch_id || undefined}
@@ -521,7 +521,7 @@ export default function BiometricDevicesPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>Status</Label>
               <Select
                 value={form.status}
@@ -540,7 +540,7 @@ export default function BiometricDevicesPage() {
               </Select>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
+              <div className="space-y-2">
                 <Label>Location note</Label>
                 <Input
                   value={form.location_note}
@@ -548,7 +548,7 @@ export default function BiometricDevicesPage() {
                   placeholder="Reception, Floor 1"
                 />
               </div>
-              <div>
+              <div className="space-y-2">
                 <Label>IP address (optional)</Label>
                 <Input
                   value={form.ip_address}

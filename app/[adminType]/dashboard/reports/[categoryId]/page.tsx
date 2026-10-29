@@ -148,22 +148,6 @@ const REPORT_CATEGORIES = [
     ]
   },
   {
-    id: "coach",
-    name: "Coach Reports",
-    icon: TrendingUp,
-    description: "Comprehensive system-wide reports and administrative summaries",
-    reports: [
-      { id: "system-overview-dashboard", name: "System Overview Dashboard", icon: TrendingUp },
-      { id: "coach-enrollment-report", name: "Coach Enrollment Report", icon: FileText },
-      { id: "coach-attendance-summary", name: "Coach Attendance Summary", icon: TrendingUp },
-      { id: "coach-financial-summary", name: "Coach Financial Summary", icon: FileText },
-      { id: "activity-log-report", name: "Activity Log Report", icon: FileText },
-      { id: "system-usage-analytics", name: "System Usage Analytics", icon: TrendingUp },
-      { id: "coach-user-report", name: "Coach User Report", icon: FileText },
-      { id: "notification-delivery-report", name: "Notification Delivery Report", icon: FileText }
-    ]
-  },
-  {
     id: "course",
     name: "Course Reports",
     icon: FileText,
@@ -596,6 +580,8 @@ function CategoryReportsPageContent() {
   // Student reports: load all students on open, then re-query whenever a dropdown filter changes.
   const studentSearchRef = useRef<((options?: { silent?: boolean; page?: number }) => void) | null>(null)
   const studentSearchRequestRef = useRef(0)
+  /** Blocks silent auto-reloads from canceling / overwriting an active user search */
+  const studentUserSearchInFlightRef = useRef(false)
   const studentAutoFilterKey = [
     filters.branch_id,
     filters.course_id,
@@ -609,6 +595,9 @@ function CategoryReportsPageContent() {
     if (categoryId !== 'student') return
     if (filters.date_range === 'custom' && !customStartDate && !customEndDate) return
     const timer = setTimeout(() => {
+      // Do not wipe filtered results while the user is actively searching
+      if (studentUserSearchInFlightRef.current) return
+      if (searchQuery.trim().length >= 2) return
       studentSearchRef.current?.({ silent: true })
     }, 0)
     return () => clearTimeout(timer)
@@ -832,6 +821,26 @@ function CategoryReportsPageContent() {
     }
   }
 
+  const filterStudentsByQuery = (rows: any[], query: string) => {
+    const term = query.trim().toLowerCase()
+    if (term.length < 2) return rows
+    return rows.filter((student) => {
+      const blob = [
+        student.full_name,
+        student.first_name,
+        student.last_name,
+        student.email,
+        student.phone,
+        student.id,
+        student.student_id,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+      return blob.includes(term)
+    })
+  }
+
   const handleStudentSearch = async (options?: { silent?: boolean; page?: number }) => {
     const silent = options?.silent === true
     const page = Math.max(1, options?.page ?? 1)
@@ -841,15 +850,36 @@ function CategoryReportsPageContent() {
       return
     }
 
+    // Silent auto-load must not interrupt / overwrite a user-triggered search
+    if (silent && studentUserSearchInFlightRef.current) return
+
+    const trimmedQuery = searchQuery.trim()
+    if (!silent && trimmedQuery.length === 1) {
+      toast.error('Enter at least 2 characters to search for a student')
+      return
+    }
+
+    const isTextSearch = trimmedQuery.length >= 2
+    if (!silent) studentUserSearchInFlightRef.current = true
+
     const requestId = ++studentSearchRequestRef.current
     setSearchLoading(true)
     setHasSearched(true)
 
     try {
+      const baseFilters = buildStudentReportFilters()
+      // Always set q explicitly for text search (do not rely only on build helper)
+      if (isTextSearch) {
+        baseFilters.q = trimmedQuery
+      } else {
+        delete (baseFilters as any).q
+      }
+
       const searchParams: any = {
-        ...buildStudentReportFilters(),
-        skip: (page - 1) * STUDENT_REPORT_PAGE_SIZE,
-        limit: STUDENT_REPORT_PAGE_SIZE,
+        ...baseFilters,
+        // For text search, pull a large page then filter/paginate locally so matches are not missed
+        skip: isTextSearch ? 0 : (page - 1) * STUDENT_REPORT_PAGE_SIZE,
+        limit: isTextSearch ? 2000 : STUDENT_REPORT_PAGE_SIZE,
       }
 
       console.log('Student search parameters:', searchParams)
@@ -860,17 +890,30 @@ function CategoryReportsPageContent() {
 
       console.log('Student search response:', response)
 
-      const students = response.students || []
-      setStudentResults(students)
-
-      const total = typeof response.total === 'number' ? response.total : students.length
-      setStudentTotal(total)
-      setStudentPage(page)
-      const searchMessage = searchQuery
-        ? `Found ${total} student${total !== 1 ? 's' : ''} matching "${searchQuery}"`
-        : `Found ${total} student${total !== 1 ? 's' : ''}`
-
-      if (!silent) toast.success(searchMessage)
+      let students = response.students || []
+      // Client-side safety filter so UI always respects the search box
+      if (isTextSearch) {
+        students = filterStudentsByQuery(students, trimmedQuery)
+        const total = students.length
+        const start = (page - 1) * STUDENT_REPORT_PAGE_SIZE
+        const pageRows = students.slice(start, start + STUDENT_REPORT_PAGE_SIZE)
+        setStudentResults(pageRows)
+        setStudentTotal(total)
+        setStudentPage(page)
+        if (!silent) {
+          toast.success(
+            `Found ${total} student${total !== 1 ? "s" : ""} matching "${trimmedQuery}"`
+          )
+        }
+      } else {
+        setStudentResults(students)
+        const total = typeof response.total === 'number' ? response.total : students.length
+        setStudentTotal(total)
+        setStudentPage(page)
+        if (!silent) {
+          toast.success(`Found ${total} student${total !== 1 ? 's' : ''}`)
+        }
+      }
     } catch (error: any) {
       if (requestId !== studentSearchRequestRef.current) return
       console.error('Error searching students:', error)
@@ -880,6 +923,7 @@ function CategoryReportsPageContent() {
       setStudentPage(1)
     } finally {
       if (requestId === studentSearchRequestRef.current) setSearchLoading(false)
+      if (!silent) studentUserSearchInFlightRef.current = false
     }
   }
   studentSearchRef.current = handleStudentSearch

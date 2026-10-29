@@ -64,6 +64,16 @@ export default function ManageShowcaseAchievementsPage() {
 
   const bmManaged = BranchManagerAuth.getCurrentUser()?.managed_branches || []
 
+  const branchNameById = (id?: string | null) => {
+    if (!id) return "—"
+    return branches.find((b) => b.id === id)?.name || id
+  }
+
+  const courseNameById = (id?: string | null) => {
+    if (!id) return "—"
+    return courses.find((c) => c.id === id)?.name || id
+  }
+
   const load = useCallback(async () => {
     const token = TokenManager.getToken()
     if (!token) return
@@ -263,8 +273,10 @@ export default function ManageShowcaseAchievementsPage() {
               <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50/80">
                 <td className="p-3 font-medium text-gray-900">{r.student_name}</td>
                 <td className="p-3 text-gray-700 max-w-[200px] truncate">{r.achievement_title}</td>
-                <td className="p-3">{r.is_global ? "Global" : r.branch_id || "—"}</td>
-                <td className="p-3 text-xs text-gray-600 max-w-[120px] truncate">{r.course_id || "—"}</td>
+                <td className="p-3">{r.is_global ? "Global" : branchNameById(r.branch_id)}</td>
+                <td className="p-3 text-gray-700 max-w-[160px] truncate" title={courseNameById(r.course_id)}>
+                  {courseNameById(r.course_id)}
+                </td>
                 <td className="p-3 capitalize">{r.status}</td>
                 <td className="p-3 flex gap-1">
                   <Button type="button" variant="ghost" size="icon" onClick={() => openEdit(r)} aria-label="Edit">
@@ -292,29 +304,29 @@ export default function ManageShowcaseAchievementsPage() {
           <DialogHeader>
             <DialogTitle>{editingId ? "Edit achievement" : "New achievement"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div>
+          <div className="space-y-5 py-2">
+            <div className="space-y-2">
               <Label>Student name</Label>
               <Input
                 value={form.student_name}
                 onChange={(e) => setForm((f) => ({ ...f, student_name: e.target.value }))}
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>Student photo URL</Label>
               <Input
                 value={form.student_photo || ""}
                 onChange={(e) => setForm((f) => ({ ...f, student_photo: e.target.value }))}
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>Achievement title</Label>
               <Input
                 value={form.achievement_title}
                 onChange={(e) => setForm((f) => ({ ...f, achievement_title: e.target.value }))}
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>Description</Label>
               <Textarea
                 rows={3}
@@ -322,11 +334,11 @@ export default function ManageShowcaseAchievementsPage() {
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>Image URL</Label>
               <Input value={form.image || ""} onChange={(e) => setForm((f) => ({ ...f, image: e.target.value }))} />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>Course (optional — course detail page)</Label>
               <Select
                 value={form.course_id || "__none__"}
@@ -352,7 +364,7 @@ export default function ManageShowcaseAchievementsPage() {
                   <Label>Global</Label>
                 </div>
                 {!form.is_global ? (
-                  <div>
+                  <div className="space-y-2">
                     <Label>Branch</Label>
                     <Select
                       value={form.branch_id || ""}
@@ -382,7 +394,7 @@ export default function ManageShowcaseAchievementsPage() {
                 onCheckedChange={(v) => setForm((f) => ({ ...f, status: v ? "active" : "inactive" }))}
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>Display order</Label>
               <Input
                 type="number"

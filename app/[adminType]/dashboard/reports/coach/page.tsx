@@ -236,24 +236,22 @@ export default function CoachReportPage() {
     <div className="min-h-screen bg-gray-50">
       
       <main className="w-full p-4 lg:px-8 mx-auto">
-        {/* Page Header */}
+        {/* Page Header - Same as other reports pages */}
         <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center space-x-4">
+          <div>
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
+              className="flex items-center space-x-1 px-0 mb-1 text-gray-600 hover:text-gray-900 hover:bg-transparent"
               onClick={() => router.push(`${basePath}/reports`)}
-              className="flex items-center space-x-2"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Back to Reports</span>
             </Button>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Coach Report</h1>
-              <p className="text-gray-600">
-                Comprehensive coach (coach) information and analytics
-              </p>
-            </div>
+            <h1 className="text-2xl font-bold text-gray-900">Coach Report</h1>
+            <p className="text-gray-600">
+              Comprehensive coach (coach) information and analytics
+            </p>
           </div>
           <div className="flex space-x-2">
             <Button

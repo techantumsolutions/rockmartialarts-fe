@@ -210,12 +210,22 @@ export default function CourseSyllabusPage() {
     try {
       if (row.is_active) {
         await syllabusAPI.deactivate(row.id)
+        setRows((prev) =>
+          prev.map((r) => (r.id === row.id ? { ...r, is_active: false } : r))
+        )
         toast.success("Syllabus deactivated")
       } else {
         await syllabusAPI.activate(row.id)
+        // Only one syllabus can be active per course — mirror that locally
+        setRows((prev) =>
+          prev.map((r) => {
+            if (r.id === row.id) return { ...r, is_active: true }
+            if (r.course_id === row.course_id) return { ...r, is_active: false }
+            return r
+          })
+        )
         toast.success("Syllabus activated (others for this course deactivated)")
       }
-      await load()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Status update failed")
     }
@@ -354,6 +364,11 @@ export default function CourseSyllabusPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => void toggleActive(row)}
+                      className={
+                        row.is_active
+                          ? "border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800"
+                          : "border-green-300 text-green-700 hover:bg-green-50 hover:text-green-800"
+                      }
                     >
                       {row.is_active ? (
                         <>

@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Edit, ToggleLeft, ToggleRight, Eye, Mail, Loader2 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -48,19 +47,12 @@ export default function CoachesListPage() {
   const isBranchAdmin = basePath.includes("branch-admin")
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
-  const [showAssignPopup, setShowAssignPopup] = useState(false)
   const [showSendCredentialsPopup, setShowSendCredentialsPopup] = useState(false)
-  const [selectedCoach, setSelectedCoach] = useState<string | null>(null)
   const [selectedCoachForCredentials, setSelectedCoachForCredentials] = useState<Coach | null>(null)
   const [isSendingCredentials, setIsSendingCredentials] = useState(false)
-  const [assignData, setAssignData] = useState({ branch: "", coach: "" })
   const [coaches, setCoaches] = useState<Coach[]>([])
-  const [branches, setBranches] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [assignmentLoading, setAssignmentLoading] = useState(false)
-  const [assignmentError, setAssignmentError] = useState<string | null>(null)
-  const [branchesLoading, setBranchesLoading] = useState(false)
 // Pagination state
 const [currentPage, setCurrentPage] = useState(1)
 const itemsPerPage = 15
@@ -71,29 +63,6 @@ const itemsPerPage = 15
     }
     return TokenManager.getToken() || BranchManagerAuth.getToken()
   }
-
-  // Fetch branches for the assignment modal (preload on mount so dropdown has data)
-  useEffect(() => {
-    const loadBranches = async () => {
-      const token = authToken()
-      if (!token) return
-      try {
-        setBranchesLoading(true)
-        const response = await fetch(getBackendApiUrl("branches?skip=0&limit=100"), {
-          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
-        })
-        if (response.ok) {
-          const data = await response.json()
-          setBranches(data.branches || data || [])
-        }
-      } catch (e) {
-        console.error("Error fetching branches:", e)
-      } finally {
-        setBranchesLoading(false)
-      }
-    }
-    loadBranches()
-  }, [isBranchAdmin])
 
   // Fetch coaches from API (BM token scopes list to managed branch only)
   useEffect(() => {
@@ -123,53 +92,6 @@ const itemsPerPage = 15
 
     fetchCoaches()
   }, [isBranchAdmin])
-
-  const handleAssignClick = () => {
-    setShowAssignPopup(true)
-  }
-
-  const handleAssignSubmit = async () => {
-    if (!assignData.branch || !assignData.coach) {
-      setAssignmentError("Please select both a branch and a coach")
-      return
-    }
-
-    try {
-      setAssignmentLoading(true)
-      setAssignmentError(null)
-
-      const token = authToken()
-      if (!token) {
-        throw new Error("Authentication token not found. Please login again.")
-      }
-
-      // Update the branch with the new manager_id (coach)
-      const response = await fetch(getBackendApiUrl(`branches/${assignData.branch}`), {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          manager_id: assignData.coach
-        })
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || errorData.message || `Failed to assign manager (${response.status})`)
-      }
-
-      alert("Coach assigned as manager successfully!")
-      setShowAssignPopup(false)
-      setAssignData({ branch: "", coach: "" })
-
-    } catch (error) {
-      setAssignmentError(error instanceof Error ? error.message : 'Failed to assign manager')
-    } finally {
-      setAssignmentLoading(false)
-    }
-  }
 
   const handleViewClick = (coachId: string) => {
     router.push(`${basePath}/coaches/${coachId}`)
@@ -322,14 +244,6 @@ const paginatedCoaches = filteredCoaches.slice(
             >
               + Add Coach
             </Button>
-            {!basePath.includes("branch-admin") && (
-            <Button
-              onClick={handleAssignClick}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-6"
-            >
-              Assign Manager
-            </Button>
-            )}
           </div>
         </div>
 
@@ -493,92 +407,6 @@ const paginatedCoaches = filteredCoaches.slice(
           </CardContent>
         </Card>
       </main>
-
-      {/* Assign Popup */}
-      {showAssignPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Assign Coach as Branch Manager</h3>
-              <Button variant="ghost" onClick={() => {
-                setShowAssignPopup(false)
-                setAssignmentError(null)
-                setAssignData({ branch: "", coach: "" })
-              }} className="p-1">
-                <span className="text-xl">&times;</span>
-              </Button>
-            </div>
-
-            {assignmentError && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-                <p className="text-sm text-red-600">{assignmentError}</p>
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Select Branch</label>
-                <Select
-                  value={assignData.branch}
-                  onValueChange={(value) => setAssignData({ ...assignData, branch: value })}
-                  disabled={branchesLoading}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder={branchesLoading ? "Loading branches..." : branches.length === 0 ? "No branches available" : "Choose a branch..."} />
-                  </SelectTrigger>
-                  <SelectContent
-                    position="popper"
-                    className="w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]"
-                  >
-                    {branches.map((branch) => {
-                      const branchName = branch.branch?.name ?? branch.name ?? "Unnamed Branch"
-                      const address = branch.branch?.address ?? branch.address
-                      const addressText = address ? [address.area, address.city].filter(Boolean).join(", ") || "No address" : "No address"
-
-                      return (
-                        <SelectItem key={branch.id} value={branch.id} className="max-w-full">
-                          <span className="block truncate">{branchName} - {addressText}</span>
-                        </SelectItem>
-                      )
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Select Coach</label>
-                <Select
-                  value={assignData.coach}
-                  onValueChange={(value) => setAssignData({ ...assignData, coach: value })}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder={filteredCoaches.length === 0 ? "No coaches available" : "Choose a coach..."} />
-                  </SelectTrigger>
-                  <SelectContent
-                    position="popper"
-                    className="w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]"
-                  >
-                    {filteredCoaches.map((coach) => (
-                      <SelectItem key={coach.id} value={coach.id} className="max-w-full">
-                        <div className="flex flex-col min-w-0 max-w-full overflow-hidden">
-                          <span className="font-medium truncate">{coach.full_name}</span>
-                          <span className="text-sm text-gray-500 truncate">{coach.contact_info?.email}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button
-                onClick={handleAssignSubmit}
-                disabled={assignmentLoading}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
-              >
-                {assignmentLoading ? "Assigning..." : "Assign as Manager"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Send Credentials Confirmation Popup */}
       {showSendCredentialsPopup && selectedCoachForCredentials && (
