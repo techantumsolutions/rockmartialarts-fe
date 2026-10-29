@@ -17,13 +17,23 @@ export function ShowcaseAchievementCard({ item }: { item: ShowcaseAchievementIte
 
   return (
     <div className="bg-gray-900/50 rounded-xl border border-gray-800 overflow-hidden h-full flex flex-col transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:border-[#FFB70F]/40">
-      {/* Fixed media frame — card height does not follow image aspect ratio */}
-      <div className="relative w-full aspect-[4/3] shrink-0 overflow-hidden bg-gray-800">
+      {/* Fixed media frame — uniform aspect ratio without cropping images */}
+      <div className="relative w-full aspect-[4/3] shrink-0 overflow-hidden bg-gray-950 flex items-center justify-center">
+        {/* Ambient blurred backdrop so portrait/custom-ratio images blend seamlessly */}
         <SafeImage
           src={item.image || DEFAULT_IMAGE_PLACEHOLDER}
           alt=""
           resolveUrl={Boolean(item.image)}
-          className="absolute inset-0 w-full h-full object-cover object-center"
+          className="absolute inset-0 w-full h-full object-cover blur-md scale-110 opacity-30 pointer-events-none"
+          aria-hidden
+          loading="lazy"
+        />
+        {/* Sharp full image preserving original aspect ratio without cropping */}
+        <SafeImage
+          src={item.image || DEFAULT_IMAGE_PLACEHOLDER}
+          alt={title}
+          resolveUrl={Boolean(item.image)}
+          className="relative z-10 w-full h-full object-contain"
           loading="lazy"
           decoding="async"
         />
