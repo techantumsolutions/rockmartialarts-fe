@@ -303,15 +303,15 @@ export default function CoachAvailabilityEditor({
             slots.map((slot, index) => (
               <div
                 key={slot.id || index}
-                className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end border rounded-lg p-3"
+                className="grid grid-cols-1 sm:grid-cols-6 lg:grid-cols-[130px_minmax(120px,1fr)_minmax(120px,1fr)_minmax(140px,1.5fr)_auto] gap-3 items-end border rounded-lg p-3 sm:p-4"
               >
-                <div className="md:col-span-2">
-                  <Label className="text-xs text-[#6B7A99]">Day</Label>
+                <div className="col-span-1 sm:col-span-2 lg:col-span-1">
+                  <Label className="text-xs text-[#6B7A99] mb-1 block">Day</Label>
                   <Select
                     value={slot.weekday}
                     onValueChange={(v) => updateSlot(index, { weekday: v })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full h-9">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -323,33 +323,36 @@ export default function CoachAvailabilityEditor({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="md:col-span-2">
-                  <Label className="text-xs text-[#6B7A99]">Start</Label>
+                <div className="col-span-1 sm:col-span-2 lg:col-span-1">
+                  <Label className="text-xs text-[#6B7A99] mb-1 block">Start</Label>
                   <WeeklySlotTimePicker
                     value={slot.start_time}
                     onChange={(val) => updateSlot(index, { start_time: val })}
                   />
                 </div>
-                <div className="md:col-span-2">
-                  <Label className="text-xs text-[#6B7A99]">End</Label>
+                <div className="col-span-1 sm:col-span-2 lg:col-span-1">
+                  <Label className="text-xs text-[#6B7A99] mb-1 block">End</Label>
                   <WeeklySlotTimePicker
                     value={slot.end_time}
                     onChange={(val) => updateSlot(index, { end_time: val })}
                   />
                 </div>
-                <div className="md:col-span-4">
-                  <Label className="text-xs text-[#6B7A99]">Location</Label>
-                  <div className="h-9 flex items-center rounded-md border bg-gray-50 px-3 text-sm text-[#4F5077] truncate">
+                <div className="col-span-1 sm:col-span-5 lg:col-span-1">
+                  <Label className="text-xs text-[#6B7A99] mb-1 block">Location</Label>
+                  <div
+                    className="h-9 w-full flex items-center rounded-md border bg-gray-50 px-3 text-sm text-[#4F5077] truncate"
+                    title={allocatedBranchName || "No branch allocated"}
+                  >
                     {allocatedBranchName || "No branch allocated"}
                   </div>
                 </div>
-                <div className="md:col-span-2 flex justify-end">
+                <div className="col-span-1 sm:col-span-1 lg:col-span-1 flex justify-end items-center h-9">
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
                     onClick={() => setSlotToDelete({ index, slot })}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    className="h-9 w-9 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 shrink-0"
                     title="Remove slot"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -362,7 +365,7 @@ export default function CoachAvailabilityEditor({
           {/* Week overview */}
           <div className="pt-2 border-t">
             <p className="text-xs font-medium text-[#6B7A99] mb-2">Week overview</p>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 text-xs">
               {WEEKDAYS.map((d) => (
                 <div key={d.value} className="rounded border bg-gray-50 px-2 py-2">
                   <div className="font-medium text-[#4F5077] mb-1">{d.label}</div>
