@@ -70,7 +70,11 @@ export function BranchesNavDropdown({ variant = "desktop", onNavigate }: Branche
   const displayName = (b: BranchItem) => b.name || b.code || "Branch"
 
   return (
-    <div ref={ref} className={isMobile ? "w-full" : "relative"}>
+    <div
+      ref={ref}
+      className={isMobile ? "w-full" : "relative"}
+      onMouseLeave={isMobile ? undefined : () => setOpen(false)}
+    >
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -94,9 +98,8 @@ export function BranchesNavDropdown({ variant = "desktop", onNavigate }: Branche
           className={
             isMobile
               ? "mt-2 w-full rounded-lg border border-gray-700 bg-[#171A26] py-2 shadow-xl z-50"
-              : "absolute left-0 top-full mt-1 min-w-[240px] rounded-lg border border-gray-700 bg-[#171A26] py-2 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200"
+              : "absolute left-0 top-full min-w-[240px] rounded-lg border border-gray-700 bg-[#171A26] py-2 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200"
           }
-          onMouseLeave={isMobile ? undefined : () => setOpen(false)}
         >
           <Link
             href="/branches"

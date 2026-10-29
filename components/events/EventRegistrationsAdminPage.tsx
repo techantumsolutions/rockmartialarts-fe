@@ -7,6 +7,7 @@ import { Download, Loader2, RefreshCw, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -377,28 +378,35 @@ export default function EventRegistrationsAdminPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>Branch</Label>
-              <Select
-                value={branchFilter}
-                onValueChange={(v) => {
-                  setBranchFilter(v)
-                  setSkip(0)
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All branches" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All branches</SelectItem>
-                  {branches.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      {b.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {pathname?.startsWith("/branch-admin/") ? (
+              <div>
+                <Label>Branch</Label>
+                <BranchSelectionField readOnly />
+              </div>
+            ) : (
+              <div>
+                <Label>Branch</Label>
+                <Select
+                  value={branchFilter}
+                  onValueChange={(v) => {
+                    setBranchFilter(v)
+                    setSkip(0)
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All branches" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All branches</SelectItem>
+                    {branches.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div>
               <Label>Status</Label>
               <Select

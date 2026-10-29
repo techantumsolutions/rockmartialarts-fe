@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -327,22 +328,26 @@ export default function CourseReportPage() {
                 {/* Branch Dropdown */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
-                  <Select
-                    value={filters.branch_id || "all"}
-                    onValueChange={(value) => handleFilterChange('branch_id', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Branch" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Branches</SelectItem>
-                      {filterOptions?.filters.branches.map((branch) => (
-                        <SelectItem key={branch.id} value={branch.id}>
-                          {branch.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {basePath.startsWith("/branch-admin") ? (
+                    <BranchSelectionField readOnly />
+                  ) : (
+                    <Select
+                      value={filters.branch_id || "all"}
+                      onValueChange={(value) => handleFilterChange('branch_id', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Branch" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Branches</SelectItem>
+                        {filterOptions?.filters.branches.map((branch) => (
+                          <SelectItem key={branch.id} value={branch.id}>
+                            {branch.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
                 {/* Category Dropdown */}

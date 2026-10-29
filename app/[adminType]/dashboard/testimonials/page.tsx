@@ -21,6 +21,7 @@ import { TokenManager } from "@/lib/tokenManager"
 import { getBackendApiUrl } from "@/lib/config"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { getActiveBranch, getActiveBranchId } from "@/lib/activeBranch"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 
 type Row = {
   id: string
@@ -282,7 +283,7 @@ export default function ManageTestimonialsPage() {
             <DialogTitle>{editingId ? "Edit testimonial" : "New testimonial"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div>
+            <div className={!isSuperAdmin ? "space-y-2" : undefined}>
               <Label>Student name</Label>
               <Input
                 value={form.student_name}
@@ -325,7 +326,7 @@ export default function ManageTestimonialsPage() {
                 placeholder="Optional: paste image URL after upload"
               />
             </div>
-            <div>
+            <div className={!isSuperAdmin ? "space-y-2" : undefined}>
               <Label>Testimonial</Label>
               <Textarea
                 rows={4}
@@ -333,7 +334,7 @@ export default function ManageTestimonialsPage() {
                 onChange={(e) => setForm((f) => ({ ...f, testimonial_text: e.target.value }))}
               />
             </div>
-            <div>
+            <div className={!isSuperAdmin ? "space-y-2" : undefined}>
               <Label>Rating (0–5)</Label>
               <Input
                 type="number"
@@ -358,21 +359,25 @@ export default function ManageTestimonialsPage() {
                 {!form.is_global ? (
                   <div>
                     <Label>Branch</Label>
-                    <Select
-                      value={form.branch_id || ""}
-                      onValueChange={(v) => setForm((f) => ({ ...f, branch_id: v }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select branch" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {branches.map((b) => (
-                          <SelectItem key={b.id} value={b.id}>
-                            {b.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {isSuperAdmin ? (
+                      <Select
+                        value={form.branch_id || ""}
+                        onValueChange={(v) => setForm((f) => ({ ...f, branch_id: v }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select branch" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {branches.map((b) => (
+                            <SelectItem key={b.id} value={b.id}>
+                              {b.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <BranchSelectionField readOnly />
+                    )}
                   </div>
                 ) : null}
               </>
@@ -386,7 +391,7 @@ export default function ManageTestimonialsPage() {
                 onCheckedChange={(v) => setForm((f) => ({ ...f, status: v ? "active" : "inactive" }))}
               />
             </div>
-            <div>
+            <div className={!isSuperAdmin ? "space-y-2" : undefined}>
               <Label>Display order</Label>
               <Input
                 type="number"

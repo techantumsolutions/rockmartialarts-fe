@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useRouter } from "next/navigation"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
+import { getActiveBranchId, useActiveBranch } from "@/lib/activeBranch"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/AuthContext"
 import { TokenManager } from "@/lib/tokenManager"
@@ -50,6 +52,8 @@ interface Duration {
 export default function CourseAssignmentPage() {
   const router = useRouter()
   const basePath = useDashboardBasePath()
+  const isBranchAdmin = basePath.startsWith("/branch-admin")
+  const { active: activeBranch } = useActiveBranch()
   const { toast } = useToast()
   const { user } = useAuth()
 
@@ -70,6 +74,16 @@ export default function CourseAssignmentPage() {
     start_date: "",
     notes: ""
   })
+
+  useEffect(() => {
+    if (isBranchAdmin && activeBranch?.id) {
+      setFormData((current) =>
+        current.branch_id === activeBranch.id
+          ? current
+          : { ...current, branch_id: activeBranch.id }
+      )
+    }
+  }, [activeBranch, isBranchAdmin])
 
   // Fetch data on component mount
   useEffect(() => {
@@ -169,7 +183,7 @@ export default function CourseAssignmentPage() {
       const enrollmentData = {
         student_id: formData.student_id,
         course_id: formData.course_id,
-        branch_id: formData.branch_id,
+        branch_id: isBranchAdmin ? getActiveBranchId() || formData.branch_id : formData.branch_id,
         duration_id: formData.duration_id,
         start_date: formData.start_date || new Date().toISOString().split('T')[0],
         notes: formData.notes
@@ -312,24 +326,28 @@ export default function CourseAssignmentPage() {
                 {/* Branch Selection */}
                 <div className="space-y-2">
                   <Label htmlFor="branch">Branch *</Label>
-                  <Select
-                    value={formData.branch_id}
-                    onValueChange={(value) => setFormData({ ...formData, branch_id: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a branch" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {branches.map((branch) => (
-                        <SelectItem key={branch.id} value={branch.id}>
-                          <div className="flex flex-col">
-                            <span className="font-medium">{branch.branch.name}</span>
-                            <span className="text-xs text-gray-500">{branch.branch.code}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {isBranchAdmin ? (
+                    <BranchSelectionField readOnly className="h-10" />
+                  ) : (
+                    <Select
+                      value={formData.branch_id}
+                      onValueChange={(value) => setFormData({ ...formData, branch_id: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a branch" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {branches.map((branch) => (
+                          <SelectItem key={branch.id} value={branch.id}>
+                            <div className="flex flex-col">
+                              <span className="font-medium">{branch.branch.name}</span>
+                              <span className="text-xs text-gray-500">{branch.branch.code}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
                 {/* Duration Selection */}

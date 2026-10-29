@@ -15,6 +15,8 @@ import { ArrowLeft, User, Award, MapPin, Phone, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Header from "@/components/layout/Header"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { getActiveBranchId } from "@/lib/activeBranch"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 import { useToast } from "@/hooks/use-toast"
 
 // Interface definitions for API data
@@ -147,6 +149,20 @@ export default function AddCoachPage() {
     achievements: "",
     notes: "",
   })
+
+  useEffect(() => {
+    if (branches.length === 0) return
+    const user = BranchManagerAuth.getCurrentUser()
+    const branchId =
+      getActiveBranchId() ||
+      user?.branch_id ||
+      user?.managed_branches?.[0] ||
+      branches[0]?.id ||
+      ""
+    if (branches.some((branch) => branch.id === branchId)) {
+      setFormData((current) => ({ ...current, branch: branchId }))
+    }
+  }, [branches])
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
 
@@ -1010,34 +1026,13 @@ export default function AddCoachPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="branch">Branch Assignment *</Label>
-                  <Select
-                    value={formData.branch}
-                    onValueChange={(value) => setFormData({ ...formData, branch: value })}
-                    disabled={isLoadingBranches || branches.length === 0}
-                  >
-                    <SelectTrigger id="branch" className={errors.branch ? "border-red-500" : branches.length === 0 && !isLoadingBranches ? "border-orange-300 bg-orange-50" : ""}>
-                      <SelectValue placeholder={
-                        isLoadingBranches
-                          ? "Loading your branches..."
-                          : branches.length === 0
-                            ? "No branches assigned to you"
-                            : "Select branch to assign coach"
-                      } />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {branches.length === 0 && !isLoadingBranches ? (
-                        <SelectItem value="no-branches" disabled>
-                          No branches available for assignment
-                        </SelectItem>
-                      ) : (
-                        branches.map((branch) => (
-                          <SelectItem key={branch.id} value={branch.id}>
-                            {branch.branch?.name || 'Unnamed Branch'} - {branch.branch?.address?.city || 'Location not specified'}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
+                  <BranchSelectionField
+                    id="branch"
+                    branchName={
+                      branches.find((branch) => branch.id === formData.branch)?.branch?.name
+                    }
+                    className={errors.branch ? "border-red-500" : ""}
+                  />
                   {errors.branch && <p className="text-red-500 text-sm">{errors.branch}</p>}
                   {branches.length === 0 && !isLoadingBranches && (
                     <p className="text-sm text-orange-600">

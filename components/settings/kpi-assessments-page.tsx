@@ -57,6 +57,8 @@ import {
   type StudentKpiRanking,
 } from "@/lib/kpiRankingAPI"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
+import { useActiveBranch } from "@/lib/activeBranch"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 
 function bandBadge(band: string) {
   if (band === "outstanding") return "bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
@@ -97,6 +99,7 @@ export default function KpiAssessmentsPage() {
   const router = useRouter()
   const basePath = useDashboardBasePath()
   const isBranchAdmin = basePath.includes("branch-admin")
+  const { active: activeBranch } = useActiveBranch()
 
   const [tab, setTab] = useState("assess")
   const [loading, setLoading] = useState(true)
@@ -128,6 +131,12 @@ export default function KpiAssessmentsPage() {
   const [studentId, setStudentId] = useState("")
   const [scoreMap, setScoreMap] = useState<Record<string, string>>({})
   const [notes, setNotes] = useState("")
+
+  useEffect(() => {
+    if (isBranchAdmin && activeBranch?.id && branchId !== activeBranch.id) {
+      setBranchId(activeBranch.id)
+    }
+  }, [activeBranch, branchId, isBranchAdmin])
 
   const openPeriods = useMemo(
     () => periods.filter((p) => p.status === "open"),
@@ -638,19 +647,23 @@ export default function KpiAssessmentsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Branch (optional filter)</Label>
-                <Select value={branchId} onValueChange={setBranchId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All branches" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All branches</SelectItem>
-                    {branches.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {isBranchAdmin ? (
+                  <BranchSelectionField readOnly />
+                ) : (
+                  <Select value={branchId} onValueChange={setBranchId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All branches" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All branches</SelectItem>
+                      {branches.map((b) => (
+                        <SelectItem key={b.id} value={b.id}>
+                          {b.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label>Course</Label>
@@ -848,19 +861,23 @@ export default function KpiAssessmentsPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Branch (optional filter)</Label>
-                  <Select value={branchId} onValueChange={setBranchId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="All branches" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All branches</SelectItem>
-                      {branches.map((b) => (
-                        <SelectItem key={b.id} value={b.id}>
-                          {b.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {isBranchAdmin ? (
+                    <BranchSelectionField readOnly />
+                  ) : (
+                    <Select value={branchId} onValueChange={setBranchId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All branches" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All branches</SelectItem>
+                        {branches.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>
+                            {b.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label>Course</Label>
@@ -1097,19 +1114,23 @@ export default function KpiAssessmentsPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Branch filter</Label>
-                  <Select value={branchId} onValueChange={setBranchId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="All branches" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All branches</SelectItem>
-                      {branches.map((b) => (
-                        <SelectItem key={b.id} value={b.id}>
-                          {b.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {isBranchAdmin ? (
+                    <BranchSelectionField readOnly />
+                  ) : (
+                    <Select value={branchId} onValueChange={setBranchId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All branches" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All branches</SelectItem>
+                        {branches.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>
+                            {b.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label>Course filter</Label>

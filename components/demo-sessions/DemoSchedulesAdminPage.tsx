@@ -1,10 +1,12 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { usePathname } from "next/navigation"
 import { Loader2, Plus, RefreshCw, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -19,6 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/hooks/use-toast"
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { getActiveBranchId } from "@/lib/activeBranch"
 import { getBackendApiUrl } from "@/lib/config"
 import {
   DEFAULT_DEMO_FEE_INR,
@@ -83,6 +86,8 @@ function formFromSchedule(s: DemoSchedule): FormState {
 
 export default function DemoSchedulesAdminPage() {
   const { toast } = useToast()
+  const pathname = usePathname()
+  const isBranchAdmin = pathname?.startsWith("/branch-admin/") ?? false
   const [rows, setRows] = useState<DemoSchedule[]>([])
   const [total, setTotal] = useState(0)
   const [skip, setSkip] = useState(0)
@@ -201,7 +206,8 @@ export default function DemoSchedulesAdminPage() {
   }
 
   const save = async () => {
-    if (!form.branch_id || !form.course_id) {
+    const branchId = isBranchAdmin ? getActiveBranchId() || form.branch_id : form.branch_id
+    if (!branchId || !form.course_id) {
       toast({ title: "Branch and course are required", variant: "destructive" })
       return
     }
@@ -232,7 +238,7 @@ export default function DemoSchedulesAdminPage() {
     try {
       const payload = {
         title: form.title.trim() || null,
-        branch_id: form.branch_id,
+        branch_id: branchId,
         course_id: form.course_id,
         recurrence: form.recurrence,
         weekdays: form.recurrence === "weekly" ? form.weekdays : [],
@@ -371,25 +377,29 @@ export default function DemoSchedulesAdminPage() {
                 </Button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <Select
-                  value={branchFilter}
-                  onValueChange={(v) => {
-                    setSkip(0)
-                    setBranchFilter(v)
-                  }}
-                >
-                  <SelectTrigger className="h-10 bg-white">
-                    <SelectValue placeholder="All branches" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All branches</SelectItem>
-                    {branches.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {isBranchAdmin ? (
+                  <BranchSelectionField readOnly className="h-10 bg-white" />
+                ) : (
+                  <Select
+                    value={branchFilter}
+                    onValueChange={(v) => {
+                      setSkip(0)
+                      setBranchFilter(v)
+                    }}
+                  >
+                    <SelectTrigger className="h-10 bg-white">
+                      <SelectValue placeholder="All branches" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All branches</SelectItem>
+                      {branches.map((b) => (
+                        <SelectItem key={b.id} value={b.id}>
+                          {b.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 <Select
                   value={courseFilter}
                   onValueChange={(v) => {
@@ -581,21 +591,25 @@ export default function DemoSchedulesAdminPage() {
               </div>
               <div className="space-y-1">
                 <Label>Branch *</Label>
-                <Select
-                  value={form.branch_id || undefined}
-                  onValueChange={(v) => setForm((f) => ({ ...f, branch_id: v }))}
-                >
-                  <SelectTrigger className="bg-white">
-                    <SelectValue placeholder="Select branch" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {branches.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {isBranchAdmin ? (
+                  <BranchSelectionField readOnly className="h-10" />
+                ) : (
+                  <Select
+                    value={form.branch_id || undefined}
+                    onValueChange={(v) => setForm((f) => ({ ...f, branch_id: v }))}
+                  >
+                    <SelectTrigger className="bg-white">
+                      <SelectValue placeholder="Select branch" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {branches.map((b) => (
+                        <SelectItem key={b.id} value={b.id}>
+                          {b.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               <div className="space-y-1">
                 <Label>Course *</Label>

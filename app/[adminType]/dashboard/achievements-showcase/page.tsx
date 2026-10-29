@@ -20,6 +20,8 @@ import { useToast } from "@/hooks/use-toast"
 import { TokenManager } from "@/lib/tokenManager"
 import { getBackendApiUrl } from "@/lib/config"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { getActiveBranchId } from "@/lib/activeBranch"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 
 type Row = {
   id: string
@@ -62,7 +64,13 @@ export default function ManageShowcaseAchievementsPage() {
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
 
-  const bmManaged = BranchManagerAuth.getCurrentUser()?.managed_branches || []
+  const branchManager = BranchManagerAuth.getCurrentUser()
+  const bmManaged = branchManager?.managed_branches || []
+  const headerBranchId =
+    getActiveBranchId() ||
+    branchManager?.branch_id ||
+    bmManaged[0] ||
+    ""
 
   const load = useCallback(async () => {
     const token = TokenManager.getToken()
@@ -134,7 +142,7 @@ export default function ManageShowcaseAchievementsPage() {
     setEditingId(null)
     setForm({
       ...emptyForm,
-      branch_id: !isSuperAdmin && bmManaged[0] ? bmManaged[0] : "",
+      branch_id: !isSuperAdmin ? headerBranchId : "",
       is_global: false,
     })
     setDialogOpen(true)
@@ -179,7 +187,7 @@ export default function ManageShowcaseAchievementsPage() {
         display_order: Number(form.display_order) || 0,
       }
       if (!isSuperAdmin) {
-        body.branch_id = bmManaged[0] || form.branch_id
+        body.branch_id = headerBranchId || form.branch_id
         body.is_global = false
       }
       if (editingId) {
@@ -373,7 +381,10 @@ export default function ManageShowcaseAchievementsPage() {
                 ) : null}
               </>
             ) : (
-              <p className="text-sm text-gray-500">Branch: {bmManaged[0] || "—"}</p>
+              <div>
+                <Label>Branch</Label>
+                <BranchSelectionField branchName={branches.find((branch) => branch.id === headerBranchId)?.name} />
+              </div>
             )}
             <div className="flex items-center gap-3">
               <Label className="shrink-0">Active</Label>

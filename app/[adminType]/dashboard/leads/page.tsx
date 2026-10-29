@@ -378,9 +378,9 @@ export default function LeadsPage() {
           </Card>
         </div>
 
-        <Card>
+        <Card className="gap-2">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Leads</CardTitle>
+            <CardTitle className="text-2xl">Leads</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <form

@@ -33,6 +33,7 @@ import Header from "@/components/layout/Header"
 import { reportsAPI } from "@/lib/reportsAPI"
 import { toast } from "sonner"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 import { useDebounce } from "@/hooks/usePerformance"
 
 // Filter state interface
@@ -524,20 +525,7 @@ export default function BranchManagerIndividualReport() {
               </div>
               <div className="flex flex-wrap justify-between">
                 {/* Branch Filter - Disabled for branch managers */}
-                <Select
-                  value={filters.branch_id || "all"}
-                  onValueChange={(value) => handleFilterChange('branch_id', value)}
-                  disabled={true} // Always disabled for branch managers
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Your Branch" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={branchManagerBranchId || "all"}>
-                      {currentBranchManager?.branch_name || "Your Branch"}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                <BranchSelectionField readOnly />
 
                 {/* Course Filter */}
                 <Select

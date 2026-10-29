@@ -21,6 +21,8 @@ import { dropdownAPI } from "@/lib/dropdownAPI"
 import { useGeographyDropdowns } from "@/hooks/use-geography-dropdowns"
 import { useToast } from "@/hooks/use-toast"
 import paymentAPI from "@/lib/paymentAPI"
+import { getActiveBranchId, useActiveBranch } from "@/lib/activeBranch"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 
 const DEFAULT_DURATION_OPTIONS: Array<{ id: string; name: string; code?: string }> = [
   { id: "1-month", name: "1 Month", code: "1-month" },
@@ -101,6 +103,9 @@ export default function EditStudent() {
   const basePath = `/${(params?.adminType as string) || "super-admin"}/dashboard`
   const studentsListUrl = searchParams.get("return") || `${basePath}/students`
   const isSuperAdmin = basePath.startsWith("/super-admin")
+  const isBranchAdmin = !isSuperAdmin
+  const { active: activeBranch } = useActiveBranch()
+  const headerBranchId = getActiveBranchId() || activeBranch?.id || ""
   const { access_token } = useAuth()
   
   // Loading states
@@ -181,6 +186,13 @@ export default function EditStudent() {
     emergencyContactRelation: "",
     studentLevel: "",
   })
+
+  useEffect(() => {
+    if (!isBranchAdmin || !headerBranchId) return
+    setFormData((prev) => (
+      prev.branch === headerBranchId ? prev : { ...prev, branch: headerBranchId }
+    ))
+  }, [headerBranchId, formData.branch, isBranchAdmin])
 
   useEffect(() => {
     if (!isSuperAdmin) return
@@ -525,6 +537,7 @@ export default function EditStudent() {
 
   // Clear branch selection when location changes
   useEffect(() => {
+    if (isBranchAdmin) return
     if (formData.branch && formData.location) {
       // Check if current branch is still valid for the selected location
       const branchExists = branches.find(branch => branch.id === formData.branch)
@@ -532,7 +545,7 @@ export default function EditStudent() {
         setFormData(prev => ({ ...prev, branch: "" }))
       }
     }
-  }, [branches, formData.branch, formData.location])
+  }, [branches, formData.branch, formData.location, isBranchAdmin])
 
   // Load batch options when branch + course are selected
   useEffect(() => {
@@ -736,6 +749,9 @@ export default function EditStudent() {
       if (!token) throw new Error("Authentication token not found.")
 
       const mobileDigits = normalizeIndianMobileDigits(formData.contactNumber, formData.countryCode)
+      const submittedBranchId = isBranchAdmin
+        ? headerBranchId || formData.branch
+        : formData.branch
       const apiPayload = {
         email: formData.email,
         phone: `${formData.countryCode || "+91"}${mobileDigits}`,
@@ -764,9 +780,9 @@ export default function EditStudent() {
           duration: formData.duration || "3-months",
           ...(formData.batch ? { batch_ref: formData.batch } : {}),
         } : undefined,
-        branch: formData.branch ? {
+        branch: submittedBranchId ? {
           location_id: formData.location || "hyderabad",
-          branch_id: formData.branch
+          branch_id: submittedBranchId
         } : undefined,
         ...(isSuperAdmin ? { student_level: formData.studentLevel || null } : {}),
         ...(enrollmentStartDate
@@ -1184,57 +1200,68 @@ export default function EditStudent() {
 
                     <div id="student-field-branch" tabIndex={-1} className="scroll-mt-28 outline-none">
                       <Label className="block text-sm font-medium mb-2">Branch <span className="text-red-500">*</span></Label>
-                      <Select
-                        value={formData.branch}
-                        onValueChange={(value) => handleInputChange("branch", value)}
-                        disabled={!formData.location || isLoadingBranches}
-                      >
-                        <SelectTrigger className={cn(
-                          "!w-full !h-14 !pl-12 !text-base !bg-gray-50 !border-gray-200 !rounded-xl",
-                          errors.branch && "!border-red-500 !bg-red-50",
-                          (!formData.location || isLoadingBranches) && "opacity-50 cursor-not-allowed"
-                        )}>
-                          <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10 pointer-events-none">
-                            <Building2Icon className="w-5 h-5 text-gray-400" />
-                          </div>
-                          <SelectValue placeholder={
-                            isLoadingBranches
-                              ? "Loading branches..."
-                              : !formData.location
-                                ? "Select location first"
-                                : "Select Branch"
-                          } />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {branches.length > 0 ? (
-                            branches.map((branch) => (
-                              <SelectItem key={branch.id} value={branch.id}>
-                                <div className="flex flex-col">
-                                  <span className="font-medium">{branch.name}</span>
-                                  <span className="text-xs text-gray-500">
-                                    {typeof branch.address === "object" && branch.address?.area?.trim()
-                                      ? branch.address.area.trim()
-                                      : typeof branch.address === "object"
-                                        ? [branch.address?.city, branch.address?.state].filter(Boolean).join(", ")
-                                        : ""}
-                                  </span>
-                                </div>
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <div className="p-4 text-center text-gray-500">
-                              <p className="text-sm">
-                                {!formData.location
-                                  ? "Please select a location first"
-                                  : isLoadingBranches
-                                    ? "Loading branches..."
-                                    : "No branches available for selected location"
-                                }
-                              </p>
-                            </div>
+                      {isBranchAdmin ? (
+                        <BranchSelectionField
+                          readOnly
+                          branchName={branches.find((branch) => branch.id === headerBranchId)?.name}
+                          className={cn(
+                            "!w-full !h-14 !text-base !bg-gray-50 !border-gray-200 !rounded-xl",
+                            errors.branch && "!border-red-500 !bg-red-50"
                           )}
-                        </SelectContent>
-                      </Select>
+                        />
+                      ) : (
+                        <Select
+                          value={formData.branch}
+                          onValueChange={(value) => handleInputChange("branch", value)}
+                          disabled={!formData.location || isLoadingBranches}
+                        >
+                          <SelectTrigger className={cn(
+                            "!w-full !h-14 !pl-12 !text-base !bg-gray-50 !border-gray-200 !rounded-xl",
+                            errors.branch && "!border-red-500 !bg-red-50",
+                            (!formData.location || isLoadingBranches) && "opacity-50 cursor-not-allowed"
+                          )}>
+                            <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10 pointer-events-none">
+                              <Building2Icon className="w-5 h-5 text-gray-400" />
+                            </div>
+                            <SelectValue placeholder={
+                              isLoadingBranches
+                                ? "Loading branches..."
+                                : !formData.location
+                                  ? "Select location first"
+                                  : "Select Branch"
+                            } />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {branches.length > 0 ? (
+                              branches.map((branch) => (
+                                <SelectItem key={branch.id} value={branch.id}>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{branch.name}</span>
+                                    <span className="text-xs text-gray-500">
+                                      {typeof branch.address === "object" && branch.address?.area?.trim()
+                                        ? branch.address.area.trim()
+                                        : typeof branch.address === "object"
+                                          ? [branch.address?.city, branch.address?.state].filter(Boolean).join(", ")
+                                          : ""}
+                                    </span>
+                                  </div>
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <div className="p-4 text-center text-gray-500">
+                                <p className="text-sm">
+                                  {!formData.location
+                                    ? "Please select a location first"
+                                    : isLoadingBranches
+                                      ? "Loading branches..."
+                                      : "No branches available for selected location"
+                                  }
+                                </p>
+                              </div>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      )}
                       {errors.branch && <p className="text-red-500 text-sm mt-1">{errors.branch}</p>}
                     </div>
 
