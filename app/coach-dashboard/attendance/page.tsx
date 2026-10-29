@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,6 +8,13 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Calendar as CalendarIcon,
   Users,
@@ -17,13 +24,21 @@ import {
   Search,
   Download,
   Loader2,
-  Eye
+  Eye,
+  RefreshCw,
+  AlertCircle
 } from "lucide-react"
 import { format } from "date-fns"
 import CoachDashboardHeader from "@/components/coach-dashboard-header"
 import { checkCoachAuth, getCoachAuthHeaders } from "@/lib/coachAuth"
 import { cn } from "@/lib/utils"
 import { getBackendApiUrl } from "@/lib/config"
+import {
+  fetchCoachAssignments,
+  filterStudentsForCoach,
+  CoachAssignments,
+  CoachAssignedBatch,
+} from "@/lib/coachStudentFilter"
 
 interface AttendanceRecord {
   id: string
@@ -38,6 +53,9 @@ interface AttendanceRecord {
   check_in_time?: string
   check_out_time?: string
   notes?: string
+  batch_ref?: string
+  batch_name?: string
+  raw_student?: any
 }
 
 interface AttendanceStats {
@@ -52,11 +70,23 @@ export default function CoachAttendancePage() {
   const router = useRouter()
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([])
   const [filteredRecords, setFilteredRecords] = useState<AttendanceRecord[]>([])
-  const [attendanceStats, setAttendanceStats] = useState<AttendanceStats | null>(null)
+  const [attendanceStats, setAttendanceStats] = useState<AttendanceStats>({
+    total_students: 0,
+    present_today: 0,
+    absent_today: 0,
+    late_today: 0,
+    attendance_rate: 0,
+  })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [coachData, setCoachData] = useState<any>(null)
+
+  // Dynamic Course and Batch filters
+  const [coachAssignments, setCoachAssignments] = useState<CoachAssignments | null>(null)
+  const [selectedCourse, setSelectedCourse] = useState<string>("all")
+  const [selectedBatch, setSelectedBatch] = useState<string>("all")
+  const [availableBatches, setAvailableBatches] = useState<CoachAssignedBatch[]>([])
 
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
@@ -70,6 +100,8 @@ export default function CoachAttendancePage() {
   const [historicalRecords, setHistoricalRecords] = useState<AttendanceRecord[]>([])
   const [loadingHistorical, setLoadingHistorical] = useState(false)
 
+  const isFirstRender = useRef(true)
+
   useEffect(() => {
     // Use the robust coach authentication check
     const authResult = checkCoachAuth()
@@ -82,35 +114,141 @@ export default function CoachAttendancePage() {
 
     if (authResult.coach && authResult.token) {
       setCoachData(authResult.coach)
-      fetchAttendanceData(authResult.token, authResult.coach.id)
+      fetchAttendanceData(authResult.token, authResult.coach)
     } else {
       setError("Coach information not found")
       setLoading(false)
     }
   }, [router])
 
+  // Update available batches when selectedCourse changes
   useEffect(() => {
-    // Filter records based on search term
-    if (searchTerm) {
-      const filtered = attendanceRecords.filter(record =>
-        record.student_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        record.course_name.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-      setFilteredRecords(filtered)
-    } else {
-      setFilteredRecords(attendanceRecords)
-    }
-  }, [searchTerm, attendanceRecords])
+    if (!coachAssignments) return
 
-  // Effect to reload data when selected date changes
+    if (selectedCourse === "all") {
+      const allBatches: CoachAssignedBatch[] = []
+      coachAssignments.courses.forEach((c) => allBatches.push(...c.batches))
+      setAvailableBatches(allBatches)
+    } else {
+      const course = coachAssignments.courses.find(
+        (c) => c.id === selectedCourse || c.course_id === selectedCourse
+      )
+      setAvailableBatches(course?.batches || [])
+    }
+  }, [selectedCourse, coachAssignments])
+
+  // Filter records based on searchTerm, selectedCourse, and selectedBatch
   useEffect(() => {
+    if (!coachAssignments) {
+      if (searchTerm) {
+        const filtered = attendanceRecords.filter((record) =>
+          record.student_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          record.course_name.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+        setFilteredRecords(filtered)
+      } else {
+        setFilteredRecords(attendanceRecords)
+      }
+      return
+    }
+
+    const filtered = attendanceRecords.filter((record) => {
+      // Course filter
+      if (selectedCourse !== "all") {
+        const recordCourseId = String(record.course_id || "").trim()
+        const rawStudentCourses = Array.isArray(record.raw_student?.courses)
+          ? record.raw_student.courses
+          : []
+        const hasMatchingCourse =
+          recordCourseId === selectedCourse ||
+          rawStudentCourses.some(
+            (c: any) =>
+              String(c.id || c.course_id || "").trim() === selectedCourse ||
+              String(c.name || "").trim().toLowerCase() === selectedCourse.toLowerCase()
+          )
+        if (!hasMatchingCourse) return false
+      }
+
+      // Batch filter
+      if (selectedBatch !== "all") {
+        const sBatchRef = String(record.batch_ref || record.raw_student?.batch_ref || "").trim()
+        const sBatchName = String(record.batch_name || record.raw_student?.batch_name || "").trim().toLowerCase()
+        const rawStudentCourses = Array.isArray(record.raw_student?.courses)
+          ? record.raw_student.courses
+          : []
+        const targetBatch = availableBatches.find(
+          (b) =>
+            b.id === selectedBatch ||
+            b.batch_id === selectedBatch ||
+            b.batch_name.toLowerCase() === selectedBatch.toLowerCase()
+        )
+
+        const matchesBatch =
+          (targetBatch &&
+            (sBatchRef === targetBatch.id ||
+              sBatchRef === targetBatch.batch_id ||
+              sBatchName === targetBatch.batch_name.toLowerCase())) ||
+          sBatchRef === selectedBatch ||
+          rawStudentCourses.some(
+            (c: any) =>
+              String(c.batch_ref || c.batch_id || "").trim() === selectedBatch ||
+              (targetBatch &&
+                (String(c.batch_ref || "").trim() === targetBatch.id ||
+                  String(c.batch_ref || "").trim() === targetBatch.batch_id))
+          )
+        if (!matchesBatch) return false
+      }
+
+      // Search term filter
+      if (searchTerm.trim()) {
+        const term = searchTerm.toLowerCase().trim()
+        const matches =
+          record.student_name.toLowerCase().includes(term) ||
+          record.course_name.toLowerCase().includes(term) ||
+          (record.batch_name && record.batch_name.toLowerCase().includes(term))
+        if (!matches) return false
+      }
+
+      return true
+    })
+
+    setFilteredRecords(filtered)
+  }, [searchTerm, selectedCourse, selectedBatch, attendanceRecords, coachAssignments, availableBatches])
+
+  // Recalculate attendance stats dynamically based on filteredRecords
+  useEffect(() => {
+    const stats: AttendanceStats = {
+      total_students: filteredRecords.length,
+      present_today: filteredRecords.filter((r) => r.status === "present").length,
+      absent_today: filteredRecords.filter((r) => r.status === "absent").length,
+      late_today: filteredRecords.filter((r) => r.status === "late").length,
+      attendance_rate:
+        filteredRecords.length > 0
+          ? Number(
+              (
+                (filteredRecords.filter((r) => r.status === "present" || r.status === "late").length /
+                  filteredRecords.length) *
+                100
+              ).toFixed(2)
+            )
+          : 0,
+    }
+    setAttendanceStats(stats)
+  }, [filteredRecords])
+
+  // Effect to reload data when selected date changes (skip initial mount)
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
     if (coachData) {
       const authResult = checkCoachAuth()
       if (authResult.isAuthenticated && authResult.token && authResult.coach) {
-        fetchAttendanceData(authResult.token, authResult.coach.id)
+        fetchAttendanceData(authResult.token, authResult.coach)
       }
     }
-  }, [selectedDate, coachData])
+  }, [selectedDate])
 
   const fetchHistoricalAttendance = async () => {
     try {
@@ -191,26 +329,26 @@ export default function CoachAttendancePage() {
     }
   }
 
-  const fetchAttendanceData = async (token: string, coachId: string) => {
+  const fetchAttendanceData = async (token: string, coach: any) => {
     try {
       setLoading(true)
       setError(null)
 
-      const authResult = checkCoachAuth()
-      if (!authResult.isAuthenticated || !authResult.coach) {
-        throw new Error("Coach authentication required")
-      }
-
-      // Get the coach's branch ID for filtering (same as students page)
-      const branchId = authResult.coach?.branch_id
-      if (!branchId) {
-        console.error("❌ No branch ID found for coach")
-        setError("Coach is not assigned to any branch")
+      const coachId = coach?.id || coach?._id
+      const branchId = coach?.branch_id
+      if (!coachId || !branchId) {
+        console.error("❌ No coach or branch ID found for coach")
+        setError("Coach information or branch is missing")
         setLoading(false)
         return
       }
 
-      console.log("🏢 Fetching students by branch:", branchId)
+      console.log("🏢 Fetching coach assignments and branch attendance for:", branchId)
+
+      // 1. Fetch coach assignments (courses and batches assigned to this coach in their branch)
+      const assignments = await fetchCoachAssignments(token, coach)
+      setCoachAssignments(assignments)
+      console.log("📋 Coach assignments loaded for attendance:", assignments)
 
       // Use selected date instead of always using today
       const selectedDateStr = selectedDate.toISOString().split('T')[0]
@@ -229,37 +367,54 @@ export default function CoachAttendancePage() {
       }
 
       const attendanceData = await attendanceResponse.json()
-      console.log("✅ ATTENDANCE PAGE: Attendance data received:", attendanceData)
-      console.log("✅ ATTENDANCE PAGE: Number of students:", attendanceData.students?.length || 0)
+      const rawStudents = attendanceData.students || []
+      console.log("✅ ATTENDANCE PAGE: Raw students received from API:", rawStudents.length)
 
-      // Transform attendance data into attendance records
-      const attendanceRecords: AttendanceRecord[] = []
-      const students = attendanceData.students || []
+      // 2. Filter students strictly by coach assignments (branch, assigned courses, and assigned batches)
+      const assignedStudents = filterStudentsForCoach(rawStudents, assignments)
+      console.log(`✅ ATTENDANCE PAGE: Filtered to ${assignedStudents.length} assigned students`)
 
-      // Debug: Show raw attendance data for first few students
-      console.log("🔍 RAW ATTENDANCE DATA FROM API:")
-      students.slice(0, 3).forEach((student: any, index: number) => {
-        console.log(`   Student ${index + 1}: ${student.full_name}`)
-        console.log(`      Attendance:`, student.attendance)
-        console.log(`      Status: '${student.attendance?.status}'`)
+      // Create a batch lookup map from assignments to find human-readable batch names
+      const batchLookup = new Map<string, CoachAssignedBatch>()
+      assignments.courses.forEach((c) => {
+        c.batches.forEach((b) => {
+          if (b.id) batchLookup.set(b.id, b)
+          if (b.batch_id) batchLookup.set(b.batch_id, b)
+        })
       })
 
-      for (const student of students) {
+      // Transform assigned students into attendance records
+      const records: AttendanceRecord[] = []
+
+      for (const student of assignedStudents) {
         // Get course information
         const primaryCourse = student.courses?.[0]
         const attendance = student.attendance || {}
 
-        // Debug logging for attendance status
-        console.log(`🔍 Processing student: ${student.full_name}`)
-        console.log(`   Raw attendance:`, attendance)
-        console.log(`   Status: '${attendance.status}' (type: ${typeof attendance.status})`)
-
         const rawStatus = String(attendance.status || "").toLowerCase()
         const alreadyMarked =
           rawStatus === "present" || rawStatus === "late" || rawStatus === "absent"
-        const processedRecord = {
+
+        // Determine student's batch_ref and batch_name
+        const sBatchRef =
+          student.batch_ref ||
+          primaryCourse?.batch_ref ||
+          student.batch_id ||
+          student.course?.batch_ref ||
+          ""
+
+        let batchDisplayName = ""
+        if (sBatchRef && batchLookup.has(sBatchRef)) {
+          const bObj = batchLookup.get(sBatchRef)!
+          const timeStr = bObj.start_time && bObj.end_time ? ` (${bObj.start_time} - ${bObj.end_time})` : ""
+          batchDisplayName = `${bObj.batch_name}${timeStr}`
+        } else if (student.batch_name) {
+          batchDisplayName = student.batch_name
+        }
+
+        const processedRecord: AttendanceRecord = {
           id: `${student.id}_${selectedDateStr}`,
-          student_name: student.full_name || 'Unknown Student',
+          student_name: student.full_name || student.name || 'Unknown Student',
           student_id: student.id,
           course_name: primaryCourse?.name || primaryCourse?.course_name || 'No Course Assigned',
           course_id: primaryCourse?.id || primaryCourse?.course_id || '',
@@ -282,65 +437,21 @@ export default function CoachAttendancePage() {
               minute: '2-digit',
               hour12: true
             }) : "",
-          notes: attendance.notes || ""
+          notes: attendance.notes || "",
+          batch_ref: sBatchRef,
+          batch_name: batchDisplayName,
+          raw_student: student,
         }
 
-        console.log(`   Processed status: '${processedRecord.status}'`)
-        if (processedRecord.status === 'present') {
-          console.log(`   ✅ PRESENT record created for ${student.full_name}`)
-        }
-
-        attendanceRecords.push(processedRecord)
+        records.push(processedRecord)
       }
 
-      // Debug logging for final records
-      console.log(`🔍 Final attendance records (${attendanceRecords.length}):`)
-      attendanceRecords.forEach((record, index) => {
-        console.log(`   ${index + 1}. ${record.student_name}: ${record.status}`)
-      })
+      setAttendanceRecords(records)
+      setFilteredRecords(records)
 
-      // Calculate statistics
-      const stats: AttendanceStats = {
-        total_students: attendanceRecords.length,
-        present_today: attendanceRecords.filter(r => r.status === "present").length,
-        absent_today: attendanceRecords.filter(r => r.status === "absent").length,
-        late_today: attendanceRecords.filter(r => r.status === "late").length,
-       attendance_rate: attendanceRecords.length > 0
-  ? Number(
-      (
-        (attendanceRecords.filter(r => r.status === "present" || r.status === "late").length / attendanceRecords.length) * 100
-      ).toFixed(2)
-    )
-  : 0
-
-      }
-
-      console.log(`📊 Calculated stats:`, stats)
-
-      // Debug: Alert if present records are found
-      if (stats.present_today > 0) {
-        console.log(`🎉 FRONTEND: ${stats.present_today} PRESENT records found and will be displayed!`)
-        // Temporary visual confirmation
-        setSuccessMessage(`✅ Found ${stats.present_today} present attendance records for ${selectedDate.toDateString()}`)
-      } else {
-        console.log(`⚠️ FRONTEND: No present records found in processed data`)
-      }
-
-      setAttendanceRecords(attendanceRecords)
-      setFilteredRecords(attendanceRecords)
-      setAttendanceStats(stats)
-
-      if (attendanceRecords.length === 0) {
-        const debugInfo = attendanceData.debug_info
-        if (debugInfo) {
-          console.log("🔍 Debug info from API:", debugInfo)
-          setError(`No students found. Debug info: ${JSON.stringify(debugInfo)}. Please contact administrator to assign students to your courses.`)
-        } else {
-          setError("No students found. Please ensure you have students assigned to your courses or contact the administrator.")
-        }
-      } else {
-        setError(null)
-      }
+      // Successful fetch - clear any previous error.
+      // 0 students or 0 assigned courses is an empty state, not a fatal error.
+      setError(null)
 
     } catch (error) {
       console.error("Error fetching attendance data:", error)
@@ -514,7 +625,7 @@ export default function CoachAttendancePage() {
       console.log("💾 Starting to save attendance records to backend...")
 
       // Save only students the coach actually marked (skip not_marked defaults)
-      for (const record of filteredRecords) {
+      for (const record of attendanceRecords) {
         if (record.status === "not_marked") continue
         try {
           const attendanceData = {
@@ -679,29 +790,7 @@ export default function CoachAttendancePage() {
     )
   }
 
-  if (error || !attendanceStats) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <CoachDashboardHeader
-          currentPage="Attendance"
-          coachName={coachData?.full_name || "Coach"}
-        />
-        <main className="mx-auto py-6 sm:px-6 lg:px-8">
-          <div className="px-4 py-6 sm:px-0">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center text-red-600">
-                  <p className="font-medium">Error loading attendance data</p>
-                  <p className="text-sm mt-1">{error || "No attendance statistics available"}</p>
 
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </main>
-      </div>
-    )
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -809,6 +898,32 @@ export default function CoachAttendancePage() {
             </div>
           </div>
 
+          {/* Error Message */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
+              <div className="flex items-center">
+                <AlertCircle className="h-5 w-5 text-red-600 mr-2 shrink-0" />
+                <div>
+                  <p className="text-red-800 font-medium">Error loading attendance data</p>
+                  <p className="text-sm text-red-700 mt-0.5">{error}</p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const authResult = checkCoachAuth()
+                  if (authResult.isAuthenticated && authResult.token && authResult.coach) {
+                    fetchAttendanceData(authResult.token, authResult.coach)
+                  }
+                }}
+                className="border-red-300 text-red-800 hover:bg-red-100 shrink-0 ml-4"
+              >
+                Try Again
+              </Button>
+            </div>
+          )}
+
           {/* Success Message */}
           {successMessage && (
             <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
@@ -904,19 +1019,81 @@ export default function CoachAttendancePage() {
           </div>
 
           {/* Search and Filters */}
-          <div className="flex justify-between items-center mb-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search students or courses..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 w-64"
-              />
+          <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row gap-3 flex-1 items-stretch sm:items-center">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Search students, courses, or batches..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 w-full"
+                />
+              </div>
+
+              {/* Course Filter Dropdown - show if more than one course assigned */}
+              {coachAssignments && coachAssignments.courses.length > 1 && (
+                <div className="w-full sm:w-56">
+                  <Select
+                    value={selectedCourse}
+                    onValueChange={(val) => {
+                      setSelectedCourse(val)
+                      setSelectedBatch("all")
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="All Courses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Courses</SelectItem>
+                      {coachAssignments.courses.map((course) => (
+                        <SelectItem
+                          key={course.id || course.course_id}
+                          value={course.course_id || course.id}
+                        >
+                          {course.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Batch Filter Dropdown - show if course has multiple batches */}
+              {availableBatches.length > 1 && (
+                <div className="w-full sm:w-64">
+                  <Select
+                    value={selectedBatch}
+                    onValueChange={(val) => setSelectedBatch(val)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="All Batches" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Batches</SelectItem>
+                      {availableBatches.map((batch) => {
+                        const timeStr =
+                          batch.start_time && batch.end_time
+                            ? ` (${batch.start_time} - ${batch.end_time})`
+                            : ""
+                        return (
+                          <SelectItem
+                            key={batch.id || batch.batch_id}
+                            value={batch.id || batch.batch_id}
+                          >
+                            {batch.batch_name}{timeStr}
+                          </SelectItem>
+                        )
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
+
             {hasUnsavedChanges && (
-              <div className="text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-md border border-amber-200">
-                <span className="font-medium">Unsaved changes detected</span> - Click "Save All Changes" to persist your attendance markings
+              <div className="text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-md border border-amber-200 shrink-0">
+                <span className="font-medium">Unsaved changes detected</span> - Click "Save Attendance" to persist
               </div>
             )}
           </div>
@@ -936,11 +1113,25 @@ export default function CoachAttendancePage() {
                 {viewMode === 'today' ? (
                   // Today's attendance view
                   filteredRecords.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
+                    <div className="text-center py-12 text-gray-500">
                       <Users className="mx-auto h-12 w-12 text-gray-400" />
-                      <h3 className="mt-2 text-sm font-medium text-gray-900">No attendance records</h3>
-                      <p className="mt-1 text-sm text-gray-500">
-                        {searchTerm ? "No records match your search." : `No attendance records found for ${format(selectedDate, "PPP")}.`}
+                      <h3 className="mt-3 text-base font-medium text-gray-900">
+                        {searchTerm
+                          ? "No records found"
+                          : selectedCourse !== "all" || selectedBatch !== "all"
+                          ? "No students found"
+                          : coachAssignments && coachAssignments.courses.length === 0
+                          ? "No courses assigned"
+                          : "No students enrolled"}
+                      </h3>
+                      <p className="mt-1 text-sm text-gray-500 max-w-md mx-auto">
+                        {searchTerm
+                          ? "No records match your search."
+                          : selectedCourse !== "all" || selectedBatch !== "all"
+                          ? "No students found for the selected course or batch."
+                          : coachAssignments && coachAssignments.courses.length === 0
+                          ? "You do not have any courses assigned in this branch yet. Please contact your administrator."
+                          : `No students found enrolled in your assigned courses and batches in this branch for ${format(selectedDate, "PPP")}.`}
                       </p>
                     </div>
                   ) : (
@@ -950,7 +1141,14 @@ export default function CoachAttendancePage() {
                         <div className="flex items-center space-x-4">
                           <div>
                             <h3 className="font-medium text-gray-900">{record.student_name}</h3>
-                            <p className="text-sm text-gray-600">{record.course_name}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <p className="text-sm text-gray-600">{record.course_name}</p>
+                              {record.batch_name && (
+                                <Badge variant="outline" className="text-xs bg-gray-50 text-gray-600 border-gray-200">
+                                  {record.batch_name}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1033,11 +1231,17 @@ export default function CoachAttendancePage() {
                       <p className="mt-2 text-sm text-gray-600">Loading historical records...</p>
                     </div>
                   ) : historicalRecords.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
+                    <div className="text-center py-12 text-gray-500">
                       <Users className="mx-auto h-12 w-12 text-gray-400" />
-                      <h3 className="mt-2 text-sm font-medium text-gray-900">No historical records found</h3>
-                      <p className="mt-1 text-sm text-gray-500">
-                        No attendance records found for the selected date range. Try adjusting the dates or check if attendance was recorded during this period.
+                      <h3 className="mt-3 text-base font-medium text-gray-900">
+                        {coachAssignments && coachAssignments.courses.length === 0
+                          ? "No courses assigned"
+                          : "No historical records found"}
+                      </h3>
+                      <p className="mt-1 text-sm text-gray-500 max-w-md mx-auto">
+                        {coachAssignments && coachAssignments.courses.length === 0
+                          ? "You do not have any courses assigned in this branch yet. Please contact your administrator."
+                          : "No attendance records found for the selected date range. Try adjusting the dates or check if attendance was recorded during this period."}
                       </p>
                     </div>
                   ) : (
