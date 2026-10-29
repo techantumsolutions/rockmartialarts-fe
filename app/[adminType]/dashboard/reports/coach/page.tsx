@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -306,23 +307,27 @@ export default function CoachReportPage() {
             <div className="flex flex-wrap justify-between">
 
               {/* Branch Filter */}
-              <Select
-                value={filters.branch_id || "all"}
-                onValueChange={(value) => handleFilterChange('branch_id', value)}
-                disabled={filtersLoading}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Branch" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Branches</SelectItem>
-                  {filterOptions?.filters.branches.map((branch) => (
-                    <SelectItem key={branch.id} value={branch.id}>
-                      {branch.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {basePath.startsWith("/branch-admin") ? (
+                <BranchSelectionField readOnly />
+              ) : (
+                <Select
+                  value={filters.branch_id || "all"}
+                  onValueChange={(value) => handleFilterChange('branch_id', value)}
+                  disabled={filtersLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Branch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Branches</SelectItem>
+                    {filterOptions?.filters.branches.map((branch) => (
+                      <SelectItem key={branch.id} value={branch.id}>
+                        {branch.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
 
               {/* Course Filter */}
               <Select

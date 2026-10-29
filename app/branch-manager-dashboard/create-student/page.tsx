@@ -3,7 +3,7 @@
 import { getBackendApiUrl } from "@/lib/config"
 import type React from "react"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { PasswordInput } from "@/components/ui/password-input"
@@ -21,6 +21,7 @@ import { courseAPI } from "@/lib/courseAPI"
 import { useToast } from "@/hooks/use-toast"
 import Header from "@/components/layout/Header"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { getActiveBranch, getActiveBranchId } from "@/lib/activeBranch"
 
 interface Branch {
   id: string
@@ -66,6 +67,13 @@ interface FormErrors {
 export default function CreateStudent() {
   const router = useRouter()
   const { toast } = useToast()
+  const branchManager = BranchManagerAuth.getCurrentUser()
+  const activeBranch = getActiveBranch()
+  const headerBranchId =
+    getActiveBranchId() ||
+    branchManager?.branch_id ||
+    branchManager?.managed_branches?.[0] ||
+    ""
 
   // Loading states
   const [isLoading, setIsLoading] = useState(false)
@@ -77,6 +85,12 @@ export default function CreateStudent() {
   const [coaches, setCoaches] = useState<Coach[]>([])
   const [filteredCourses, setFilteredCourses] = useState<Course[]>([])
   const [filteredCoaches, setFilteredCoaches] = useState<Coach[]>([])
+  const selectedManagerBranch = branches.find((branch) => branch.id === headerBranchId)
+  const selectedManagerBranchName =
+    selectedManagerBranch?.name ||
+    (activeBranch?.id === headerBranchId ? activeBranch.name : "") ||
+    branchManager?.branch_name ||
+    ""
 
   // API Loading states
   const [isLoadingLocations, setIsLoadingLocations] = useState(true)
@@ -132,6 +146,15 @@ export default function CreateStudent() {
     // Payment Plan
     paymentPlan: "full",
   })
+
+  useEffect(() => {
+    if (!selectedManagerBranch) return
+    setFormData((current) => ({
+      ...current,
+      branch: selectedManagerBranch.id,
+      location: selectedManagerBranch.address?.state || current.location,
+    }))
+  }, [selectedManagerBranch])
 
   // Durations data
   const durations = [
@@ -287,25 +310,6 @@ export default function CreateStudent() {
   }, [])
 
 
-
-  // Filter branches based on selected location (using address.state field)
-  const filteredBranches = useMemo(() => {
-    console.log('Filtering branches:', {
-      selectedLocation: formData.location,
-      totalBranches: branches.length,
-      branchStates: branches.map(b => b.address?.state)
-    })
-    if (formData.location) {
-      const filtered = branches.filter(branch => branch.address?.state === formData.location)
-      console.log('Filtered branches result:', {
-        filteredCount: filtered.length,
-        filteredBranches: filtered.map(b => ({ name: b.name, state: b.address?.state }))
-      })
-      return filtered
-    }
-    console.log('No location selected, returning all branches:', branches.length)
-    return branches
-  }, [formData.location, branches])
 
   useEffect(() => {
     const loadCoursesForBranch = async () => {
@@ -1114,64 +1118,18 @@ export default function CreateStudent() {
                         <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10 pointer-events-none">
                           <Building2Icon className="w-5 h-5 text-gray-400" />
                         </div>
-                        <Select
-                          value={formData.branch}
-                          onValueChange={(value) => handleInputChange("branch", value)}
-                          disabled={!formData.location || isLoadingBranches}
-                        >
-                          <SelectTrigger className={cn(
-                            "w-full h-14 pl-12 pr-4 py-4 text-base bg-gray-50 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent min-h-14",
-                            errors.branch ? "border-red-500 bg-red-50" : "",
-                            (!formData.location || isLoadingBranches) ? "opacity-50 cursor-not-allowed bg-gray-200" : ""
-                          )}>
-                            <SelectValue placeholder={
-                              isLoadingBranches
-                                ? "Loading branches..."
-                                : !formData.location
-                                  ? "Select location first"
-                                  : "Select Branch"
-                            } className="text-gray-500" />
-                          </SelectTrigger>
-                          <SelectContent className="rounded-xl border border-gray-200 bg-white shadow-lg max-h-60">
-                            {(() => {
-                              console.log('🏢 Branch dropdown render:', {
-                                selectedLocation: formData.location,
-                                filteredBranchesCount: filteredBranches.length,
-                                filteredBranches: filteredBranches.map(b => ({ name: b.name, state: b.address?.state })),
-                                isLoadingBranches
-                              })
-
-                              if (filteredBranches.length > 0) {
-                                const validBranches = filteredBranches.filter((branch) => branch && branch.id && branch.id.trim() !== '')
-                                console.log('🏢 Valid branches after filtering:', validBranches.length)
-
-                                return validBranches.map((branch) => (
-                                  <SelectItem key={branch.id} value={branch.id} className="py-3 pl-3 pr-8 text-base hover:bg-gray-50 rounded-lg cursor-pointer">
-                                    <div className="flex flex-col">
-                                      <span className="font-medium">{branch.name}</span>
-                                      <span className="text-xs text-gray-500">
-                                        {branch.address?.city}, {branch.address?.state}
-                                      </span>
-                                    </div>
-                                  </SelectItem>
-                                ))
-                              } else {
-                                return (
-                                  <div className="p-4 text-center text-gray-500">
-                                    <p className="text-sm">
-                                      {!formData.location
-                                        ? "Please select a location first"
-                                        : isLoadingBranches
-                                          ? "Loading branches..."
-                                          : "No branches available for selected location"
-                                      }
-                                    </p>
-                                  </div>
-                                )
-                              }
-                            })()}
-                          </SelectContent>
-                        </Select>
+                        <Input
+                          id="branch"
+                          aria-label="Selected branch"
+                          readOnly
+                          aria-readonly="true"
+                          value={selectedManagerBranchName}
+                          placeholder={isLoadingBranches ? "Loading branch..." : "No branch selected"}
+                          className={cn(
+                            "w-full h-14 pl-12 pr-4 py-4 text-base bg-gray-50 border-gray-200 rounded-xl cursor-not-allowed",
+                            errors.branch ? "border-red-500 bg-red-50" : ""
+                          )}
+                        />
                         {errors.branch && <p className="text-red-500 text-sm mt-1">{errors.branch}</p>}
                       </div>
                     </div>

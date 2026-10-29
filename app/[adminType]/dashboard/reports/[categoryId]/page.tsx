@@ -18,6 +18,7 @@ import {
   RefreshCw
 } from "lucide-react"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 import { reportsAPI, ReportFilters, ReportFilterOptions } from "@/lib/reportsAPI"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
@@ -562,7 +563,11 @@ function CategoryReportsPageContent() {
     } else {
       // Filter courses for the selected branch
       const coursesForBranch = uniqueCoursesById(
-        allCourses.filter(course => course.branch_id === selectedBranchId)
+        allCourses.filter(course =>
+          isBranchAdminRoute
+            ? String(course.branch_id) === String(selectedBranchId)
+            : course.branch_id === selectedBranchId
+        )
       )
       setFilteredCourses(coursesForBranch)
 
@@ -1251,6 +1256,7 @@ function CategoryReportsPageContent() {
                     {/* Branch Dropdown */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                      <BranchSelectionField readOnly={isBranchAdminRoute}>
                       <Select
                         value={filters.branch_id || "all"}
                         onValueChange={(value) => handleFilterChange('branch_id', value)}
@@ -1268,6 +1274,7 @@ function CategoryReportsPageContent() {
                           ))}
                         </SelectContent>
                       </Select>
+                      </BranchSelectionField>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
@@ -1429,6 +1436,7 @@ function CategoryReportsPageContent() {
                   {/* Branch Dropdown */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                    <BranchSelectionField readOnly={isBranchAdminRoute}>
                     <Select
                       value={filters.branch_id || "all"}
                       onValueChange={(value) => handleFilterChange('branch_id', value)}
@@ -1446,6 +1454,7 @@ function CategoryReportsPageContent() {
                         ))}
                       </SelectContent>
                     </Select>
+                    </BranchSelectionField>
                   </div>
 
                   {/* Payment Type Dropdown */}
@@ -1720,6 +1729,7 @@ function CategoryReportsPageContent() {
                   {/* Branch Dropdown */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                    <BranchSelectionField readOnly={isBranchAdminRoute}>
                     <Select
                       value={filters.branch_id || "all"}
                       onValueChange={(value) => handleFilterChange('branch_id', value)}
@@ -1742,6 +1752,7 @@ function CategoryReportsPageContent() {
                         )}
                       </SelectContent>
                     </Select>
+                    </BranchSelectionField>
                     {branchesError && (
                       <p className="text-sm text-red-600 mt-1">
                         {branchesError}
@@ -1898,6 +1909,7 @@ function CategoryReportsPageContent() {
                   {/* Branch Dropdown */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                    <BranchSelectionField readOnly={isBranchAdminRoute}>
                     <Select
                       value={filters.branch_id || "all"}
                       onValueChange={(value) => handleFilterChange('branch_id', value)}
@@ -1920,6 +1932,7 @@ function CategoryReportsPageContent() {
                         )}
                       </SelectContent>
                     </Select>
+                    </BranchSelectionField>
                     {branchesError && (
                       <p className="text-sm text-red-600 mt-1">
                         {branchesError}
@@ -2138,6 +2151,7 @@ function CategoryReportsPageContent() {
                   {/* Branch Dropdown */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                    <BranchSelectionField readOnly={isBranchAdminRoute}>
                     <Select
                       value={filters.branch_id || "all"}
                       onValueChange={(value) => handleFilterChange('branch_id', value)}
@@ -2160,6 +2174,7 @@ function CategoryReportsPageContent() {
                         )}
                       </SelectContent>
                     </Select>
+                    </BranchSelectionField>
                     {branchesError && (
                       <p className="text-sm text-red-600 mt-1">
                         {branchesError}
@@ -2317,6 +2332,7 @@ function CategoryReportsPageContent() {
                   {/* Branch Scope */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Branch Scope</label>
+                    <BranchSelectionField readOnly={isBranchAdminRoute}>
                     <Select
                       value={filters.branch_id || "all"}
                       onValueChange={(value) => handleFilterChange('branch_id', value)}
@@ -2339,6 +2355,7 @@ function CategoryReportsPageContent() {
                         )}
                       </SelectContent>
                     </Select>
+                    </BranchSelectionField>
                     {branchesError && (
                       <p className="text-sm text-red-600 mt-1">
                         {branchesError}
@@ -2538,38 +2555,42 @@ function CategoryReportsPageContent() {
                             : managedBranchIds[0]
                           : filters.branch_id || "all"
                       return (
-                    <Select
-                      value={branchSelectValue}
-                      onValueChange={(value) => handleFilterChange('branch_id', value)}
-                      disabled={branchesLoading || (managedBranchIds.length === 1)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={branchesLoading ? "Loading branches..." : "Select Branch"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {managedBranchIds.length === 0 && (
-                          <SelectItem value="all">All Branches</SelectItem>
-                        )}
-                        {studentBranchOptions.map((branch) => (
-                          <SelectItem key={branch.id} value={branch.id}>
-                            {branch.branch?.name || 'N/A'} ({branch.branch?.code || branch.id})
-                          </SelectItem>
-                        ))}
-                        {studentBranchOptions.length === 0 &&
-                          managedBranchIds.length > 0 &&
-                          branchSelectValue &&
-                          branchSelectValue !== "all" && (
-                            <SelectItem value={branchSelectValue}>
-                              {BranchManagerAuth.getCurrentUser()?.branch_name || "Your branch"}
-                            </SelectItem>
-                          )}
-                        {branchesError && (
-                          <SelectItem value="__unavailable__" disabled>
-                            Error loading branches
-                          </SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
+                        isBranchAdminRoute ? (
+                          <BranchSelectionField readOnly />
+                        ) : (
+                          <Select
+                            value={branchSelectValue}
+                            onValueChange={(value) => handleFilterChange('branch_id', value)}
+                            disabled={branchesLoading || (managedBranchIds.length === 1)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={branchesLoading ? "Loading branches..." : "Select Branch"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {managedBranchIds.length === 0 && (
+                                <SelectItem value="all">All Branches</SelectItem>
+                              )}
+                              {studentBranchOptions.map((branch) => (
+                                <SelectItem key={branch.id} value={branch.id}>
+                                  {branch.branch?.name || 'N/A'} ({branch.branch?.code || branch.id})
+                                </SelectItem>
+                              ))}
+                              {studentBranchOptions.length === 0 &&
+                                managedBranchIds.length > 0 &&
+                                branchSelectValue &&
+                                branchSelectValue !== "all" && (
+                                  <SelectItem value={branchSelectValue}>
+                                    {BranchManagerAuth.getCurrentUser()?.branch_name || "Your branch"}
+                                  </SelectItem>
+                                )}
+                              {branchesError && (
+                                <SelectItem value="__unavailable__" disabled>
+                                  Error loading branches
+                                </SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        )
                       )
                     })()}
                     {branchesError && (
@@ -2821,14 +2842,14 @@ function CategoryReportsPageContent() {
                                 <div className="text-sm">
                                   {student.courses && student.courses.length > 0 ? (
                                     <div className="space-y-1">
-                                      {student.courses.slice(0, 2).map((course: any, idx: number) => (
+                                      {(isBranchAdminRoute ? student.courses : student.courses.slice(0, 2)).map((course: any, idx: number) => (
                                         <div key={idx} className="flex items-center">
                                           <span className="inline-flex px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded">
                                             {course.name || course.title || 'Unknown Course'}
                                           </span>
                                         </div>
                                       ))}
-                                      {student.courses.length > 2 && (
+                                      {!isBranchAdminRoute && student.courses.length > 2 && (
                                         <p className="text-xs text-gray-500">
                                           +{student.courses.length - 2} more
                                         </p>

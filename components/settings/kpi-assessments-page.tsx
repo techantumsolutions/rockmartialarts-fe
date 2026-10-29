@@ -29,16 +29,16 @@ import {
   ClipboardList,
   Loader2,
   Plus,
-  RefreshCw,
   Pencil,
   Trash2,
   AlertTriangle,
   Calculator,
   Trophy,
 } from "lucide-react"
-import { toast } from "sonner"
+import { toast, Toaster as SonnerToaster } from "sonner"
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { formatRegisteredDateTime } from "@/lib/formatRegisteredDate"
 import { getBackendApiUrl } from "@/lib/config"
 import { kpiDefinitionAPI, type KpiDefinition } from "@/lib/kpiAPI"
 import {
@@ -57,6 +57,8 @@ import {
   type StudentKpiRanking,
 } from "@/lib/kpiRankingAPI"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
+import { useActiveBranch } from "@/lib/activeBranch"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 
 function bandBadge(band: string) {
   if (band === "outstanding") return "bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
@@ -97,6 +99,7 @@ export default function KpiAssessmentsPage() {
   const router = useRouter()
   const basePath = useDashboardBasePath()
   const isBranchAdmin = basePath.includes("branch-admin")
+  const { active: activeBranch } = useActiveBranch()
 
   const [tab, setTab] = useState("assess")
   const [loading, setLoading] = useState(true)
@@ -128,6 +131,12 @@ export default function KpiAssessmentsPage() {
   const [studentId, setStudentId] = useState("")
   const [scoreMap, setScoreMap] = useState<Record<string, string>>({})
   const [notes, setNotes] = useState("")
+
+  useEffect(() => {
+    if (isBranchAdmin && activeBranch?.id && branchId !== activeBranch.id) {
+      setBranchId(activeBranch.id)
+    }
+  }, [activeBranch, branchId, isBranchAdmin])
 
   const openPeriods = useMemo(
     () => periods.filter((p) => p.status === "open"),
@@ -490,6 +499,7 @@ export default function KpiAssessmentsPage() {
   }
 
   const submitAssessment = async () => {
+    if (saving) return
     if (!periodId || !courseId || !studentId) {
       toast.error("Select period, course, and student")
       return
@@ -499,6 +509,19 @@ export default function KpiAssessmentsPage() {
       toast.error("Only open periods accept assessments")
       return
     }
+    for (const k of activeKpis) {
+      const raw = scoreMap[k.id]
+      if (raw !== undefined && raw !== "") {
+        const val = parseFloat(raw)
+        const minVal = k.min_score !== undefined && k.min_score !== null ? k.min_score : 0
+        const maxVal = k.max_score !== undefined && k.max_score !== null ? k.max_score : 100
+        if (isNaN(val) || val < minVal || val > maxVal) {
+          toast.error(`${k.name} score must be between ${minVal} and ${maxVal}`)
+          return
+        }
+      }
+    }
+
     const scores = activeKpis
       .map((k) => {
         const raw = scoreMap[k.id]
@@ -526,18 +549,27 @@ export default function KpiAssessmentsPage() {
         scores,
         notes: notes.trim() || undefined,
       })
-      toast.success(`Saved ${result.saved_count || scores.length} score(s)`)
+      if (result.saved_count === 0 && result.errors?.length) {
+        toast.error(result.errors.map((e: any) => e.error).join("; "))
+        return
+      }
+
+      toast.success("Assessment saved successfully.")
       if (result.errors?.length) {
         toast.message("Some KPIs were skipped", {
           description: result.errors.map((e: any) => e.error).join("; "),
         })
       }
-      const data = await kpiAssessmentAPI.listAssessments({
-        period_id: periodId,
-        student_id: studentId,
-        course_id: courseId,
-      })
-      setHistory(data.assessments || [])
+      try {
+        const data = await kpiAssessmentAPI.listAssessments({
+          period_id: periodId,
+          student_id: studentId,
+          course_id: courseId,
+        })
+        setHistory(data.assessments || [])
+      } catch {
+        // Non-blocking history reload
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Assessment failed")
     } finally {
@@ -548,6 +580,7 @@ export default function KpiAssessmentsPage() {
   if (loading) {
     return (
       <main className="w-full p-8 flex items-center justify-center text-slate-500">
+        <SonnerToaster richColors position="top-center" closeButton />
         <Loader2 className="h-6 w-6 animate-spin mr-2" />
         Loading assessments…
       </main>
@@ -556,6 +589,7 @@ export default function KpiAssessmentsPage() {
 
   return (
     <main className="w-full p-4 lg:px-8 mx-auto max-w-6xl space-y-6">
+      <SonnerToaster richColors position="top-center" closeButton />
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -566,10 +600,6 @@ export default function KpiAssessmentsPage() {
             Open an evaluation period, select course and student, then enter KPI scores.
           </p>
         </div>
-        <Button variant="outline" onClick={() => void loadLookups()}>
-          <RefreshCw className="h-4 w-4 mr-1" />
-          Refresh
-        </Button>
       </div>
 
       {activeKpis.length === 0 ? (
@@ -617,19 +647,23 @@ export default function KpiAssessmentsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Branch (optional filter)</Label>
-                <Select value={branchId} onValueChange={setBranchId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All branches" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All branches</SelectItem>
-                    {branches.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {isBranchAdmin ? (
+                  <BranchSelectionField readOnly />
+                ) : (
+                  <Select value={branchId} onValueChange={setBranchId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All branches" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All branches</SelectItem>
+                      {branches.map((b) => (
+                        <SelectItem key={b.id} value={b.id}>
+                          {b.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label>Course</Label>
@@ -681,32 +715,37 @@ export default function KpiAssessmentsPage() {
               <CardTitle className="text-base">KPI scores</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {activeKpis.map((k) => (
-                <div
-                  key={k.id}
-                  className="grid grid-cols-1 sm:grid-cols-[1fr_140px] gap-2 items-center border rounded-lg px-3 py-2"
-                >
-                  <div>
-                    <p className="font-medium text-sm">{k.name}</p>
-                    <p className="text-xs text-slate-500">
-                      {k.code} · weight {k.weight}
-                      {k.weight_unit === "percent" ? "%" : " pts"} · max {k.max_score}
-                    </p>
+              {activeKpis.map((k) => {
+                const minVal = k.min_score !== undefined && k.min_score !== null ? k.min_score : 0
+                const maxVal = k.max_score !== undefined && k.max_score !== null ? k.max_score : 100
+                const rangeLabel = `${minVal}-${maxVal}`
+                return (
+                  <div
+                    key={k.id}
+                    className="grid grid-cols-1 sm:grid-cols-[1fr_140px] gap-2 items-center border rounded-lg px-3 py-2"
+                  >
+                    <div>
+                      <p className="font-medium text-sm">{k.name}</p>
+                      <p className="text-xs text-slate-500">
+                        {k.code} · weight {k.weight}
+                        {k.weight_unit === "percent" ? "%" : " pts"} · range {rangeLabel}
+                      </p>
+                    </div>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min={minVal}
+                      max={maxVal}
+                      placeholder={rangeLabel}
+                      value={scoreMap[k.id] ?? ""}
+                      onChange={(e) =>
+                        setScoreMap((prev) => ({ ...prev, [k.id]: e.target.value }))
+                      }
+                      disabled={!studentId || !periodId}
+                    />
                   </div>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min={k.min_score}
-                    max={k.max_score}
-                    placeholder={`0–${k.max_score}`}
-                    value={scoreMap[k.id] ?? ""}
-                    onChange={(e) =>
-                      setScoreMap((prev) => ({ ...prev, [k.id]: e.target.value }))
-                    }
-                    disabled={!studentId || !periodId}
-                  />
-                </div>
-              ))}
+                )
+              })}
               <div className="space-y-1.5">
                 <Label>Notes (optional)</Label>
                 <Textarea
@@ -822,19 +861,23 @@ export default function KpiAssessmentsPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Branch (optional filter)</Label>
-                  <Select value={branchId} onValueChange={setBranchId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="All branches" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All branches</SelectItem>
-                      {branches.map((b) => (
-                        <SelectItem key={b.id} value={b.id}>
-                          {b.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {isBranchAdmin ? (
+                    <BranchSelectionField readOnly />
+                  ) : (
+                    <Select value={branchId} onValueChange={setBranchId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All branches" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All branches</SelectItem>
+                        {branches.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>
+                            {b.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label>Course</Label>
@@ -910,14 +953,6 @@ export default function KpiAssessmentsPage() {
                 >
                   Recalculate period
                 </Button>
-                <Button
-                  variant="ghost"
-                  disabled={!periodId}
-                  onClick={() => void loadRatings()}
-                >
-                  <RefreshCw className="h-4 w-4 mr-1" />
-                  Refresh list
-                </Button>
               </div>
               {!studentId ? (
                 <p className="text-xs text-slate-500">
@@ -959,7 +994,7 @@ export default function KpiAssessmentsPage() {
                             </p>
                             <p className="text-xs text-slate-500">
                               {r.calculated_at
-                                ? format(new Date(r.calculated_at), "dd MMM yyyy, hh:mm a")
+                                ? formatRegisteredDateTime(r.calculated_at)
                                 : ""}
                               {r.calculated_by_name ? ` · ${r.calculated_by_name}` : ""}
                               {!r.is_complete ? " · incomplete" : ""}
@@ -1079,19 +1114,23 @@ export default function KpiAssessmentsPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Branch filter</Label>
-                  <Select value={branchId} onValueChange={setBranchId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="All branches" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All branches</SelectItem>
-                      {branches.map((b) => (
-                        <SelectItem key={b.id} value={b.id}>
-                          {b.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {isBranchAdmin ? (
+                    <BranchSelectionField readOnly />
+                  ) : (
+                    <Select value={branchId} onValueChange={setBranchId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All branches" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All branches</SelectItem>
+                        {branches.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>
+                            {b.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label>Course filter</Label>
@@ -1136,14 +1175,6 @@ export default function KpiAssessmentsPage() {
                     <Trophy className="h-4 w-4 mr-1" />
                   )}
                   Recalculate rankings
-                </Button>
-                <Button
-                  variant="ghost"
-                  disabled={!periodId}
-                  onClick={() => void loadRankings()}
-                >
-                  <RefreshCw className="h-4 w-4 mr-1" />
-                  Refresh list
                 </Button>
               </div>
               <p className="text-xs text-slate-500">
@@ -1252,7 +1283,7 @@ export default function KpiAssessmentsPage() {
                           Normalized {h.normalized_score}%
                           {h.evaluator_name ? ` · by ${h.evaluator_name}` : ""}
                           {h.evaluated_at
-                            ? ` · ${format(new Date(h.evaluated_at), "dd MMM yyyy, hh:mm a")}`
+                            ? ` · ${formatRegisteredDateTime(h.evaluated_at)}`
                             : ""}
                         </p>
                       </div>

@@ -95,6 +95,7 @@ export default function CourseDetailPage() {
   const params = useParams()
   const router = useRouter()
   const basePath = useDashboardBasePath()
+  const isBranchAdminDashboard = basePath.startsWith("/branch-admin/")
   const courseId = params.id as string
 
   const [course, setCourse] = useState<CourseDetails | null>(null)
@@ -409,12 +410,12 @@ export default function CourseDetailPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       
-      <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className={`mx-auto px-4 sm:px-6 lg:px-8 ${isBranchAdminDashboard ? "min-w-0 py-4 sm:py-8" : "py-8"}`}>
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center space-x-4 mb-2">
+          <div className={isBranchAdminDashboard ? "flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between" : "flex items-center justify-between"}>
+            <div className={isBranchAdminDashboard ? "min-w-0" : undefined}>
+              <div className={isBranchAdminDashboard ? "mb-2 flex flex-wrap items-center gap-x-4 gap-y-2 sm:flex-nowrap" : "flex items-center space-x-4 mb-2"}>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -424,32 +425,32 @@ export default function CourseDetailPage() {
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back to Courses
                 </Button>
-                <div className="text-sm text-gray-500">
+                <div className={isBranchAdminDashboard ? "min-w-0 break-words text-sm text-gray-500 sm:break-normal" : "text-sm text-gray-500"}>
                   Dashboard &gt; Courses &gt; {course.name}
                 </div>
               </div>
-              <div className="flex items-center space-x-4">
-                <h1 className="text-3xl font-bold text-[#4f5077]">
+              <div className={isBranchAdminDashboard ? "flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap sm:gap-4" : "flex items-center space-x-4"}>
+                <h1 className={isBranchAdminDashboard ? "min-w-0 max-w-full break-words text-2xl font-bold text-[#4f5077] sm:text-3xl sm:break-normal" : "text-3xl font-bold text-[#4f5077]"}>
                   {course.name}
                 </h1>
                 <Badge 
                   variant={course.is_active ? "default" : "secondary"}
-                  className={course.is_active ? "bg-green-100 text-green-800 rounded" : "bg-red-100 text-red-800 rounded"}
+                  className={`${course.is_active ? "bg-green-100 text-green-800 rounded" : "bg-red-100 text-red-800 rounded"}${isBranchAdminDashboard ? " max-w-full whitespace-normal break-words sm:max-w-none sm:break-normal" : ""}`}
                 >
                   {course.is_active ? "Active" : "Inactive"}
                 </Badge>
-                <Badge variant="outline" className="rounded">
+                <Badge variant="outline" className={`rounded${isBranchAdminDashboard ? " max-w-full whitespace-normal break-words sm:max-w-none sm:break-normal" : ""}`}>
                   {course.difficulty_level}
                 </Badge>
                 {course.category && (
-                  <Badge variant="secondary" className="bg-purple-100 text-purple-800 rounded">
+                  <Badge variant="secondary" className={`bg-purple-100 text-purple-800 rounded${isBranchAdminDashboard ? " max-w-full whitespace-normal break-all sm:max-w-none sm:break-normal" : ""}`}>
                     {course.category}
                   </Badge>
                 )}
               </div>
             </div>
             
-            <Button onClick={handleEdit} className="bg-yellow-400 hover:bg-yellow-500 text-[#fff] text-sm">
+            <Button onClick={handleEdit} className={`bg-yellow-400 hover:bg-yellow-500 text-[#fff] text-sm${isBranchAdminDashboard ? " shrink-0 self-start sm:self-auto" : ""}`}>
               <Edit className="w-4 h-4 mr-2" />
               Edit Course
             </Button>
@@ -895,12 +896,12 @@ export default function CourseDetailPage() {
                     </Badge>
                   </div>
 
-                  <div className="flex items-center justify-between">
+                  <div className={isBranchAdminDashboard ? "flex min-w-0 flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between" : "flex items-center justify-between"}>
                     <span className="text-sm text-[#7D8592]">Course ID</span>
-                    <span className="text-sm font-mono text-[#7D8592]">{course.id}</span>
+                    <span className={`text-sm font-mono text-[#7D8592]${isBranchAdminDashboard ? " min-w-0 break-all sm:text-right" : ""}`}>{course.id}</span>
                   </div>
 
-                  <div className="flex items-center justify-between">
+                  <div className={isBranchAdminDashboard ? "flex min-w-0 flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between" : "flex items-center justify-between"}>
                     <span className="text-sm text-[#7D8592]">Difficulty</span>
                     <Badge variant="outline" className="text-xs rounded">
                       {course.difficulty_level}
@@ -908,9 +909,9 @@ export default function CourseDetailPage() {
                   </div>
 
                   {course.category && (
-                    <div className="flex items-center justify-between">
+                    <div className={isBranchAdminDashboard ? "flex min-w-0 flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between" : "flex items-start justify-between"}>
                       <span className="text-sm text-[#4f5077]">Category</span>
-                      <Badge variant="secondary" className="text-xs rounded bg-purple-100 text-purple-800">
+                      <Badge variant="secondary" className={`text-xs rounded bg-purple-100 text-purple-800${isBranchAdminDashboard ? " max-w-full whitespace-normal break-all sm:max-w-none sm:break-normal" : ""}`}>
                         {course.category}
                       </Badge>
                     </div>

@@ -14,12 +14,14 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, User, Award, MapPin, Phone, X, Plus } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
+import { useActiveBranch } from "@/lib/activeBranch"
 import { TokenManager } from "@/lib/tokenManager"
 import { SafeImage } from "@/components/ui/safe-image"
 import { extractUploadUrl, uploadFile } from "@/lib/upload"
 import { useToast } from "@/hooks/use-toast"
 import { WEEKDAY_CHECKLIST_ORDER } from "@/lib/formatWeekdayRanges"
 import { coachAvailabilityAPI } from "@/lib/coachAvailabilityAPI"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 import WeeklySlotTimePicker from "@/components/coaches/WeeklySlotTimePicker"
 import {
   AlertDialog,
@@ -113,6 +115,8 @@ interface Course {
 export default function AddCoachPage() {
   const router = useRouter()
   const basePath = useDashboardBasePath()
+  const isBranchAdmin = basePath.startsWith("/branch-admin")
+  const { active: activeBranch } = useActiveBranch()
   const { toast } = useToast()
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -181,6 +185,12 @@ export default function AddCoachPage() {
     homepageRating: "",
     displayOrder: "",
   })
+
+  useEffect(() => {
+    if (isBranchAdmin && activeBranch?.id) {
+      setFormData((prev) => ({ ...prev, branch: activeBranch.id }))
+    }
+  }, [activeBranch?.id, isBranchAdmin])
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
   const [categories, setCategories] = useState<any[]>([])
@@ -1000,7 +1010,7 @@ export default function AddCoachPage() {
           certifications: formData.certificates.map(c => c.title)  // Will be replaced with URLs after upload
         },
         areas_of_expertise: formData.courses || [],
-        branch_id: formData.branch || null,  // Include branch assignment
+        branch_id: (isBranchAdmin ? activeBranch?.id : formData.branch) || null,
         assignment_details: {
           courses: formData.courses,  // Include course assignments
           salary: formData.salary ? parseFloat(formData.salary) : null,
@@ -1639,7 +1649,9 @@ export default function AddCoachPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="branch">Assign to Branch</Label>
-                  {isLoadingBranches ? (
+                  {isBranchAdmin ? (
+                    <BranchSelectionField readOnly />
+                  ) : isLoadingBranches ? (
                     <div className="flex items-center justify-center py-2">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600"></div>
                       <span className="ml-2 text-sm text-gray-600">Loading branches...</span>

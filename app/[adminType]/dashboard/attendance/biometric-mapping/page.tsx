@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 import {
   Select,
   SelectContent,
@@ -224,7 +225,12 @@ export default function BiometricMappingPage() {
                 />
               </div>
             </div>
-            {(!isBranchAdmin || branches.length > 1) && (
+            {isBranchAdmin ? (
+              <div>
+                <Label className="mb-1 block">Branch</Label>
+                <BranchSelectionField readOnly />
+              </div>
+            ) : (
               <div>
                 <Label className="mb-1 block">Branch</Label>
                 <Select value={branchFilter} onValueChange={setBranchFilter}>

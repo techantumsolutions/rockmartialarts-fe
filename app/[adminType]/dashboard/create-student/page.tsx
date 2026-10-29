@@ -3,12 +3,13 @@
 import type React from "react"
 
 import { getBackendApiUrl } from "@/lib/config"
-import { getActiveBranch, getActiveBranchId } from "@/lib/activeBranch"
+import { getActiveBranchId } from "@/lib/activeBranch"
 import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
+import BranchSelectionField from "@/components/layout/BranchSelectionField"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Calendar } from "@/components/ui/calendar"
@@ -1241,56 +1242,62 @@ export default function CreateStudent() {
                         <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10 pointer-events-none">
                           <Building2Icon className="w-5 h-5 text-gray-400" />
                         </div>
-                        <Select
-                          value={isBranchAdmin ? (getActiveBranchId() || formData.branch) : formData.branch}
-                          onValueChange={(value) => handleInputChange("branch", value)}
-                          disabled={isBranchAdmin || !formData.location || isLoadingBranches}
-                        >
-                          <SelectTrigger className={cn(
-                            "!w-full !h-14 !pl-12 !pr-4 !py-4 !text-base !bg-gray-50 !border-gray-200 !rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent !min-h-14",
-                            errors.branch ? "!border-red-500 !bg-red-50" : "",
-                            (!formData.location || isLoadingBranches) ? "opacity-50 cursor-not-allowed !bg-gray-200" : ""
-                          )}>
-                            <SelectValue placeholder={
-                              isLoadingBranches
-                                ? "Loading branches..."
-                                : !formData.location
-                                  ? "Select location first"
-                                  : "Select Branch"
-                            } className="text-gray-500" />
-                          </SelectTrigger>
-                          <SelectContent className="rounded-xl border border-gray-200 bg-white shadow-lg max-h-60">
-                            {isBranchAdmin && getActiveBranch() ? (
-                              <SelectItem value={getActiveBranch()!.id} className="!py-3 !pl-3 pr-8 text-base">
-                                {getActiveBranch()!.name}
-                              </SelectItem>
-                            ) : branches.length > 0 ? (
-                              branches
-                                .filter((branch) => branch && branch.id && branch.id.trim() !== '')
-                                .map((branch) => (
-                                  <SelectItem key={branch.id} value={branch.id} className="!py-3 !pl-3 pr-8 text-base hover:bg-gray-50 rounded-lg cursor-pointer">
-                                  <div className="flex flex-col">
-                                    <span className="font-medium">{branch.name}</span>
-                                    <span className="text-xs text-gray-500">
-                                      {branch.address?.city}, {branch.address?.state}
-                                    </span>
-                                  </div>
-                                </SelectItem>
-                              ))
-                            ) : (
-                              <div className="p-4 text-center text-gray-500">
-                                <p className="text-sm">
-                                  {!formData.location
-                                    ? "Please select a location first"
-                                    : isLoadingBranches
-                                      ? "Loading branches..."
-                                      : "No branches available for selected location"
-                                  }
-                                </p>
-                              </div>
+                        {isBranchAdmin ? (
+                          <BranchSelectionField
+                            readOnly
+                            className={cn(
+                              "!h-14 !pl-12 !text-base !bg-gray-50 !border-gray-200 !rounded-xl",
+                              errors.branch ? "!border-red-500 !bg-red-50" : ""
                             )}
-                          </SelectContent>
-                        </Select>
+                          />
+                        ) : (
+                          <Select
+                            value={formData.branch}
+                            onValueChange={(value) => handleInputChange("branch", value)}
+                            disabled={!formData.location || isLoadingBranches}
+                          >
+                            <SelectTrigger className={cn(
+                              "!w-full !h-14 !pl-12 !pr-4 !py-4 !text-base !bg-gray-50 !border-gray-200 !rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent !min-h-14",
+                              errors.branch ? "!border-red-500 !bg-red-50" : "",
+                              (!formData.location || isLoadingBranches) ? "opacity-50 cursor-not-allowed !bg-gray-200" : ""
+                            )}>
+                              <SelectValue placeholder={
+                                isLoadingBranches
+                                  ? "Loading branches..."
+                                  : !formData.location
+                                    ? "Select location first"
+                                    : "Select Branch"
+                              } className="text-gray-500" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl border border-gray-200 bg-white shadow-lg max-h-60">
+                              {branches.length > 0 ? (
+                                branches
+                                  .filter((branch) => branch && branch.id && branch.id.trim() !== '')
+                                  .map((branch) => (
+                                    <SelectItem key={branch.id} value={branch.id} className="!py-3 !pl-3 pr-8 text-base hover:bg-gray-50 rounded-lg cursor-pointer">
+                                      <div className="flex flex-col">
+                                        <span className="font-medium">{branch.name}</span>
+                                        <span className="text-xs text-gray-500">
+                                          {branch.address?.city}, {branch.address?.state}
+                                        </span>
+                                      </div>
+                                    </SelectItem>
+                                  ))
+                              ) : (
+                                <div className="p-4 text-center text-gray-500">
+                                  <p className="text-sm">
+                                    {!formData.location
+                                      ? "Please select a location first"
+                                      : isLoadingBranches
+                                        ? "Loading branches..."
+                                        : "No branches available for selected location"
+                                    }
+                                  </p>
+                                </div>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        )}
                         {errors.branch && <p className="text-red-500 text-sm mt-1">{errors.branch}</p>}
                       </div>
                     </div>

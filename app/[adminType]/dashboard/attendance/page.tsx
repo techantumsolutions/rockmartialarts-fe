@@ -81,6 +81,7 @@ interface BranchStats {
 export default function AttendanceOverviewPage() {
   const router = useRouter()
   const basePath = useDashboardBasePath()
+  const isBranchManagerDashboard = basePath === "/branch-admin/dashboard"
   
   // State management
   const [stats, setStats] = useState<AttendanceOverviewStats>({
@@ -160,6 +161,7 @@ export default function AttendanceOverviewPage() {
 
       let statsData = null
       let studentData = []
+      let studentRosterLoaded = false
       let coachData = []
       let branchData = []
 
@@ -175,6 +177,7 @@ export default function AttendanceOverviewPage() {
       if (studentsResponse.ok) {
         const data = await studentsResponse.json()
         studentData = data.students || []
+        studentRosterLoaded = true
         console.log(`📚 Students data received: ${studentData.length} students`)
       } else {
         console.warn("⚠️ Students endpoint failed:", studentsResponse.status)
@@ -199,29 +202,50 @@ export default function AttendanceOverviewPage() {
       }
 
       // Use stats data if available, otherwise calculate from student data
+      const uniqueStudentRosterCount = new Set(
+        studentData.map((student: any) => String(student.id || "")).filter(Boolean)
+      ).size
       let overviewStats: AttendanceOverviewStats
 
       if (statsData) {
         // Use the backend stats API data
         overviewStats = {
-          total_students: statsData.total_students || 0,
+          total_students: isBranchManagerDashboard && studentRosterLoaded
+            ? uniqueStudentRosterCount
+            : statsData.total_students || 0,
           total_coaches: statsData.total_coaches || 0,
-          student_present_today: statsData.today_present_students || 0,
-          student_absent_today: Math.max(0, (statsData.total_students || 0) - (statsData.today_present_students || 0)),
-          student_late_today: 0, // Not provided by current API
-          coach_present_today: statsData.today_present_coaches || 0,
-          coach_absent_today: Math.max(0, (statsData.total_coaches || 0) - (statsData.today_present_coaches || 0)),
-          coach_late_today: 0, // Not provided by current API
-          overall_attendance_rate: 0,
-          student_attendance_rate: statsData.average_student_attendance || 0,
-          coach_attendance_rate: statsData.average_coach_attendance || 0
+          student_present_today: isBranchManagerDashboard
+            ? statsData.student_present_today || 0
+            : statsData.today_present_students || 0,
+          student_absent_today: isBranchManagerDashboard
+            ? statsData.student_absent_today || 0
+            : Math.max(0, (statsData.total_students || 0) - (statsData.today_present_students || 0)),
+          student_late_today: isBranchManagerDashboard ? statsData.student_late_today || 0 : 0,
+          coach_present_today: isBranchManagerDashboard
+            ? statsData.coach_present_today || 0
+            : statsData.today_present_coaches || 0,
+          coach_absent_today: isBranchManagerDashboard
+            ? statsData.coach_absent_today || 0
+            : Math.max(0, (statsData.total_coaches || 0) - (statsData.today_present_coaches || 0)),
+          coach_late_today: isBranchManagerDashboard ? statsData.coach_late_today || 0 : 0,
+          overall_attendance_rate: isBranchManagerDashboard
+            ? statsData.overall_attendance_rate || 0
+            : 0,
+          student_attendance_rate: isBranchManagerDashboard
+            ? statsData.student_attendance_rate || 0
+            : statsData.average_student_attendance || 0,
+          coach_attendance_rate: isBranchManagerDashboard
+            ? statsData.coach_attendance_rate || 0
+            : statsData.average_coach_attendance || 0
         }
 
-        // Calculate overall attendance rate
-        const totalPeople = overviewStats.total_students + overviewStats.total_coaches
-        if (totalPeople > 0) {
-          const totalPresent = overviewStats.student_present_today + overviewStats.coach_present_today
-          overviewStats.overall_attendance_rate = (totalPresent / totalPeople) * 100
+        if (!isBranchManagerDashboard) {
+          // Calculate overall attendance rate
+          const totalPeople = overviewStats.total_students + overviewStats.total_coaches
+          if (totalPeople > 0) {
+            const totalPresent = overviewStats.student_present_today + overviewStats.coach_present_today
+            overviewStats.overall_attendance_rate = (totalPresent / totalPeople) * 100
+          }
         }
       } else {
         // Fallback: calculate from student and coach data
@@ -240,7 +264,7 @@ export default function AttendanceOverviewPage() {
         }
 
         overviewStats = {
-          total_students: studentStats.total,
+          total_students: isBranchManagerDashboard ? uniqueStudentRosterCount : studentStats.total,
           total_coaches: coachStats.total,
           student_present_today: studentStats.present,
           student_absent_today: studentStats.absent,
