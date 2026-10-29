@@ -108,6 +108,7 @@ export function BranchCourses({ branch }: { branch: BranchData }) {
       title: course.title,
       name: course.name,
       code: course.code,
+      slug: course.slug,
       description: course.description,
       difficulty_level: course.difficulty_level,
     })
@@ -117,7 +118,7 @@ export function BranchCourses({ branch }: { branch: BranchData }) {
 
   return (
     <section
-      className="py-16 md:py-20 bg-[#171A26] relative z-10"
+      className="py-8 md:py-10 bg-[#171A26] relative z-10"
       data-aos="fade-up"
       data-aos-duration="600"
       data-aos-once="true"

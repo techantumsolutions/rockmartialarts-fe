@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { formatOperationalTimingsForDisplay } from "@/components/branch/types"
 import type { BranchCourseScheduleEntry } from "@/components/branch/types"
+import { toCourseSlug } from "@/lib/course-slug"
 import {
   courseScheduleBatchCards,
   formatCourseBatchesForModal,
@@ -25,6 +26,7 @@ export type CourseInfoModalCourse = {
   title?: string
   name?: string
   code?: string
+  slug?: string
   description?: string
   difficulty_level?: string
 }
@@ -145,13 +147,15 @@ export function CourseInfoModal({
   const durationLine = (branchInfo?.duration ?? "").trim()
   const showDuration = durationLine && durationLine !== "—"
 
-  const enrollHref = "/register"
+  const enrollHref = course
+    ? `/courses/${encodeURIComponent(toCourseSlug(course))}`
+    : "/courses"
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton
-        className="max-h-[min(92vh,880px)] w-full max-w-[min(96vw,1100px)] overflow-y-auto border border-gray-200 bg-white p-6 text-gray-800 shadow-xl sm:max-w-[min(96vw,1100px)] data-[state=open]:duration-200"
+        className="max-h-[min(92vh,880px)] w-full max-w-[min(92vw,760px)] overflow-y-auto border border-gray-200 bg-white p-6 text-gray-800 shadow-xl sm:max-w-[min(92vw,760px)] data-[state=open]:duration-200"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <DialogHeader className="space-y-1 pr-8 text-left">

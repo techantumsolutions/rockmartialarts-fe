@@ -276,6 +276,17 @@ function CourseDetailPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const slug = params.id as string
+  const courseRegistrationHref = (href?: string) => {
+    const target = href?.trim() || "/register"
+    const [pathAndQuery, hash] = target.split("#", 2)
+    const [pathname, query = ""] = pathAndQuery.split("?", 2)
+    if (!/^\/register(?:\/|$)/.test(pathname)) return target
+
+    const queryParams = new URLSearchParams(query)
+    queryParams.set("returnTo", `/courses/${encodeURIComponent(slug)}`)
+    const search = queryParams.toString()
+    return `${pathname}${search ? `?${search}` : ""}${hash ? `#${hash}` : ""}`
+  }
   const [course, setCourse] = useState<CourseData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -623,7 +634,7 @@ function CourseDetailPageInner() {
             {hero.subtitle && <p className="text-lg md:text-xl text-gray-200 max-w-2xl mb-3">{hero.subtitle}</p>}
             {hero.description && <p className="text-gray-300 max-w-2xl mb-6">{hero.description}</p>}
             {hero.cta_text && (
-              <Link href={hero.cta_link || "/register"} className="inline-block rounded-lg bg-[#F73322] px-8 py-3.5 text-base font-bold text-white hover:bg-[#FFB70F] hover:text-black transition-colors">
+              <Link href={courseRegistrationHref(hero.cta_link)} className="inline-block rounded-lg bg-[#F73322] px-8 py-3.5 text-base font-bold text-white hover:bg-[#FFB70F] hover:text-black transition-colors">
                 {hero.cta_text}
               </Link>
             )}
@@ -774,7 +785,7 @@ function CourseDetailPageInner() {
             </h2>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <Link
-                href={(hero.cta_link && hero.cta_link.trim()) || "/register"}
+                href={courseRegistrationHref(hero.cta_link)}
                 className="inline-flex items-center justify-center rounded-lg bg-[#FFB70F] px-10 py-4 text-base font-bold text-black hover:bg-white transition-colors shadow-lg"
               >
                 {hero.cta_text?.trim() || "Join Now"}

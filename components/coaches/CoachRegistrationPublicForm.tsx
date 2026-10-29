@@ -69,7 +69,7 @@ const INITIAL: FormState = {
   country: "India",
   professional_experience: "",
   education_qualification: "",
-  designation: "Coach",
+  designation: "",
   specializations: [],
   service_location_ids: [],
   profile_image_url: "",
@@ -539,7 +539,7 @@ export default function CoachRegistrationPublicForm() {
               onValueChange={(v) => setForm((f) => ({ ...f, designation: v }))}
             >
               <SelectTrigger className={fieldClass}>
-                <SelectValue placeholder="Designation" />
+                <SelectValue placeholder="Select designation" />
               </SelectTrigger>
               <SelectContent>
                 {(designations.length
@@ -566,7 +566,7 @@ export default function CoachRegistrationPublicForm() {
           <div className="sm:col-span-2 space-y-2">
             <Label className="text-gray-300">Specializations *</Label>
             <div
-              className={`flex flex-wrap gap-3 rounded-md ${
+              className={`grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 lg:grid-cols-4 rounded-md ${
                 fieldErrors.specializations ? "ring-1 ring-red-500 p-2" : ""
               }`}
             >
@@ -580,12 +580,15 @@ export default function CoachRegistrationPublicForm() {
               ).map((s) => {
                 const v = optionValue(s)
                 return (
-                  <label key={v} className="flex items-center gap-2 text-sm text-gray-200">
+                  <label
+                    key={v}
+                    className="flex min-w-0 items-start gap-2 text-sm text-gray-200"
+                  >
                     <Checkbox
                       checked={form.specializations.includes(v)}
                       onCheckedChange={() => toggleSpec(v)}
                     />
-                    {optionLabel(s)}
+                    <span className="min-w-0">{optionLabel(s)}</span>
                   </label>
                 )
               })}
@@ -596,17 +599,20 @@ export default function CoachRegistrationPublicForm() {
           </div>
           <div className="sm:col-span-2 space-y-2">
             <Label className="text-gray-300">Service locations (branches) *</Label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 lg:grid-cols-4 max-h-48 overflow-y-auto pr-1">
               {branches.length === 0 ? (
                 <p className="text-sm text-gray-500">No branches available.</p>
               ) : (
                 branches.map((b) => (
-                  <label key={b.id} className="flex items-center gap-2 text-sm text-gray-200">
+                  <label
+                    key={b.id}
+                    className="flex min-w-0 items-start gap-2 text-sm text-gray-200"
+                  >
                     <Checkbox
                       checked={form.service_location_ids.includes(b.id)}
                       onCheckedChange={() => toggleLocation(b.id)}
                     />
-                    {b.name}
+                    <span className="min-w-0">{b.name}</span>
                   </label>
                 ))
               )}

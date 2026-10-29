@@ -95,7 +95,7 @@ export function BranchAchievements({ branchId }: BranchAchievementsProps) {
   }
 
   return (
-    <section className="py-16 md:py-20 bg-[#171A26] relative z-10">
+    <section className="py-8 md:py-10 bg-[#171A26] relative z-10">
       <div className="container mx-auto px-4 max-w-7xl">
         <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
         <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2 text-center">Accomplishments</p>
