@@ -340,11 +340,14 @@ export default function RegisterPage() {
   const registrationMediaUrl = cms?.homepage?.registration_media_url
   const registrationMediaType = cms?.homepage?.registration_media_type || "auto"
 
+  const fieldClass = (hasError?: string) =>
+    `pl-5 py-3 text-[14px] bg-[#F9F8FF] border-0 rounded-xl h-12 placeholder:text-[#000] ${hasError ? "!border !border-red-500" : ""}`
+
   return (
-    <div className="min-h-screen flex">
-      {/* Left Side - Illustration */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gray-200 items-center justify-center relative overflow-hidden">
-        <div className="w-[550px] h-[550px] bg-cover bg-center bg-no-repeat overflow-hidden rounded-xl">
+    <div className="min-h-[calc(100dvh-4.75rem)] sm:min-h-[calc(100dvh-5rem)] lg:h-[calc(100dvh-4.5rem)] lg:min-h-0 lg:overflow-hidden flex">
+      {/* Left Side - full image fitted inside gray panel (no crop) */}
+      <div className="hidden lg:flex lg:w-1/2 lg:h-full bg-gray-200 items-center justify-center relative overflow-hidden p-6 xl:p-10">
+        <div className="relative w-full h-full flex items-center justify-center overflow-hidden rounded-xl bg-gray-200">
           {registrationMediaUrl ? (
             registrationMediaType === "video" || /\.(mp4|webm)$/i.test(registrationMediaUrl) ? (
               <video
@@ -353,60 +356,62 @@ export default function RegisterPage() {
                 loop
                 muted
                 playsInline
-                className="w-full h-full object-cover"
+                className="max-w-full max-h-full w-auto h-auto object-contain"
               />
             ) : (
               <img
                 src={registrationMediaUrl}
                 alt="Registration"
-                className="w-full h-full object-cover"
+                className="max-w-full max-h-full w-auto h-auto object-contain"
               />
             )
           ) : (
             <div
-              className="w-full h-full aspect-3/2 bg-cover bg-center bg-no-repeat"
+              className="w-full h-full bg-contain bg-center bg-no-repeat"
               style={{ backgroundImage: "url('/images/registration-left.png')" }}
             />
           )}
         </div>
       </div>
 
-      {/* Right Side - Registration Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center px-8 py-0 bg-white">
-        <div className="w-full max-w-md space-y-0">
+      {/* Right Side - comfortable form sized to viewport (no document scroll) */}
+      <div className="w-full lg:w-1/2 lg:h-full lg:overflow-y-auto flex items-center justify-center px-6 py-4 lg:py-3 bg-white">
+        <div className="w-full max-w-lg space-y-3 my-auto">
           <div className="flex justify-start">
             <Button
               type="button"
               variant="ghost"
-              className="gap-2 pl-0 text-gray-700  hover:text-gray-9 00 -ml-2"
+              size="sm"
+              className="gap-2 pl-0 h-8 text-gray-700 hover:text-gray-900 -ml-2"
               onClick={() => router.back()}
             >
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
           </div>
-          {/* Header */}
-          <div className="text-center space-y-2">
-            <h1 className="text-3xl font-bold text-black">Registration</h1>
-            <p className="text-gray-500 text-sm">Enter your details to create your account and continue registration.</p>
+
+          <div className="text-center space-y-1">
+            <h1 className="text-2xl xl:text-3xl font-bold text-black">Registration</h1>
+            <p className="text-gray-500 text-sm">
+              Enter your details to create your account and continue registration.
+            </p>
           </div>
 
-          {/* Registration Form */}
-          <form onSubmit={handleNextStep} className="mt-4 space-y-3">
+          <form onSubmit={handleNextStep} className="space-y-2.5">
             {(checkingEmail || checkingPhone || submitting) && (
               <p className="text-sm text-gray-500">
                 {submitting ? "Verifying email & phone..." : checkingEmail && checkingPhone ? "Checking email & phone..." : checkingEmail ? "Checking email..." : "Checking phone..."}
               </p>
             )}
-            {/* Name Fields */}
-            <div className="grid grid-cols-2 gap-4">
+
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <Input
                   type="text"
                   placeholder="Enter first name"
                   value={formData.firstName}
                   onChange={(e) => handleInputChange("firstName", e.target.value)}
-                  className={`pl-5 py-4 text-[14px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000] ${errors.firstName ? '!border !border-red-500' : ''}`}
+                  className={fieldClass(errors.firstName)}
                 />
                 {errors.firstName && <p className="text-red-500 text-xs mt-1 ml-1">{errors.firstName}</p>}
               </div>
@@ -416,21 +421,20 @@ export default function RegisterPage() {
                   placeholder="Enter last name"
                   value={formData.lastName}
                   onChange={(e) => handleInputChange("lastName", e.target.value)}
-                  className={`pl-5 py-4 text-[14px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000] ${errors.lastName ? '!border !border-red-500' : ''}`}
+                  className={fieldClass(errors.lastName)}
                 />
                 {errors.lastName && <p className="text-red-500 text-xs mt-1 ml-1">{errors.lastName}</p>}
               </div>
             </div>
 
-            {/* Email and Mobile Fields */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Input
                   type="email"
                   placeholder="Enter your email address"
                   value={formData.email}
                   onChange={(e) => handleInputChange("email", e.target.value)}
-                  className={`pl-5 py-4 text-[14px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000] ${errors.email ? '!border !border-red-500' : ''}`}
+                  className={fieldClass(errors.email)}
                 />
                 {errors.email && <p className="text-red-500 text-xs mt-1 ml-1">{errors.email}</p>}
                 {!errors.email && checkingEmail && (
@@ -439,7 +443,7 @@ export default function RegisterPage() {
               </div>
               <div>
                 <div
-                  className={`flex items-stretch rounded-xl h-14 overflow-hidden bg-[#F9F8FF] ${errors.mobile ? "ring-2 ring-red-500 ring-inset" : ""}`}
+                  className={`flex items-stretch rounded-xl h-12 overflow-hidden bg-[#F9F8FF] ${errors.mobile ? "ring-2 ring-red-500 ring-inset" : ""}`}
                 >
                   <span
                     className="flex items-center pl-5 pr-2 text-[14px] text-gray-600 shrink-0 select-none border-0"
@@ -455,7 +459,7 @@ export default function RegisterPage() {
                     placeholder="Enter 10-digit mobile number"
                     value={formData.mobile}
                     onChange={(e) => handleInputChange("mobile", e.target.value)}
-                    className="flex-1 min-w-0 border-0 rounded-none h-14 bg-transparent shadow-none focus-visible:ring-0 pr-5 py-4 text-[14px] placeholder:text-[#000]/70"
+                    className="flex-1 min-w-0 border-0 rounded-none h-12 bg-transparent shadow-none focus-visible:ring-0 pr-5 py-3 text-[14px] placeholder:text-[#000]/70"
                   />
                 </div>
                 {errors.mobile && <p className="text-red-500 text-xs mt-1 ml-1">{errors.mobile}</p>}
@@ -476,58 +480,60 @@ export default function RegisterPage() {
               <p className="text-red-500 text-xs ml-1">{errors.phoneOtp}</p>
             )}
 
-            {/* Password Field */}
             <div>
               <PasswordInput
                 placeholder="Enter password"
                 value={formData.password}
                 onChange={(e) => handleInputChange("password", e.target.value)}
-                className={`pl-5 py-4 text-[14px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000] ${errors.password ? '!border !border-red-500' : ''}`}
+                className={fieldClass(errors.password)}
               />
               {errors.password && <p className="text-red-500 text-xs mt-1 ml-1">{errors.password}</p>}
             </div>
 
-            <div className="space-y-2 rounded-xl bg-[#F9F8FF] p-4">
+            <div className="space-y-2 rounded-xl bg-[#F9F8FF] p-3">
               <p className="text-sm font-semibold text-gray-800">Who is this registration for?</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => handleInputChange("accountType", "single")}
-                  className={`text-left rounded-lg border px-3 py-3 text-sm ${
+                  className={`text-left rounded-lg border px-3 py-2.5 text-sm ${
                     formData.accountType === "single"
                       ? "border-yellow-400 bg-yellow-50 font-semibold text-gray-900"
                       : "border-transparent bg-white text-gray-700"
                   }`}
                 >
                   Just me
-                  <span className="block text-xs font-normal text-gray-500 mt-1">Single account — one student, one login</span>
+                  <span className="block text-xs font-normal text-gray-500 mt-1">
+                    Single account — one student, one login
+                  </span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleInputChange("accountType", "family")}
-                  className={`text-left rounded-lg border px-3 py-3 text-sm ${
+                  className={`text-left rounded-lg border px-3 py-2.5 text-sm ${
                     formData.accountType === "family"
                       ? "border-yellow-400 bg-yellow-50 font-semibold text-gray-900"
                       : "border-transparent bg-white text-gray-700"
                   }`}
                 >
                   Family account
-                  <span className="block text-xs font-normal text-gray-500 mt-1">Multiple students, one login</span>
+                  <span className="block text-xs font-normal text-gray-500 mt-1">
+                    Multiple students, one login
+                  </span>
                 </button>
               </div>
             </div>
 
-            {/* Gender and DOB Fields */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <Select value={formData.gender} onValueChange={(value) => handleInputChange("gender", value)} >
-                  <SelectTrigger className={`!w-full !h-14 !pl-5 !pr-4 !py-4 !text-base !bg-[#F9F8FF] !border-0 !rounded-xl focus:outline-none focus:ring-2 !min-h-14 ${errors.gender ? '!border !border-red-500' : ''}`}>
+                <Select value={formData.gender} onValueChange={(value) => handleInputChange("gender", value)}>
+                  <SelectTrigger className={`!w-full !h-12 !pl-5 !pr-4 !py-3 !text-sm !bg-[#F9F8FF] !border-0 !rounded-xl focus:outline-none focus:ring-2 !min-h-12 ${errors.gender ? "!border !border-red-500" : ""}`}>
                     <SelectValue placeholder="Select Gender" className="text-gray-500 placeholder:text-[#000]" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl border border-gray-200 bg-white shadow-lg max-h-60">
-                    <SelectItem value="male" className="!py-3 !pl-3 pr-8 text-base hover:bg-gray-50 rounded-lg cursor-pointer">Male</SelectItem>
-                    <SelectItem value="female" className="!py-3 !pl-3 pr-8 text-base hover:bg-gray-50 rounded-lg cursor-pointer">Female</SelectItem>
-                    <SelectItem value="other" className="!py-3 !pl-3 pr-8 text-base hover:bg-gray-50 rounded-lg cursor-pointer">Other</SelectItem>
+                    <SelectItem value="male" className="!py-2.5 !pl-3 pr-8 text-sm hover:bg-gray-50 rounded-lg cursor-pointer">Male</SelectItem>
+                    <SelectItem value="female" className="!py-2.5 !pl-3 pr-8 text-sm hover:bg-gray-50 rounded-lg cursor-pointer">Female</SelectItem>
+                    <SelectItem value="other" className="!py-2.5 !pl-3 pr-8 text-sm hover:bg-gray-50 rounded-lg cursor-pointer">Other</SelectItem>
                   </SelectContent>
                 </Select>
                 {errors.gender && <p className="text-red-500 text-xs mt-1 ml-1">{errors.gender}</p>}
@@ -545,7 +551,7 @@ export default function RegisterPage() {
                   onChange={(e) => handleInputChange("dob", e.target.value)}
                   onFocus={() => setDobFocused(true)}
                   onBlur={() => setDobFocused(false)}
-                  className={`pl-5 py-4 text-[14px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000] ${!formData.dob && !dobFocused ? "text-transparent" : ""} ${errors.dob ? '!border !border-red-500' : ''}`}
+                  className={`${fieldClass(errors.dob)} ${!formData.dob && !dobFocused ? "text-transparent" : ""}`}
                 />
                 {!formData.dob && !dobFocused && (
                   <span className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-[14px] text-[#000]/80">
@@ -556,17 +562,15 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* Next Step Button */}
             <Button
               type="submit"
               disabled={submitting || emailExists || phoneExists || !phoneOtpVerified}
-              className="w-full bg-yellow-400 hover:bg-yellow-500 text-[#ffffff] font-bold py-4 px-6 rounded-xl text-[12px] h-14 transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl mt-8 disabled:opacity-70"
+              className="w-full bg-yellow-400 hover:bg-yellow-500 text-[#ffffff] font-bold py-3 px-6 rounded-xl text-[12px] h-12 transition-all duration-200 shadow-md hover:shadow-lg mt-1 disabled:opacity-70"
             >
               {submitting ? "Verifying email & phone..." : "NEXT STEP"}
             </Button>
           </form>
 
-          {/* Login Link */}
           <div className="text-center">
             <p className="text-sm text-gray-600">
               Already have an account?{" "}
@@ -576,12 +580,10 @@ export default function RegisterPage() {
             </p>
           </div>
 
-          {/* Step Indicator — updates when Single vs Family is selected */}
           <RegistrationStepIndicator
             accountType={formData.accountType === "family" ? "family" : "single"}
             currentStep={1}
           />
-
         </div>
       </div>
     </div>

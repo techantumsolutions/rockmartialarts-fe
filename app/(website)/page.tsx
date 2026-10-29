@@ -169,59 +169,59 @@ async function getShowcaseTestimonialsFromApi(): Promise<
   }
 }
 
+function mapPublicAchievements(items: any[]) {
+  return items.map((a: any) => ({
+    id: a.id,
+    student_name: a.student_name || "Student",
+    student_photo: null as string | null,
+    achievement_title: a.title || "Achievement",
+    description: a.description || null,
+    image: Array.isArray(a.images) && a.images.length > 0 ? a.images[0] : null,
+  }))
+}
+
 async function getShowcaseAchievementsFromApi(): Promise<
   {
     id?: string
     student_name?: string
-    student_photo?: string
+    student_photo?: string | null
     achievement_title?: string
-    description?: string
-    image?: string
+    description?: string | null
+    image?: string | null
   }[]
 > {
   try {
-    const siteOrigin =
-      process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "")
-    const qs = `limit=6`
-    if (siteOrigin) {
-      const res = await fetch(`${siteOrigin.replace(/\/$/, "")}/api/backend/achievements/public/global?${qs}`, {
-        cache: "no-store",
-        headers: { "Content-Type": "application/json" },
-      })
-      if (res.ok) {
-        const data = await res.json()
-        const items = Array.isArray(data.achievements) ? data.achievements : []
-        // Map student_achievements format to ShowcaseAchievementItem format
-        return items.map((a: any) => ({
-          id: a.id,
-          student_name: a.student_name || "Student",
-          student_photo: null,
-          achievement_title: a.title || "Achievement",
-          description: a.description || null,
-          image: Array.isArray(a.images) && a.images.length > 0 ? a.images[0] : null,
-        }))
-      }
-    }
-    const backendUrl =
-      process.env.API_BASE_URL ||
-      process.env.NEXT_PUBLIC_BACKEND_URL ||
-      process.env.NEXT_PUBLIC_API_BASE_URL ||
-      "http://127.0.0.1:8003"
+    // Prefer local FastAPI (same DB the admin featured toggle writes to).
+    // Do not hit NEXT_PUBLIC_SITE_URL first — that can be production and ignore local featured flags.
+    const qs = `limit=12`
+    const backendUrl = getBackendProxyBaseUrl()
     const res = await fetch(`${backendUrl.replace(/\/$/, "")}/api/achievements/public/global?${qs}`, {
       cache: "no-store",
       headers: { "Content-Type": "application/json" },
     })
-    if (!res.ok) return []
-    const data = await res.json()
-    const items = Array.isArray(data.achievements) ? data.achievements : []
-    return items.map((a: any) => ({
-      id: a.id,
-      student_name: a.student_name || "Student",
-      student_photo: null,
-      achievement_title: a.title || "Achievement",
-      description: a.description || null,
-      image: Array.isArray(a.images) && a.images.length > 0 ? a.images[0] : null,
-    }))
+    if (res.ok) {
+      const data = await res.json()
+      const items = Array.isArray(data.achievements) ? data.achievements : []
+      return mapPublicAchievements(items)
+    }
+
+    const siteOrigin =
+      process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "")
+    if (siteOrigin) {
+      const proxyRes = await fetch(
+        `${siteOrigin.replace(/\/$/, "")}/api/backend/achievements/public/global?${qs}`,
+        {
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+        }
+      )
+      if (proxyRes.ok) {
+        const data = await proxyRes.json()
+        const items = Array.isArray(data.achievements) ? data.achievements : []
+        return mapPublicAchievements(items)
+      }
+    }
+    return []
   } catch {
     return []
   }

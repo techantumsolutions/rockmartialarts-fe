@@ -24,9 +24,7 @@ import {
   Save,
   X,
   ArrowLeft,
-  Loader2,
-  Eye,
-  EyeOff
+  Loader2
 } from "lucide-react"
 import CoachDashboardHeader from "@/components/coach-dashboard-header"
 import { checkCoachAuth } from "@/lib/coachAuth"
@@ -77,7 +75,6 @@ export default function CoachProfileEditPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showPassword, setShowPassword] = useState(false)
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
 
@@ -86,7 +83,6 @@ export default function CoachProfileEditPage() {
     lastName: "",
     email: "",
     phone: "",
-    password: "",
     gender: "",
     dateOfBirth: "",
     address: "",
@@ -188,6 +184,24 @@ export default function CoachProfileEditPage() {
     fetchCoachProfile()
   }, [router])
 
+  // Helper to sanitize phone numbers: strips non-digits, country code (+91/91), and leading zeros
+  const cleanPhoneNumber = (rawPhone?: string | null): string => {
+    if (!rawPhone) return ""
+    // Remove all non-digits
+    let digits = String(rawPhone).replace(/\D/g, "")
+    // If it starts with country code 91 and has more than 10 digits, remove the 91 prefix
+    if (digits.length > 10 && digits.startsWith("91")) {
+      digits = digits.slice(2)
+    }
+    // Remove any leading zero(s) (e.g. 08179698345 -> 8179698345)
+    digits = digits.replace(/^0+/, "")
+    // Restrict to max 10 digits for Indian mobile numbers
+    if (digits.length > 10) {
+      digits = digits.slice(0, 10)
+    }
+    return digits
+  }
+
   const populateFormData = (profileData: CoachProfile) => {
     console.log("Populating form with profile data:", profileData)
 
@@ -195,8 +209,7 @@ export default function CoachProfileEditPage() {
       firstName: profileData.personal_info?.first_name || "",
       lastName: profileData.personal_info?.last_name || "",
       email: profileData.contact_info?.email || "",
-      phone: profileData.contact_info?.phone || "",
-      password: "", // Always empty for security
+      phone: cleanPhoneNumber(profileData.contact_info?.phone || (profileData as any).phone || ""),
       gender: profileData.personal_info?.gender || "",
       dateOfBirth: profileData.personal_info?.date_of_birth?.split('T')[0] || "",
       address: profileData.address_info?.address || "",
@@ -246,15 +259,12 @@ export default function CoachProfileEditPage() {
       newErrors.email = "Please enter a valid email address"
     }
 
-    // Phone validation (basic)
-    const phoneRegex = /^[0-9]{10}$/
-    if (formData.phone && !phoneRegex.test(formData.phone.replace(/\D/g, ''))) {
-      newErrors.phone = "Please enter a valid 10-digit phone number"
-    }
-
-    // Password validation (only if provided)
-    if (formData.password && formData.password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters long"
+    // Phone validation (clean 10-digit number without leading 0 or prefix)
+    const cleanedPhone = cleanPhoneNumber(formData.phone)
+    if (!cleanedPhone) {
+      newErrors.phone = "Phone number is required"
+    } else if (cleanedPhone.length !== 10) {
+      newErrors.phone = "Please enter a valid 10-digit phone number without prefix"
     }
 
     setErrors(newErrors)
@@ -296,8 +306,7 @@ export default function CoachProfileEditPage() {
         contact_info: {
           email: formData.email || "unknown@example.com",
           country_code: "+91",
-          phone: formData.phone || "0000000000",
-          ...(formData.password.trim() && { password: formData.password })
+          phone: cleanPhoneNumber(formData.phone)
         },
         address_info: {
           address: formData.address || "Not provided",
@@ -345,6 +354,30 @@ export default function CoachProfileEditPage() {
 
       const result = await response.json()
       console.log("✅ Profile update successful:", result)
+
+      // Sync updated coach in localStorage if stored
+      try {
+        const storedCoachRaw = localStorage.getItem("coach")
+        if (storedCoachRaw) {
+          const storedCoach = JSON.parse(storedCoachRaw)
+          const updatedPhone = cleanPhoneNumber(formData.phone)
+          const updatedCoachData = result.coach || result
+          const newStoredCoach = {
+            ...storedCoach,
+            ...updatedCoachData,
+            contact_info: {
+              ...(storedCoach.contact_info || {}),
+              ...(updatedCoachData.contact_info || {}),
+              phone: updatedPhone,
+              country_code: "+91",
+            },
+            phone: updatedPhone,
+          }
+          localStorage.setItem("coach", JSON.stringify(newStoredCoach))
+        }
+      } catch (err) {
+        console.error("Error updating coach in localStorage:", err)
+      }
 
       // Show success toast
       toast({
@@ -563,52 +596,33 @@ export default function CoachProfileEditPage() {
                       id="email"
                       type="email"
                       value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      disabled
+                      readOnly
                       placeholder="Enter email address"
-                      className={`h-11 ${errors.email ? "border-red-500" : ""}`}
+                      className="h-11 bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200"
                     />
-                    {errors.email && <p className="text-red-500 text-xs sm:text-sm">{errors.email}</p>}
+                    <p className="text-xs text-gray-500">Email address cannot be changed.</p>
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="phone" className="text-sm font-medium">Phone Number *</Label>
                     <Input
                       id="phone"
+                      type="tel"
                       value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      placeholder="Enter phone number"
+                      onChange={(e) => {
+                        const cleaned = cleanPhoneNumber(e.target.value)
+                        setFormData((prev) => ({ ...prev, phone: cleaned }))
+                        if (errors.phone) {
+                          setErrors((prev) => ({ ...prev, phone: "" }))
+                        }
+                      }}
+                      placeholder="Enter 10-digit phone number"
+                      maxLength={10}
                       className={`h-11 ${errors.phone ? "border-red-500" : ""}`}
                     />
                     {errors.phone && <p className="text-red-500 text-xs sm:text-sm">{errors.phone}</p>}
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="password" className="text-sm font-medium">Password (Leave blank to keep current password)</Label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      placeholder="Enter new password (optional)"
-                      className={`h-11 pr-12 ${errors.password ? "border-red-500" : ""}`}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-11 w-11 px-0 hover:bg-transparent"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                  {errors.password && <p className="text-red-500 text-xs sm:text-sm">{errors.password}</p>}
                 </div>
               </CardContent>
             </Card>

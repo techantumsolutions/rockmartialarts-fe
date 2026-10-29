@@ -186,14 +186,12 @@ export default function CourseListPage() {
       <main className="w-full p-4 lg:px-8 lg:py-6">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-[#4F5077]">Course list</h1>
-          {!isBranchAdmin && (
-            <Button
-              onClick={() => router.push(`${basePath}/create-course`)}
-              className="bg-yellow-400 hover:bg-yellow-500 text-white px-6 py-2 rounded-lg font-medium"
-            >
-              + Add Course
-            </Button>
-          )}
+          <Button
+            onClick={() => router.push(`${basePath}/create-course`)}
+            className="bg-yellow-400 hover:bg-yellow-500 text-white px-6 py-2 rounded-lg font-medium"
+          >
+            + Add Course
+          </Button>
         </div>
 
         <div className="mb-6">

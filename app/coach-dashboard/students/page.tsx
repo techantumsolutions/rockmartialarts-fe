@@ -7,9 +7,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Search, Users, Mail, Phone, Loader2, Eye, Plus, RefreshCw } from "lucide-react"
 import CoachDashboardHeader from "@/components/coach-dashboard-header"
 import { checkCoachAuth } from "@/lib/coachAuth"
+import { getBackendApiUrl } from "@/lib/config"
+import { cn } from "@/lib/utils"
+import {
+  fetchCoachAssignments,
+  filterStudentsForCoach,
+  CoachAssignments,
+  CoachAssignedBatch,
+} from "@/lib/coachStudentFilter"
 
 interface Student {
   id: string
@@ -25,6 +40,9 @@ interface Student {
   course_name?: string
   course_id?: string
   branch_name?: string
+  branch_id?: string
+  batch_ref?: string
+  batch_name?: string
   progress?: number
   attendance_percentage?: number
   status?: string
@@ -32,13 +50,19 @@ interface Student {
 
 export default function StudentsListPage() {
   const router = useRouter()
-  const [students, setStudents] = useState<Student[]>([])
+  const [allAssignedStudents, setAllAssignedStudents] = useState<Student[]>([])
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [coachData, setCoachData] = useState<any>(null)
   const [refreshing, setRefreshing] = useState(false)
+
+  // Dynamic Course and Batch filters
+  const [coachAssignments, setCoachAssignments] = useState<CoachAssignments | null>(null)
+  const [selectedCourse, setSelectedCourse] = useState<string>("all")
+  const [selectedBatch, setSelectedBatch] = useState<string>("all")
+  const [availableBatches, setAvailableBatches] = useState<CoachAssignedBatch[]>([])
 
   useEffect(() => {
     // Use the robust coach authentication check
@@ -51,14 +75,7 @@ export default function StudentsListPage() {
     }
 
     if (authResult.coach && authResult.token) {
-      console.log("✅ Coach authenticated:", {
-        id: authResult.coach.id,
-        name: authResult.coach.full_name,
-        branch_id: authResult.coach.branch_id
-      })
-
       setCoachData(authResult.coach)
-
       // Fetch students with coach data
       fetchStudents(authResult.token, authResult.coach)
     } else {
@@ -67,23 +84,37 @@ export default function StudentsListPage() {
     }
   }, [router])
 
-  // Filter students based on search term
+  // Update available batches when selectedCourse changes
   useEffect(() => {
-    if (!searchTerm.trim()) {
-      setFilteredStudents(students)
+    if (!coachAssignments) return
+
+    if (selectedCourse === "all") {
+      const allBatches: CoachAssignedBatch[] = []
+      coachAssignments.courses.forEach((c) => allBatches.push(...c.batches))
+      setAvailableBatches(allBatches)
     } else {
-      const filtered = students.filter(student => {
-        const name = student.student_name || student.full_name || ''
-        return (
-          name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          student.course_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          student.student_id?.toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      })
-      setFilteredStudents(filtered)
+      const course = coachAssignments.courses.find(
+        (c) => c.id === selectedCourse || c.course_id === selectedCourse
+      )
+      setAvailableBatches(course?.batches || [])
     }
-  }, [searchTerm, students])
+  }, [selectedCourse, coachAssignments])
+
+  // Filter students based on searchTerm, selectedCourse, and selectedBatch
+  useEffect(() => {
+    if (!coachAssignments) {
+      setFilteredStudents(allAssignedStudents)
+      return
+    }
+
+    const filtered = filterStudentsForCoach(allAssignedStudents, coachAssignments, {
+      courseId: selectedCourse,
+      batchRef: selectedBatch,
+      searchTerm: searchTerm,
+    })
+
+    setFilteredStudents(filtered)
+  }, [searchTerm, selectedCourse, selectedBatch, allAssignedStudents, coachAssignments])
 
   // Refresh function
   const handleRefresh = async () => {
@@ -107,80 +138,147 @@ export default function StudentsListPage() {
       setLoading(true)
       setError(null)
 
-      console.log("🔑 Fetching students for coach:", coach.id)
-      console.log("👤 Coach data:", coach)
+      // 1. Fetch coach courses and assigned batches in this branch
+      const assignments = await fetchCoachAssignments(token, coach)
+      setCoachAssignments(assignments)
 
-      // Get the coach's branch ID for filtering
+      const allBatches: CoachAssignedBatch[] = []
+      assignments.courses.forEach((c) => allBatches.push(...c.batches))
+      setAvailableBatches(allBatches)
+
+      // Get the coach's branch ID
       const branchId = coach?.branch_id
       if (!branchId) {
-        console.error("❌ No branch ID found for coach")
         setError("Coach is not assigned to any branch")
         setLoading(false)
         return
       }
 
-      console.log("🏢 Filtering students by branch:", branchId)
-
-      // Use the search students endpoint with branch filtering
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/search/students?branch_id=${branchId}&limit=100`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-
-      if (!response.ok) {
-        // Get error details from response
-        let errorDetails = null
-        try {
-          errorDetails = await response.json()
-        } catch (e) {
-          errorDetails = await response.text()
-        }
-
-        console.error("❌ API Error:", {
-          status: response.status,
-          statusText: response.statusText,
-          errorDetails
-        })
+      // 2. Fetch students from branch search via getBackendApiUrl
+      let rawStudents: any[] = []
+      try {
+        const response = await fetch(
+          getBackendApiUrl(`search/students?branch_id=${encodeURIComponent(branchId)}&limit=100`),
+          {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        )
 
         if (response.status === 401) {
-          // Token expired or invalid
           localStorage.clear()
           router.push("/coach/login")
           return
         }
-        throw new Error(`Failed to fetch students: ${response.status}`)
+
+        if (response.ok) {
+          const data = await response.json()
+          rawStudents = data.students || []
+        } else {
+          console.warn(`search/students returned ${response.status}, trying fallback endpoints`)
+        }
+      } catch (err) {
+        console.warn("Error fetching from search/students:", err)
       }
 
-      const data = await response.json()
-      console.log("✅ STUDENTS PAGE: Fetched students for branch:", data)
-      console.log("✅ STUDENTS PAGE: Number of students:", data.students?.length || 0)
+      // Also fetch from coach/students endpoint to ensure completeness
+      try {
+        const coachStudentsRes = await fetch(
+          getBackendApiUrl(`coaches/${encodeURIComponent(coach.id)}/students`),
+          {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        )
+        if (coachStudentsRes.ok) {
+          const csData = await coachStudentsRes.json()
+          const extra = csData.students || csData.enrolled_students || []
+          if (Array.isArray(extra) && extra.length > 0) {
+            rawStudents = [...rawStudents, ...extra]
+          }
+        }
+      } catch (e) {
+        console.warn("Could not fetch from coach endpoint:", e)
+      }
 
-      // Handle different response formats
-      const studentsData = data.students || []
-      console.log(`📊 Found ${studentsData.length} students in branch ${branchId}`)
+      // Fallback to attendance endpoint if rawStudents is still empty
+      if (rawStudents.length === 0) {
+        try {
+          const todayStr = new Date().toISOString().split('T')[0]
+          const attRes = await fetch(
+            getBackendApiUrl(`attendance/students?date=${encodeURIComponent(todayStr)}`),
+            {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            }
+          )
+          if (attRes.ok) {
+            const attData = await attRes.json()
+            rawStudents = attData.students || []
+          }
+        } catch (e) {
+          console.warn("Could not fetch from attendance endpoint fallback:", e)
+        }
+      }
 
-      // Transform the data to match the expected format
-      const transformedStudents = studentsData.map((student: any) => ({
-        id: student.id,
-        student_id: student.id,
-        full_name: student.full_name,
-        student_name: student.full_name,
-        email: student.email,
-        phone: student.phone,
-        date_of_birth: student.date_of_birth,
-        gender: student.gender,
-        is_active: student.is_active,
-        enrollment_date: student.courses?.[0]?.enrollment_date,
-        course_name: student.courses?.[0]?.name,
-        course_id: student.courses?.[0]?.id,
-        branch_name: student.branches?.[0]?.name,
-        status: student.is_active ? 'active' : 'inactive'
-      }))
+      // 3. Filter strictly based on assigned courses and assigned batches in this branch!
+      const assigned = filterStudentsForCoach(rawStudents, assignments)
 
-      setStudents(transformedStudents)
+      // Map batch names
+      const batchNameMap = new Map<string, string>()
+      allBatches.forEach((b) => {
+        if (b.id) batchNameMap.set(b.id, b.batch_name)
+        if (b.batch_id) batchNameMap.set(b.batch_id, b.batch_name)
+      })
+
+      // 4. Transform data into Student format
+      const transformedStudents: Student[] = assigned.map((student: any) => {
+        const primaryCourse = student.courses?.[0]
+        const studentBatchRef =
+          student.batch_ref ||
+          primaryCourse?.batch_ref ||
+          student.course?.batch_ref ||
+          ""
+
+        const resolvedBatchName =
+          student.batch_name ||
+          primaryCourse?.batch_name ||
+          (studentBatchRef ? batchNameMap.get(studentBatchRef) : null) ||
+          ""
+
+        return {
+          id: student.id,
+          student_id: student.student_id || student.id,
+          full_name: student.full_name || student.student_name,
+          student_name: student.student_name || student.full_name,
+          email: student.email,
+          phone: student.phone,
+          date_of_birth: student.date_of_birth,
+          gender: student.gender,
+          is_active: student.is_active,
+          enrollment_date: primaryCourse?.enrollment_date || student.enrollment_date,
+          course_name: primaryCourse?.name || primaryCourse?.course_name || student.course_name,
+          course_id: primaryCourse?.id || primaryCourse?.course_id || student.course_id,
+          branch_name: student.branches?.[0]?.name || student.branch_name,
+          branch_id: student.branches?.[0]?.id || student.branch_id,
+          batch_ref: studentBatchRef,
+          batch_name: resolvedBatchName,
+          progress: primaryCourse?.progress ?? student.progress,
+          status: student.is_active ? 'active' : 'inactive',
+        }
+      })
+
+      setAllAssignedStudents(transformedStudents)
+      setFilteredStudents(transformedStudents)
 
     } catch (err: any) {
       console.error('Error fetching students:', err)
@@ -278,17 +376,89 @@ export default function StudentsListPage() {
             </div>
           </div>
 
-          {/* Search Bar */}
+          {/* Search and Filters Bar */}
           <Card className="mb-6">
             <CardContent className="pt-6">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  placeholder="Search students by name, email, course, or ID..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+              <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    placeholder="Search students by name, email, course, or ID..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+
+                {/* Course Filter Dropdown - show if more than one course assigned */}
+                {coachAssignments && coachAssignments.courses.length > 1 && (
+                  <div className="w-full md:w-56">
+                    <Select
+                      value={selectedCourse}
+                      onValueChange={(val) => {
+                        setSelectedCourse(val)
+                        setSelectedBatch("all")
+                      }}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="All Courses" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Courses</SelectItem>
+                        {coachAssignments.courses.map((course) => (
+                          <SelectItem
+                            key={course.id || course.course_id}
+                            value={course.course_id || course.id}
+                          >
+                            {course.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Batch Filter Dropdown - show if batches are available */}
+                {availableBatches.length > 1 && (
+                  <div className="w-full md:w-64">
+                    <Select
+                      value={selectedBatch}
+                      onValueChange={(val) => setSelectedBatch(val)}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="All Batches" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Batches</SelectItem>
+                        {availableBatches.map((batch) => {
+                          const timeStr =
+                            batch.start_time && batch.end_time
+                              ? ` (${batch.start_time} - ${batch.end_time})`
+                              : ""
+                          return (
+                            <SelectItem
+                              key={batch.id || batch.batch_id}
+                              value={batch.id || batch.batch_id}
+                            >
+                              {batch.batch_name}{timeStr}
+                            </SelectItem>
+                          )
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Refresh Button */}
+                <Button
+                  variant="outline"
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="shrink-0"
+                >
+                  <RefreshCw className={cn("w-4 h-4 mr-2", refreshing && "animate-spin")} />
+                  Refresh
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -372,8 +542,13 @@ export default function StudentsListPage() {
                             <td className="py-4 px-6">
                               <div>
                                 <p className="font-medium text-gray-900">{student.course_name || 'N/A'}</p>
+                                {student.batch_name && (
+                                  <Badge variant="outline" className="mt-1 bg-amber-50 text-amber-800 border-amber-200 text-xs">
+                                    {student.batch_name}
+                                  </Badge>
+                                )}
                                 {student.branch_name && (
-                                  <p className="text-sm text-gray-500">{student.branch_name}</p>
+                                  <p className="text-xs text-gray-500 mt-0.5">{student.branch_name}</p>
                                 )}
                               </div>
                             </td>

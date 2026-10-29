@@ -1,3 +1,10 @@
+import { getBackendApiUrl } from "@/lib/config"
+import {
+  normalizeAssignmentsCourses,
+  buildCourseSchedulePayload,
+  type NormalizedCourseAssignment,
+} from "@/lib/branchCourseSchedule"
+
 export type AssignmentBatch = {
   id: string
   coachId: string
@@ -39,7 +46,7 @@ function toMinutes(value: string): number | null {
   return hour * 60 + minute
 }
 
-function formatClock(value: string) {
+export function formatClock(value: string) {
   const match = /^(\d{1,2}):(\d{2})/.exec((value || "").trim())
   if (!match) return value
   let hour = Number(match[1])
@@ -48,11 +55,11 @@ function formatClock(value: string) {
   return `${hour}:${match[2]} ${suffix}`
 }
 
-function formatDays(days: string[]) {
+export function formatDays(days: string[]) {
   return days.map((day) => DAY_SHORT[dayKey(day)] || day).join(", ")
 }
 
-function formatRange(start: string, end: string) {
+export function formatRange(start: string, end: string) {
   return `${formatClock(start)} – ${formatClock(end)}`
 }
 
@@ -119,3 +126,176 @@ export function batchAssignmentError(
   const name = clash.batchName || "Batch"
   return `This coach is already assigned ${formatDays(shared.length ? shared : clash.days)}, ${formatRange(clash.startTime, clash.endTime)} (${name}, ${clash.branchName}).`
 }
+
+/** Fetches active batches across all branches (optionally excluding one branch). */
+export async function fetchExternalBatches(
+  token: string,
+  excludeBranchId?: string
+): Promise<AssignmentBatch[]> {
+  try {
+    const res = await fetch(
+      getBackendApiUrl("branches?skip=0&limit=100&active_only=true&include_stats=false"),
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    )
+    if (!res.ok) return []
+    const data = await res.json()
+    const rows: AssignmentBatch[] = []
+    for (const b of data.branches || []) {
+      if (!b?.id || (excludeBranchId && String(b.id) === String(excludeBranchId))) continue
+      const branchName = b.branch?.name || b.name || "Branch"
+      const schedule = b.assignments?.course_schedule || []
+      for (const entry of schedule) {
+        if (entry?.is_available === false) continue
+        const batches = Array.isArray(entry?.batches) ? entry.batches : []
+        batches.forEach((saved: any, idx: number) => {
+          const coachId = String(saved?.coach_id || saved?.coachId || "").trim()
+          if (!coachId) return
+          rows.push({
+            id: String(saved.batch_id || saved.id || `${entry.course_id || "course"}-${idx}`),
+            coachId,
+            days: Array.isArray(saved.days) ? saved.days.map(String) : [],
+            startTime: String(saved.start_time || saved.startTime || ""),
+            endTime: String(saved.end_time || saved.endTime || ""),
+            batchName: saved.batch_name || saved.name || "",
+            branchName,
+            branchId: String(b.id),
+          })
+        })
+      }
+    }
+    return rows
+  } catch (err) {
+    console.error("Failed to fetch external batches:", err)
+    return []
+  }
+}
+
+/**
+ * Updates the branch's batches so that batches in `assignedBatchIds` have `coach_id = coachId`,
+ * and batches previously assigned to this coach are cleared if unchecked.
+ */
+export async function syncBranchBatchAssignments(
+  branchId: string,
+  coachId: string,
+  assignedBatchIds: string[],
+  token: string
+): Promise<boolean> {
+  if (!branchId || !coachId) return false
+  try {
+    const getRes = await fetch(getBackendApiUrl(`branches/${branchId}`), {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!getRes.ok) return false
+    const branchData = await getRes.json()
+    const normalized = normalizeAssignmentsCourses(branchData.assignments ?? null)
+
+    for (const course of normalized) {
+      for (const batch of course.batches) {
+        if (assignedBatchIds.includes(batch.id)) {
+          batch.coach_id = coachId
+        } else if (batch.coach_id === coachId) {
+          batch.coach_id = ""
+        }
+      }
+    }
+
+    const updatedAssignments = {
+      accessories_available: branchData.assignments?.accessories_available || false,
+      courses: normalized.map((c) => c.course_id).filter(Boolean),
+      branch_admins: branchData.assignments?.branch_admins || [],
+      course_schedule: buildCourseSchedulePayload(normalized),
+    }
+
+    const submitData = {
+      branch: branchData.branch,
+      location_id: branchData.location_id,
+      manager_id: branchData.manager_id,
+      operational_details: branchData.operational_details,
+      assignments: updatedAssignments,
+      bank_details: branchData.bank_details,
+      admission_fee: branchData.admission_fee,
+      is_collaboration_partner: !!(branchData.is_collaboration_partner ?? branchData.allows_collaboration),
+      allows_collaboration: !!(branchData.is_collaboration_partner ?? branchData.allows_collaboration),
+    }
+
+    const putRes = await fetch(getBackendApiUrl(`branches/${branchId}`), {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(submitData),
+    })
+
+    return putRes.ok
+  } catch (err) {
+    console.error("Failed to sync branch batch assignments:", err)
+    return false
+  }
+}
+
+/** Removes coach_id from any batches in a branch (used when a coach leaves a branch). */
+export async function cleanUpCoachBatchesInBranch(
+  branchId: string,
+  coachId: string,
+  token: string
+): Promise<boolean> {
+  if (!branchId || !coachId) return false
+  try {
+    const getRes = await fetch(getBackendApiUrl(`branches/${branchId}`), {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!getRes.ok) return false
+    const branchData = await getRes.json()
+    const normalized = normalizeAssignmentsCourses(branchData.assignments ?? null)
+    let changed = false
+    for (const course of normalized) {
+      for (const batch of course.batches) {
+        if (batch.coach_id === coachId) {
+          batch.coach_id = ""
+          changed = true
+        }
+      }
+    }
+    if (!changed) return true
+
+    const updatedAssignments = {
+      accessories_available: branchData.assignments?.accessories_available || false,
+      courses: normalized.map((c) => c.course_id).filter(Boolean),
+      branch_admins: branchData.assignments?.branch_admins || [],
+      course_schedule: buildCourseSchedulePayload(normalized),
+    }
+
+    const submitData = {
+      branch: branchData.branch,
+      location_id: branchData.location_id,
+      manager_id: branchData.manager_id,
+      operational_details: branchData.operational_details,
+      assignments: updatedAssignments,
+      bank_details: branchData.bank_details,
+      admission_fee: branchData.admission_fee,
+      is_collaboration_partner: !!(branchData.is_collaboration_partner ?? branchData.allows_collaboration),
+      allows_collaboration: !!(branchData.is_collaboration_partner ?? branchData.allows_collaboration),
+    }
+
+    const putRes = await fetch(getBackendApiUrl(`branches/${branchId}`), {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(submitData),
+    })
+
+    return putRes.ok
+  } catch (err) {
+    console.error("Failed to clean up coach batches in branch:", err)
+    return false
+  }
+}
+

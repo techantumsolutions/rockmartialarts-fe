@@ -31,10 +31,11 @@ export default function AdminCoachAvailabilityPage() {
       setLoading(false)
       return
     }
-    fetchAllCoaches(token, { activeOnly: false })
+    fetchAllCoaches(token, { activeOnly: true })
       .then((rows) => {
         const opts = (rows || [])
-          .filter((c: { approval_status?: string }) => {
+          .filter((c: { approval_status?: string; is_active?: boolean }) => {
+            if (c.is_active === false) return false
             const st = (c.approval_status || "approved").toLowerCase()
             return st === "approved" || !c.approval_status
           })
