@@ -65,8 +65,8 @@ export function RegistrationStepIndicator({
   const currentLabel = steps[current - 1]?.label || ""
 
   return (
-    <div className={`text-center py-4 ${className}`.trim()}>
-      <div className="flex items-center justify-center space-x-2 mb-2">
+    <div className={`text-center py-2 ${className}`.trim()}>
+      <div className="flex items-center justify-center space-x-2 mb-1.5">
         {steps.map((step, i) => {
           const canLink = !disableBackLinks && step.n < current && Boolean(step.href)
           const cls = `w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${circleClass(step.n, current)}${
