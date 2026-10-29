@@ -833,6 +833,7 @@ export default function AddCoachPage() {
     "password",
     "designation",
     "experience",
+    "qualifications",
     "category",
     "subCategory",
     "branch",
@@ -927,6 +928,14 @@ export default function AddCoachPage() {
     }
     if (!formData.designation) newErrors.designation = "Designation is required"
     if (!formData.experience) newErrors.experience = "Experience is required"
+    const validQualifications = formData.qualifications.filter(
+      (q) => q.name.trim() && q.year.trim()
+    )
+    if (validQualifications.length === 0) {
+      newErrors.qualifications = "At least one qualification with name and year is required"
+    } else if (formData.qualifications.some((q) => Boolean(q.name.trim()) !== Boolean(q.year.trim()))) {
+      newErrors.qualifications = "Each qualification needs both a name and a year"
+    }
     if (formData.displayOrder.trim()) {
       const n = parseInt(formData.displayOrder, 10)
       if (!Number.isInteger(n) || n < 0 || n > 999999) {
@@ -1518,8 +1527,8 @@ export default function AddCoachPage() {
 
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <Label>Qualifications *</Label>
+                <div className="space-y-3" id="qualifications">
+                  <Label data-label-for="qualifications">Qualifications *</Label>
                   {formData.qualifications.map((qual, index) => (
                     <div key={index} className="flex gap-2 items-end">
                       <div className="flex-1">
@@ -1527,7 +1536,7 @@ export default function AddCoachPage() {
                           value={qual.name}
                           onValueChange={(value) => updateQualification(index, 'name', value)}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className={errors.qualifications ? "border-red-500" : ""}>
                             <SelectValue placeholder="Select qualification" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1571,6 +1580,9 @@ export default function AddCoachPage() {
                     <Plus className="w-4 h-4 mr-2" />
                     Add Qualification
                   </Button>
+                  {errors.qualifications && (
+                    <p className="text-red-500 text-sm">{errors.qualifications}</p>
+                  )}
                 </div>
 
                 <div className="space-y-3">

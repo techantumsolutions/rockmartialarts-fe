@@ -912,16 +912,7 @@ export default function BranchManagerCourseDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start text-[#7D8592]"
-                  onClick={() => router.push(`/branch-manager-dashboard/curriculum?course_id=${courseId}`)}
-                >
-                  <FileText className="w-4 h-4 mr-2 text-[#7D8592]" />
-                  Edit Curriculum
-                </Button>
-
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-[#7D8592]"
-                  onClick={() => router.push(`/branch-manager-dashboard/analytics?course_id=${courseId}`)}
+                  onClick={() => router.push(`/branch-manager-dashboard/reports/course`)}
                 >
                   <TrendingUp className="w-4 h-4 mr-2 text-[#7D8592]"/>
                   View Analytics

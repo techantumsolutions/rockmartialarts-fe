@@ -18,6 +18,59 @@ const MAX_PAGES = 100
 
 const HIDDEN_OPERATIONAL_KEYS = new Set(["_id", "password", "password_hash"])
 
+/** When a readable name column exists, hide the matching foreign-key UUID column. */
+const ID_KEYS_HIDDEN_WHEN_NAMED: Record<string, string> = {
+  student_id: "student_name",
+  user_id: "student_name",
+  course_id: "course_name",
+  branch_id: "branch_name",
+  duration_id: "duration_name",
+  batch_ref: "batch_name",
+}
+
+/** Internal UUID refs that are not useful in the report table. */
+const HIDDEN_INTERNAL_ID_KEYS = new Set([
+  "enrollment_id",
+  "renewed_from_enrollment_id",
+  "billing_cycle_id",
+  "razorpay_order_id",
+  "razorpay_payment_id",
+])
+
+/** Preferred column order for enrollment reports (names first; record id kept). */
+const ENROLLMENT_COLUMN_ORDER = [
+  "id",
+  "student_name",
+  "course_name",
+  "branch_name",
+  "is_active",
+  "payment_status",
+  "fee_amount",
+  "admission_fee",
+  "enrollment_date",
+  "start_date",
+  "end_date",
+  "next_due_date",
+  "created_at",
+]
+
+/** Preferred column order for renewal (payment) reports. */
+const RENEWAL_COLUMN_ORDER = [
+  "id",
+  "student_name",
+  "course_name",
+  "branch_name",
+  "amount",
+  "payment_status",
+  "payment_type",
+  "payment_method",
+  "payment_date",
+  "transaction_id",
+  "is_renewal",
+  "notes",
+  "created_at",
+]
+
 function fileStamp(): string {
   return new Date().toISOString().slice(0, 10)
 }
@@ -46,19 +99,76 @@ async function writeWorkbook(sheetName: string, fileBase: string, columns: strin
 export function operationalColumns(rows: any[]): string[] {
   const keys: string[] = []
   const seen = new Set<string>()
+  const presentKeys = new Set<string>()
+  rows.forEach((row) => {
+    Object.keys(row || {}).forEach((key) => presentKeys.add(key))
+  })
+
   rows.forEach((row) => {
     Object.entries(row || {}).forEach(([key, value]) => {
       if (seen.has(key) || HIDDEN_OPERATIONAL_KEYS.has(key)) return
+      if (HIDDEN_INTERNAL_ID_KEYS.has(key)) return
       if (value !== null && typeof value === "object" && !Array.isArray(value)) return
+      const nameKey = ID_KEYS_HIDDEN_WHEN_NAMED[key]
+      if (nameKey && presentKeys.has(nameKey)) return
       seen.add(key)
       keys.push(key)
     })
   })
+
+  const looksLikeRenewals =
+    presentKeys.has("is_renewal") ||
+    (presentKeys.has("payment_date") && presentKeys.has("amount") && presentKeys.has("student_id"))
+
+  const looksLikeEnrollments =
+    !looksLikeRenewals &&
+    (presentKeys.has("student_name") ||
+      presentKeys.has("student_id") ||
+      (presentKeys.has("enrollment_date") && presentKeys.has("course_id")))
+
+  const preferredOrder = looksLikeRenewals
+    ? RENEWAL_COLUMN_ORDER
+    : looksLikeEnrollments
+      ? ENROLLMENT_COLUMN_ORDER
+      : null
+
+  if (preferredOrder) {
+    const ordered: string[] = []
+    const remaining = new Set(keys)
+    preferredOrder.forEach((key) => {
+      if (remaining.has(key)) {
+        ordered.push(key)
+        remaining.delete(key)
+      }
+    })
+    remaining.forEach((key) => ordered.push(key))
+    return ordered
+  }
+
   return keys
 }
 
 export function operationalColumnLabel(key: string): string {
-  return titleCase(key)
+  const labels: Record<string, string> = {
+    student_name: "Student",
+    course_name: "Course",
+    branch_name: "Branch",
+    is_active: "Active",
+    is_renewal: "Renewal",
+    payment_status: "Payment Status",
+    payment_type: "Payment Type",
+    payment_method: "Payment Method",
+    payment_date: "Payment Date",
+    transaction_id: "Transaction ID",
+    fee_amount: "Fee Amount",
+    admission_fee: "Admission Fee",
+    enrollment_date: "Enrollment Date",
+    start_date: "Start Date",
+    end_date: "End Date",
+    next_due_date: "Next Due Date",
+    created_at: "Created At",
+  }
+  return labels[key] || titleCase(key)
 }
 
 export function formatOperationalValue(value: any): string {
