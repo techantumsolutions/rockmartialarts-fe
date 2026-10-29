@@ -949,7 +949,7 @@ export default function CoachDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => router.push(`${basePath}/students?coach_id=${coachId}`)}
+                  onClick={() => router.push(`${basePath}/coaches/${coachId}/students`)}
                 >
                   <Users className="w-4 h-4 mr-2" />
                   View Assigned Students

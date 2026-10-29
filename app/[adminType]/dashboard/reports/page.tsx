@@ -47,22 +47,6 @@ const REPORT_CATEGORIES = [
     ]
   },
   {
-    id: "coach",
-    name: "Coach Reports",
-    icon: TrendingUp,
-    description: "Comprehensive system-wide reports and administrative summaries",
-    reports: [
-      { id: "system-overview-dashboard", name: "System Overview Dashboard", icon: TrendingUp },
-      { id: "coach-enrollment-report", name: "Coach Enrollment Report", icon: FileText },
-      { id: "coach-attendance-summary", name: "Coach Attendance Summary", icon: TrendingUp },
-      { id: "coach-financial-summary", name: "Coach Financial Summary", icon: FileText },
-      { id: "activity-log-report", name: "Activity Log Report", icon: FileText },
-      { id: "system-usage-analytics", name: "System Usage Analytics", icon: TrendingUp },
-      { id: "coach-user-report", name: "Coach User Report", icon: FileText },
-      { id: "notification-delivery-report", name: "Notification Delivery Report", icon: FileText }
-    ]
-  },
-  {
     id: "course",
     name: "Course Reports",
     icon: FileText,
@@ -501,33 +485,12 @@ function ReportsPageContent() {
 
       <main className="w-full p-4 lg:px-8 mx-auto">
         {/* Page Header - Enhanced with loading states */}
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
-            <p className="text-gray-600">
-              Comprehensive system reports and analytics
-              {loading && <InlineLoader size="sm" className="ml-2" />}
-            </p>
-          </div>
-          <div className="flex space-x-2">
-            <Button
-              variant="outline"
-              className="flex items-center space-x-2"
-              onClick={handleSearch}
-              disabled={loading || categoryLoading !== null}
-            >
-              <Filter className="w-4 h-4" />
-              <span>Filter</span>
-            </Button>
-            <Button
-              className="bg-yellow-400 hover:bg-yellow-500 text-white flex items-center space-x-2"
-              onClick={handleDownloadReport}
-              disabled={loading || categoryLoading !== null}
-            >
-              <Download className="w-4 h-4" />
-              <span>Download Report</span>
-            </Button>
-          </div>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
+          <p className="text-gray-600">
+            Comprehensive system reports and analytics
+            {loading && <InlineLoader size="sm" className="ml-2" />}
+          </p>
         </div>
 
         {/* Enhanced Search Bar with Accessibility */}

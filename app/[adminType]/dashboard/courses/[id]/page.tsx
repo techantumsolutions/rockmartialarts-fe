@@ -102,6 +102,11 @@ export default function CourseDetailPage() {
   const [enrolledStudents, setEnrolledStudents] = useState<EnrolledStudent[]>([])
   const [courseModules, setCourseModules] = useState<CourseModule[]>([])
   const [courseReviews, setCourseReviews] = useState<CourseReview[]>([])
+  const [courseStats, setCourseStats] = useState<{
+    total_enrolled: number
+    completed: number
+    completion_rate: number
+  } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -209,6 +214,36 @@ export default function CourseDetailPage() {
       await Promise.all([
         loadCourseEnrollmentsForAdmin(courseId, token).then(setEnrolledStudents),
         fetchCourseModules(token),
+        fetch(getBackendApiUrl(`courses/${courseId}/stats`), {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+        })
+          .then(async (res) => {
+            if (!res.ok) return null
+            return res.json()
+          })
+          .then((stats) => {
+            if (!stats) return
+            const total = Number(stats.total_enrolled ?? 0)
+            const completed = Number(stats.completed ?? 0)
+            const rate =
+              stats.completion_rate != null
+                ? Number(stats.completion_rate)
+                : total > 0
+                  ? Math.round((completed / total) * 100)
+                  : 0
+            setCourseStats({
+              total_enrolled: Number.isFinite(total) ? total : 0,
+              completed: Number.isFinite(completed) ? completed : 0,
+              completion_rate: Number.isFinite(rate) ? rate : 0,
+            })
+          })
+          .catch(() => {
+            /* keep card fallback from enrollments */
+          }),
       ])
 
     } catch (err: any) {
@@ -784,7 +819,11 @@ export default function CourseDetailPage() {
                     <Users className="w-4 h-4 mr-2 text-[#7D8592]" />
                     <span className="text-sm text-[#7D8592]">Total Enrolled</span>
                   </div>
-                  <span className="font-semibold text-[#7D8592]">{course.total_enrolled || enrolledStudents.length}</span>
+                  <span className="font-semibold text-[#7D8592]">
+                    {courseStats?.total_enrolled ??
+                      course.total_enrolled ??
+                      enrolledStudents.length}
+                  </span>
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -793,7 +832,8 @@ export default function CourseDetailPage() {
                     <span className="text-sm text-[#7D8592]">Completed</span>
                   </div>
                   <span className="font-semibold text-[#7D8592]">
-                    {enrolledStudents.filter(s => s.status === 'completed').length}
+                    {courseStats?.completed ??
+                      enrolledStudents.filter((s) => s.status === "completed").length}
                   </span>
                 </div>
 
@@ -803,9 +843,14 @@ export default function CourseDetailPage() {
                     <span className="text-sm text-[#7D8592]">Completion Rate</span>
                   </div>
                   <span className="font-semibold text-[#7D8592]">
-                    {course.completion_rate ||
-                     Math.round((enrolledStudents.filter(s => s.status === 'completed').length /
-                      Math.max(enrolledStudents.length, 1)) * 100)}%
+                    {courseStats?.completion_rate ??
+                      course.completion_rate ??
+                      Math.round(
+                        (enrolledStudents.filter((s) => s.status === "completed").length /
+                          Math.max(enrolledStudents.length, 1)) *
+                          100
+                      )}
+                    %
                   </span>
                 </div>
 
@@ -911,16 +956,7 @@ export default function CourseDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start text-[#7D8592]"
-                  onClick={() => router.push(`${basePath}/curriculum?course_id=${courseId}`)}
-                >
-                  <FileText className="w-4 h-4 mr-2 text-[#7D8592]" />
-                  Edit Curriculum
-                </Button>
-
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-[#7D8592]"
-                  onClick={() => router.push(`${basePath}/analytics?course_id=${courseId}`)}
+                  onClick={() => router.push(`${basePath}/reports/course`)}
                 >
                   <TrendingUp className="w-4 h-4 mr-2 text-[#7D8592]"/>
                   View Analytics

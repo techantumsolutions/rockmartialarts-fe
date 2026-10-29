@@ -912,16 +912,7 @@ export default function CourseDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start text-[#7D8592]"
-                  onClick={() => router.push(`/dashboard/curriculum?course_id=${courseId}`)}
-                >
-                  <FileText className="w-4 h-4 mr-2 text-[#7D8592]" />
-                  Edit Curriculum
-                </Button>
-
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-[#7D8592]"
-                  onClick={() => router.push(`/dashboard/analytics?course_id=${courseId}`)}
+                  onClick={() => router.push(`/dashboard/reports/course`)}
                 >
                   <TrendingUp className="w-4 h-4 mr-2 text-[#7D8592]"/>
                   View Analytics
