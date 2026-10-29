@@ -11,11 +11,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, User, Award, MapPin, Phone, X, Plus } from "lucide-react"
+import { ArrowLeft, User, Award, MapPin, Phone, X, Plus, Building2, AlertCircle, Clock } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { useActiveBranch } from "@/lib/activeBranch"
 import { TokenManager } from "@/lib/tokenManager"
+import { isBranchManager } from "@/lib/branchManagerAuth"
+import {
+  normalizeAssignmentsCourses,
+  type NormalizedCourseAssignment,
+} from "@/lib/branchCourseSchedule"
+import {
+  batchAssignmentError,
+  fetchExternalBatches,
+  syncBranchBatchAssignments,
+  formatDays,
+  formatRange,
+  type AssignmentBatch,
+  type AvailabilityWindow,
+} from "@/lib/batchCoachAssignment"
 import { SafeImage } from "@/components/ui/safe-image"
 import { extractUploadUrl, uploadFile } from "@/lib/upload"
 import { useToast } from "@/hooks/use-toast"
@@ -128,6 +142,11 @@ export default function AddCoachPage() {
   const [isLoadingBranches, setIsLoadingBranches] = useState(true)
   const [courses, setCourses] = useState<Course[]>([])
   const [isLoadingCourses, setIsLoadingCourses] = useState(true)
+  const [branchCourseAssignments, setBranchCourseAssignments] = useState<NormalizedCourseAssignment[]>([])
+  const [isLoadingBranchSchedule, setIsLoadingBranchSchedule] = useState(false)
+  const [selectedBranchData, setSelectedBranchData] = useState<any>(null)
+  const [externalBatches, setExternalBatches] = useState<AssignmentBatch[]>([])
+  const [assignedBatchIds, setAssignedBatchIds] = useState<string[]>([])
 
   const [availabilitySlots, setAvailabilitySlots] = useState<
     { weekday: string; start_time: string; end_time: string }[]
@@ -152,11 +171,11 @@ export default function AddCoachPage() {
     // Professional Information
     designation: "",
     experience: "",
-    qualifications: [] as Array<{name: string, year: string}>,
+    qualifications: [] as Array<{ name: string, year: string }>,
     certifications: "",
     category: "",
     subCategory: "",
-    certificates: [] as Array<{title: string, file: File | null, preview: string}>,
+    certificates: [] as Array<{ title: string, file: File | null, preview: string }>,
     category: "",
     subCategory: "",
     certificationFiles: [] as File[],
@@ -229,7 +248,7 @@ export default function AddCoachPage() {
   const updateQualification = (index: number, field: 'name' | 'year', value: string) => {
     setFormData(prev => ({
       ...prev,
-      qualifications: prev.qualifications.map((q, i) => 
+      qualifications: prev.qualifications.map((q, i) =>
         i === index ? { ...q, [field]: value } : q
       )
     }))
@@ -253,7 +272,7 @@ export default function AddCoachPage() {
   const updateCertificateTitle = (index: number, title: string) => {
     setFormData(prev => ({
       ...prev,
-      certificates: prev.certificates.map((c, i) => 
+      certificates: prev.certificates.map((c, i) =>
         i === index ? { ...c, title } : c
       )
     }))
@@ -265,7 +284,7 @@ export default function AddCoachPage() {
       const preview = URL.createObjectURL(file)
       setFormData(prev => ({
         ...prev,
-        certificates: prev.certificates.map((c, i) => 
+        certificates: prev.certificates.map((c, i) =>
           i === index ? { ...c, file, preview } : c
         )
       }))
@@ -295,7 +314,7 @@ export default function AddCoachPage() {
       setSubCategories([])
       return
     }
-    
+
     try {
       const token = TokenManager.getToken()
       const url = getBackendApiUrl(`categories?parent_id=${categoryId}&active_only=true`)
@@ -306,7 +325,7 @@ export default function AddCoachPage() {
           'Content-Type': 'application/json'
         }
       })
-      
+
       console.log('Subcategories response status:', response.status)
       if (response.ok) {
         const data = await response.json()
@@ -335,7 +354,7 @@ export default function AddCoachPage() {
           'Content-Type': 'application/json'
         }
       })
-      
+
       if (response.ok) {
         const data = await response.json()
         console.log('Designations data received:', data)
@@ -497,7 +516,7 @@ export default function AddCoachPage() {
     try {
       setIsLoadingCategories(true)
       const response = await fetch(getBackendApiUrl('categories/public/all'))
-      
+
       if (response.ok) {
         const data = await response.json()
         setCategories(data.categories || [])
@@ -517,7 +536,7 @@ export default function AddCoachPage() {
     }
   }
 
-    // Load data from APIs
+  // Load data from APIs
   useEffect(() => {
     loadDesignations()
     loadGenders()
@@ -527,18 +546,18 @@ export default function AddCoachPage() {
     loadQualifications()
     loadPassingYears()
     loadCategories()
-    
+
     const loadBranches = async () => {
       try {
         setIsLoadingBranches(true)
 
         // TODO: Upload certification files first if any exist
-      // if (formData.certificationFiles.length > 0) {
-      //   const uploadedUrls = await uploadCertifications(formData.certificationFiles)
-      //   coachData.professional_info.certifications = uploadedUrls
-      // }
+        // if (formData.certificationFiles.length > 0) {
+        //   const uploadedUrls = await uploadCertifications(formData.certificationFiles)
+        //   coachData.professional_info.certifications = uploadedUrls
+        // }
 
-      // Get authentication token
+        // Get authentication token
         let token = TokenManager.getToken()
 
         // If no token, try to get one using superadmin credentials for testing
@@ -663,20 +682,153 @@ export default function AddCoachPage() {
 
     const loadData = async () => {
       await Promise.all([loadCategories(), loadBranches(), loadCourses()])
+      const token = TokenManager.getToken()
+      if (token) {
+        fetchExternalBatches(token).then(setExternalBatches)
+      }
     }
 
     loadData()
   }, [toast])
 
+  // Load courses and batches allocated to the selected branch
+  useEffect(() => {
+    if (!formData.branch) {
+      setBranchCourseAssignments([])
+      setAssignedBatchIds([])
+      setSelectedBranchData(null)
+      return
+    }
+    let cancelled = false
+    const loadBranchSchedule = async () => {
+      setIsLoadingBranchSchedule(true)
+      try {
+        const token = TokenManager.getToken()
+        const res = await fetch(getBackendApiUrl(`branches/${formData.branch}`), {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        })
+        if (!res.ok) throw new Error("Failed to fetch branch")
+        const data = await res.json()
+        if (cancelled) return
+        setSelectedBranchData(data)
+        const normalized = normalizeAssignmentsCourses(data.assignments ?? null)
+        const availableCourses = normalized.filter((c) => c.is_available !== false)
+        setBranchCourseAssignments(availableCourses)
 
+        // Keep only courses allocated to this branch
+        const validCourseIds = new Set(availableCourses.map((c) => c.course_id))
+        setFormData((prev) => ({
+          ...prev,
+          courses: prev.courses.filter((id) => validCourseIds.has(id)),
+        }))
+        const validBatchIds = new Set(
+          availableCourses.flatMap((c) => c.batches.map((b) => b.id))
+        )
+        setAssignedBatchIds((prev) => prev.filter((id) => validBatchIds.has(id)))
+      } catch (err) {
+        console.error("Failed to load branch course schedule:", err)
+        if (!cancelled) setBranchCourseAssignments([])
+      } finally {
+        if (!cancelled) setIsLoadingBranchSchedule(false)
+      }
+    }
+    loadBranchSchedule()
+    return () => {
+      cancelled = true
+    }
+  }, [formData.branch])
+
+  // Check conditions for assigning a coach to a specific batch
+  const getBatchError = (
+    batch: NormalizedCourseAssignment["batches"][number],
+    course: NormalizedCourseAssignment
+  ): string | null => {
+    if (!formData.branch) return null
+    const branchName =
+      selectedBranchData?.branch?.name || selectedBranchData?.name || "This branch"
+    const currentBatch: AssignmentBatch = {
+      id: batch.id,
+      coachId: "candidate_coach",
+      days: batch.days || [],
+      startTime: batch.start_time,
+      endTime: batch.end_time,
+      batchName: batch.batch_name || "Batch",
+      branchName,
+      branchId: formData.branch,
+    }
+
+    const availabilityWindows: AvailabilityWindow[] = availabilitySlots.map((s) => ({
+      weekday: s.weekday,
+      start_time: s.start_time,
+      end_time: s.end_time,
+      service_location_id: null,
+    }))
+
+    const others: AssignmentBatch[] = []
+    for (const c of branchCourseAssignments) {
+      for (const b of c.batches) {
+        if (b.id !== batch.id && assignedBatchIds.includes(b.id)) {
+          others.push({
+            id: b.id,
+            coachId: "candidate_coach",
+            days: b.days || [],
+            startTime: b.start_time,
+            endTime: b.end_time,
+            batchName: b.batch_name || "Batch",
+            branchName,
+            branchId: formData.branch,
+          })
+        }
+      }
+    }
+    for (const ext of externalBatches) {
+      others.push(ext)
+    }
+
+    return batchAssignmentError(currentBatch, availabilityWindows, others)
+  }
+
+  const handleBatchToggle = (batchId: string, courseId: string) => {
+    const isCurrentlyAssigned = assignedBatchIds.includes(batchId)
+    if (isCurrentlyAssigned) {
+      setAssignedBatchIds((prev) => prev.filter((id) => id !== batchId))
+    } else {
+      const course = branchCourseAssignments.find((c) => c.course_id === courseId)
+      const batch = course?.batches.find((b) => b.id === batchId)
+      if (batch && course) {
+        const err = getBatchError(batch, course)
+        if (err) {
+          toast({
+            title: "Trainer schedule warning",
+            description: err,
+            variant: "destructive",
+          })
+        }
+      }
+      setAssignedBatchIds((prev) => [...prev, batchId])
+      setFormData((prev) => ({
+        ...prev,
+        courses: prev.courses.includes(courseId) ? prev.courses : [...prev.courses, courseId],
+      }))
+    }
+  }
 
   const handleCourseToggle = (courseId: string) => {
-    setFormData(prev => ({
-      ...prev,
-      courses: prev.courses.includes(courseId)
-        ? prev.courses.filter(c => c !== courseId)
-        : [...prev.courses, courseId]
-    }))
+    const isSelected = formData.courses.includes(courseId)
+    if (isSelected) {
+      const courseObj = branchCourseAssignments.find((c) => c.course_id === courseId)
+      const courseBatchIds = new Set(courseObj?.batches.map((b) => b.id) || [])
+      setFormData((prev) => ({
+        ...prev,
+        courses: prev.courses.filter((c) => c !== courseId),
+      }))
+      setAssignedBatchIds((prev) => prev.filter((id) => !courseBatchIds.has(id)))
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        courses: [...prev.courses, courseId],
+      }))
+    }
   }
 
   const sendCredentialsEmail = async () => {
@@ -975,6 +1127,25 @@ export default function AddCoachPage() {
       return
     }
 
+    // Verify condition checks on all assigned batches before creating coach
+    if (formData.branch && assignedBatchIds.length > 0) {
+      for (const course of branchCourseAssignments) {
+        for (const batch of course.batches) {
+          if (assignedBatchIds.includes(batch.id)) {
+            const errorMsg = getBatchError(batch, course)
+            if (errorMsg) {
+              toast({
+                title: "Trainer schedule conflict",
+                description: errorMsg,
+                variant: "destructive",
+              })
+              return
+            }
+          }
+        }
+      }
+    }
+
     setIsSubmitting(true)
 
     try {
@@ -1111,6 +1282,15 @@ export default function AddCoachPage() {
         }
       }
 
+      // Sync batch assignments to the selected branch
+      if (newCoachId && formData.branch && assignedBatchIds.length > 0) {
+        try {
+          await syncBranchBatchAssignments(formData.branch, newCoachId, assignedBatchIds, token)
+        } catch (syncErr) {
+          console.error("Failed to sync branch batch assignments:", syncErr)
+        }
+      }
+
       // Store the created coach ID for sending credentials
       if (newCoachId) {
         setCreatedCoachId(newCoachId)
@@ -1155,7 +1335,7 @@ export default function AddCoachPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
-            
+
                 <span className="text-[#4F5077]">Personal Information</span>
               </CardTitle>
             </CardHeader>
@@ -1234,8 +1414,8 @@ export default function AddCoachPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="gender">Gender *</Label>
-                  <Select 
-                    value={formData.gender} 
+                  <Select
+                    value={formData.gender}
                     onValueChange={(value) => setFormData({ ...formData, gender: value })}
                   >
                     <SelectTrigger id="gender" className={errors.gender ? "border-red-500" : ""}>
@@ -1266,8 +1446,8 @@ export default function AddCoachPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="country">Country</Label>
-                  <Select 
-                    value={formData.country} 
+                  <Select
+                    value={formData.country}
                     onValueChange={(value) => setFormData({ ...formData, country: value })}
                   >
                     <SelectTrigger>
@@ -1401,14 +1581,14 @@ export default function AddCoachPage() {
                 </div>
               </div>
               <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="featuredOnHomepage"
-                    checked={formData.featuredOnHomepage}
-                    onCheckedChange={(c) => setFormData({ ...formData, featuredOnHomepage: c === true })}
-                  />
-                  <Label htmlFor="featuredOnHomepage" className="text-sm cursor-pointer">
-                    Feature flag (optional legacy)
-                  </Label>
+                <Checkbox
+                  id="featuredOnHomepage"
+                  checked={formData.featuredOnHomepage}
+                  onCheckedChange={(c) => setFormData({ ...formData, featuredOnHomepage: c === true })}
+                />
+                <Label htmlFor="featuredOnHomepage" className="text-sm cursor-pointer">
+                  Feature flag (optional legacy)
+                </Label>
               </div>
             </CardContent>
           </Card>
@@ -1417,7 +1597,7 @@ export default function AddCoachPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
-          
+
                 <span className="text-[#4F5077]">Professional Information</span>
               </CardTitle>
             </CardHeader>
@@ -1425,8 +1605,8 @@ export default function AddCoachPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="designation">Designation *</Label>
-                  <Select 
-                    value={formData.designation} 
+                  <Select
+                    value={formData.designation}
                     onValueChange={(value) => setFormData({ ...formData, designation: value })}
                   >
                     <SelectTrigger id="designation" className={errors.designation ? "border-red-500" : ""}>
@@ -1445,8 +1625,8 @@ export default function AddCoachPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="experience">Experience *</Label>
-                  <Select 
-                    value={formData.experience} 
+                  <Select
+                    value={formData.experience}
                     onValueChange={(value) => setFormData({ ...formData, experience: value })}
                   >
                     <SelectTrigger id="experience" className={errors.experience ? "border-red-500" : ""}>
@@ -1465,67 +1645,67 @@ export default function AddCoachPage() {
               </div>
 
               <div className="space-y-2">
-              <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
-                {isLoadingCategories ? (
-                  <div className="flex items-center justify-center py-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600"></div>
-                    <span className="ml-2 text-sm text-gray-600">Loading categories...</span>
-                  </div>
-                ) : (
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category</Label>
+                  {isLoadingCategories ? (
+                    <div className="flex items-center justify-center py-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600"></div>
+                      <span className="ml-2 text-sm text-gray-600">Loading categories...</span>
+                    </div>
+                  ) : (
+                    <Select
+                      value={formData.category}
+                      onValueChange={(value) => {
+                        setFormData({ ...formData, category: value, subCategory: "" })
+                        loadSubCategories(value)
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.length === 0 ? (
+                          <div className="p-4 text-center text-gray-500">
+                            <p>No categories available</p>
+                          </div>
+                        ) : (
+                          categories.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="subCategory">Sub Category</Label>
                   <Select
-                    value={formData.category}
-                    onValueChange={(value) => {
-                      setFormData({ ...formData, category: value, subCategory: "" })
-                      loadSubCategories(value)
-                    }}
+                    value={formData.subCategory}
+                    onValueChange={(value) => setFormData({ ...formData, subCategory: value })}
+                    disabled={!formData.category || subCategories.length === 0}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue placeholder={!formData.category ? "Select category first" : "Select sub category"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.length === 0 ? (
+                      {subCategories.length === 0 ? (
                         <div className="p-4 text-center text-gray-500">
-                          <p>No categories available</p>
+                          <p>No sub categories available</p>
                         </div>
                       ) : (
-                        categories.map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            {cat.name}
+                        subCategories.map((subCat) => (
+                          <SelectItem key={subCat.id} value={subCat.id}>
+                            {subCat.name}
                           </SelectItem>
                         ))
                       )}
                     </SelectContent>
                   </Select>
-                )}
+                </div>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="subCategory">Sub Category</Label>
-                <Select
-                  value={formData.subCategory}
-                  onValueChange={(value) => setFormData({ ...formData, subCategory: value })}
-                  disabled={!formData.category || subCategories.length === 0}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={!formData.category ? "Select category first" : "Select sub category"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subCategories.length === 0 ? (
-                      <div className="p-4 text-center text-gray-500">
-                        <p>No sub categories available</p>
-                      </div>
-                    ) : (
-                      subCategories.map((subCat) => (
-                        <SelectItem key={subCat.id} value={subCat.id}>
-                          {subCat.name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
 
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1638,182 +1818,7 @@ export default function AddCoachPage() {
             </CardContent>
           </Card>
 
-          {/* Assignment Details */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <span className="text-[#4F5077]">Assignment Details</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-[#7D8592]">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="branch">Assign to Branch</Label>
-                  {isBranchAdmin ? (
-                    <BranchSelectionField readOnly />
-                  ) : isLoadingBranches ? (
-                    <div className="flex items-center justify-center py-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600"></div>
-                      <span className="ml-2 text-sm text-gray-600">Loading branches...</span>
-                    </div>
-                  ) : (
-                    <Select
-                      value={formData.branch}
-                      onValueChange={(value) => setFormData({ ...formData, branch: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select branch" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {branches.length === 0 ? (
-                          <div className="p-4 text-center text-gray-500">
-                            <p>No branches available</p>
-                          </div>
-                        ) : (
-                          branches.map((branch) => (
-                            <SelectItem key={branch.id} value={branch.id}>
-                              {branch.branch.name} ({branch.branch.code})
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="joinDate">Joining Date</Label>
-                  <Input
-                    id="joinDate"
-                    type="date"
-                    value={formData.joinDate}
-                    onChange={(e) => setFormData({ ...formData, joinDate: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Assign Courses</Label>
-                {isLoadingCourses ? (
-                  <div className="flex items-center justify-center py-4">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-yellow-600"></div>
-                    <span className="ml-2 text-sm text-gray-600">Loading courses...</span>
-                  </div>
-                ) : courses.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {courses.map((course) => (
-                      <div key={course.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`course-${course.id}`}
-                          checked={formData.courses.includes(course.id)}
-                          onCheckedChange={() => handleCourseToggle(course.id)}
-                        />
-                        <Label htmlFor={`course-${course.id}`} className="text-sm cursor-pointer">
-                          <div className="flex flex-col">
-                            <span className="font-medium">{course.title}</span>
-                            <span className="text-xs text-gray-500">
-                              {course.code} • {course.difficulty_level}
-                            </span>
-                          </div>
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-4 text-gray-500">
-                    <p className="text-sm">No courses available</p>
-                  </div>
-                )}
-
-                {formData.courses.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {formData.courses.map((courseId) => {
-                      const course = courses.find(c => c.id === courseId)
-                      return course ? (
-                        <Badge key={courseId} variant="secondary" className="bg-blue-100 text-blue-800">
-                          {course.title}
-                          <button
-                            type="button"
-                            onClick={() => handleCourseToggle(courseId)}
-                            className="ml-2 hover:text-red-600"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </Badge>
-                      ) : null
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="salary">Salary (Optional)</Label>
-                <Input
-                  id="salary"
-                  value={formData.salary}
-                  onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
-                  placeholder="Monthly salary"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Emergency Contact */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <span className="text-[#4F5077]">Emergency Contact</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-[#7D8592]">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="emergencyContactName">Contact Name</Label>
-                  <Input
-                    id="emergencyContactName"
-                    value={formData.emergencyContactName}
-                    onChange={(e) => setFormData({ ...formData, emergencyContactName: e.target.value })}
-                    placeholder="Emergency contact name"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="emergencyContactPhone">Contact Phone</Label>
-                  <Input
-                    id="emergencyContactPhone"
-                    type="tel"
-                    inputMode="numeric"
-                    maxLength={10}
-                    value={formData.emergencyContactPhone}
-                    onChange={(e) => setFormData({ ...formData, emergencyContactPhone: formatIndianPhoneNumber(e.target.value) })}
-                    placeholder="10-digit Indian phone number"
-                    className={errors.emergencyContactPhone ? "border-red-500" : ""}
-                  />
-                  {errors.emergencyContactPhone && <p className="text-red-500 text-sm">{errors.emergencyContactPhone}</p>}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="emergencyContactRelation">Relation</Label>
-                  <Select 
-                    value={formData.emergencyContactRelation} 
-                    onValueChange={(value) => setFormData({ ...formData, emergencyContactRelation: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select relation" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {relations.map((relation) => (
-                        <SelectItem key={relation.toLowerCase()} value={relation.toLowerCase()}>
-                          {relation}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
+          {/* Availability */}
           <Card>
             <CardHeader>
               <CardTitle className="text-[#4F5077]">Availability</CardTitle>
@@ -1957,6 +1962,342 @@ export default function AddCoachPage() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+
+          {/* Assignment Details */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <span className="text-[#4F5077]">Assignment Details</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-[#7D8592]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="branch">Assign to Branch</Label>
+                  {isBranchAdmin ? (
+                    <BranchSelectionField readOnly />
+                  ) : isLoadingBranches ? (
+                    <div className="flex items-center justify-center py-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600"></div>
+                      <span className="ml-2 text-sm text-gray-600">Loading branches...</span>
+                    </div>
+                  ) : (
+                    <Select
+                      value={formData.branch}
+                      onValueChange={(value) => setFormData({ ...formData, branch: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select branch" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {branches.length === 0 ? (
+                          <div className="p-4 text-center text-gray-500">
+                            <p>No branches available</p>
+                          </div>
+                        ) : (
+                          branches.map((branch) => (
+                            <SelectItem key={branch.id} value={branch.id}>
+                              {branch.branch.name} ({branch.branch.code})
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="joinDate">Joining Date</Label>
+                  <Input
+                    id="joinDate"
+                    type="date"
+                    value={formData.joinDate}
+                    onChange={(e) => setFormData({ ...formData, joinDate: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium text-gray-700">Assign Courses & Batches</Label>
+                  {formData.courses.length > 0 && (
+                    <span className="text-xs text-gray-500 font-normal">
+                      {formData.courses.length} course{formData.courses.length > 1 ? "s" : ""} selected
+                      {assignedBatchIds.length > 0 && ` (${assignedBatchIds.length} batch${assignedBatchIds.length > 1 ? "es" : ""})`}
+                    </span>
+                  )}
+                </div>
+
+                {!formData.branch ? (
+                  <div className="border border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50/50">
+                    <Building2 className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-gray-700">Select a branch to view allocated courses</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Only courses and batches allocated to the selected branch can be assigned to the coach.
+                    </p>
+                  </div>
+                ) : isLoadingBranchSchedule ? (
+                  <div className="flex items-center justify-center py-6 text-sm text-gray-500 border rounded-lg bg-gray-50/50">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-yellow-600 mr-2"></div>
+                    Loading branch courses and batches...
+                  </div>
+                ) : branchCourseAssignments.length === 0 ? (
+                  <div className="border border-dashed border-amber-200 rounded-lg p-6 text-center bg-amber-50/40">
+                    <AlertCircle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-amber-900">No courses allocated to this branch</p>
+                    <p className="text-xs text-amber-700 mt-1">
+                      This branch does not have any active course allocations. You can allocate courses in Branch Management.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {branchCourseAssignments.map((courseAssignment) => {
+                      const course = courses.find((c) => c.id === courseAssignment.course_id)
+                      const isCourseSelected = formData.courses.includes(courseAssignment.course_id)
+                      const courseBatches = courseAssignment.batches || []
+                      const selectedBatchesCount = courseBatches.filter((b) =>
+                        assignedBatchIds.includes(b.id)
+                      ).length
+
+                      return (
+                        <div
+                          key={courseAssignment.course_id}
+                          className={`border rounded-lg transition-colors overflow-hidden ${isCourseSelected ? "border-blue-300 bg-blue-50/20" : "border-gray-200 bg-white"
+                            }`}
+                        >
+                          {/* Course Header */}
+                          <div className="p-3.5 flex items-center justify-between gap-3 bg-white">
+                            <div className="flex items-center space-x-3 flex-1 min-w-0">
+                              <Checkbox
+                                id={`course-${courseAssignment.course_id}`}
+                                checked={isCourseSelected}
+                                onCheckedChange={() => handleCourseToggle(courseAssignment.course_id)}
+                              />
+                              <Label
+                                htmlFor={`course-${courseAssignment.course_id}`}
+                                className="cursor-pointer flex-1 min-w-0"
+                              >
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="font-semibold text-gray-900 text-sm truncate">
+                                    {course?.title || courseAssignment.course_id}
+                                  </span>
+                                  {course?.code && (
+                                    <Badge variant="outline" className="text-[11px] font-mono py-0 px-1.5 h-5">
+                                      {course.code}
+                                    </Badge>
+                                  )}
+                                  {course?.difficulty_level && (
+                                    <Badge variant="secondary" className="text-[11px] py-0 px-1.5 h-5 bg-gray-100 text-gray-700">
+                                      {course.difficulty_level}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </Label>
+                            </div>
+
+                            {courseBatches.length > 0 && (
+                              <Badge
+                                variant={selectedBatchesCount > 0 ? "default" : "outline"}
+                                className={`text-xs shrink-0 ${selectedBatchesCount > 0
+                                    ? "bg-blue-600 hover:bg-blue-600 text-white"
+                                    : "text-gray-500 border-gray-300"
+                                  }`}
+                              >
+                                {selectedBatchesCount > 0
+                                  ? `${selectedBatchesCount} of ${courseBatches.length} batch${courseBatches.length > 1 ? "es" : ""}`
+                                  : `${courseBatches.length} batch${courseBatches.length > 1 ? "es" : ""}`}
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* Batches List */}
+                          {courseBatches.length > 0 ? (
+                            <div className="border-t border-gray-100 bg-gray-50/60 p-3 space-y-2">
+                              <div className="text-[11px] font-medium uppercase tracking-wider text-gray-500 px-1">
+                                Batches for this branch
+                              </div>
+                              {courseBatches.map((batch) => {
+                                const isBatchAssigned = assignedBatchIds.includes(batch.id)
+                                const batchError = getBatchError(batch, courseAssignment)
+
+                                return (
+                                  <div
+                                    key={batch.id}
+                                    className={`p-2.5 rounded-md border transition-all ${isBatchAssigned
+                                        ? batchError
+                                          ? "bg-red-50/70 border-red-300"
+                                          : "bg-white border-blue-200 shadow-xs"
+                                        : "bg-white border-gray-200 hover:border-gray-300"
+                                      }`}
+                                  >
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="flex items-start space-x-2.5 flex-1 min-w-0">
+                                        <Checkbox
+                                          id={`batch-${batch.id}`}
+                                          checked={isBatchAssigned}
+                                          onCheckedChange={() =>
+                                            handleBatchToggle(batch.id, courseAssignment.course_id)
+                                          }
+                                          className="mt-0.5"
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                          <Label
+                                            htmlFor={`batch-${batch.id}`}
+                                            className="cursor-pointer font-medium text-xs text-gray-800 block truncate"
+                                          >
+                                            {batch.batch_name || "Batch"}
+                                          </Label>
+
+                                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                            {batch.days && batch.days.length > 0 && (
+                                              <span className="inline-flex items-center text-[11px] text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded font-medium">
+                                                {formatDays(batch.days)}
+                                              </span>
+                                            )}
+                                            {batch.start_time && batch.end_time && (
+                                              <span className="inline-flex items-center gap-1 text-[11px] text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded font-medium">
+                                                <Clock className="w-3 h-3 text-gray-500" />
+                                                {formatRange(batch.start_time, batch.end_time)}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Batch Assignment Status */}
+                                      <div className="shrink-0 flex items-center">
+                                        {isBatchAssigned ? (
+                                          <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 text-[11px] font-medium border border-emerald-200">
+                                            Selected for Coach
+                                          </Badge>
+                                        ) : batch.coach_id ? (
+                                          <Badge variant="outline" className="text-[11px] text-gray-500 border-gray-200">
+                                            Assigned to other
+                                          </Badge>
+                                        ) : (
+                                          <Badge variant="outline" className="text-[11px] text-gray-400 border-dashed border-gray-200">
+                                            Unassigned
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Conflict / Availability Warning */}
+                                    {batchError && (
+                                      <div
+                                        className={`mt-2 flex items-start gap-1.5 text-xs rounded p-2 ${isBatchAssigned
+                                            ? "bg-red-50 text-red-700 border border-red-200 font-medium"
+                                            : "bg-amber-50 text-amber-800 border border-amber-200"
+                                          }`}
+                                      >
+                                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-current" />
+                                        <span>{batchError}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          ) : (
+                            <div className="border-t border-gray-100 bg-gray-50/40 p-2.5 px-4 text-xs text-gray-500 italic">
+                              No specific batches created for this course in this branch.
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Badges for selected courses */}
+                {formData.courses.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-gray-100">
+                    {formData.courses.map((courseId) => {
+                      const course = courses.find((c) => c.id === courseId)
+                      return (
+                        <Badge key={courseId} variant="secondary" className="bg-blue-100 text-blue-800">
+                          {course?.title || courseId}
+                          <button
+                            type="button"
+                            onClick={() => handleCourseToggle(courseId)}
+                            className="ml-2 hover:text-red-600"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </Badge>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="salary">Salary (Optional)</Label>
+                <Input
+                  id="salary"
+                  value={formData.salary}
+                  onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
+                  placeholder="Monthly salary"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Emergency Contact */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <span className="text-[#4F5077]">Emergency Contact</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-[#7D8592]">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="emergencyContactName">Contact Name</Label>
+                  <Input
+                    id="emergencyContactName"
+                    value={formData.emergencyContactName}
+                    onChange={(e) => setFormData({ ...formData, emergencyContactName: e.target.value })}
+                    placeholder="Emergency contact name"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="emergencyContactPhone">Contact Phone</Label>
+                  <Input
+                    id="emergencyContactPhone"
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
+                    value={formData.emergencyContactPhone}
+                    onChange={(e) => setFormData({ ...formData, emergencyContactPhone: formatIndianPhoneNumber(e.target.value) })}
+                    placeholder="10-digit Indian phone number"
+                    className={errors.emergencyContactPhone ? "border-red-500" : ""}
+                  />
+                  {errors.emergencyContactPhone && <p className="text-red-500 text-sm">{errors.emergencyContactPhone}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="emergencyContactRelation">Relation</Label>
+                  <Select
+                    value={formData.emergencyContactRelation}
+                    onValueChange={(value) => setFormData({ ...formData, emergencyContactRelation: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select relation" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {relations.map((relation) => (
+                        <SelectItem key={relation.toLowerCase()} value={relation.toLowerCase()}>
+                          {relation}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Additional Information */}
           <Card>

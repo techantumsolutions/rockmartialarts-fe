@@ -7,11 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { 
-  ArrowLeft, 
-  User, 
-  Mail, 
-  Phone, 
+import {
+  ArrowLeft,
+  User,
+  Mail,
+  Phone,
   MapPin,
   Calendar,
   BookOpen,
@@ -21,6 +21,7 @@ import {
 } from "lucide-react"
 import CoachDashboardHeader from "@/components/coach-dashboard-header"
 import { checkCoachAuth } from "@/lib/coachAuth"
+import { getBackendApiUrl } from "@/lib/config"
 
 interface StudentDetails {
   id: string
@@ -45,7 +46,7 @@ interface StudentDetails {
     state?: string
     postal_code?: string
     country?: string
-  }
+  } | string
   emergency_contact?: {
     name?: string
     phone?: string
@@ -57,7 +58,7 @@ export default function StudentDetailsPage() {
   const router = useRouter()
   const params = useParams()
   const studentId = params.id as string
-  
+
   const [student, setStudent] = useState<StudentDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -75,47 +76,266 @@ export default function StudentDetailsPage() {
 
     if (authResult.coach && authResult.token) {
       setCoachData(authResult.coach)
-      fetchStudentDetails(authResult.token, authResult.coach.id)
+      fetchStudentDetails(authResult.token, authResult.coach)
     } else {
       setError("Coach information not found")
       setLoading(false)
     }
   }, [router, studentId])
 
-  const fetchStudentDetails = async (token: string, coachId: string) => {
+  const fetchStudentDetails = async (token: string, coach: any) => {
     try {
       setLoading(true)
       setError(null)
 
-      // Fetch students from coach students endpoint
-      const studentsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/coaches/${coachId}/students`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
+      let studentData: StudentDetails | null = null
+      const coachId = coach?.id || coach?._id
+      const coachBranchId = coach?.branch_id
 
-      if (!studentsResponse.ok) {
-        if (studentsResponse.status === 401) {
+      // 1. Primary: Try fetching directly from /api/users/{studentId}
+      try {
+        const userRes = await fetch(getBackendApiUrl(`users/${studentId}`), {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+
+        if (userRes.status === 401) {
           localStorage.clear()
           router.push("/coach/login")
           return
         }
-        throw new Error(`Failed to fetch student details: ${studentsResponse.status}`)
+
+        if (userRes.ok) {
+          const resJson = await userRes.json()
+          const u = resJson.user || resJson
+          const enrollments = Array.isArray(resJson.enrollments) ? resJson.enrollments : []
+          const primaryEnr = enrollments[0]
+
+          const fullName = u.full_name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Unknown Student'
+          const courseName = primaryEnr?.course_details?.title || primaryEnr?.course_name || u.course_name || u.courses?.[0]?.name || u.course?.name || ''
+          const courseId = primaryEnr?.course_id || primaryEnr?.course?.id || u.course_id || u.courses?.[0]?.id || ''
+          const branchName = primaryEnr?.branch_details?.name || primaryEnr?.branch_name || u.branch_name || u.branches?.[0]?.name || ''
+          const enrollmentDate = primaryEnr?.enrollment_date || primaryEnr?.created_at || u.enrollment_date || u.courses?.[0]?.enrollment_date || ''
+          const progress = primaryEnr?.progress ?? u.progress
+
+          studentData = {
+            id: u.id || studentId,
+            student_id: u.student_id || u.id || studentId,
+            full_name: fullName,
+            student_name: fullName,
+            email: u.email || u.contact_info?.email || '',
+            phone: u.phone || u.contact_info?.phone || '',
+            date_of_birth: u.date_of_birth || '',
+            gender: u.gender || '',
+            is_active: u.is_active !== undefined ? u.is_active : true,
+            status: u.status || (u.is_active === false ? 'inactive' : 'active'),
+            course_name: courseName,
+            course_id: courseId,
+            branch_name: branchName,
+            enrollment_date: enrollmentDate,
+            progress: progress,
+            address: u.address,
+            emergency_contact: u.emergency_contact,
+          }
+        }
+      } catch (err) {
+        console.warn('Direct user fetch error:', err)
       }
 
-      const studentsData = await studentsResponse.json()
-      const students = studentsData.students || studentsData.enrolled_students || []
-      const studentDetail = students.find((s: any) => s.id === studentId)
-      
-      if (!studentDetail) {
-        setError("Student not found or not enrolled in your courses")
+      // 2. Secondary fallback: Search in branch students (/api/search/students)
+      if (!studentData && coachBranchId) {
+        try {
+          const branchRes = await fetch(getBackendApiUrl(`search/students?branch_id=${encodeURIComponent(coachBranchId)}&limit=100`), {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          })
+          if (branchRes.ok) {
+            const branchData = await branchRes.json()
+            const studentsList = branchData.students || []
+            const found = studentsList.find((s: any) => s.id === studentId || s.student_id === studentId)
+            if (found) {
+              const fullName = found.full_name || `${found.first_name || ''} ${found.last_name || ''}`.trim() || 'Unknown Student'
+              studentData = {
+                id: found.id || studentId,
+                student_id: found.student_id || found.id || studentId,
+                full_name: fullName,
+                student_name: fullName,
+                email: found.email || '',
+                phone: found.phone || '',
+                date_of_birth: found.date_of_birth || '',
+                gender: found.gender || '',
+                is_active: found.is_active !== undefined ? found.is_active : true,
+                status: found.status || (found.is_active === false ? 'inactive' : 'active'),
+                course_name: found.courses?.[0]?.name || found.course_name || '',
+                course_id: found.courses?.[0]?.id || found.course_id || '',
+                branch_name: found.branches?.[0]?.name || found.branch_name || '',
+                enrollment_date: found.courses?.[0]?.enrollment_date || found.enrollment_date || '',
+                progress: found.courses?.[0]?.progress ?? found.progress,
+                address: found.address,
+                emergency_contact: found.emergency_contact,
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('Branch search fallback error:', err)
+        }
+      }
+
+      // 3. Tertiary fallback: Coach students endpoint (/api/coaches/{coachId}/students)
+      if (!studentData && coachId) {
+        try {
+          const coachStudentsRes = await fetch(getBackendApiUrl(`coaches/${encodeURIComponent(coachId)}/students`), {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          })
+          if (coachStudentsRes.ok) {
+            const csData = await coachStudentsRes.json()
+            const students = csData.students || csData.enrolled_students || []
+            const found = students.find((s: any) => s.id === studentId || s.student_id === studentId)
+            if (found) {
+              const fullName = found.student_name || found.full_name || 'Unknown Student'
+              studentData = {
+                id: found.id || studentId,
+                student_id: found.student_id || found.id || studentId,
+                full_name: fullName,
+                student_name: fullName,
+                email: found.email || '',
+                phone: found.phone || '',
+                date_of_birth: found.date_of_birth || '',
+                gender: found.gender || '',
+                is_active: found.is_active !== undefined ? found.is_active : true,
+                status: found.status || (found.is_active === false ? 'inactive' : 'active'),
+                course_name: found.course_name || '',
+                course_id: found.course_id || '',
+                branch_name: found.branch_name || '',
+                enrollment_date: found.enrollment_date || '',
+                progress: found.progress,
+                address: found.address,
+                emergency_contact: found.emergency_contact,
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('Coach students fallback error:', err)
+        }
+      }
+
+      // 4. Quaternary fallback: attendance/coach/{coachId}/students
+      if (!studentData && coachId) {
+        try {
+          const attRes = await fetch(getBackendApiUrl(`attendance/coach/${encodeURIComponent(coachId)}/students`), {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          })
+          if (attRes.ok) {
+            const attData = await attRes.json()
+            const students = attData.students || []
+            const found = students.find((s: any) => s.id === studentId || s.student_id === studentId)
+            if (found) {
+              const fullName = found.student_name || found.full_name || 'Unknown Student'
+              studentData = {
+                id: found.id || studentId,
+                student_id: found.student_id || found.id || studentId,
+                full_name: fullName,
+                student_name: fullName,
+                email: found.email || '',
+                phone: found.phone || '',
+                date_of_birth: found.date_of_birth || '',
+                gender: found.gender || '',
+                is_active: found.is_active !== undefined ? found.is_active : true,
+                status: found.status || (found.is_active === false ? 'inactive' : 'active'),
+                course_name: found.course_name || '',
+                course_id: found.course_id || '',
+                branch_name: found.branch_name || '',
+                enrollment_date: found.enrollment_date || '',
+                progress: found.progress,
+                address: found.address,
+                emergency_contact: found.emergency_contact,
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('Attendance students fallback error:', err)
+        }
+      }
+
+      if (!studentData) {
+        setError("Student not found or not enrolled in your courses/branch")
         setLoading(false)
         return
       }
 
-      setStudent(studentDetail)
+      // 5. Enrich enrollments if course or branch is missing
+      if (!studentData.course_name || !studentData.branch_name) {
+        try {
+          const enrRes = await fetch(getBackendApiUrl(`users/${studentId}/enrollments`), {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          })
+          if (enrRes.ok) {
+            const enrData = await enrRes.json()
+            const enrollments = enrData.enrollments || enrData || []
+            if (Array.isArray(enrollments) && enrollments.length > 0) {
+              const e0 = enrollments[0]
+              if (!studentData.course_name) {
+                studentData.course_name = e0.course_name || e0.course_details?.title || e0.course?.name || ''
+              }
+              if (!studentData.course_id) {
+                studentData.course_id = e0.course_id || e0.course?.id || ''
+              }
+              if (!studentData.branch_name) {
+                studentData.branch_name = e0.branch_name || e0.branch_details?.name || e0.branch?.name || ''
+              }
+              if (!studentData.enrollment_date) {
+                studentData.enrollment_date = e0.enrollment_date || e0.created_at || ''
+              }
+              if (studentData.progress === undefined && e0.progress !== undefined) {
+                studentData.progress = e0.progress
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('Enrollment enrichment error:', err)
+        }
+      }
+
+      // 6. Optional: fetch student attendance stats
+      try {
+        const attStatsRes = await fetch(getBackendApiUrl(`attendance/reports?student_id=${encodeURIComponent(studentId)}`), {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+        if (attStatsRes.ok) {
+          const attStats = await attStatsRes.json()
+          if (attStats?.stats?.attendance_percentage !== undefined) {
+            studentData.attendance_percentage = Math.round(attStats.stats.attendance_percentage)
+          } else if (attStats?.attendance_percentage !== undefined) {
+            studentData.attendance_percentage = Math.round(attStats.attendance_percentage)
+          }
+        }
+      } catch (err) {
+        console.warn('Attendance rate fetch error:', err)
+      }
+
+      setStudent(studentData)
 
     } catch (err: any) {
       console.error('Error fetching student details:', err)
@@ -170,7 +390,7 @@ export default function StudentDetailsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <CoachDashboardHeader 
+        <CoachDashboardHeader
           currentPage="Student Details"
           coachName={coachData?.full_name || coachData?.name}
         />
@@ -189,7 +409,7 @@ export default function StudentDetailsPage() {
   if (error || !student) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <CoachDashboardHeader 
+        <CoachDashboardHeader
           currentPage="Student Details"
           coachName={coachData?.full_name || coachData?.name}
         />
@@ -200,7 +420,7 @@ export default function StudentDetailsPage() {
                 <div className="text-center">
                   <p className="text-red-600 font-medium mb-2">Error loading student</p>
                   <p className="text-sm text-gray-600 mb-4">{error}</p>
-                  <Button 
+                  <Button
                     onClick={() => router.push("/coach-dashboard/students")}
                     variant="outline"
                   >
@@ -218,11 +438,11 @@ export default function StudentDetailsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <CoachDashboardHeader 
+      <CoachDashboardHeader
         currentPage="Student Details"
         coachName={coachData?.full_name || coachData?.name}
       />
-      
+
       <main className="mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {/* Back Button */}
@@ -267,19 +487,19 @@ export default function StudentDetailsPage() {
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">
                     {student.student_name || student.full_name || 'Unknown Student'}
                   </h3>
-                  
+
                   {student.student_id && (
                     <p className="text-sm text-gray-500 mb-3">ID: {student.student_id}</p>
                   )}
-                  
-                  <div className="space-y-2">
+
+                  <div className="space-y-2 ">
                     <Badge className={getStatusColor(student.status || (student.is_active ? 'active' : 'inactive'))}>
                       <UserCheck className="w-3 h-3 mr-1" />
                       {student.status || (student.is_active ? 'Active' : 'Inactive')}
                     </Badge>
-                    
+
                     {student.course_name && (
-                      <Badge variant="outline" className="bg-blue-50 text-blue-800">
+                      <Badge variant="outline" className="bg-blue-50 text-blue-800 ml-3">
                         <BookOpen className="w-3 h-3 mr-1" />
                         {student.course_name}
                       </Badge>
@@ -294,7 +514,7 @@ export default function StudentDetailsPage() {
                         <span className="font-medium text-blue-600">{student.progress}%</span>
                       </div>
                     )}
-                    
+
                     {student.attendance_percentage !== undefined && (
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-500">Attendance</span>
@@ -326,19 +546,19 @@ export default function StudentDetailsPage() {
                           <label className="text-sm font-medium text-gray-500">Full Name</label>
                           <p className="text-gray-900">{student.student_name || student.full_name || 'Unknown Student'}</p>
                         </div>
-                        
+
                         <div>
                           <label className="text-sm font-medium text-gray-500">Gender</label>
                           <p className="text-gray-900 capitalize">{student.gender || 'N/A'}</p>
                         </div>
-                        
+
                         <div>
                           <label className="text-sm font-medium text-gray-500">Date of Birth</label>
                           <p className="text-gray-900">
                             {student.date_of_birth ? formatDate(student.date_of_birth) : 'N/A'}
                           </p>
                         </div>
-                        
+
                         <div>
                           <label className="text-sm font-medium text-gray-500">Age</label>
                           <p className="text-gray-900">
@@ -355,18 +575,24 @@ export default function StudentDetailsPage() {
                             <MapPin className="w-5 h-5 text-gray-400 mt-1" />
                             <div>
                               <div className="space-y-1">
-                                {student.address.street && (
-                                  <p className="text-gray-900">{student.address.street}</p>
-                                )}
-                                <p className="text-gray-900">
-                                  {[
-                                    student.address.city,
-                                    student.address.state,
-                                    student.address.postal_code
-                                  ].filter(Boolean).join(', ')}
-                                </p>
-                                {student.address.country && (
-                                  <p className="text-gray-900">{student.address.country}</p>
+                                {typeof student.address === 'string' ? (
+                                  <p className="text-gray-900">{student.address}</p>
+                                ) : (
+                                  <>
+                                    {student.address.street && (
+                                      <p className="text-gray-900">{student.address.street}</p>
+                                    )}
+                                    <p className="text-gray-900">
+                                      {[
+                                        student.address.city,
+                                        student.address.state,
+                                        student.address.postal_code
+                                      ].filter(Boolean).join(', ')}
+                                    </p>
+                                    {student.address.country && (
+                                      <p className="text-gray-900">{student.address.country}</p>
+                                    )}
+                                  </>
                                 )}
                               </div>
                             </div>
@@ -389,19 +615,19 @@ export default function StudentDetailsPage() {
                             <label className="text-sm font-medium text-gray-500">Course</label>
                             <p className="text-gray-900">{student.course_name || 'N/A'}</p>
                           </div>
-                          
+
                           <div>
                             <label className="text-sm font-medium text-gray-500">Branch</label>
                             <p className="text-gray-900">{student.branch_name || 'N/A'}</p>
                           </div>
-                          
+
                           <div>
                             <label className="text-sm font-medium text-gray-500">Enrollment Date</label>
                             <p className="text-gray-900">
                               {student.enrollment_date ? formatDate(student.enrollment_date) : 'N/A'}
                             </p>
                           </div>
-                          
+
                           <div>
                             <label className="text-sm font-medium text-gray-500">Status</label>
                             <Badge className={getStatusColor(student.status || (student.is_active ? 'active' : 'inactive'))}>
@@ -423,7 +649,7 @@ export default function StudentDetailsPage() {
                                 </div>
                               </div>
                             )}
-                            
+
                             {student.attendance_percentage !== undefined && (
                               <div className="flex items-center space-x-3">
                                 <Calendar className="w-5 h-5 text-green-500" />
@@ -454,7 +680,7 @@ export default function StudentDetailsPage() {
                             <p className="text-gray-900">{student.email}</p>
                           </div>
                         </div>
-                        
+
                         {student.phone && (
                           <div className="flex items-center space-x-3">
                             <Phone className="w-5 h-5 text-gray-400" />
@@ -474,12 +700,12 @@ export default function StudentDetailsPage() {
                                 <label className="text-sm font-medium text-gray-500">Name</label>
                                 <p className="text-gray-900">{student.emergency_contact.name || 'N/A'}</p>
                               </div>
-                              
+
                               <div>
                                 <label className="text-sm font-medium text-gray-500">Relationship</label>
                                 <p className="text-gray-900">{student.emergency_contact.relationship || 'N/A'}</p>
                               </div>
-                              
+
                               <div>
                                 <label className="text-sm font-medium text-gray-500">Phone</label>
                                 <p className="text-gray-900">{student.emergency_contact.phone || 'N/A'}</p>

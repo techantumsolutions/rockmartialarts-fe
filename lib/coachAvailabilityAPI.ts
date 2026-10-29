@@ -38,6 +38,7 @@ export type AvailabilityOptions = {
   locations: { id: string; name: string }[]
   weekdays: { value: string; label: string }[]
   coach_service_location_ids?: string[]
+  allocated_branch_id?: string | null
   timezone_default?: string
 }
 
