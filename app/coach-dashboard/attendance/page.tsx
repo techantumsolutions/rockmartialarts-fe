@@ -25,7 +25,8 @@ import {
   Download,
   Loader2,
   Eye,
-  RefreshCw
+  RefreshCw,
+  AlertCircle
 } from "lucide-react"
 import { format } from "date-fns"
 import CoachDashboardHeader from "@/components/coach-dashboard-header"
@@ -448,15 +449,9 @@ export default function CoachAttendancePage() {
       setAttendanceRecords(records)
       setFilteredRecords(records)
 
-      if (records.length === 0) {
-        if (assignments.courses.length === 0) {
-          setError("You do not have any courses assigned in this branch yet. Please contact your administrator.")
-        } else {
-          setError("No students found enrolled in your assigned courses and batches in this branch.")
-        }
-      } else {
-        setError(null)
-      }
+      // Successful fetch - clear any previous error.
+      // 0 students or 0 assigned courses is an empty state, not a fatal error.
+      setError(null)
 
     } catch (error) {
       console.error("Error fetching attendance data:", error)
@@ -795,29 +790,7 @@ export default function CoachAttendancePage() {
     )
   }
 
-  if (error || !attendanceStats) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <CoachDashboardHeader
-          currentPage="Attendance"
-          coachName={coachData?.full_name || "Coach"}
-        />
-        <main className="mx-auto py-6 sm:px-6 lg:px-8">
-          <div className="px-4 py-6 sm:px-0">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center text-red-600">
-                  <p className="font-medium">Error loading attendance data</p>
-                  <p className="text-sm mt-1">{error || "No attendance statistics available"}</p>
 
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </main>
-      </div>
-    )
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -924,6 +897,32 @@ export default function CoachAttendancePage() {
               )}
             </div>
           </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
+              <div className="flex items-center">
+                <AlertCircle className="h-5 w-5 text-red-600 mr-2 shrink-0" />
+                <div>
+                  <p className="text-red-800 font-medium">Error loading attendance data</p>
+                  <p className="text-sm text-red-700 mt-0.5">{error}</p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const authResult = checkCoachAuth()
+                  if (authResult.isAuthenticated && authResult.token && authResult.coach) {
+                    fetchAttendanceData(authResult.token, authResult.coach)
+                  }
+                }}
+                className="border-red-300 text-red-800 hover:bg-red-100 shrink-0 ml-4"
+              >
+                Try Again
+              </Button>
+            </div>
+          )}
 
           {/* Success Message */}
           {successMessage && (
@@ -1114,11 +1113,25 @@ export default function CoachAttendancePage() {
                 {viewMode === 'today' ? (
                   // Today's attendance view
                   filteredRecords.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
+                    <div className="text-center py-12 text-gray-500">
                       <Users className="mx-auto h-12 w-12 text-gray-400" />
-                      <h3 className="mt-2 text-sm font-medium text-gray-900">No attendance records</h3>
-                      <p className="mt-1 text-sm text-gray-500">
-                        {searchTerm ? "No records match your search." : `No attendance records found for ${format(selectedDate, "PPP")}.`}
+                      <h3 className="mt-3 text-base font-medium text-gray-900">
+                        {searchTerm
+                          ? "No records found"
+                          : selectedCourse !== "all" || selectedBatch !== "all"
+                          ? "No students found"
+                          : coachAssignments && coachAssignments.courses.length === 0
+                          ? "No courses assigned"
+                          : "No students enrolled"}
+                      </h3>
+                      <p className="mt-1 text-sm text-gray-500 max-w-md mx-auto">
+                        {searchTerm
+                          ? "No records match your search."
+                          : selectedCourse !== "all" || selectedBatch !== "all"
+                          ? "No students found for the selected course or batch."
+                          : coachAssignments && coachAssignments.courses.length === 0
+                          ? "You do not have any courses assigned in this branch yet. Please contact your administrator."
+                          : `No students found enrolled in your assigned courses and batches in this branch for ${format(selectedDate, "PPP")}.`}
                       </p>
                     </div>
                   ) : (
@@ -1218,11 +1231,17 @@ export default function CoachAttendancePage() {
                       <p className="mt-2 text-sm text-gray-600">Loading historical records...</p>
                     </div>
                   ) : historicalRecords.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
+                    <div className="text-center py-12 text-gray-500">
                       <Users className="mx-auto h-12 w-12 text-gray-400" />
-                      <h3 className="mt-2 text-sm font-medium text-gray-900">No historical records found</h3>
-                      <p className="mt-1 text-sm text-gray-500">
-                        No attendance records found for the selected date range. Try adjusting the dates or check if attendance was recorded during this period.
+                      <h3 className="mt-3 text-base font-medium text-gray-900">
+                        {coachAssignments && coachAssignments.courses.length === 0
+                          ? "No courses assigned"
+                          : "No historical records found"}
+                      </h3>
+                      <p className="mt-1 text-sm text-gray-500 max-w-md mx-auto">
+                        {coachAssignments && coachAssignments.courses.length === 0
+                          ? "You do not have any courses assigned in this branch yet. Please contact your administrator."
+                          : "No attendance records found for the selected date range. Try adjusting the dates or check if attendance was recorded during this period."}
                       </p>
                     </div>
                   ) : (

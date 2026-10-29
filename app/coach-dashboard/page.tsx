@@ -75,7 +75,7 @@ export default function CoachDashboard() {
       if (coach.branch_id) {
         try {
           const res = await fetch(
-            getBackendApiUrl(`search/students?branch_id=${encodeURIComponent(coach.branch_id)}&limit=200`),
+            getBackendApiUrl(`search/students?branch_id=${encodeURIComponent(coach.branch_id)}&limit=100`),
             { headers }
           )
           if (res.ok) {

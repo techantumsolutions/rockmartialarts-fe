@@ -155,28 +155,34 @@ export default function StudentsListPage() {
       }
 
       // 2. Fetch students from branch search via getBackendApiUrl
-      const response = await fetch(
-        getBackendApiUrl(`search/students?branch_id=${encodeURIComponent(branchId)}&limit=200`),
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      )
+      let rawStudents: any[] = []
+      try {
+        const response = await fetch(
+          getBackendApiUrl(`search/students?branch_id=${encodeURIComponent(branchId)}&limit=100`),
+          {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        )
 
-      if (!response.ok) {
         if (response.status === 401) {
           localStorage.clear()
           router.push("/coach/login")
           return
         }
-        throw new Error(`Failed to fetch students: ${response.status}`)
-      }
 
-      const data = await response.json()
-      let rawStudents = data.students || []
+        if (response.ok) {
+          const data = await response.json()
+          rawStudents = data.students || []
+        } else {
+          console.warn(`search/students returned ${response.status}, trying fallback endpoints`)
+        }
+      } catch (err) {
+        console.warn("Error fetching from search/students:", err)
+      }
 
       // Also fetch from coach/students endpoint to ensure completeness
       try {
@@ -199,6 +205,29 @@ export default function StudentsListPage() {
         }
       } catch (e) {
         console.warn("Could not fetch from coach endpoint:", e)
+      }
+
+      // Fallback to attendance endpoint if rawStudents is still empty
+      if (rawStudents.length === 0) {
+        try {
+          const todayStr = new Date().toISOString().split('T')[0]
+          const attRes = await fetch(
+            getBackendApiUrl(`attendance/students?date=${encodeURIComponent(todayStr)}`),
+            {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            }
+          )
+          if (attRes.ok) {
+            const attData = await attRes.json()
+            rawStudents = attData.students || []
+          }
+        } catch (e) {
+          console.warn("Could not fetch from attendance endpoint fallback:", e)
+        }
       }
 
       // 3. Filter strictly based on assigned courses and assigned batches in this branch!
