@@ -850,15 +850,6 @@ export default function SuperAdminCoachAttendancePage() {
                                   Present
                                 </Button>
                                 <Button
-                                  onClick={() => handleMarkAttendance(record.id, "late")}
-                                  size="sm"
-                                  variant={record.status === "late" ? "default" : "outline"}
-                                  className="text-xs"
-                                  disabled={isCoachStatusButtonDisabled(record, "late")}
-                                >
-                                  Late
-                                </Button>
-                                <Button
                                   onClick={() => handleMarkAttendance(record.id, "absent")}
                                   size="sm"
                                   variant={record.status === "absent" ? "default" : "outline"}

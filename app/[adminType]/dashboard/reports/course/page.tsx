@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import BranchSelectionField from "@/components/layout/BranchSelectionField"
@@ -20,6 +20,7 @@ import {
 } from "lucide-react"
 import { reportsAPI, CourseReportsResponse, CourseReportFiltersResponse, CourseData } from "@/lib/reportsAPI"
 import { TokenManager } from "@/lib/tokenManager"
+import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { toast } from "sonner"
 import { exportCourseReport } from "@/lib/categoryReportExport"
 
@@ -141,6 +142,9 @@ export default function CourseReportPage() {
   const [courseResults, setCourseResults] = useState<CourseData[]>([])
   const [filterOptions, setFilterOptions] = useState<CourseReportFiltersResponse | null>(null)
 
+  // Track the latest search request ID to prevent race conditions / stale results
+  const activeRequestIdRef = useRef(0)
+
   // Filter state
   const [filters, setFilters] = useState<FilterState>({
     branch_id: "",
@@ -149,16 +153,9 @@ export default function CourseReportPage() {
     active_only: true
   })
 
-  // Load filter options and all courses on component mount
-  useEffect(() => {
-    loadFilterOptions()
-    handleCourseSearch({ silent: true })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   // Load filter options
-  const loadFilterOptions = async () => {
-    const token = TokenManager.getToken()
+  const loadFilterOptions = useCallback(async () => {
+    const token = BranchManagerAuth.getToken() || TokenManager.getToken()
     if (!token) {
       toast.error("Authentication required. Please login again.")
       router.push("/superadmin/login")
@@ -172,16 +169,65 @@ export default function CourseReportPage() {
       console.error('Error loading filter options:', error)
       toast.error('Failed to load filter options')
     }
-  }
+  }, [router])
 
-  // Handle search functionality
-  const handleSearch = () => {
-    handleCourseSearch()
-  }
+  // Load filter options on component mount
+  useEffect(() => {
+    loadFilterOptions()
+  }, [loadFilterOptions])
+
+  // Fetch course reports with stale request / race condition protection
+  const fetchCourseReports = useCallback(async (currentFilters: FilterState, options?: { silent?: boolean }) => {
+    const silent = options?.silent === true
+    const token = BranchManagerAuth.getToken() || TokenManager.getToken()
+    if (!token) {
+      if (!silent) toast.error('Authentication required')
+      return
+    }
+
+    const requestId = ++activeRequestIdRef.current
+    setSearchLoading(true)
+    setHasSearched(true)
+
+    try {
+      const response = await reportsAPI.getCourseReports(token, {
+        ...currentFilters,
+        skip: 0,
+        limit: 50
+      })
+
+      // Discard stale response if a newer request was issued
+      if (requestId !== activeRequestIdRef.current) {
+        return
+      }
+
+      setCourseResults(response.courses || [])
+      if (!silent) {
+        const count = response.courses?.length || 0
+        toast.success(`Found ${count} course${count !== 1 ? 's' : ''}`)
+      }
+    } catch (error) {
+      if (requestId !== activeRequestIdRef.current) {
+        return
+      }
+      console.error('Error searching courses:', error)
+      toast.error('Failed to search courses. Please try again.')
+      setCourseResults([])
+    } finally {
+      if (requestId === activeRequestIdRef.current) {
+        setSearchLoading(false)
+      }
+    }
+  }, [])
+
+  // Automatically fetch course reports whenever filters change (and on initial mount)
+  useEffect(() => {
+    fetchCourseReports(filters, { silent: true })
+  }, [filters, fetchCourseReports])
 
   // Handle download functionality
   const handleDownloadReport = async () => {
-    const token = TokenManager.getToken()
+    const token = BranchManagerAuth.getToken() || TokenManager.getToken()
     if (!token) {
       toast.error('Authentication required')
       return
@@ -205,43 +251,14 @@ export default function CourseReportPage() {
     setFilters(prev => ({ ...prev, [key]: processedValue }))
   }
 
-  // Handle course search
-  const handleCourseSearch = async (options?: { silent?: boolean }) => {
-    const silent = options?.silent === true
-    const token = TokenManager.getToken()
-    if (!token) {
-      if (!silent) toast.error('Authentication required')
-      return
-    }
-
-    setSearchLoading(true)
-    setHasSearched(true)
-
-    try {
-      const response = await reportsAPI.getCourseReports(token, {
-        ...filters,
-        skip: 0,
-        limit: 50
-      })
-
-      setCourseResults(response.courses)
-      if (!silent) toast.success(`Found ${response.courses.length} course${response.courses.length !== 1 ? 's' : ''}`)
-    } catch (error) {
-      console.error('Error searching courses:', error)
-      toast.error('Failed to search courses. Please try again.')
-      setCourseResults([])
-    } finally {
-      setSearchLoading(false)
-    }
-  }
-
   const courseCategory = REPORT_CATEGORIES.find(category => category.id === "course")
 
   // Check authentication
-  const token = TokenManager.getToken()
-  const user = TokenManager.getUser()
+  const token = BranchManagerAuth.getToken() || TokenManager.getToken()
+  const user = BranchManagerAuth.getCurrentUser() || TokenManager.getUser()
+  const isAuth = BranchManagerAuth.isAuthenticated() || TokenManager.isAuthenticated()
 
-  if (!TokenManager.isAuthenticated() || !token || !user) {
+  if (!isAuth || !token || !user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -278,7 +295,7 @@ export default function CourseReportPage() {
             <Button
               variant="outline"
               className="flex items-center space-x-2"
-              onClick={handleSearch}
+              onClick={() => fetchCourseReports(filters, { silent: false })}
               disabled={searchLoading}
             >
               <Filter className="w-4 h-4" />
@@ -307,7 +324,7 @@ export default function CourseReportPage() {
               <CardTitle className="text-lg font-semibold text-gray-900">Search Course Reports</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Branch Dropdown */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
@@ -392,27 +409,6 @@ export default function CourseReportPage() {
                   </Select>
                 </div>
               </div>
-
-              {/* Search Button */}
-              <div className="flex justify-end">
-                <Button
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-6"
-                  onClick={() => handleCourseSearch()}
-                  disabled={searchLoading}
-                >
-                  {searchLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Searching...
-                    </>
-                  ) : (
-                    <>
-                      <Search className="w-4 h-4 mr-2" />
-                      Search Course Reports
-                    </>
-                  )}
-                </Button>
-              </div>
             </CardContent>
           </Card>
 
@@ -489,7 +485,7 @@ export default function CourseReportPage() {
                   <div className="text-center">
                     <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                     <p className="text-gray-600">Use the search filters above to find course reports.</p>
-                    <p className="text-sm text-gray-500 mt-2">Select your criteria and click "Search Course Reports".</p>
+                    <p className="text-sm text-gray-500 mt-2">Results will update automatically when you change any filter.</p>
                   </div>
                 </div>
               )}

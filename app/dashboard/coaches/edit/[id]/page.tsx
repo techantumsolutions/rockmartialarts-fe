@@ -780,6 +780,67 @@ export default function EditCoachPage() {
     return Object.keys(newErrors).length === 0
   }
 
+  function normalizeToYYYYMMDD(dateStr?: string | null): string {
+    if (!dateStr || !String(dateStr).trim()) return ""
+    const cleaned = String(dateStr).trim()
+
+    // Strip time portion if present (e.g. ISO string or "2024-05-12 00:00:00")
+    const datePart = cleaned.split(/[T\s]/)[0].trim()
+
+    // 1. Direct YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+      const [y, m, d] = datePart.split("-").map(Number)
+      if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+        return datePart
+      }
+      // Handle swapped month/day (e.g. YYYY-DD-MM)
+      if (m > 12 && d <= 12) {
+        return `${y}-${String(d).padStart(2, "0")}-${String(m).padStart(2, "0")}`
+      }
+    }
+
+    // 2. YYYY[-/:.]MM[-/:.]DD
+    const ymdMatch = datePart.match(/^(\d{4})\s*[-/:.]\s*(\d{1,2})\s*[-/:.]\s*(\d{1,2})$/)
+    if (ymdMatch) {
+      const y = Number(ymdMatch[1])
+      let m = Number(ymdMatch[2])
+      let d = Number(ymdMatch[3])
+      if (m > 12 && d <= 12) {
+        const temp = m
+        m = d
+        d = temp
+      }
+      return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`
+    }
+
+    // 3. DD[-/:.]MM[-/:.]YYYY or MM[-/:.]DD[-/:.]YYYY (supports DD:MM:YYYY, DD/MM/YYYY, etc.)
+    const dmyMatch = datePart.match(/^(\d{1,2})\s*[-/:.]\s*(\d{1,2})\s*[-/:.]\s*(\d{4})$/)
+    if (dmyMatch) {
+      const p1 = Number(dmyMatch[1])
+      const p2 = Number(dmyMatch[2])
+      const y = Number(dmyMatch[3])
+      let d = p1
+      let m = p2
+      // If p2 > 12 and p1 <= 12, it must be MM-DD-YYYY
+      if (p2 > 12 && p1 <= 12) {
+        m = p1
+        d = p2
+      }
+      return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`
+    }
+
+    // 4. Try JS native Date
+    const parsed = new Date(cleaned)
+    if (!isNaN(parsed.getTime())) {
+      const y = parsed.getFullYear()
+      const m = String(parsed.getMonth() + 1).padStart(2, "0")
+      const d = String(parsed.getDate()).padStart(2, "0")
+      return `${y}-${m}-${d}`
+    }
+
+    return cleaned
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -796,7 +857,7 @@ export default function EditCoachPage() {
           first_name: formData.firstName,
           last_name: formData.lastName,
           gender: formData.gender,
-          date_of_birth: formData.dateOfBirth
+          date_of_birth: normalizeToYYYYMMDD(formData.dateOfBirth)
         },
         contact_info: {
           email: formData.email,

@@ -14,6 +14,17 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import WeeklySlotTimePicker from "@/components/coaches/WeeklySlotTimePicker"
 import { useToast } from "@/hooks/use-toast"
 import {
   WEEKDAYS,
@@ -56,6 +67,7 @@ export default function CoachAvailabilityEditor({
   const [timezone, setTimezone] = useState("Asia/Kolkata")
   const [updatedAt, setUpdatedAt] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [slotToDelete, setSlotToDelete] = useState<{ index: number; slot: WeeklySlot } | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -126,8 +138,26 @@ export default function CoachAvailabilityEditor({
     setSlots((prev) => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)))
   }
 
+  const formatSlotTime = (timeStr?: string): string => {
+    if (!timeStr) return ""
+    const match = /^(\d{1,2}):(\d{2})/.exec(timeStr.trim())
+    if (!match) return timeStr
+    let h = Number(match[1])
+    const m = match[2]
+    const suffix = h >= 12 ? "PM" : "AM"
+    h = h % 12 || 12
+    return `${String(h).padStart(2, "0")}:${m} ${suffix}`
+  }
+
   const removeSlot = (index: number) => {
     setSlots((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const confirmDeleteSlot = () => {
+    if (slotToDelete !== null) {
+      removeSlot(slotToDelete.index)
+      setSlotToDelete(null)
+    }
   }
 
   const handleSave = async () => {
@@ -273,15 +303,15 @@ export default function CoachAvailabilityEditor({
             slots.map((slot, index) => (
               <div
                 key={slot.id || index}
-                className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end border rounded-lg p-3"
+                className="grid grid-cols-1 sm:grid-cols-6 lg:grid-cols-[130px_minmax(120px,1fr)_minmax(120px,1fr)_minmax(140px,1.5fr)_auto] gap-3 items-end border rounded-lg p-3 sm:p-4"
               >
-                <div className="md:col-span-2">
-                  <Label className="text-xs text-[#6B7A99]">Day</Label>
+                <div className="col-span-1 sm:col-span-2 lg:col-span-1">
+                  <Label className="text-xs text-[#6B7A99] mb-1 block">Day</Label>
                   <Select
                     value={slot.weekday}
                     onValueChange={(v) => updateSlot(index, { weekday: v })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full h-9">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -293,34 +323,36 @@ export default function CoachAvailabilityEditor({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="md:col-span-2">
-                  <Label className="text-xs text-[#6B7A99]">Start</Label>
-                  <Input
-                    type="time"
+                <div className="col-span-1 sm:col-span-2 lg:col-span-1">
+                  <Label className="text-xs text-[#6B7A99] mb-1 block">Start</Label>
+                  <WeeklySlotTimePicker
                     value={slot.start_time}
-                    onChange={(e) => updateSlot(index, { start_time: e.target.value })}
+                    onChange={(val) => updateSlot(index, { start_time: val })}
                   />
                 </div>
-                <div className="md:col-span-2">
-                  <Label className="text-xs text-[#6B7A99]">End</Label>
-                  <Input
-                    type="time"
+                <div className="col-span-1 sm:col-span-2 lg:col-span-1">
+                  <Label className="text-xs text-[#6B7A99] mb-1 block">End</Label>
+                  <WeeklySlotTimePicker
                     value={slot.end_time}
-                    onChange={(e) => updateSlot(index, { end_time: e.target.value })}
+                    onChange={(val) => updateSlot(index, { end_time: val })}
                   />
                 </div>
-                <div className="md:col-span-4">
-                  <Label className="text-xs text-[#6B7A99]">Location</Label>
-                  <div className="h-9 flex items-center rounded-md border bg-gray-50 px-3 text-sm text-[#4F5077] truncate">
+                <div className="col-span-1 sm:col-span-5 lg:col-span-1">
+                  <Label className="text-xs text-[#6B7A99] mb-1 block">Location</Label>
+                  <div
+                    className="h-9 w-full flex items-center rounded-md border bg-gray-50 px-3 text-sm text-[#4F5077] truncate"
+                    title={allocatedBranchName || "No branch allocated"}
+                  >
                     {allocatedBranchName || "No branch allocated"}
                   </div>
                 </div>
-                <div className="md:col-span-2 flex justify-end">
+                <div className="col-span-1 sm:col-span-1 lg:col-span-1 flex justify-end items-center h-9">
                   <Button
+                    type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={() => removeSlot(index)}
-                    className="text-red-600"
+                    onClick={() => setSlotToDelete({ index, slot })}
+                    className="h-9 w-9 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 shrink-0"
                     title="Remove slot"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -333,7 +365,7 @@ export default function CoachAvailabilityEditor({
           {/* Week overview */}
           <div className="pt-2 border-t">
             <p className="text-xs font-medium text-[#6B7A99] mb-2">Week overview</p>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 text-xs">
               {WEEKDAYS.map((d) => (
                 <div key={d.value} className="rounded border bg-gray-50 px-2 py-2">
                   <div className="font-medium text-[#4F5077] mb-1">{d.label}</div>
@@ -366,6 +398,33 @@ export default function CoachAvailabilityEditor({
           />
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={slotToDelete !== null}
+        onOpenChange={(open) => !open && setSlotToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete time slot?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this weekly time slot
+              {slotToDelete?.slot
+                ? ` (${(slotToDelete.slot.weekday || "").charAt(0).toUpperCase() + (slotToDelete.slot.weekday || "").slice(1)}: ${formatSlotTime(slotToDelete.slot.start_time)} – ${formatSlotTime(slotToDelete.slot.end_time)})`
+                : ""}
+              ? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteSlot}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
