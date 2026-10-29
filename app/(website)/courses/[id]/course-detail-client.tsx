@@ -783,10 +783,10 @@ function CourseDetailPageInner() {
             <h2 className="text-2xl md:text-3xl font-extrabold text-white uppercase mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>
               {pc.cta_section?.headline?.trim() || "Ready to Start Your Journey?"}
             </h2>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <div className="mx-auto grid max-w-xl grid-cols-2 items-center gap-4">
               <Link
                 href={courseRegistrationHref(hero.cta_link)}
-                className="inline-flex items-center justify-center rounded-lg bg-[#FFB70F] px-10 py-4 text-base font-bold text-black hover:bg-white transition-colors shadow-lg"
+                className="inline-flex w-full items-center justify-center rounded-lg bg-[#FFB70F] px-4 py-4 text-base font-bold text-black hover:bg-white transition-colors shadow-lg sm:px-10"
               >
                 {hero.cta_text?.trim() || "Join Now"}
               </Link>
@@ -794,12 +794,12 @@ function CourseDetailPageInner() {
                 <button
                   type="button"
                   onClick={handleAddToCartClick}
-                  className="inline-flex items-center justify-center rounded-lg border-2 border-white px-8 py-4 text-base font-bold text-white hover:bg-white hover:text-[#F73322] transition-colors"
+                  className="inline-flex w-full items-center justify-center rounded-lg border-2 border-white px-4 py-4 text-base font-bold text-white hover:bg-white hover:text-[#F73322] transition-colors sm:px-8"
                 >
                   Add to cart
                 </button>
               ) : null}
-              <Link href="/courses" className="inline-flex items-center gap-2 text-white font-semibold hover:text-[#FFB70F] transition-colors">
+              <Link href="/courses" className="col-span-2 inline-flex items-center justify-self-center gap-2 text-white font-semibold hover:text-[#FFB70F] transition-colors">
                 <ArrowLeft className="w-4 h-4" /> View All Courses
               </Link>
             </div>
@@ -819,13 +819,25 @@ function CourseDetailPageInner() {
                   key={idx}
                   className={
                     hasImage
-                      ? "grid grid-cols-1 gap-8 md:gap-12 items-center md:grid-cols-5"
+                      ? "grid grid-cols-1 gap-8 md:gap-12 items-center sm:grid-cols-5"
                       : "grid grid-cols-1 gap-6"
                   }
                 >
-                  <div className={hasImage ? (textLeft ? "md:col-span-3" : "md:col-span-3 md:order-2") : ""}>
+                  <div className={hasImage ? (textLeft ? "sm:col-span-3" : "sm:col-span-3 sm:order-2") : ""}>
                     {sec.title && <h2 className="text-2xl md:text-3xl font-extrabold text-[#171A26] uppercase mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>{sec.title}</h2>}
-                    {sec.content && <div className="text-gray-700 leading-relaxed whitespace-pre-line mb-4">{sec.content}</div>}
+                    {sec.content && (
+                      <div className="text-gray-700 leading-relaxed space-y-3 mb-4">
+                        {sec.content
+                          .split(/\r?\n\s*\r?\n+/)
+                          .map((paragraph) => paragraph.trim())
+                          .filter(Boolean)
+                          .map((paragraph, paragraphIndex) => (
+                            <p key={paragraphIndex} className="whitespace-pre-line">
+                              {paragraph}
+                            </p>
+                          ))}
+                      </div>
+                    )}
                     {sec.bullet_points && sec.bullet_points.length > 0 && (
                       <ul className="list-none space-y-2">
                         {sec.bullet_points.filter(Boolean).map((bp, i) => (
@@ -838,7 +850,7 @@ function CourseDetailPageInner() {
                     )}
                   </div>
                   {hasImage && (
-                    <div className={textLeft ? "md:col-span-2" : "md:col-span-2 md:order-1"}>
+                    <div className={textLeft ? "sm:col-span-2" : "sm:col-span-2 sm:order-1"}>
                       <img
                         src={resolveUploadUrl(sec.image)}
                         alt={sec.title || ""}
@@ -855,7 +867,7 @@ function CourseDetailPageInner() {
 
       {/* ============ COURSE CONTENT (syllabus / equipment) ============ */}
       {enabled("course_content") && (courseContent.syllabus || (courseContent.equipment_required && courseContent.equipment_required.length > 0)) && (
-        <section className="py-16 md:py-20 bg-[#1E2130]">
+        <section className="pt-16 pb-4 md:pt-20 md:pb-6 bg-[#1E2130]">
           <div className="container mx-auto px-4 max-w-7xl">
             {headings?.course_content?.sub?.trim() || headings?.course_content?.title?.trim() ? (
               <SectionLabel sub={headings?.course_content?.sub} title={headings?.course_content?.title} />
@@ -895,7 +907,7 @@ function CourseDetailPageInner() {
 
       {/* ============ 4. BENEFITS ============ */}
       {enabled("benefits") && benefits.length > 0 && (
-        <section className="py-16 md:py-20 bg-[#1E2130]">
+        <section className="pt-4 pb-16 md:pt-6 md:pb-20 bg-[#1E2130]">
           <div className="container mx-auto px-4 max-w-7xl">
             {headings?.benefits?.sub?.trim() || headings?.benefits?.title?.trim() ? (
               <SectionLabel sub={headings?.benefits?.sub} title={headings?.benefits?.title} />

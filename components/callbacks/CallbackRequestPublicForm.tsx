@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { CALLBACK_PRIORITIES, callbackAPI } from "@/lib/callbackAPI"
+import { isValidIndianMobileNational } from "@/lib/indianMobile"
 
 type BranchOpt = { id: string; name: string }
 
@@ -60,6 +61,8 @@ export default function CallbackRequestPublicForm() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
+  const [phoneTouched, setPhoneTouched] = useState(false)
+  const phoneError = "Enter a valid Phone number"
 
   useEffect(() => {
     fetch("/api/branches/public", { headers: { "Content-Type": "application/json" } })
@@ -85,14 +88,14 @@ export default function CallbackRequestPublicForm() {
 
   const validate = (): string | null => {
     if (!form.name.trim()) return "Please enter your name"
-    if (!form.phone.trim() || form.phone.trim().length < 5)
-      return "Please enter a valid phone number"
+    if (!isValidIndianMobileNational(form.phone)) return phoneError
     return null
   }
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
+    setPhoneTouched(true)
     const v = validate()
     if (v) {
       setError(v)
@@ -115,6 +118,7 @@ export default function CallbackRequestPublicForm() {
       })
       setSubmitted(true)
       setForm(INITIAL)
+      setPhoneTouched(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit callback request")
     } finally {
@@ -189,11 +193,29 @@ export default function CallbackRequestPublicForm() {
             id="cb-phone"
             type="tel"
             value={form.phone}
-            onChange={set("phone")}
-            placeholder="+91 98XXXXXXXX"
-            className="bg-gray-950 border-gray-700 text-white"
+            onChange={(e) =>
+              setForm((prev) => ({
+                ...prev,
+                phone: e.target.value.replace(/\D/g, "").slice(0, 10),
+              }))
+            }
+            onBlur={() => setPhoneTouched(true)}
+            placeholder="10-digit mobile number"
+            inputMode="numeric"
+            maxLength={10}
+            pattern="[6-9][0-9]{9}"
+            aria-invalid={phoneTouched && !isValidIndianMobileNational(form.phone)}
+            aria-describedby={phoneTouched ? "cb-phone-error" : undefined}
+            className={`bg-gray-950 border-gray-700 text-white ${
+              phoneTouched && !isValidIndianMobileNational(form.phone) ? "border-red-500" : ""
+            }`}
             autoComplete="tel"
           />
+          {phoneTouched && !isValidIndianMobileNational(form.phone) ? (
+            <p id="cb-phone-error" className="text-sm text-red-400">
+              {phoneError}
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
@@ -268,6 +290,7 @@ export default function CallbackRequestPublicForm() {
             value={form.preferred_date}
             onChange={set("preferred_date")}
             className="bg-gray-950 border-gray-700 text-white"
+            style={{ colorScheme: "dark" }}
           />
         </div>
 
