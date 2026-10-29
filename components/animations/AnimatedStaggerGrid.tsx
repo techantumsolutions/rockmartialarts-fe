@@ -11,6 +11,10 @@ interface AnimatedStaggerGridProps {
   className?: string
   /** Class for each child wrapper */
   childClassName?: string
+  /** Threshold for triggering in-view: "some" (default) triggers when entering view; number requires ratio */
+  amount?: "some" | "all" | number
+  /** Margin for in-view trigger */
+  margin?: string
 }
 
 /**
@@ -22,9 +26,11 @@ export function AnimatedStaggerGrid({
   staggerDelay = 0.1,
   className = "",
   childClassName = "",
+  amount = "some",
+  margin = "-60px 0px",
 }: AnimatedStaggerGridProps) {
   const ref = useRef(null)
-  const inView = useInView(ref, { once: true, margin: "-60px 0px", amount: 0.1 })
+  const inView = useInView(ref, { once: true, margin: margin as any, amount })
   const shouldReduceMotion = useReducedMotion()
 
   const items = Children.toArray(children).filter((c) => c != null && c !== false)
