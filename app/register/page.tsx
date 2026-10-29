@@ -364,7 +364,7 @@ export default function RegisterPage() {
             )
           ) : (
             <div
-              className="w-full h-full bg-cover bg-center bg-no-repeat"
+              className="w-full h-full aspect-3/2 bg-cover bg-center bg-no-repeat"
               style={{ backgroundImage: "url('/images/registration-left.png')" }}
             />
           )}
@@ -372,13 +372,13 @@ export default function RegisterPage() {
       </div>
 
       {/* Right Side - Registration Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
-        <div className="w-full max-w-md space-y-6">
+      <div className="w-full lg:w-1/2 flex items-center justify-center px-8 py-0 bg-white">
+        <div className="w-full max-w-md space-y-0">
           <div className="flex justify-start">
             <Button
               type="button"
               variant="ghost"
-              className="gap-2 pl-0 text-gray-700 hover:text-gray-900 -ml-2"
+              className="gap-2 pl-0 text-gray-700  hover:text-gray-9 00 -ml-2"
               onClick={() => router.back()}
             >
               <ArrowLeft className="h-4 w-4" />
@@ -392,7 +392,7 @@ export default function RegisterPage() {
           </div>
 
           {/* Registration Form */}
-          <form onSubmit={handleNextStep} className="space-y-3">
+          <form onSubmit={handleNextStep} className="mt-4 space-y-3">
             {(checkingEmail || checkingPhone || submitting) && (
               <p className="text-sm text-gray-500">
                 {submitting ? "Verifying email & phone..." : checkingEmail && checkingPhone ? "Checking email & phone..." : checkingEmail ? "Checking email..." : "Checking phone..."}

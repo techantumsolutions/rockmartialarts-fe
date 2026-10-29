@@ -157,8 +157,6 @@ export default function AddCoachPage() {
     category: "",
     subCategory: "",
     certificates: [] as Array<{title: string, file: File | null, preview: string}>,
-    category: "",
-    subCategory: "",
     certificationFiles: [] as File[],
 
     // Assignment Details
@@ -1834,7 +1832,7 @@ export default function AddCoachPage() {
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Start time</Label>
-                    {isBranchManager() ? (
+                    {isBranchAdmin ? (
                       <WeeklySlotTimePicker
                         value={slot.start_time}
                         onChange={(val) =>
@@ -1861,7 +1859,7 @@ export default function AddCoachPage() {
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">End time</Label>
-                    {isBranchManager() ? (
+                    {isBranchAdmin ? (
                       <WeeklySlotTimePicker
                         value={slot.end_time}
                         onChange={(val) =>
