@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react"
 import Link from "next/link"
+import { all as getAllCountries } from "country-codes-list"
 import { CheckCircle2, Loader2, Upload, UserPlus, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -26,6 +26,10 @@ import {
 
 type BranchOpt = { id: string; name: string }
 
+const COUNTRY_CALLING_CODES = getAllCountries().sort((a, b) =>
+  a.countryNameEn.localeCompare(b.countryNameEn)
+)
+
 type FormState = {
   first_name: string
   last_name: string
@@ -34,7 +38,6 @@ type FormState = {
   email: string
   country_code: string
   phone: string
-  password: string
   address: string
   area: string
   city: string
@@ -58,7 +61,6 @@ const INITIAL: FormState = {
   email: "",
   country_code: "+91",
   phone: "",
-  password: "",
   address: "",
   area: "",
   city: "",
@@ -76,6 +78,7 @@ const INITIAL: FormState = {
 
 export default function CoachRegistrationPublicForm() {
   const [form, setForm] = useState<FormState>(INITIAL)
+  const [phoneCountry, setPhoneCountry] = useState("IN")
   const [branches, setBranches] = useState<BranchOpt[]>([])
   const [specializations, setSpecializations] = useState<CoachRegisterOption[]>([])
   const [experienceRanges, setExperienceRanges] = useState<CoachRegisterOption[]>([])
@@ -185,7 +188,6 @@ export default function CoachRegistrationPublicForm() {
         email: form.email.trim(),
         country_code: form.country_code.trim() || "+91",
         phone: form.phone.trim(),
-        password: form.password,
         address: form.address.trim(),
         area: form.area.trim() || undefined,
         city: form.city.trim(),
@@ -202,6 +204,7 @@ export default function CoachRegistrationPublicForm() {
       })
       setDone({ coach_id: result.coach_id, message: result.message })
       setForm(INITIAL)
+      setPhoneCountry("IN")
       setFieldErrors({})
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Registration failed"
@@ -377,28 +380,45 @@ export default function CoachRegistrationPublicForm() {
           <div className="space-y-1">
             <Label className="text-gray-300">Phone *</Label>
             <div className="flex gap-2">
+              <Select
+                value={phoneCountry}
+                onValueChange={(countryCode) => {
+                  const country = COUNTRY_CALLING_CODES.find(
+                    (item) => item.countryCode === countryCode
+                  )
+                  if (!country) return
+                  setPhoneCountry(country.countryCode)
+                  setForm((f) => ({
+                    ...f,
+                    country_code: `+${country.countryCallingCode}`,
+                  }))
+                }}
+              >
+                <SelectTrigger
+                  aria-label="Country calling code"
+                  className={`${fieldClass} w-28 shrink-0`}
+                >
+                  <SelectValue>{form.country_code}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {COUNTRY_CALLING_CODES.map((country) => (
+                    <SelectItem
+                      key={country.countryCode}
+                      value={country.countryCode}
+                      textValue={`${country.countryNameEn} +${country.countryCallingCode}`}
+                    >
+                      {country.flag} {country.countryNameEn} (+{country.countryCallingCode})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Input
-                className={`${fieldClass} w-24`}
-                value={form.country_code}
-                onChange={(e) => setForm((f) => ({ ...f, country_code: e.target.value }))}
-              />
-              <Input
-                className={fieldClass}
+                className={`${fieldClass} min-w-0 flex-1`}
                 required
                 value={form.phone}
                 onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
               />
             </div>
-          </div>
-          <div className="sm:col-span-2 space-y-1">
-            <Label className="text-gray-300">Password *</Label>
-            <PasswordInput
-              className={fieldClass}
-              required
-              minLength={6}
-              value={form.password}
-              onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-            />
           </div>
         </div>
       </div>

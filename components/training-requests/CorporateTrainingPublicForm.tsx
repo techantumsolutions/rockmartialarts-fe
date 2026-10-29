@@ -195,7 +195,7 @@ export default function CorporateTrainingPublicForm() {
     "bg-gray-950/60 border-gray-700 text-white placeholder:text-gray-500 focus-visible:ring-[#FFB70F]"
 
   return (
-    <form onSubmit={onSubmit} className="space-y-8 max-w-3xl mx-auto">
+    <form onSubmit={onSubmit} className="w-full space-y-8">
       <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 md:p-8 space-y-5">
         <div className="flex items-center gap-3 mb-1">
           <div className="w-10 h-10 rounded-lg bg-[#FFB70F]/10 flex items-center justify-center">
