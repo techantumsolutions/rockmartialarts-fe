@@ -151,6 +151,12 @@ const SUPER_ADMIN_MENU: NavItem[] = [
   { label: "Event Registrations", path: `${SUPER_ADMIN_BASE}/event-registrations`, icon: ClipboardList, overflowOnly: true, permissionId: "events" },
   { label: "Promotions", path: `${SUPER_ADMIN_BASE}/promotions`, icon: Trophy, overflowOnly: true },
   { label: "Champions", path: `${SUPER_ADMIN_BASE}/champions`, icon: Trophy, overflowOnly: true },
+  {
+    label: "Homepage Achievements",
+    path: `${SUPER_ADMIN_BASE}/achievements-showcase`,
+    icon: Award,
+    overflowOnly: true,
+  },
   { label: "Coach Sessions", path: `${SUPER_ADMIN_BASE}/coach-session-bookings`, icon: CalendarClock, overflowOnly: true, permissionId: "coaches" },
   { label: "Testimonials", path: `${SUPER_ADMIN_BASE}/testimonials`, icon: MessageSquare, overflowOnly: true },
   { label: "Registration Forms", path: `${SUPER_ADMIN_BASE}/registration-forms`, icon: FileText, overflowOnly: true },
