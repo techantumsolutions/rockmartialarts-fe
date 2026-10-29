@@ -17,11 +17,23 @@ import {
   BookOpen,
   TrendingUp,
   Loader2,
-  UserCheck
+  UserCheck,
+  Award,
+  Save,
+  Pencil
 } from "lucide-react"
 import CoachDashboardHeader from "@/components/coach-dashboard-header"
 import { checkCoachAuth } from "@/lib/coachAuth"
 import { getBackendApiUrl } from "@/lib/config"
+import { useToast } from "@/hooks/use-toast"
+import { Input } from "@/components/ui/input"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
 
 interface StudentDetails {
   id: string
@@ -37,6 +49,7 @@ interface StudentDetails {
   course_name?: string
   course_id?: string
   branch_name?: string
+  level_or_belt?: string
   progress?: number
   attendance_percentage?: number
   status?: string
@@ -59,10 +72,50 @@ export default function StudentDetailsPage() {
   const params = useParams()
   const studentId = params.id as string
 
+  const { toast } = useToast()
   const [student, setStudent] = useState<StudentDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [coachData, setCoachData] = useState<any>(null)
+  const [isEditBeltOpen, setIsEditBeltOpen] = useState(false)
+  const [beltValue, setBeltValue] = useState("")
+  const [isSavingBelt, setIsSavingBelt] = useState(false)
+
+  const handleSaveBelt = async () => {
+    if (!studentId) return
+    setIsSavingBelt(true)
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") || localStorage.getItem("access_token") : null
+      const res = await fetch(getBackendApiUrl(`student/profile/${encodeURIComponent(studentId)}`), {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ level_or_belt: beltValue.trim() || null })
+      })
+
+      if (!res.ok) {
+        const text = await res.text()
+        throw new Error(text || res.statusText)
+      }
+
+      setStudent(prev => prev ? { ...prev, level_or_belt: beltValue.trim() || undefined } : null)
+      setIsEditBeltOpen(false)
+      toast({
+        title: "Success",
+        description: "Level / belt updated successfully.",
+      })
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err?.message || "Failed to update level / belt",
+        variant: "destructive"
+      })
+    } finally {
+      setIsSavingBelt(false)
+    }
+  }
 
   useEffect(() => {
     // Use the robust coach authentication check
@@ -335,6 +388,25 @@ export default function StudentDetailsPage() {
         console.warn('Attendance rate fetch error:', err)
       }
 
+      // 7. Fetch performance profile for level_or_belt
+      try {
+        const perfRes = await fetch(getBackendApiUrl(`student/performance/${encodeURIComponent(studentId)}`), {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+        if (perfRes.ok) {
+          const perfData = await perfRes.json()
+          if (perfData?.profile?.level_or_belt) {
+            studentData.level_or_belt = perfData.profile.level_or_belt
+            setBeltValue(perfData.profile.level_or_belt)
+          }
+        }
+      } catch (err) {
+        console.warn('Performance profile fetch error:', err)
+      }
+
       setStudent(studentData)
 
     } catch (err: any) {
@@ -504,6 +576,13 @@ export default function StudentDetailsPage() {
                         {student.course_name}
                       </Badge>
                     )}
+
+                    {student.level_or_belt && (
+                      <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 ml-2">
+                        <Award className="w-3 h-3 mr-1 text-amber-600" />
+                        {student.level_or_belt}
+                      </Badge>
+                    )}
                   </div>
 
                   {/* Quick Stats */}
@@ -634,6 +713,25 @@ export default function StudentDetailsPage() {
                               {student.status || (student.is_active ? 'Active' : 'Inactive')}
                             </Badge>
                           </div>
+
+                          <div>
+                            <label className="text-sm font-medium text-gray-500">Level / Belt</label>
+                            <div className="flex items-center gap-2 mt-1">
+                              <p className="text-gray-900 font-medium">{student.level_or_belt || 'Not set'}</p>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-6 px-2 text-xs text-amber-800 border-amber-300 hover:bg-amber-50 flex items-center gap-1"
+                                onClick={() => {
+                                  setBeltValue(student.level_or_belt || "")
+                                  setIsEditBeltOpen(true)
+                                }}
+                              >
+                                <Pencil className="w-3 h-3" />
+                                Edit
+                              </Button>
+                            </div>
+                          </div>
                         </div>
 
                         {/* Progress and Performance */}
@@ -722,6 +820,45 @@ export default function StudentDetailsPage() {
           </div>
         </div>
       </main>
+      {/* Update Level / Belt Dialog */}
+      <Dialog open={isEditBeltOpen} onOpenChange={setIsEditBeltOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Update Student Level / Belt</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Level / Belt</label>
+              <Input
+                value={beltValue}
+                onChange={(e) => setBeltValue(e.target.value)}
+                placeholder="e.g. Yellow Belt, Orange Belt"
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setIsEditBeltOpen(false)} disabled={isSavingBelt}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveBelt}
+              disabled={isSavingBelt}
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+            >
+              {isSavingBelt ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" /> Save level/belt
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

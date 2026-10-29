@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, User, Award, MapPin, Phone, X, Plus, Building2, AlertCircle, Clock } from "lucide-react"
+import { ArrowLeft, User, Award, MapPin, Phone, X, Plus, Building2, AlertCircle, Clock, Lock } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { useActiveBranch } from "@/lib/activeBranch"
@@ -24,6 +24,22 @@ import { isBranchManager } from "@/lib/branchManagerAuth"
 import { WEEKDAY_CHECKLIST_ORDER } from "@/lib/formatWeekdayRanges"
 import { coachAvailabilityAPI } from "@/lib/coachAvailabilityAPI"
 import WeeklySlotTimePicker from "@/components/coaches/WeeklySlotTimePicker"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
+  type AssignedBatchInfo,
+  fetchCoachAssignedBatches,
+  checkSlotDeletionConflict,
+  getBatchConflictForSlots,
+  getBatchesCoveredBySlot,
+} from "@/lib/coachBatchConflict"
 import {
   normalizeAssignmentsCourses,
   type NormalizedCourseAssignment,
@@ -142,6 +158,30 @@ export default function EditCoachPage() {
     { weekday: string; start_time: string; end_time: string }[]
   >([])
   const [slotToDeleteIndex, setSlotToDeleteIndex] = useState<number | null>(null)
+  const [assignedBatches, setAssignedBatches] = useState<AssignedBatchInfo[]>([])
+  const [blockedSlotConflict, setBlockedSlotConflict] = useState<{
+    slotIndex: number
+    conflictingBatches: AssignedBatchInfo[]
+  } | null>(null)
+
+  const handleRemoveAvailabilitySlot = (index: number) => {
+    const conflictResult = checkSlotDeletionConflict(index, availabilitySlots, assignedBatches)
+    if (conflictResult.hasConflict) {
+      setBlockedSlotConflict({
+        slotIndex: index,
+        conflictingBatches: conflictResult.conflictingBatches,
+      })
+      const firstBatch = conflictResult.conflictingBatches[0]
+      toast({
+        title: "Cannot delete slot",
+        description: `This slot is required by batch "${firstBatch?.batch_name}" (${firstBatch?.course_title}). Please change or reassign the coach for this batch first before removing this availability.`,
+        variant: "destructive",
+      })
+      return
+    }
+
+    setAvailabilitySlots((rows) => rows.filter((_, rowIndex) => rowIndex !== index))
+  }
   const [branchCourseAssignments, setBranchCourseAssignments] = useState<NormalizedCourseAssignment[]>([])
   const [isLoadingBranchSchedule, setIsLoadingBranchSchedule] = useState(false)
   const [selectedBranchData, setSelectedBranchData] = useState<any>(null)
@@ -640,6 +680,13 @@ export default function EditCoachPage() {
           }
         } catch (availErr) {
           console.error('Failed to load coach availability:', availErr)
+        }
+
+        try {
+          const batches = await fetchCoachAssignedBatches(coachId, token)
+          setAssignedBatches(batches)
+        } catch (batchErr) {
+          console.error('Failed to load coach assigned batches:', batchErr)
         }
 
         if (shouldRefreshPhotoCache) {
@@ -1307,6 +1354,18 @@ export default function EditCoachPage() {
       //   coachData.professional_info.certifications = uploadedUrls
       // }
 
+      // Validate coach availability slots against assigned batches
+      const conflictCheck = getBatchConflictForSlots(assignedBatches, availabilitySlots)
+      if (conflictCheck.hasConflict && conflictCheck.uncoveredBatch) {
+        toast({
+          title: "Cannot save coach",
+          description: `The coach is currently assigned to batch "${conflictCheck.uncoveredBatch.batch_name}" (${conflictCheck.uncoveredBatch.course_title}) on ${conflictCheck.uncoveredBatch.days.join(", ")} ${conflictCheck.uncoveredBatch.start_time}-${conflictCheck.uncoveredBatch.end_time}. Please adjust availability slots to cover this batch or reassign the batch coach first.`,
+          variant: "destructive",
+        })
+        setIsSubmitting(false)
+        return
+      }
+
       // Call the backend API to update coach
       const response = await fetch(getBackendApiUrl(`coaches/${coachId}`), {
         method: 'PUT',
@@ -1332,21 +1391,24 @@ export default function EditCoachPage() {
       console.log("Coach updated successfully:", result)
 
       // Update coach availability
-      if (availabilitySlots.length > 0) {
-        try {
-          await coachAvailabilityAPI.updateForCoach(coachId, {
-            timezone: "Asia/Kolkata",
-            service_location_ids: [],
-            weekly_slots: availabilitySlots.map((slot) => ({
-              weekday: slot.weekday,
-              start_time: slot.start_time,
-              end_time: slot.end_time,
-              service_location_id: null,
-            })),
-          })
-        } catch (availabilityError) {
-          console.error("Availability was not saved:", availabilityError)
-        }
+      try {
+        await coachAvailabilityAPI.updateForCoach(coachId, {
+          timezone: "Asia/Kolkata",
+          service_location_ids: [],
+          weekly_slots: availabilitySlots.map((slot) => ({
+            weekday: slot.weekday,
+            start_time: slot.start_time,
+            end_time: slot.end_time,
+            service_location_id: null,
+          })),
+        })
+      } catch (availabilityError: any) {
+        console.error("Availability was not saved:", availabilityError)
+        toast({
+          title: "Availability update warning",
+          description: availabilityError?.message || "Could not save coach availability slots.",
+          variant: "destructive",
+        })
       }
 
       // If coach moved to a different branch, clean up old branch batches
@@ -2316,97 +2378,125 @@ export default function EditCoachPage() {
             </CardHeader>
             <CardContent className="space-y-3 text-[#7D8592]">
               <p className="text-sm">Days and times this coach can be assigned to a batch.</p>
-              {availabilitySlots.map((slot, index) => (
-                <div key={`availability-${index}`} className="grid grid-cols-1 md:grid-cols-[1fr_140px_140px_auto] gap-3 items-end">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Day</Label>
-                    <Select
-                      value={slot.weekday}
-                      onValueChange={(value) =>
-                        setAvailabilitySlots((rows) =>
-                          rows.map((row, rowIndex) => (rowIndex === index ? { ...row, weekday: value } : row))
-                        )
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Day" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {WEEKDAY_CHECKLIST_ORDER.map((day) => (
-                          <SelectItem key={day} value={day}>
-                            {day}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Start time</Label>
-                    {isBranchManager() ? (
-                      <WeeklySlotTimePicker
-                        value={slot.start_time}
-                        onChange={(val) =>
-                          setAvailabilitySlots((rows) =>
-                            rows.map((row, rowIndex) =>
-                              rowIndex === index ? { ...row, start_time: val } : row
+              {(() => {
+                const conflict = getBatchConflictForSlots(assignedBatches, availabilitySlots)
+                if (conflict.hasConflict && conflict.uncoveredBatch) {
+                  return (
+                    <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-xs sm:text-sm flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="font-semibold">Availability Conflict</p>
+                        <p>
+                          Coach is assigned to batch &quot;{conflict.uncoveredBatch.batch_name}&quot; ({conflict.uncoveredBatch.course_title}) on {conflict.uncoveredBatch.days.join(", ")} {conflict.uncoveredBatch.start_time} - {conflict.uncoveredBatch.end_time} at {conflict.uncoveredBatch.branch_name}. Current slots do not cover this time. Please adjust slots or reassign the coach for this batch first.
+                        </p>
+                      </div>
+                    </div>
+                  )
+                }
+                return null
+              })()}
+              {availabilitySlots.map((slot, index) => {
+                const covered = getBatchesCoveredBySlot(slot, assignedBatches)
+                return (
+                  <div key={`availability-${index}`} className="p-3 rounded-lg border border-slate-200 bg-slate-50/50 space-y-2">
+                    <div className="grid grid-cols-1 md:grid-cols-[1fr_140px_140px_auto] gap-3 items-end">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Day</Label>
+                        <Select
+                          value={slot.weekday}
+                          onValueChange={(value) =>
+                            setAvailabilitySlots((rows) =>
+                              rows.map((row, rowIndex) => (rowIndex === index ? { ...row, weekday: value } : row))
                             )
-                          )
-                        }
-                      />
-                    ) : (
-                      <Input
-                        type="time"
-                        value={slot.start_time}
-                        onChange={(e) =>
-                          setAvailabilitySlots((rows) =>
-                            rows.map((row, rowIndex) =>
-                              rowIndex === index ? { ...row, start_time: e.target.value } : row
-                            )
-                          )
-                        }
-                      />
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Day" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {WEEKDAY_CHECKLIST_ORDER.map((day) => (
+                              <SelectItem key={day} value={day}>
+                                {day}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Start time</Label>
+                        {isBranchManager() ? (
+                          <WeeklySlotTimePicker
+                            value={slot.start_time}
+                            onChange={(val) =>
+                              setAvailabilitySlots((rows) =>
+                                rows.map((row, rowIndex) =>
+                                  rowIndex === index ? { ...row, start_time: val } : row
+                                )
+                              )
+                            }
+                          />
+                        ) : (
+                          <Input
+                            type="time"
+                            value={slot.start_time}
+                            onChange={(e) =>
+                              setAvailabilitySlots((rows) =>
+                                rows.map((row, rowIndex) =>
+                                  rowIndex === index ? { ...row, start_time: e.target.value } : row
+                                )
+                              )
+                            }
+                          />
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">End time</Label>
+                        {isBranchManager() ? (
+                          <WeeklySlotTimePicker
+                            value={slot.end_time}
+                            onChange={(val) =>
+                              setAvailabilitySlots((rows) =>
+                                rows.map((row, rowIndex) =>
+                                  rowIndex === index ? { ...row, end_time: val } : row
+                                )
+                              )
+                            }
+                          />
+                        ) : (
+                          <Input
+                            type="time"
+                            value={slot.end_time}
+                            onChange={(e) =>
+                              setAvailabilitySlots((rows) =>
+                                rows.map((row, rowIndex) =>
+                                  rowIndex === index ? { ...row, end_time: e.target.value } : row
+                                )
+                              )
+                            }
+                          />
+                        )}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-10 px-3 text-red-500 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => handleRemoveAvailabilitySlot(index)}
+                        title="Remove slot"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    {covered.length > 0 && (
+                      <div className="flex flex-wrap gap-1 items-center pt-1">
+                        <Badge variant="outline" className="text-xs bg-amber-50 text-amber-800 border-amber-300 flex items-center gap-1 font-normal">
+                          <Lock className="w-3 h-3 text-amber-600 shrink-0" />
+                          <span>Assigned to: {covered.map(b => `${b.batch_name} (${b.course_title})`).join(", ")}</span>
+                        </Badge>
+                      </div>
                     )}
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">End time</Label>
-                    {isBranchManager() ? (
-                      <WeeklySlotTimePicker
-                        value={slot.end_time}
-                        onChange={(val) =>
-                          setAvailabilitySlots((rows) =>
-                            rows.map((row, rowIndex) =>
-                              rowIndex === index ? { ...row, end_time: val } : row
-                            )
-                          )
-                        }
-                      />
-                    ) : (
-                      <Input
-                        type="time"
-                        value={slot.end_time}
-                        onChange={(e) =>
-                          setAvailabilitySlots((rows) =>
-                            rows.map((row, rowIndex) =>
-                              rowIndex === index ? { ...row, end_time: e.target.value } : row
-                            )
-                          )
-                        }
-                      />
-                    )}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="h-10 px-3 text-red-500 hover:text-red-700 hover:bg-red-50"
-                    onClick={() =>
-                      setAvailabilitySlots((rows) => rows.filter((_, rowIndex) => rowIndex !== index))
-                    }
-                    title="Remove slot"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              ))}
+                )
+              })}
               <Button
                 type="button"
                 variant="outline"
@@ -2524,6 +2614,40 @@ export default function EditCoachPage() {
           </div>
         </div>
       )}
+      {/* Blocked Slot Deletion Alert Dialog */}
+      <AlertDialog
+        open={!!blockedSlotConflict}
+        onOpenChange={(open) => !open && setBlockedSlotConflict(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+              Cannot Delete Availability Slot
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2 text-left pt-2 text-slate-700">
+              <p>
+                This time slot cannot be deleted because this coach is currently assigned to the following course batch(es):
+              </p>
+              <div className="bg-slate-100 p-3 rounded-md text-sm space-y-1">
+                {blockedSlotConflict?.conflictingBatches.map((b, i) => (
+                  <div key={i} className="font-medium text-slate-900">
+                    • <span className="font-semibold">{b.batch_name}</span> in <span className="italic">{b.course_title}</span> ({b.days.join(", ")} {b.start_time} - {b.end_time} at {b.branch_name})
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-slate-600">
+                To remove this slot, please first reassign or change the coach for the batch in the branch course schedule.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setBlockedSlotConflict(null)}>
+              Understood
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
