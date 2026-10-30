@@ -166,15 +166,16 @@ export default function EditCoachPage() {
 
   const handleRemoveAvailabilitySlot = (index: number) => {
     const conflictResult = checkSlotDeletionConflict(index, availabilitySlots, assignedBatches)
-    if (conflictResult.hasConflict) {
+    if (!conflictResult.canDelete && conflictResult.conflictingBatch) {
       setBlockedSlotConflict({
         slotIndex: index,
-        conflictingBatches: conflictResult.conflictingBatches,
+        conflictingBatches: [conflictResult.conflictingBatch],
       })
-      const firstBatch = conflictResult.conflictingBatches[0]
+      const firstBatch = conflictResult.conflictingBatch
+      const courseTitle = firstBatch.course_name || (firstBatch as any).course_title || "Course"
       toast({
         title: "Cannot delete slot",
-        description: `This slot is required by batch "${firstBatch?.batch_name}" (${firstBatch?.course_title}). Please change or reassign the coach for this batch first before removing this availability.`,
+        description: `This slot is required by batch "${firstBatch.batch_name}" (${courseTitle}). Please change or reassign the coach for this batch first before removing this availability.`,
         variant: "destructive",
       })
       return
@@ -1356,10 +1357,12 @@ export default function EditCoachPage() {
 
       // Validate coach availability slots against assigned batches
       const conflictCheck = getBatchConflictForSlots(assignedBatches, availabilitySlots)
-      if (conflictCheck.hasConflict && conflictCheck.uncoveredBatch) {
+      if (conflictCheck) {
+        const courseName = conflictCheck.course_name || (conflictCheck as any).course_title || "Course"
+        const daysStr = (conflictCheck.days || []).join(", ")
         toast({
           title: "Cannot save coach",
-          description: `The coach is currently assigned to batch "${conflictCheck.uncoveredBatch.batch_name}" (${conflictCheck.uncoveredBatch.course_title}) on ${conflictCheck.uncoveredBatch.days.join(", ")} ${conflictCheck.uncoveredBatch.start_time}-${conflictCheck.uncoveredBatch.end_time}. Please adjust availability slots to cover this batch or reassign the batch coach first.`,
+          description: `The coach is currently assigned to batch "${conflictCheck.batch_name}" (${courseName}) on ${daysStr} ${conflictCheck.start_time}-${conflictCheck.end_time}. Please adjust availability slots to cover this batch or reassign the batch coach first.`,
           variant: "destructive",
         })
         setIsSubmitting(false)
@@ -2380,14 +2383,16 @@ export default function EditCoachPage() {
               <p className="text-sm">Days and times this coach can be assigned to a batch.</p>
               {(() => {
                 const conflict = getBatchConflictForSlots(assignedBatches, availabilitySlots)
-                if (conflict.hasConflict && conflict.uncoveredBatch) {
+                if (conflict) {
+                  const courseName = conflict.course_name || (conflict as any).course_title || "Course"
+                  const daysStr = (conflict.days || []).join(", ")
                   return (
                     <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-xs sm:text-sm flex items-start gap-2">
                       <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                       <div>
                         <p className="font-semibold">Availability Conflict</p>
                         <p>
-                          Coach is assigned to batch &quot;{conflict.uncoveredBatch.batch_name}&quot; ({conflict.uncoveredBatch.course_title}) on {conflict.uncoveredBatch.days.join(", ")} {conflict.uncoveredBatch.start_time} - {conflict.uncoveredBatch.end_time} at {conflict.uncoveredBatch.branch_name}. Current slots do not cover this time. Please adjust slots or reassign the coach for this batch first.
+                          Coach is assigned to batch &quot;{conflict.batch_name}&quot; ({courseName}) on {daysStr} {conflict.start_time} - {conflict.end_time} at {conflict.branch_name}. Current slots do not cover this time. Please adjust slots or reassign the coach for this batch first.
                         </p>
                       </div>
                     </div>
@@ -2490,7 +2495,7 @@ export default function EditCoachPage() {
                       <div className="flex flex-wrap gap-1 items-center pt-1">
                         <Badge variant="outline" className="text-xs bg-amber-50 text-amber-800 border-amber-300 flex items-center gap-1 font-normal">
                           <Lock className="w-3 h-3 text-amber-600 shrink-0" />
-                          <span>Assigned to: {covered.map(b => `${b.batch_name} (${b.course_title})`).join(", ")}</span>
+                          <span>Assigned to: {covered.map(b => `${b.batch_name} (${b.course_name || (b as any).course_title || "Course"})`).join(", ")}</span>
                         </Badge>
                       </div>
                     )}
@@ -2632,7 +2637,7 @@ export default function EditCoachPage() {
               <div className="bg-slate-100 p-3 rounded-md text-sm space-y-1">
                 {blockedSlotConflict?.conflictingBatches.map((b, i) => (
                   <div key={i} className="font-medium text-slate-900">
-                    • <span className="font-semibold">{b.batch_name}</span> in <span className="italic">{b.course_title}</span> ({b.days.join(", ")} {b.start_time} - {b.end_time} at {b.branch_name})
+                    • <span className="font-semibold">{b.batch_name}</span> in <span className="italic">{b.course_name || (b as any).course_title || "Course"}</span> ({b.days.join(", ")} {b.start_time} - {b.end_time} at {b.branch_name})
                   </div>
                 ))}
               </div>
