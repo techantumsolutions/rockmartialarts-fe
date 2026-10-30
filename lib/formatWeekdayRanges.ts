@@ -9,7 +9,7 @@ export const WEEKDAY_CHECKLIST_ORDER = [
   "Saturday",
 ] as const
 
-/** Monday-first index for grouping consecutive ranges (e.g. Mon - Sat). */
+/** Monday-first index for grouping consecutive ranges (e.g. Mon–Sat). */
 export const MON_FIRST = [
   "Monday",
   "Tuesday",
@@ -74,9 +74,11 @@ export function abbreviateDayName(day: string): string {
 
 /**
  * Format an array of Monday-first day indices (0=Mon .. 6=Sun) into collapsed ranges:
- * e.g. [0,1,2,3,4,5] -> "Mon - Sat"
+ * e.g. [0,1,2,3,4] -> "Mon–Fri"
+ * e.g. [1,5] -> "Tue, Sat"
+ * e.g. [0,1,2,3,4,5] -> "Mon–Sat"
  * e.g. [0,2,4] -> "Mon, Wed, Fri"
- * e.g. [0,1,2,4,5] -> "Mon - Wed, Fri - Sat"
+ * e.g. [0,1,2,4,5] -> "Mon–Wed, Fri–Sat"
  */
 export function formatWeekdayIndices(indices: number[]): string {
   const unique = Array.from(
@@ -97,7 +99,7 @@ export function formatWeekdayIndices(indices: number[]): string {
       parts.push(
         runStart === runEnd
           ? SHORT_DAYS[runStart]!
-          : `${SHORT_DAYS[runStart]!} - ${SHORT_DAYS[runEnd]!}`
+          : `${SHORT_DAYS[runStart]!}–${SHORT_DAYS[runEnd]!}`
       )
       runStart = runEnd = cur
     }
@@ -106,7 +108,7 @@ export function formatWeekdayIndices(indices: number[]): string {
   parts.push(
     runStart === runEnd
       ? SHORT_DAYS[runStart]!
-      : `${SHORT_DAYS[runStart]!} - ${SHORT_DAYS[runEnd]!}`
+      : `${SHORT_DAYS[runStart]!}–${SHORT_DAYS[runEnd]!}`
   )
 
   return parts.join(", ")
@@ -114,9 +116,8 @@ export function formatWeekdayIndices(indices: number[]): string {
 
 /**
  * Collapse selected weekdays into readable ranges with abbreviated day names:
- * e.g. ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] -> "Mon - Sat"
- * e.g. ["Monday", "Wednesday", "Friday"] -> "Mon, Wed, Fri"
- * e.g. ["Monday", "Tuesday", "Wednesday", "Friday", "Saturday"] -> "Mon - Wed, Fri - Sat"
+ * e.g. ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"] -> "Mon–Fri"
+ * e.g. ["Tuesday", "Saturday"] -> "Tue, Sat"
  */
 export function formatWeekdayRanges(selectedDays: string[]): string {
   if (!Array.isArray(selectedDays) || selectedDays.length === 0) return ""
@@ -125,6 +126,60 @@ export function formatWeekdayRanges(selectedDays: string[]): string {
     return selectedDays.filter(Boolean).join(", ")
   }
   return formatWeekdayIndices(indices)
+}
+
+/**
+ * Format single time token into "HH:MM AM/PM" (2-digit hour with uppercase AM/PM)
+ * e.g. "06:00" -> "06:00 AM", "6:00" -> "06:00 AM", "18:30" -> "06:30 PM", "6:00 AM" -> "06:00 AM"
+ */
+export function formatTimeWithAmPm(timeStr: string): string {
+  if (!timeStr || typeof timeStr !== "string") return ""
+  const trimmed = timeStr.trim()
+  if (!trimmed) return ""
+
+  // Case 1: Already has AM/PM, e.g. "6:00 AM", "06:00 AM", "6:00am", "6 AM"
+  const match12h = trimmed.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM|am|pm)$/i)
+  if (match12h) {
+    const h = parseInt(match12h[1], 10)
+    const m = match12h[2] || "00"
+    const p = match12h[3].toUpperCase()
+    return `${h.toString().padStart(2, "0")}:${m} ${p}`
+  }
+
+  // Case 2: 24h format, e.g. "06:00", "6:00", "18:30", "18:00:00"
+  const match24h = trimmed.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/)
+  if (match24h) {
+    const h = parseInt(match24h[1], 10)
+    const m = match24h[2]
+    const p = h < 12 ? "AM" : "PM"
+    let h12 = h % 12
+    if (h12 === 0) h12 = 12
+    return `${h12.toString().padStart(2, "0")}:${m} ${p}`
+  }
+
+  return trimmed
+}
+
+/**
+ * Format time range into "06:00 AM–07:00 AM"
+ */
+export function formatTimeRangeWithAmPm(rangeStr: string): string {
+  if (!rangeStr || typeof rangeStr !== "string") return ""
+  const trimmed = rangeStr.trim()
+  if (!trimmed) return ""
+
+  // Match: <time1> [-–— to] <time2>
+  const match = trimmed.match(/^(.+?)\s*(?:[-–—]|to)\s*(.+?)$/i)
+  if (match) {
+    const startFormatted = formatTimeWithAmPm(match[1])
+    const endFormatted = formatTimeWithAmPm(match[2])
+    if (startFormatted && endFormatted) {
+      return `${startFormatted}–${endFormatted}`
+    }
+  }
+
+  const single = formatTimeWithAmPm(trimmed)
+  return single || trimmed
 }
 
 const DAY_PATTERN =
@@ -179,30 +234,32 @@ function formatSingleTimingSegment(segment: string): string {
   const trimmed = segment.trim()
   if (!trimmed) return ""
 
-  // Case 1: Dot separator, e.g. "Monday, Tuesday, Wednesday, Thursday, Friday, Saturday · 6:00 AM - 7:00 AM"
+  // Case 1: Dot separator, e.g. "Mon–Fri · 06:00 AM–07:00 AM" or "Monday to Friday · 6:00 - 7:00"
   if (trimmed.includes("·")) {
     const [daysPart, ...rest] = trimmed.split(/\s*·\s*/)
-    if (hasAnyDayWord(daysPart)) {
-      const formattedDays = formatDaysChunk(daysPart)
-      return `${formattedDays} · ${rest.join(" · ").trim()}`
-    }
-    return trimmed
+    const timePartRaw = rest.join(" · ").trim()
+    const formattedDays = hasAnyDayWord(daysPart) ? formatDaysChunk(daysPart) : daysPart.trim()
+    const formattedTime = timePartRaw ? formatTimeRangeWithAmPm(timePartRaw) : ""
+    if (formattedDays && formattedTime) return `${formattedDays} · ${formattedTime}`
+    return formattedDays || formattedTime || trimmed
   }
 
-  // Case 2: Colon separator, e.g. "Monday: 6:00 AM - 8:00 PM"
+  // Case 2: Colon separator, e.g. "Mon: 06:00 - 08:00"
   const colonMatch = trimmed.match(/^([^:0-9]+):\s*(.*)$/)
   if (colonMatch && hasAnyDayWord(colonMatch[1])) {
     const formattedDays = formatDaysChunk(colonMatch[1])
-    return `${formattedDays}: ${colonMatch[2].trim()}`
+    const formattedTime = formatTimeRangeWithAmPm(colonMatch[2].trim())
+    return `${formattedDays}: ${formattedTime}`
   }
 
-  // Case 3: Days followed by a time range, e.g. "Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, 6:00 AM - 7:00 AM"
+  // Case 3: Days followed by a time range, e.g. "Monday to Friday, 6:00 - 7:00"
   const timeMatch = trimmed.match(
     /^(.*?)[\s,]+(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm)?\s*(?:-|–|—|to)\s*\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm)?.*)$/i
   )
   if (timeMatch && hasAnyDayWord(timeMatch[1])) {
     const formattedDays = formatDaysChunk(timeMatch[1])
-    return `${formattedDays} · ${timeMatch[2].trim()}`
+    const formattedTime = formatTimeRangeWithAmPm(timeMatch[2].trim())
+    return `${formattedDays} · ${formattedTime}`
   }
 
   // Case 4: Segment is solely day names or contains day names without time
@@ -210,15 +267,17 @@ function formatSingleTimingSegment(segment: string): string {
     return formatDaysChunk(trimmed)
   }
 
-  return trimmed
+  // Case 5: Standalone time range
+  return formatTimeRangeWithAmPm(trimmed)
 }
 
 /**
  * Formats any timing string across all screens:
  * - Abbreviations: Monday -> Mon, Tuesday -> Tue, ...
- * - Consecutive day sequences collapse: "Mon - Sat", "Mon - Fri"
- * - Breakers preserved: "Mon, Wed, Fri", "Mon - Wed, Fri - Sat"
- * - Retains time suffixes, pipe separators (|), and bullet separators.
+ * - Consecutive day sequences collapse: "Mon–Sat", "Mon–Fri"
+ * - Breakers preserved: "Mon, Wed, Fri", "Tue, Sat", "Mon–Wed, Fri–Sat"
+ * - Every time has AM/PM with 2-digit hours: "06:00 AM–07:00 AM"
+ * - Retains multiple batches separated by pipe (|).
  */
 export function formatTimingString(timings: string | undefined | null): string {
   if (!timings || typeof timings !== "string") return ""
