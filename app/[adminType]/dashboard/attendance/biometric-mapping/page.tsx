@@ -32,6 +32,11 @@ import {
   studentBiometricMappingAPI,
   type BiometricMappingRow,
 } from "@/lib/studentBiometricMappingAPI"
+import {
+  biometricDeviceAPI,
+  type BiometricDevice,
+} from "@/lib/biometricDeviceAPI"
+import { getActiveBranchId } from "@/lib/activeBranch"
 
 interface BranchOption {
   id: string
@@ -50,11 +55,13 @@ export default function BiometricMappingPage() {
   const [rows, setRows] = useState<BiometricMappingRow[]>([])
   const [total, setTotal] = useState(0)
   const [branches, setBranches] = useState<BranchOption[]>([])
+  const [devices, setDevices] = useState<BiometricDevice[]>([])
   const [q, setQ] = useState("")
   const [mappedFilter, setMappedFilter] = useState("all")
   const [branchFilter, setBranchFilter] = useState("all")
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState<BiometricMappingRow | null>(null)
+  const [selectedDeviceId, setSelectedDeviceId] = useState("")
   const [biometricId, setBiometricId] = useState("")
 
   const getToken = () => BranchManagerAuth.getToken() || TokenManager.getToken()
@@ -89,6 +96,34 @@ export default function BiometricMappingPage() {
     }
   }, [isBranchAdmin])
 
+  const loadDevices = useCallback(async (): Promise<BiometricDevice[]> => {
+    const token = getToken()
+    if (!token) {
+      setDevices([])
+      return []
+    }
+    try {
+      const bm = BranchManagerAuth.getCurrentUser()
+      // Branch admin: devices for their branch. Super admin: all branches.
+      const branchId = isBranchAdmin
+        ? getActiveBranchId() || bm?.branch_id || undefined
+        : undefined
+      const data = await biometricDeviceAPI.list({
+        status: "active",
+        branch_id: branchId,
+        limit: 200,
+      })
+      const activeOnly = (Array.isArray(data.devices) ? data.devices : []).filter(
+        (d) => String(d.status || "").toLowerCase() === "active" && Boolean(d.vendor_device_id?.trim())
+      )
+      setDevices(activeOnly)
+      return activeOnly
+    } catch {
+      setDevices([])
+      return []
+    }
+  }, [isBranchAdmin])
+
   const loadRows = useCallback(async () => {
     const token = getToken()
     if (!token) {
@@ -119,21 +154,49 @@ export default function BiometricMappingPage() {
   }, [loadBranches])
 
   useEffect(() => {
+    loadDevices()
+  }, [loadDevices])
+
+  useEffect(() => {
     loadRows()
   }, [loadRows])
 
-  const openMap = (row: BiometricMappingRow) => {
+  // Only active devices with a vendor ID — deactivated devices never appear
+  const devicesForDialog = devices.filter(
+    (d) => String(d.status || "").toLowerCase() === "active" && Boolean(d.vendor_device_id?.trim())
+  )
+
+  const openMap = async (row: BiometricMappingRow) => {
     setSelected(row)
     setBiometricId(row.biometric_id || row.essl_user_id || "")
     setSaveError(null)
+    // Refresh so newly added devices appear and deactivated ones are removed
+    const activeDevices = await loadDevices()
+    const existingBio = String(row.biometric_id || row.essl_user_id || "").trim()
+    const exact = activeDevices.find((d) => d.vendor_device_id === existingBio)
+    const branchDefault = activeDevices.find((d) => d.branch_id === row.branch_id)
+    setSelectedDeviceId(exact?.id || branchDefault?.id || "")
     setOpen(true)
   }
 
   const handleSave = async () => {
     if (!selected?.student_id) return
+    if (!selectedDeviceId) {
+      const msg = "Select a device from the Devices list"
+      setSaveError(msg)
+      toast.error(msg)
+      return
+    }
+    const device = devices.find((d) => d.id === selectedDeviceId)
+    if (!device) {
+      const msg = "Selected device is not available. Refresh and try again."
+      setSaveError(msg)
+      toast.error(msg)
+      return
+    }
     const nextId = biometricId.trim()
     if (!nextId) {
-      const msg = "Enter a biometric / device user ID"
+      const msg = "Enter the biometric user ID enrolled on this device"
       setSaveError(msg)
       toast.error(msg)
       return
@@ -196,7 +259,8 @@ export default function BiometricMappingPage() {
               Student Biometric Mapping
             </h1>
             <p className="text-gray-600 text-sm mt-1">
-              Link each student to their vendor/device user ID. Duplicate IDs are blocked.
+              Map each student to a device from Attendance → Devices and their biometric user ID.
+              Duplicate user IDs are blocked.
             </p>
           </div>
           <Button variant="outline" onClick={loadRows} disabled={loading}>
@@ -368,7 +432,37 @@ export default function BiometricMappingPage() {
               Student: <span className="font-medium text-slate-900">{selected?.full_name}</span>
             </p>
             <div>
-              <Label>Vendor / device user ID *</Label>
+              <Label>Vendor ID *</Label>
+              <Select
+                value={selectedDeviceId || undefined}
+                onValueChange={(v) => {
+                  setSelectedDeviceId(v)
+                  if (saveError) setSaveError(null)
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select vendor ID" />
+                </SelectTrigger>
+                <SelectContent>
+                  {devicesForDialog.length === 0 ? (
+                    <SelectItem value="__none__" disabled>
+                      No active devices — add one under Attendance → Devices
+                    </SelectItem>
+                  ) : (
+                    devicesForDialog.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.vendor_device_id || d.id}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-slate-500 mt-1">
+                Devices come from Attendance → Devices (active only).
+              </p>
+            </div>
+            <div>
+              <Label>Biometric user ID on device *</Label>
               <Input
                 value={biometricId}
                 onChange={(e) => {
@@ -379,7 +473,7 @@ export default function BiometricMappingPage() {
                 autoFocus
               />
               <p className="text-xs text-slate-500 mt-1">
-                Must be unique across students. Same value is stored for ESSL compatibility.
+                The user ID enrolled for this student on the selected device. Must be unique.
               </p>
               {saveError ? (
                 <p className="text-sm text-red-600 mt-2" role="alert">

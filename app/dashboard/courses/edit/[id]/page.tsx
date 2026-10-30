@@ -41,13 +41,8 @@ export default function EditCoursePage() {
   const { toast } = useToast()
   const { user } = useAuth()
   const coursesBasePath = useMemo(() => resolveCoursesDashboardBase(pathname), [pathname])
-  const isBranchFeeOnly = useMemo(
-    () =>
-      user?.role === "branch_manager" ||
-      (typeof pathname === "string" &&
-        (pathname.startsWith("/branch-admin") || pathname.startsWith("/branch-manager-dashboard"))),
-    [user?.role, pathname]
-  )
+  // Branch admin gets the same full edit form as other admins.
+  const isBranchFeeOnly = false
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)

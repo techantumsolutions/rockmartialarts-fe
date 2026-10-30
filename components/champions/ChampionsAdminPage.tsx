@@ -93,7 +93,7 @@ export default function ChampionsAdminPage() {
         try {
           const data = await championAPI.studentOptions({
             search: studentSearch || undefined,
-            limit: 25,
+            limit: 500,
           })
           setStudentOptions(data.students || [])
         } catch {
@@ -430,7 +430,7 @@ export default function ChampionsAdminPage() {
                   onChange={(e) => setStudentSearch(e.target.value)}
                   placeholder="Search students by name, phone, email…"
                 />
-                <div className="max-h-28 overflow-y-auto rounded border border-gray-200 bg-white p-2 space-y-1">
+                <div className="max-h-48 overflow-y-auto rounded border border-gray-200 bg-white p-2 space-y-1">
                   {studentOptions.length === 0 ? (
                     <p className="text-xs text-gray-400">No students found</p>
                   ) : (

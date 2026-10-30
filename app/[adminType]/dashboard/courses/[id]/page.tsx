@@ -61,6 +61,9 @@ interface CourseDetails {
   completion_rate?: number
   average_rating?: number
   total_revenue?: number
+  created_by?: string
+  created_by_role?: string
+  branch_ids?: string[]
 }
 
 interface EnrolledStudent {
@@ -205,7 +208,10 @@ export default function CourseDetailPage() {
         total_enrolled: courseData.total_enrolled,
         completion_rate: courseData.completion_rate,
         average_rating: courseData.average_rating,
-        total_revenue: courseData.total_revenue
+        total_revenue: courseData.total_revenue,
+        created_by: courseData.created_by,
+        created_by_role: courseData.created_by_role,
+        branch_ids: courseData.branch_ids || [],
       }
 
       setCourse(mappedCourse)
