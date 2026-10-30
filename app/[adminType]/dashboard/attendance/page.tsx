@@ -28,7 +28,6 @@ import {
   Users, 
   CheckCircle, 
   XCircle, 
-  Clock, 
   AlertCircle,
   RefreshCw,
   FileText,
@@ -59,10 +58,8 @@ interface AttendanceOverviewStats {
   total_coaches: number
   student_present_today: number
   student_absent_today: number
-  student_late_today: number
   coach_present_today: number
   coach_absent_today: number
-  coach_late_today: number
   overall_attendance_rate: number
   student_attendance_rate: number
   coach_attendance_rate: number
@@ -89,10 +86,8 @@ export default function AttendanceOverviewPage() {
     total_coaches: 0,
     student_present_today: 0,
     student_absent_today: 0,
-    student_late_today: 0,
     coach_present_today: 0,
     coach_absent_today: 0,
-    coach_late_today: 0,
     overall_attendance_rate: 0,
     student_attendance_rate: 0,
     coach_attendance_rate: 0
@@ -201,95 +196,96 @@ export default function AttendanceOverviewPage() {
         console.warn("⚠️ Branches endpoint failed:", branchesResponse.status)
       }
 
-      // Use stats data if available, otherwise calculate from student data
+      // Backend /attendance/stats returns student_*_today / coach_*_today for all roles.
+      // (Super-admin previously mapped non-existent today_present_* / average_* fields — wrong zeros.)
       const uniqueStudentRosterCount = new Set(
         studentData.map((student: any) => String(student.id || "")).filter(Boolean)
       ).size
+      const isAttended = (status?: string) => status === "present" || status === "late"
       let overviewStats: AttendanceOverviewStats
 
       if (statsData) {
-        // Use the backend stats API data
-        overviewStats = {
-          total_students: isBranchManagerDashboard && studentRosterLoaded
+        const studentPresent =
+          (statsData.student_present_today || 0) + (statsData.student_late_today || 0)
+        const coachPresent =
+          (statsData.coach_present_today || 0) + (statsData.coach_late_today || 0)
+        const totalStudents =
+          isBranchManagerDashboard && studentRosterLoaded
             ? uniqueStudentRosterCount
-            : statsData.total_students || 0,
-          total_coaches: statsData.total_coaches || 0,
-          student_present_today: isBranchManagerDashboard
-            ? statsData.student_present_today || 0
-            : statsData.today_present_students || 0,
-          student_absent_today: isBranchManagerDashboard
-            ? statsData.student_absent_today || 0
-            : Math.max(0, (statsData.total_students || 0) - (statsData.today_present_students || 0)),
-          student_late_today: isBranchManagerDashboard ? statsData.student_late_today || 0 : 0,
-          coach_present_today: isBranchManagerDashboard
-            ? statsData.coach_present_today || 0
-            : statsData.today_present_coaches || 0,
-          coach_absent_today: isBranchManagerDashboard
-            ? statsData.coach_absent_today || 0
-            : Math.max(0, (statsData.total_coaches || 0) - (statsData.today_present_coaches || 0)),
-          coach_late_today: isBranchManagerDashboard ? statsData.coach_late_today || 0 : 0,
-          overall_attendance_rate: isBranchManagerDashboard
-            ? statsData.overall_attendance_rate || 0
-            : 0,
-          student_attendance_rate: isBranchManagerDashboard
-            ? statsData.student_attendance_rate || 0
-            : statsData.average_student_attendance || 0,
-          coach_attendance_rate: isBranchManagerDashboard
-            ? statsData.coach_attendance_rate || 0
-            : statsData.average_coach_attendance || 0
-        }
+            : statsData.total_students || 0
+        const totalCoaches = statsData.total_coaches || 0
+        const studentAbsent = Math.max(
+          0,
+          statsData.student_absent_today ?? Math.max(0, totalStudents - studentPresent)
+        )
+        const coachAbsent = Math.max(
+          0,
+          statsData.coach_absent_today ?? Math.max(0, totalCoaches - coachPresent)
+        )
+        const studentRate =
+          totalStudents > 0
+            ? (studentPresent / totalStudents) * 100
+            : 0
+        const coachRate =
+          totalCoaches > 0 ? (coachPresent / totalCoaches) * 100 : 0
+        const totalPeople = totalStudents + totalCoaches
+        const overallRate =
+          totalPeople > 0 ? ((studentPresent + coachPresent) / totalPeople) * 100 : 0
 
-        if (!isBranchManagerDashboard) {
-          // Calculate overall attendance rate
-          const totalPeople = overviewStats.total_students + overviewStats.total_coaches
-          if (totalPeople > 0) {
-            const totalPresent = overviewStats.student_present_today + overviewStats.coach_present_today
-            overviewStats.overall_attendance_rate = (totalPresent / totalPeople) * 100
-          }
+        overviewStats = {
+          total_students: totalStudents,
+          total_coaches: totalCoaches,
+          student_present_today: studentPresent,
+          student_absent_today: studentAbsent,
+          coach_present_today: coachPresent,
+          coach_absent_today: coachAbsent,
+          overall_attendance_rate: Number(overallRate.toFixed(1)),
+          student_attendance_rate: Number(studentRate.toFixed(1)),
+          coach_attendance_rate: Number(coachRate.toFixed(1)),
         }
       } else {
-        // Fallback: calculate from student and coach data
-        const studentStats = {
-          total: studentData.length,
-          present: studentData.filter((s: any) => s.attendance?.status === "present").length,
-          absent: studentData.filter((s: any) => s.attendance?.status === "absent" || !s.attendance).length,
-          late: studentData.filter((s: any) => s.attendance?.status === "late").length
-        }
-
-        const coachStats = {
-          total: coachData.length,
-          present: coachData.filter((c: any) => c.attendance?.status === "present").length,
-          absent: coachData.filter((c: any) => c.attendance?.status === "absent" || !c.attendance).length,
-          late: coachData.filter((c: any) => c.attendance?.status === "late").length
-        }
+        // Fallback: calculate from student and coach roster responses
+        const studentPresent = studentData.filter((s: any) => isAttended(s.attendance?.status)).length
+        const studentAbsent = studentData.filter(
+          (s: any) => !s.attendance || s.attendance?.status === "absent"
+        ).length
+        const coachPresent = coachData.filter((c: any) => isAttended(c.attendance?.status)).length
+        const coachAbsent = coachData.filter(
+          (c: any) => !c.attendance || c.attendance?.status === "absent"
+        ).length
+        const studentTotal = isBranchManagerDashboard ? uniqueStudentRosterCount : studentData.length
+        const coachTotal = coachData.length
+        const peopleTotal = studentTotal + coachTotal
 
         overviewStats = {
-          total_students: isBranchManagerDashboard ? uniqueStudentRosterCount : studentStats.total,
-          total_coaches: coachStats.total,
-          student_present_today: studentStats.present,
-          student_absent_today: studentStats.absent,
-          student_late_today: studentStats.late,
-          coach_present_today: coachStats.present,
-          coach_absent_today: coachStats.absent,
-          coach_late_today: coachStats.late,
-          overall_attendance_rate: (studentStats.total + coachStats.total) > 0 ?
-            ((studentStats.present + studentStats.late + coachStats.present + coachStats.late) / (studentStats.total + coachStats.total)) * 100 : 0,
-          student_attendance_rate: studentStats.total > 0 ?
-            ((studentStats.present + studentStats.late) / studentStats.total) * 100 : 0,
-          coach_attendance_rate: coachStats.total > 0 ?
-            ((coachStats.present + coachStats.late) / coachStats.total) * 100 : 0
+          total_students: studentTotal,
+          total_coaches: coachTotal,
+          student_present_today: studentPresent,
+          student_absent_today: studentAbsent,
+          coach_present_today: coachPresent,
+          coach_absent_today: coachAbsent,
+          overall_attendance_rate:
+            peopleTotal > 0
+              ? Number((((studentPresent + coachPresent) / peopleTotal) * 100).toFixed(1))
+              : 0,
+          student_attendance_rate:
+            studentTotal > 0
+              ? Number(((studentPresent / studentTotal) * 100).toFixed(1))
+              : 0,
+          coach_attendance_rate:
+            coachTotal > 0 ? Number(((coachPresent / coachTotal) * 100).toFixed(1)) : 0,
         }
       }
 
       setStats(overviewStats)
 
-      // Calculate branch-wise statistics
+      // Calculate branch-wise statistics (present includes former "late")
       const branchStatsData: BranchStats[] = branchData.map((branch: any) => {
         const branchStudents = studentData.filter((s: any) => s.branch_id === branch.id)
-        const presentStudents = branchStudents.filter((s: any) => s.attendance?.status === "present").length
+        const presentStudents = branchStudents.filter((s: any) => isAttended(s.attendance?.status)).length
 
         const branchCoaches = coachData.filter((c: any) => c.branch_id === branch.id)
-        const presentCoaches = branchCoaches.filter((c: any) => c.attendance?.status === "present").length
+        const presentCoaches = branchCoaches.filter((c: any) => isAttended(c.attendance?.status)).length
 
         const totalPeople = branchStudents.length + branchCoaches.length
         const totalPresent = presentStudents + presentCoaches
@@ -326,14 +322,12 @@ export default function AttendanceOverviewPage() {
     fetchAttendanceOverview()
   }, [selectedDate])
 
-  // Chart data
+  // Chart data (present / absent only — late folded into present)
   const getAttendanceChartData = () => [
     { name: 'Students Present', value: stats.student_present_today, fill: '#10B981' },
     { name: 'Students Absent', value: stats.student_absent_today, fill: '#EF4444' },
-    { name: 'Students Late', value: stats.student_late_today, fill: '#F59E0B' },
     { name: 'Coaches Present', value: stats.coach_present_today, fill: '#3B82F6' },
     { name: 'Coaches Absent', value: stats.coach_absent_today, fill: '#DC2626' },
-    { name: 'Coaches Late', value: stats.coach_late_today, fill: '#D97706' }
   ]
 
   const getTrendData = () => {
@@ -487,7 +481,7 @@ export default function AttendanceOverviewPage() {
                     {stats.student_attendance_rate.toFixed(1)}%
                   </p>
                   <p className="text-xs text-gray-500">
-                    {stats.student_present_today + stats.student_late_today} of {stats.total_students}
+                    {stats.student_present_today} of {stats.total_students}
                   </p>
                   {stats.total_students === 0 && (
                     <p className="text-xs text-gray-400 mt-1">No data available</p>
@@ -507,7 +501,7 @@ export default function AttendanceOverviewPage() {
                     {stats.coach_attendance_rate.toFixed(1)}%
                   </p>
                   <p className="text-xs text-gray-500">
-                    {stats.coach_present_today + stats.coach_late_today} of {stats.total_coaches}
+                    {stats.coach_present_today} of {stats.total_coaches}
                   </p>
                   {stats.total_coaches === 0 && (
                     <p className="text-xs text-gray-400 mt-1">No data available</p>
@@ -537,10 +531,6 @@ export default function AttendanceOverviewPage() {
                       <XCircle className="h-4 w-4 text-red-600 mr-1" />
                       <span className="text-sm text-red-600">{stats.student_absent_today} Absent</span>
                     </div>
-                    <div className="flex items-center">
-                      <Clock className="h-4 w-4 text-yellow-600 mr-1" />
-                      <span className="text-sm text-yellow-600">{stats.student_late_today} Late</span>
-                    </div>
                   </div>
                 </div>
                 <ArrowRight className="h-6 w-6 text-gray-400 shrink-0 absolute right-0 bottom-0 lg:static" />
@@ -564,10 +554,6 @@ export default function AttendanceOverviewPage() {
                     <div className="flex items-center">
                       <XCircle className="h-4 w-4 text-red-600 mr-1" />
                       <span className="text-sm text-red-600">{stats.coach_absent_today} Absent</span>
-                    </div>
-                    <div className="flex items-center">
-                      <Clock className="h-4 w-4 text-yellow-600 mr-1" />
-                      <span className="text-sm text-yellow-600">{stats.coach_late_today} Late</span>
                     </div>
                   </div>
                 </div>
