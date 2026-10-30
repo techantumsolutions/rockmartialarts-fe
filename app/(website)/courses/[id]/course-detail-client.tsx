@@ -2,7 +2,7 @@
 
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { Suspense, useCallback, useEffect, useRef, useState } from "react"
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ArrowLeft,
   Loader2,
@@ -14,10 +14,13 @@ import {
   Download,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  Check,
   Quote,
 } from "lucide-react"
 import { stripUuidFromPriceDisplay } from "@/lib/priceDisplay"
 import { formatTimingString } from "@/lib/formatWeekdayRanges"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ShowcaseAchievementCard, type ShowcaseAchievementItem } from "@/components/testimonials"
 import { SafeImage, DEFAULT_IMAGE_PLACEHOLDER } from "@/components/ui/safe-image"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
@@ -300,6 +303,8 @@ function CourseDetailPageInner() {
   const branchInitDoneRef = useRef(false)
   const [showcaseAchievements, setShowcaseAchievements] = useState<ShowcaseAchievementItem[]>([])
   const [showcaseLoading, setShowcaseLoading] = useState(false)
+  const [selectedBatchIndex, setSelectedBatchIndex] = useState(0)
+  const [timingsOpen, setTimingsOpen] = useState(false)
 
   const handleAddToCartClick = useCallback(() => {
     if (typeof window === "undefined") return
@@ -608,6 +613,10 @@ function CourseDetailPageInner() {
       ? branchPricingInfo.timings
       : timingLine
   const timingDisplay = formatTimingString(rawTiming) || rawTiming
+  const timingBatches = (timingDisplay || timingLine || "")
+    .split(/\s*\|\s*/)
+    .map((s) => s.trim())
+    .filter(Boolean)
   const promoVideoUrl = media.promo_video_url || ""
   const effectiveLearningVideo = learning.video_url || promoVideoUrl
   const learningPoster =
@@ -651,17 +660,17 @@ function CourseDetailPageInner() {
             branchPricingLoading && branches.length > 0 ? "opacity-[0.88]" : "opacity-100"
           }`}
         >
-          <div className="container mx-auto px-4 max-w-7xl">
-            <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-white/20">
+          <div className="container mx-auto px-3 sm:px-4 max-w-7xl">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-nowrap lg:items-stretch">
               {/* Location selector */}
               {(branches.length > 0 || info.location) && (
-                <div className="flex items-center gap-3 py-5 px-4 text-white">
-                  <MapPin className="w-7 h-7 flex-shrink-0 opacity-90" />
-                  <div className="min-w-0">
-                    <p className="text-[11px] uppercase tracking-wider text-white/80">Select Location</p>
+                <div className="flex items-center gap-2.5 py-3 px-3 sm:px-3.5 lg:py-3.5 lg:px-4 xl:px-5 lg:flex-1 lg:basis-0 lg:min-w-0 text-white border-b sm:border-r lg:border-r border-white/20 lg:border-b-0 last:border-r-0">
+                  <MapPin className="w-6 h-6 sm:w-6.5 sm:h-6.5 flex-shrink-0 opacity-90" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10.5px] sm:text-[11px] uppercase tracking-wider text-white/80 font-medium leading-none">Select Location</p>
                     {branches.length > 1 ? (
                       <select
-                        className="mt-0.5 w-full bg-transparent text-[12px] font-semibold outline-none border-none focus:ring-0"
+                        className="mt-1 w-full bg-transparent text-[12px] font-semibold outline-none border-none focus:ring-0 cursor-pointer py-0 leading-tight"
                         value={effectiveLocationId ?? ""}
                         onChange={(e) => persistBranchAndUrl(e.target.value || null)}
                       >
@@ -672,7 +681,7 @@ function CourseDetailPageInner() {
                         ))}
                       </select>
                     ) : (
-                      <p className="text-[12px] font-semibold truncate">
+                      <p className="mt-1 text-[12px] font-semibold truncate leading-tight">
                         {selectedBranch?.branch_name || info.location}
                       </p>
                     )}
@@ -682,13 +691,13 @@ function CourseDetailPageInner() {
 
               {/* Duration selector */}
               {(durations.length > 0 || info.duration) && (
-                <div className="flex items-center gap-3 py-5 px-4 text-white">
-                  <Calendar className="w-7 h-7 flex-shrink-0 opacity-90" />
-                  <div className="min-w-0">
-                    <p className="text-[11px] uppercase tracking-wider text-white/80">Course Duration</p>
+                <div className="flex items-center gap-2.5 py-3 px-3 sm:px-3.5 lg:py-3.5 lg:px-4 xl:px-5 lg:flex-1 lg:basis-0 lg:min-w-0 text-white border-b sm:border-r-0 lg:border-r border-white/20 lg:border-b-0 last:border-r-0">
+                  <Calendar className="w-6 h-6 sm:w-6.5 sm:h-6.5 flex-shrink-0 opacity-90" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10.5px] sm:text-[11px] uppercase tracking-wider text-white/80 font-medium leading-none">Course Duration</p>
                     {durations.length > 0 ? (
                       <select
-                        className="mt-0.5 w-full bg-transparent text-[12px] font-semibold outline-none border-none focus:ring-0"
+                        className="mt-1 w-full bg-transparent text-[12px] font-semibold outline-none border-none focus:ring-0 cursor-pointer py-0 leading-tight"
                         value={effectiveDurationKey ?? ""}
                         onChange={(e) => setSelectedDurationKey(e.target.value || null)}
                       >
@@ -699,7 +708,7 @@ function CourseDetailPageInner() {
                         ))}
                       </select>
                     ) : (
-                      <p className="text-[12px] font-semibold truncate">{info.duration}</p>
+                      <p className="mt-1 text-[12px] font-semibold truncate leading-tight">{info.duration}</p>
                     )}
                   </div>
                 </div>
@@ -707,11 +716,11 @@ function CourseDetailPageInner() {
 
               {/* Price details for selected duration */}
               {(priceDisplay || info.price || branchApplies) && (
-                <div className="flex items-center gap-3 py-5 px-4 text-white">
-                  <IndianRupee className="w-7 h-7 flex-shrink-0 opacity-90" />
-                  <div className="min-w-0">
-                    <p className="text-[11px] uppercase tracking-wider text-white/80">Price Details</p>
-                    <p className="text-[12px] font-semibold truncate flex items-center gap-1">
+                <div className="flex items-center gap-2.5 py-3 px-3 sm:px-3.5 lg:py-3.5 lg:px-4 xl:px-5 lg:flex-1 lg:basis-0 lg:min-w-0 text-white border-b sm:border-b-0 sm:border-r lg:border-r border-white/20 lg:border-b-0 last:border-r-0">
+                  <IndianRupee className="w-6 h-6 sm:w-6.5 sm:h-6.5 flex-shrink-0 opacity-90" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10.5px] sm:text-[11px] uppercase tracking-wider text-white/80 font-medium leading-none">Price Details</p>
+                    <p className="mt-1 text-[12px] font-semibold whitespace-nowrap flex items-center gap-1 leading-tight">
                       {branchPricingLoading && branches.length > 0 ? (
                         <>
                           <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
@@ -728,14 +737,73 @@ function CourseDetailPageInner() {
               )}
 
               {/* Timings */}
-              {(timingDisplay || timingLine) && (
-                <div className="flex items-center gap-3 py-5 px-4 text-white">
-                  <Clock className="w-7 h-7 flex-shrink-0 opacity-90" />
-                  <div className="min-w-0">
-                    <p className="text-[11px] uppercase tracking-wider text-white/80">Timings</p>
-                    <p className="text-[12px] font-semibold truncate" title={timingDisplay || timingLine}>
-                      {timingDisplay || timingLine}
-                    </p>
+              {(timingBatches.length > 0 || timingDisplay || timingLine) && (
+                <div className="flex items-center gap-2.5 py-3 px-3 sm:px-3.5 lg:py-3.5 lg:px-4 xl:px-5 lg:flex-1 lg:basis-0 lg:min-w-0 text-white last:border-r-0">
+                  <Clock className="w-6 h-6 sm:w-6.5 sm:h-6.5 flex-shrink-0 opacity-90" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10.5px] sm:text-[11px] uppercase tracking-wider text-white/80 font-medium leading-none">Timings</p>
+                    {timingBatches.length > 1 ? (
+                      <Popover open={timingsOpen} onOpenChange={setTimingsOpen}>
+                        <div className="mt-1 flex items-center gap-1.5 flex-nowrap min-w-0">
+                          <span className="text-[12px] font-semibold text-white whitespace-nowrap leading-tight truncate">
+                            {timingBatches[selectedBatchIndex] ?? timingBatches[0]}
+                          </span>
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1 rounded-full bg-white/20 hover:bg-white/30 text-white px-2 py-0.5 text-[11px] font-semibold transition-colors shrink-0 cursor-pointer shadow-sm active:scale-95 whitespace-nowrap leading-tight"
+                              title="Click to view more timings"
+                              aria-label="View more timings"
+                            >
+                              +{timingBatches.length - 1} more
+                              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${timingsOpen ? "rotate-180" : ""}`} />
+                            </button>
+                          </PopoverTrigger>
+                        </div>
+                        <PopoverContent
+                          align="start"
+                          sideOffset={8}
+                          className="bg-[#171A26] border border-gray-700/80 rounded-xl shadow-2xl p-3 text-white z-50 w-auto min-w-[280px] sm:min-w-[340px] max-w-[min(94vw,420px)]"
+                        >
+                          <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10 text-xs font-semibold text-gray-300">
+                            <span className="flex items-center gap-1.5 text-[#FFB70F]">
+                              <Clock className="w-3.5 h-3.5" /> All Available Timings ({timingBatches.length})
+                            </span>
+                          </div>
+                          <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                            {timingBatches.map((batch, idx) => {
+                              const isSelected = idx === (selectedBatchIndex < timingBatches.length ? selectedBatchIndex : 0);
+                              return (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedBatchIndex(idx);
+                                    setTimingsOpen(false);
+                                  }}
+                                  className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-between gap-3 cursor-pointer ${
+                                    isSelected
+                                      ? "bg-[#F73322] text-white font-semibold shadow-sm"
+                                      : "bg-white/5 hover:bg-white/10 text-gray-200"
+                                  }`}
+                                >
+                                  <span className="leading-snug">{batch}</span>
+                                  {isSelected ? (
+                                    <Check className="w-4 h-4 shrink-0 text-white" />
+                                  ) : (
+                                    <span className="text-[10px] text-gray-400 uppercase tracking-wider shrink-0">Batch {idx + 1}</span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    ) : (
+                      <p className="mt-1 text-[12px] font-semibold text-white whitespace-nowrap leading-tight">
+                        {timingBatches[0] || timingDisplay || timingLine}
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
