@@ -250,7 +250,7 @@ export default function BranchesDiscoveryPage() {
                 return (
                   <div
                     key={b.id}
-                    className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 hover:border-[#FFB70F] transition-colors"
+                    className="flex h-full flex-col rounded-xl border border-gray-800 bg-gray-900/50 p-6 hover:border-[#FFB70F] transition-colors"
                   >
                     <div className="flex items-start gap-3 mb-4">
                       <div className="w-12 h-12 rounded-lg bg-[#FFB70F]/10 flex items-center justify-center flex-shrink-0">
@@ -290,7 +290,7 @@ export default function BranchesDiscoveryPage() {
                     ) : null}
                     <Link
                       href={branchHref(b)}
-                      className="inline-block mt-4 text-sm font-medium text-[#FFB70F] hover:text-white transition-colors"
+                      className="mt-auto self-start pt-4 text-sm font-medium text-[#FFB70F] hover:text-white transition-colors"
                     >
                       View branch details →
                     </Link>

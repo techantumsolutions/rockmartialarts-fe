@@ -15,12 +15,31 @@ export default function OnlineLearningCataloguePage() {
   const [search, setSearch] = useState("")
 
   useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setSearch(searchInput.trim())
+    }, 300)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [searchInput])
+
+  useEffect(() => {
+    let cancelled = false
     setLoading(true)
     learningCourseAPI
       .listPublic({ search: search || undefined })
-      .then((data) => setCourses(Array.isArray(data.courses) ? data.courses : []))
-      .catch(() => setCourses([]))
-      .finally(() => setLoading(false))
+      .then((data) => {
+        if (!cancelled) setCourses(Array.isArray(data.courses) ? data.courses : [])
+      })
+      .catch(() => {
+        if (!cancelled) setCourses([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
   }, [search])
 
   return (

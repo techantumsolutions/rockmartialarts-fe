@@ -193,9 +193,19 @@ export function CreateLinkedStudentModal({
             <Input
               id="linked-dob"
               type="date"
+              max="9999-12-31"
               value={dob}
-              onChange={(e) => setDob(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value
+                const match = /^(\d+)-(\d{2})-(\d{2})$/.exec(value)
+                if (match && match[1].length > 4) {
+                  e.currentTarget.value = dob
+                  return
+                }
+                setDob(value)
+              }}
               className="bg-gray-900 border-gray-700"
+              style={{ colorScheme: "dark" }}
               disabled={submitting}
             />
           </div>

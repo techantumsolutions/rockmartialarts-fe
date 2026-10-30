@@ -270,7 +270,7 @@ export default function BranchDetailPage() {
         </div>
       ) : null}
       <BranchCourses branch={branch} />
-      <section className="py-16 md:py-20 bg-[#171A26] relative z-10">
+      <section className="py-8 md:py-10 bg-[#171A26] relative z-10">
         <div className="container mx-auto px-4 max-w-7xl">
           <div className="text-center mb-12" data-aos="fade-up">
             <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
@@ -331,7 +331,7 @@ export default function BranchDetailPage() {
         </div>
       </section>
       {partnerTeam.length > 0 ? (
-        <section className="py-16 md:py-20 bg-[#171A26] relative z-10">
+        <section className="py-8 md:py-10 bg-[#171A26] relative z-10">
           <div className="container mx-auto px-4 max-w-7xl">
             <div className="text-center mb-12" data-aos="fade-up">
               <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />

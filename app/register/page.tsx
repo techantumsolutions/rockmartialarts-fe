@@ -47,6 +47,15 @@ export default function RegisterPage() {
   const phoneCheckSeq = useRef(0)
   const registrationHydrated = useRef(false)
 
+  const handleBack = () => {
+    const returnTo = new URLSearchParams(window.location.search).get("returnTo")
+    if (returnTo?.startsWith("/courses/")) {
+      router.push(returnTo, { scroll: true })
+      return
+    }
+    router.back()
+  }
+
   const normalizedEmail = useMemo(() => formData.email.trim().toLowerCase(), [formData.email])
   /** National 10 digits only (input is capped at 10; paste may normalize via extract). */
   const normalizedMobile = formData.mobile
@@ -383,7 +392,7 @@ export default function RegisterPage() {
               variant="ghost"
               size="sm"
               className="gap-2 pl-0 h-8 text-gray-700 hover:text-gray-900 -ml-2"
-              onClick={() => router.back()}
+              onClick={handleBack}
             >
               <ArrowLeft className="h-4 w-4" />
               Back
