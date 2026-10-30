@@ -850,15 +850,15 @@ function CourseDetailPageInner() {
 
       {/* ============ CTA (Ready to Start Your Journey?) ============ */}
       {enabled("cta") && (
-        <section className="py-12 bg-[#F73322]">
-          <div className="container mx-auto px-4 max-w-7xl text-center">
-            <h2 className="text-2xl md:text-3xl font-extrabold text-white uppercase mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>
+        <section className="bg-[#171A26] px-4 py-8 md:bg-[#F73322] md:px-0 md:py-12">
+          <div className="container mx-auto max-w-7xl rounded-2xl bg-[#F73322] px-5 py-8 text-center sm:px-8 md:rounded-none md:bg-transparent md:px-4 md:py-0">
+            <h2 className="text-2xl md:text-3xl font-extrabold text-white uppercase mb-5 md:mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>
               {pc.cta_section?.headline?.trim() || "Ready to Start Your Journey?"}
             </h2>
-            <div className="mx-auto grid max-w-xl grid-cols-2 items-center gap-4">
+            <div className="mx-auto grid max-w-xl grid-cols-1 items-center gap-3 md:grid-cols-2 md:gap-4">
               <Link
                 href={courseRegistrationHref(hero.cta_link)}
-                className="inline-flex w-full items-center justify-center rounded-lg bg-[#FFB70F] px-4 py-4 text-base font-bold text-black hover:bg-white transition-colors shadow-lg sm:px-10"
+                className="inline-flex w-full items-center justify-center rounded-lg bg-[#FFB70F] px-4 py-3.5 text-base font-bold text-black hover:bg-white transition-colors shadow-lg sm:px-10 md:py-4"
               >
                 {hero.cta_text?.trim() || "Join Now"}
               </Link>
@@ -866,12 +866,12 @@ function CourseDetailPageInner() {
                 <button
                   type="button"
                   onClick={handleAddToCartClick}
-                  className="inline-flex w-full items-center justify-center rounded-lg border-2 border-white px-4 py-4 text-base font-bold text-white hover:bg-white hover:text-[#F73322] transition-colors sm:px-8"
+                  className="inline-flex w-full items-center justify-center rounded-lg border-2 border-white px-4 py-3.5 text-base font-bold text-white hover:bg-white hover:text-[#F73322] transition-colors sm:px-8 md:py-4"
                 >
                   Add to cart
                 </button>
               ) : null}
-              <Link href="/courses" className="col-span-2 inline-flex items-center justify-self-center gap-2 text-white font-semibold hover:text-[#FFB70F] transition-colors">
+              <Link href="/courses" className="col-span-full mt-1 inline-flex items-center justify-self-center gap-2 text-white font-semibold hover:text-[#FFB70F] transition-colors md:col-span-2 md:mt-0">
                 <ArrowLeft className="w-4 h-4" /> View All Courses
               </Link>
             </div>
@@ -1011,7 +1011,7 @@ function CourseDetailPageInner() {
             ) : (
               <h2 className="sr-only">Classes and learning — {displayTitle}</h2>
             )}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
               <div className="text-gray-400 leading-relaxed space-y-4">
                 {learning.description && learning.description.split("\n").map((p, i) => <p key={i}>{p}</p>)}
               </div>
