@@ -12,14 +12,15 @@ import {
   BookOpen, 
   Calendar,
   Award,
-  BarChart3,
-  PieChart,
   Download,
   Loader2,
-  FileText
+  CheckCircle,
+  RefreshCw
 } from "lucide-react"
 import CoachDashboardHeader from "@/components/coach-dashboard-header"
-import { checkCoachAuth, getCoachAuthHeaders } from "@/lib/coachAuth"
+import { checkCoachAuth, CoachData } from "@/lib/coachAuth"
+import { getBackendApiUrl } from "@/lib/config"
+import { fetchCoachAssignments, filterStudentsForCoach } from "@/lib/coachStudentFilter"
 
 interface CoachReportData {
   performance_metrics: {
@@ -30,24 +31,15 @@ interface CoachReportData {
     attendance_rate: number
   }
   student_progress: Array<{
+    student_id?: string
     student_name: string
+    email?: string
+    phone?: string
     course_name: string
+    batch_name?: string
     progress_percentage: number
-    last_session: string
+    last_session: string | null
     attendance_rate: number
-  }>
-  course_analytics: Array<{
-    course_name: string
-    total_students: number
-    completion_rate: number
-    average_rating: number
-    revenue_generated: number
-  }>
-  monthly_stats: Array<{
-    month: string
-    sessions_conducted: number
-    new_students: number
-    revenue: number
   }>
 }
 
@@ -56,11 +48,13 @@ export default function CoachReportsPage() {
   const [reportData, setReportData] = useState<CoachReportData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [coachData, setCoachData] = useState<any>(null)
+  const [coachData, setCoachData] = useState<CoachData | null>(null)
   const [activeTab, setActiveTab] = useState("overview")
+  const [exporting, setExporting] = useState(false)
+  const [exportSuccess, setExportSuccess] = useState(false)
 
   useEffect(() => {
-    // Use the robust coach authentication check
+    // Robust coach authentication check
     const authResult = checkCoachAuth()
 
     if (!authResult.isAuthenticated) {
@@ -71,98 +65,334 @@ export default function CoachReportsPage() {
 
     if (authResult.coach && authResult.token) {
       setCoachData(authResult.coach)
-      fetchReportData(authResult.token, authResult.coach.id)
+      fetchReportData(authResult.token, authResult.coach)
     } else {
       setError("Coach information not found")
       setLoading(false)
     }
   }, [router])
 
-  const fetchReportData = async (token: string, coachId: string) => {
+  const fetchReportData = async (token: string, coach: CoachData) => {
     try {
       setLoading(true)
       setError(null)
 
-      // For now, we'll use mock data since the specific coach reports endpoint may not be implemented
-      // In a real implementation, this would call: `/api/coaches/${coachId}/reports`
-      
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000))
-
-      // Mock data for demonstration
-      const mockData: CoachReportData = {
-        performance_metrics: {
-          total_students: 45,
-          active_courses: 3,
-          average_rating: 4.7,
-          total_sessions: 128,
-          attendance_rate: 92.5
-        },
-        student_progress: [
-          {
-            student_name: "John Smith",
-            course_name: "Karate Basics",
-            progress_percentage: 85,
-            last_session: "2024-01-15",
-            attendance_rate: 95
-          },
-          {
-            student_name: "Sarah Johnson",
-            course_name: "Advanced Taekwondo",
-            progress_percentage: 72,
-            last_session: "2024-01-14",
-            attendance_rate: 88
-          },
-          {
-            student_name: "Mike Chen",
-            course_name: "Kung Fu Fundamentals",
-            progress_percentage: 91,
-            last_session: "2024-01-16",
-            attendance_rate: 97
-          }
-        ],
-        course_analytics: [
-          {
-            course_name: "Karate Basics",
-            total_students: 20,
-            completion_rate: 78,
-            average_rating: 4.8,
-            revenue_generated: 15000
-          },
-          {
-            course_name: "Advanced Taekwondo",
-            total_students: 15,
-            completion_rate: 82,
-            average_rating: 4.6,
-            revenue_generated: 18000
-          },
-          {
-            course_name: "Kung Fu Fundamentals",
-            total_students: 10,
-            completion_rate: 90,
-            average_rating: 4.9,
-            revenue_generated: 12000
-          }
-        ],
-        monthly_stats: [
-          { month: "Dec 2023", sessions_conducted: 32, new_students: 8, revenue: 12000 },
-          { month: "Jan 2024", sessions_conducted: 35, new_students: 12, revenue: 15000 },
-          { month: "Feb 2024", sessions_conducted: 28, new_students: 6, revenue: 10500 }
-        ]
+      const coachId = coach.id || (coach as any)._id
+      const branchId = coach.branch_id
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       }
 
-      setReportData(mockData)
-    } catch (error) {
-      console.error("Error fetching report data:", error)
-      setError("Failed to load report data")
+      // 1. Fetch coach assignments (courses and batches assigned to this coach)
+      const coachAssignments = await fetchCoachAssignments(token, coach)
+      const coursesData = coachAssignments.courses || []
+      const coachCourseIds = new Set(
+        coursesData.map((c) => String(c.id || c.course_id || "").trim())
+      )
+      const coachCourseNames = new Set(
+        coursesData.map((c) => String(c.name || "").trim().toLowerCase())
+      )
+
+      // Batch lookup for human-readable batch names
+      const batchLookup = new Map<string, string>()
+      coursesData.forEach((c) => {
+        c.batches?.forEach((b) => {
+          const timeStr = b.start_time && b.end_time ? ` (${b.start_time} - ${b.end_time})` : ""
+          const displayName = `${b.batch_name}${timeStr}`
+          if (b.id) batchLookup.set(b.id, displayName)
+          if (b.batch_id) batchLookup.set(b.batch_id, displayName)
+        })
+      })
+
+      // 2. Fetch all students under this branch/coach
+      const studentMap = new Map<string, any>()
+      const mergeStudent = (st: any, isFromCoachEndpoint = false) => {
+        const sid = st.id || st.student_id
+        if (!sid) return
+        if (!studentMap.has(sid)) {
+          studentMap.set(sid, { ...st })
+        } else {
+          const existing = studentMap.get(sid)
+          const existingCourses = Array.isArray(existing.courses) ? existing.courses : []
+          const newCourses = Array.isArray(st.courses) ? st.courses : []
+          const mergedCourses = [...existingCourses]
+
+          newCourses.forEach((nc: any) => {
+            const ncid = nc.id || nc.course_id
+            if (ncid && !mergedCourses.some((mc: any) => (mc.id || mc.course_id) === ncid)) {
+              mergedCourses.push(nc)
+            }
+          })
+
+          if (st.course_id && !mergedCourses.some((mc: any) => (mc.id || mc.course_id) === st.course_id)) {
+            mergedCourses.push({
+              id: st.course_id,
+              course_id: st.course_id,
+              name: st.course_name,
+              batch_ref: st.batch_ref,
+              batch_name: st.batch_name,
+              branch_id: st.branch_id,
+            })
+          }
+
+          studentMap.set(sid, {
+            ...existing,
+            ...st,
+            full_name: st.full_name || st.student_name || existing.full_name || existing.student_name,
+            student_name: st.student_name || st.full_name || existing.student_name || existing.full_name,
+            email: st.email || existing.email,
+            phone: st.phone || existing.phone,
+            course_id: isFromCoachEndpoint ? (st.course_id || existing.course_id) : (existing.course_id || st.course_id),
+            course_name: isFromCoachEndpoint ? (st.course_name || existing.course_name) : (existing.course_name || st.course_name),
+            batch_ref: isFromCoachEndpoint ? (st.batch_ref || existing.batch_ref) : (existing.batch_ref || st.batch_ref),
+            batch_name: isFromCoachEndpoint ? (st.batch_name || existing.batch_name) : (existing.batch_name || st.batch_name),
+            courses: mergedCourses,
+            branches: existing.branches || st.branches,
+          })
+        }
+      }
+
+      // Try coach-specific endpoint
+      try {
+        const res = await fetch(getBackendApiUrl(`coaches/${encodeURIComponent(coachId)}/students`), { headers })
+        if (res.ok) {
+          const json = await res.json()
+          const list = json.students || json.enrolled_students || []
+          if (Array.isArray(list)) list.forEach((s) => mergeStudent(s, true))
+        }
+      } catch (e) {
+        console.warn("Could not fetch students from coach endpoint:", e)
+      }
+
+      // Try branch search
+      if (branchId) {
+        try {
+          const res = await fetch(
+            getBackendApiUrl(`search/students?branch_id=${encodeURIComponent(branchId)}&limit=200`),
+            { headers }
+          )
+          if (res.ok) {
+            const json = await res.json()
+            const list = Array.isArray(json.students) ? json.students : []
+            list.forEach((s) => mergeStudent(s, false))
+          }
+        } catch (e) {
+          console.warn("Could not fetch students from branch search:", e)
+        }
+      }
+
+      const allMerged = Array.from(studentMap.values())
+      // Filter strictly to students who belong to this coach's assigned courses and batches in this branch!
+      const assignedStudents = filterStudentsForCoach(allMerged, coachAssignments)
+      const assignedStudentIdSet = new Set(
+        assignedStudents.map((s) => String(s.id || s.student_id || "").trim()).filter(Boolean)
+      )
+
+      // 3. Fetch attendance history
+      let allAttendanceRecords: any[] = []
+      try {
+        const attRes = await fetch(
+          getBackendApiUrl(`attendance/reports?branch_id=${encodeURIComponent(branchId || "")}&limit=1000`),
+          { headers }
+        )
+        if (attRes.ok) {
+          const attJson = await attRes.json()
+          allAttendanceRecords = Array.isArray(attJson.attendance_records) ? attJson.attendance_records : []
+        }
+      } catch (e) {
+        console.warn("Could not fetch attendance records:", e)
+      }
+
+      // Filter attendance records to those belonging to this coach's assigned students and assigned courses
+      const coachAttendance = allAttendanceRecords.filter((rec) => {
+        const sid = String(rec.student_id || "").trim()
+        const cid = String(rec.course_id || "").trim()
+        const cname = String(rec.course_name || "").toLowerCase().trim()
+        const isStudentMatch = assignedStudentIdSet.has(sid)
+        const isCourseMatch = coachCourseIds.has(cid) || coachCourseNames.has(cname)
+        return isStudentMatch && isCourseMatch
+      })
+
+      // 4. Calculate student progress details
+      const studentProgress = assignedStudents.map((student) => {
+        const sid = String(student.id || student.student_id || "").trim()
+        const sName = student.full_name || student.student_name || student.name || "Unknown Student"
+
+        // Determine matching course
+        let matchingCourse = Array.isArray(student.courses)
+          ? student.courses.find(
+              (c: any) =>
+                coachCourseIds.has(String(c?.id || c?.course_id || "").trim()) ||
+                coachCourseNames.has(String(c?.name || c?.course_name || "").toLowerCase().trim())
+            )
+          : null
+        if (!matchingCourse) {
+          if (
+            coachCourseIds.has(String(student.course_id || "").trim()) ||
+            coachCourseNames.has(String(student.course_name || "").toLowerCase().trim())
+          ) {
+            matchingCourse = student.course || student
+          } else {
+            matchingCourse = coursesData[0] || null
+          }
+        }
+
+        const courseName =
+          matchingCourse?.name ||
+          matchingCourse?.course_name ||
+          student.course_name ||
+          coursesData[0]?.name ||
+          "Martial Arts"
+
+        // Batch determination
+        const sBatchRef =
+          matchingCourse?.batch_ref ||
+          student.batch_ref ||
+          student.batch_id ||
+          student.course?.batch_ref ||
+          student.courses?.[0]?.batch_ref ||
+          ""
+        const batchName = sBatchRef && batchLookup.has(sBatchRef)
+          ? batchLookup.get(sBatchRef)!
+          : (matchingCourse?.batch_name || student.batch_name || "")
+
+        // Attendance stats for this student
+        const studentRecords = coachAttendance.filter((r) => String(r.student_id).trim() === sid)
+        const presentCount = studentRecords.filter((r) => {
+          const st = String(r.status || "").toLowerCase()
+          return st === "present" || st === "late"
+        }).length
+        const attendanceRate = studentRecords.length > 0
+          ? Math.round((presentCount / studentRecords.length) * 100)
+          : 0
+
+        // Last session date
+        const sortedRecords = [...studentRecords].sort((a, b) => {
+          const da = new Date(a.attendance_date || a.created_at || 0).getTime()
+          const db = new Date(b.attendance_date || b.created_at || 0).getTime()
+          return db - da
+        })
+        const lastSession = sortedRecords.length > 0
+          ? (sortedRecords[0].attendance_date || sortedRecords[0].created_at)
+          : (student.enrollment_date || null)
+
+        // Progress percentage
+        let progress = 0
+        if (student.progress !== undefined && student.progress !== null) {
+          progress = Number(student.progress)
+        } else if (matchingCourse?.progress !== undefined && matchingCourse?.progress !== null) {
+          progress = Number(matchingCourse.progress)
+        } else if (studentRecords.length > 0) {
+          // Progress based on attended sessions (capped at 100%)
+          progress = Math.min(100, Math.round((presentCount / Math.max(studentRecords.length, 12)) * 100))
+        }
+
+        return {
+          student_id: sid,
+          student_name: sName,
+          email: student.email || "",
+          phone: student.phone || "",
+          course_name: courseName,
+          batch_name: batchName,
+          progress_percentage: Math.min(100, Math.max(0, progress)),
+          last_session: lastSession,
+          attendance_rate: attendanceRate,
+        }
+      })
+
+      // 5. Calculate overall performance metrics
+      const totalStudents = assignedStudents.length
+      const activeCourses = coursesData.length
+      const avgRating = Number(coach.rating || (coach as any).average_rating || 4.8)
+
+      // Total sessions: distinct dates on which attendance was marked for this coach's course(s)
+      const sessionDates = new Set(
+        coachAttendance
+          .map((r) => String(r.attendance_date || "").split("T")[0])
+          .filter(Boolean)
+      )
+      const totalSessions = sessionDates.size
+
+      // Overall attendance rate across all coach attendance records
+      const totalPresent = coachAttendance.filter((r) => {
+        const st = String(r.status || "").toLowerCase()
+        return st === "present" || st === "late"
+      }).length
+      const overallAttendanceRate = coachAttendance.length > 0
+        ? Math.round((totalPresent / coachAttendance.length) * 100)
+        : 0
+
+      setReportData({
+        performance_metrics: {
+          total_students: totalStudents,
+          active_courses: activeCourses,
+          average_rating: avgRating,
+          total_sessions: totalSessions,
+          attendance_rate: overallAttendanceRate,
+        },
+        student_progress: studentProgress,
+      })
+    } catch (err: any) {
+      console.error("Error fetching report data:", err)
+      setError(err?.message || "Failed to load report data")
     } finally {
       setLoading(false)
     }
   }
 
   const handleExportReport = () => {
-    // Implement export functionality
-    console.log("Exporting report...")
+    if (!reportData) return
+    try {
+      setExporting(true)
+      const coachName = coachData?.full_name || "Coach"
+      const dateStr = new Date().toISOString().split("T")[0]
+
+      const headerInfo = [
+        `"Coach Performance & Student Progress Report"`,
+        `"Coach Name:","${coachName}"`,
+        `"Date:","${new Date().toLocaleDateString()}"`,
+        `"Total Students:","${reportData.performance_metrics.total_students}"`,
+        `"Active Courses:","${reportData.performance_metrics.active_courses}"`,
+        `"Average Rating:","${reportData.performance_metrics.average_rating}"`,
+        `"Total Sessions:","${reportData.performance_metrics.total_sessions}"`,
+        `"Attendance Rate:","${reportData.performance_metrics.attendance_rate}%"`,
+        `""`,
+        `"--- Student Progress Details ---"`,
+        `"Student Name","Course","Batch","Progress (%)","Attendance Rate (%)","Last Session Date"`
+      ]
+
+      const rows = reportData.student_progress.map((s) => [
+        `"${(s.student_name || "").replace(/"/g, '""')}"`,
+        `"${(s.course_name || "").replace(/"/g, '""')}"`,
+        `"${(s.batch_name || "—").replace(/"/g, '""')}"`,
+        `"${s.progress_percentage}%"`,
+        `"${s.attendance_rate}%"`,
+        `"${s.last_session ? new Date(s.last_session).toLocaleDateString() : "—"}"`
+      ].join(","))
+
+      const csvContent = [...headerInfo, ...rows].join("\r\n")
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.setAttribute("href", url)
+      link.setAttribute(
+        "download",
+        `coach_report_${coachName.replace(/\s+/g, "_").toLowerCase()}_${dateStr}.csv`
+      )
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      setExportSuccess(true)
+      setTimeout(() => setExportSuccess(false), 3000)
+    } catch (err) {
+      console.error("Error exporting report:", err)
+      alert("Failed to export report CSV")
+    } finally {
+      setExporting(false)
+    }
   }
 
   if (loading) {
@@ -197,6 +427,14 @@ export default function CoachReportsPage() {
                 <div className="text-center text-red-600">
                   <p className="font-medium">Error loading reports</p>
                   <p className="text-sm mt-1">{error}</p>
+                  <Button
+                    onClick={() => coachData && fetchReportData(localStorage.getItem("access_token")!, coachData)}
+                    className="mt-4"
+                    variant="outline"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Try Again
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -216,23 +454,36 @@ export default function CoachReportsPage() {
       <main className="mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {/* Header */}
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Performance Reports</h1>
               <p className="text-gray-600">Track your coaching performance and student progress</p>
             </div>
-            <Button onClick={handleExportReport} className="bg-yellow-600 hover:bg-yellow-700">
-              <Download className="w-4 h-4 mr-2" />
-              Export Report
-            </Button>
+            <div className="flex items-center gap-3">
+              {exportSuccess && (
+                <span className="text-sm text-green-600 flex items-center font-medium">
+                  <CheckCircle className="w-4 h-4 mr-1" /> Downloaded!
+                </span>
+              )}
+              <Button 
+                onClick={handleExportReport} 
+                disabled={exporting || !reportData}
+                className="bg-yellow-600 hover:bg-yellow-700"
+              >
+                {exporting ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4 mr-2" />
+                )}
+                Export Report
+              </Button>
+            </div>
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-2 max-w-md">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="students">Student Progress</TabsTrigger>
-              <TabsTrigger value="courses">Course Analytics</TabsTrigger>
-              <TabsTrigger value="trends">Monthly Trends</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="space-y-6">
@@ -306,99 +557,45 @@ export default function CoachReportsPage() {
                   <CardTitle>Student Progress Overview</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {reportData.student_progress.map((student, index) => (
-                      <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex-1">
-                          <h3 className="font-medium">{student.student_name}</h3>
-                          <p className="text-sm text-gray-600">{student.course_name}</p>
-                        </div>
-                        <div className="flex items-center space-x-4">
-                          <div className="text-center">
-                            <p className="text-sm text-gray-600">Progress</p>
-                            <Badge variant="outline">{student.progress_percentage}%</Badge>
+                  {reportData.student_progress.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500">
+                      <Users className="mx-auto h-12 w-12 text-gray-300" />
+                      <h3 className="mt-3 text-base font-medium text-gray-900">No students assigned</h3>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Students will appear here once they enroll in your courses and batches.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {reportData.student_progress.map((student, index) => (
+                        <div key={student.student_id || index} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors gap-4">
+                          <div className="flex-1">
+                            <h3 className="font-medium text-gray-900">{student.student_name}</h3>
+                            <p className="text-sm text-gray-600">{student.course_name}</p>
+                            {student.batch_name && (
+                              <p className="text-xs text-gray-500 mt-0.5">{student.batch_name}</p>
+                            )}
                           </div>
-                          <div className="text-center">
-                            <p className="text-sm text-gray-600">Attendance</p>
-                            <Badge variant="outline">{student.attendance_rate}%</Badge>
-                          </div>
-                          <div className="text-center">
-                            <p className="text-sm text-gray-600">Last Session</p>
-                            <p className="text-sm">{new Date(student.last_session).toLocaleDateString()}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="courses" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Course Performance Analytics</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {reportData.course_analytics.map((course, index) => (
-                      <div key={index} className="p-4 border rounded-lg">
-                        <div className="flex justify-between items-start mb-2">
-                          <h3 className="font-medium">{course.course_name}</h3>
-                          <Badge variant="outline">₹{course.revenue_generated.toLocaleString()}</Badge>
-                        </div>
-                        <div className="grid grid-cols-4 gap-4 text-sm">
-                          <div>
-                            <p className="text-gray-600">Students</p>
-                            <p className="font-medium">{course.total_students}</p>
-                          </div>
-                          <div>
-                            <p className="text-gray-600">Completion Rate</p>
-                            <p className="font-medium">{course.completion_rate}%</p>
-                          </div>
-                          <div>
-                            <p className="text-gray-600">Rating</p>
-                            <p className="font-medium">{course.average_rating}/5</p>
-                          </div>
-                          <div>
-                            <p className="text-gray-600">Revenue</p>
-                            <p className="font-medium">₹{course.revenue_generated.toLocaleString()}</p>
+                          <div className="flex items-center space-x-4">
+                            <div className="text-center min-w-[70px]">
+                              <p className="text-xs text-gray-600">Progress</p>
+                              <Badge variant="outline" className="font-semibold">{student.progress_percentage}%</Badge>
+                            </div>
+                            <div className="text-center min-w-[70px]">
+                              <p className="text-xs text-gray-600">Attendance</p>
+                              <Badge variant="outline" className="font-semibold">{student.attendance_rate}%</Badge>
+                            </div>
+                            <div className="text-center min-w-[90px]">
+                              <p className="text-xs text-gray-600">Last Session</p>
+                              <p className="text-sm font-medium">
+                                {student.last_session ? new Date(student.last_session).toLocaleDateString() : "—"}
+                              </p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="trends" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Monthly Performance Trends</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {reportData.monthly_stats.map((stat, index) => (
-                      <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="font-medium">{stat.month}</div>
-                        <div className="flex space-x-8 text-sm">
-                          <div className="text-center">
-                            <p className="text-gray-600">Sessions</p>
-                            <p className="font-medium">{stat.sessions_conducted}</p>
-                          </div>
-                          <div className="text-center">
-                            <p className="text-gray-600">New Students</p>
-                            <p className="font-medium">{stat.new_students}</p>
-                          </div>
-                          <div className="text-center">
-                            <p className="text-gray-600">Revenue</p>
-                            <p className="font-medium">₹{stat.revenue.toLocaleString()}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

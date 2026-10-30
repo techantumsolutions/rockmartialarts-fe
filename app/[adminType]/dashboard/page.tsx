@@ -660,7 +660,7 @@ export default function SuperAdminDashboard() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="bg-green-50 p-4 rounded-lg text-center">
                       <p className="text-2xl font-bold text-green-600">
                         {paymentStats ? paymentAPI.formatCurrency(paymentStats.this_month_collection || 0) : '₹0'}
@@ -675,6 +675,22 @@ export default function SuperAdminDashboard() {
                       </p>
                       <p className="text-xs text-[var(--brand-muted)] mt-1">
                         Total Revenue{selectedBranchName ? ` (${selectedBranchName})` : ''}
+                      </p>
+                    </div>
+                    <div className="bg-amber-50 p-4 rounded-lg text-center border border-amber-200">
+                      <p className="text-2xl font-bold text-amber-700">
+                        {paymentStats ? paymentAPI.formatCurrency(paymentStats.hand_cash_revenue || 0) : '₹0'}
+                      </p>
+                      <p className="text-xs text-amber-800 font-medium mt-1">
+                        Physical Hand Cash (Total)
+                      </p>
+                    </div>
+                    <div className="bg-emerald-50 p-4 rounded-lg text-center border border-emerald-200">
+                      <p className="text-2xl font-bold text-emerald-700">
+                        {paymentStats ? paymentAPI.formatCurrency(paymentStats.period_hand_cash_revenue || 0) : '₹0'}
+                      </p>
+                      <p className="text-xs text-emerald-800 font-medium mt-1">
+                        Hand Cash ({timePeriodLabel})
                       </p>
                     </div>
                   </div>

@@ -56,6 +56,8 @@ export function StudentPerformanceDashboardClient({
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
   const [achievementsSaveMsg, setAchievementsSaveMsg] = useState<string | null>(null)
+  const [profileSaveMsg, setProfileSaveMsg] = useState<string | null>(null)
+  const [isSavingProfile, setIsSavingProfile] = useState(false)
 
   const [medals, setMedals] = useState({ gold: 0, silver: 0, bronze: 0, comps: 0, certs: 0 })
   const [skills, setSkills] = useState({ strength: "", speed: "", flex: "", tech: "" })
@@ -249,9 +251,19 @@ export function StudentPerformanceDashboardClient({
         technique: skills.tech === "" ? null : Number(skills.tech),
       })
       toast.success("Skills saved")
+      appToast({
+        title: "Success",
+        description: "Skills updated successfully.",
+      })
       void load()
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Save failed")
+      const msg = e instanceof Error ? e.message : "Save failed"
+      toast.error(msg)
+      appToast({
+        title: "Save failed",
+        description: msg,
+        variant: "destructive",
+      })
     }
   }
 
@@ -264,9 +276,19 @@ export function StudentPerformanceDashboardClient({
         progress_percentage: goal.pct === "" ? null : Number(goal.pct),
       })
       toast.success("Goal saved")
+      appToast({
+        title: "Success",
+        description: "Goals updated successfully.",
+      })
       void load()
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Save failed")
+      const msg = e instanceof Error ? e.message : "Save failed"
+      toast.error(msg)
+      appToast({
+        title: "Save failed",
+        description: msg,
+        variant: "destructive",
+      })
     }
   }
 
@@ -275,9 +297,19 @@ export function StudentPerformanceDashboardClient({
     try {
       await putJson(`student/feedback/${encodeURIComponent(sid)}`, { feedback: fb })
       toast.success("Feedback saved")
+      appToast({
+        title: "Success",
+        description: "Coach feedback updated successfully.",
+      })
       void load()
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Save failed")
+      const msg = e instanceof Error ? e.message : "Save failed"
+      toast.error(msg)
+      appToast({
+        title: "Save failed",
+        description: msg,
+        variant: "destructive",
+      })
     }
   }
 
@@ -290,22 +322,51 @@ export function StudentPerformanceDashboardClient({
         next_level_progress: war.next === "" ? null : Number(war.next),
       })
       toast.success("Warrior stats saved")
+      appToast({
+        title: "Success",
+        description: "Warrior stats updated successfully.",
+      })
       void load()
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Save failed")
+      const msg = e instanceof Error ? e.message : "Save failed"
+      toast.error(msg)
+      appToast({
+        title: "Save failed",
+        description: msg,
+        variant: "destructive",
+      })
     }
   }
 
   const saveProfile = async () => {
     if (!sid) return
+    setIsSavingProfile(true)
+    setProfileSaveMsg(null)
     try {
       await putJson(`student/profile/${encodeURIComponent(sid)}`, {
         level_or_belt: belt.trim() || null,
       })
-      toast.success("Level / belt saved")
+      appToast({
+        title: "Success",
+        description: "Level / belt updated successfully.",
+      })
+      toast.success("Level / belt saved", {
+        description: "Level / belt updated successfully.",
+      })
+      setProfileSaveMsg("Level / belt saved successfully.")
+      window.setTimeout(() => setProfileSaveMsg(null), 4000)
       void load()
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Save failed")
+      const msg = e instanceof Error ? e.message : "Save failed"
+      appToast({
+        title: "Save failed",
+        description: msg,
+        variant: "destructive",
+      })
+      toast.error(msg)
+      setProfileSaveMsg(null)
+    } finally {
+      setIsSavingProfile(false)
     }
   }
 
@@ -386,13 +447,30 @@ export function StudentPerformanceDashboardClient({
                   <TabsTrigger value="warrior">Warrior stats</TabsTrigger>
                 </TabsList>
                 <TabsContent value="profile" className="space-y-3 pt-4">
+                  {profileSaveMsg ? (
+                    <p className="text-sm text-green-800 bg-green-50 border border-green-200 rounded-md px-3 py-2" role="status">
+                      {profileSaveMsg}
+                    </p>
+                  ) : null}
                   <Input
                     value={belt}
                     onChange={(e) => setBelt(e.target.value)}
                     placeholder="e.g. Yellow Belt"
                   />
-                  <Button onClick={() => void saveProfile()} className="bg-amber-500 hover:bg-amber-600 text-white">
-                    <Save className="h-4 w-4 mr-2" /> Save level / belt
+                  <Button
+                    onClick={() => void saveProfile()}
+                    disabled={isSavingProfile}
+                    className="bg-amber-500 hover:bg-amber-600 text-white"
+                  >
+                    {isSavingProfile ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" /> Save level / belt
+                      </>
+                    )}
                   </Button>
                 </TabsContent>
                 <TabsContent value="achievements" className="space-y-3 pt-4">
@@ -468,7 +546,7 @@ export function StudentPerformanceDashboardClient({
         ) : null}
       </div>
     )
-  }, [loading, err, data, canEdit, sid, medals, skills, goal, fb, war, belt, load, kpiMetrics, kpiLoading, kpiPeriodId, kpiCourseId, loadKpiMetrics, achievementsSaveMsg])
+  }, [loading, err, data, canEdit, sid, medals, skills, goal, fb, war, belt, load, kpiMetrics, kpiLoading, kpiPeriodId, kpiCourseId, loadKpiMetrics, achievementsSaveMsg, profileSaveMsg, isSavingProfile])
 
   return (
     <div className="space-y-6">
