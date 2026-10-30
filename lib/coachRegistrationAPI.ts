@@ -10,7 +10,7 @@ export type CoachRegistrationPayload = {
   email: string
   country_code?: string
   phone: string
-  password: string
+  password?: string
   address: string
   area?: string
   city: string

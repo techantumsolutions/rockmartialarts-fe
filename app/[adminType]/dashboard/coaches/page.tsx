@@ -161,16 +161,30 @@ const itemsPerPage = 15
       const coach = coaches.find(c => c.id === coachId)
       if (!coach) return
 
-      const response = await fetch(getBackendApiUrl(`coaches/${coachId}`), {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          is_active: !coach.is_active
-        })
-      })
+      // Branch admin cannot use PUT /coaches/{id}; use activate / deactivate endpoints instead
+      const response = isBranchAdmin
+        ? await fetch(
+            getBackendApiUrl(
+              coach.is_active ? `coaches/${coachId}` : `coaches/${coachId}/activate`
+            ),
+            {
+              method: coach.is_active ? "DELETE" : "PATCH",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          )
+        : await fetch(getBackendApiUrl(`coaches/${coachId}`), {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              is_active: !coach.is_active,
+            }),
+          })
 
       if (!response.ok) {
         const errorData = await response.json()

@@ -133,12 +133,14 @@ export default function CoachDetailPage() {
   const [availabilitySlots, setAvailabilitySlots] = useState<WeeklySlot[]>([])
   const [availabilityLoading, setAvailabilityLoading] = useState(true)
   const [studentAssignments, setStudentAssignments] = useState<StudentAssignment[]>([])
+  const [studentsVisibleCount, setStudentsVisibleCount] = useState(10)
   const [loading, setLoading] = useState(true)
   const [coursesLoading, setCoursesLoading] = useState(true)
   const [studentsLoading, setStudentsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [courseNameById, setCourseNameById] = useState<Record<string, string>>({})
   const lookedUpCourseIds = useRef<Set<string>>(new Set())
+  const uniqueStudentCount = new Set(studentAssignments.map((s) => s.id)).size
 
   useEffect(() => {
     fetchCoachDetails()
@@ -320,6 +322,7 @@ export default function CoachDetailPage() {
         }))
 
         setStudentAssignments(transformedStudents)
+        setStudentsVisibleCount(10)
       } else {
         console.error('Failed to fetch student assignments:', response.status, response.statusText)
         setError('Failed to load student assignments')
@@ -760,7 +763,7 @@ export default function CoachDetailPage() {
               <CardHeader>
                 <CardTitle className="flex items-center font-bold text-[#4F5077]">
                   <Users className="w-5 h-5 mr-2" />
-                  Student Assignments ({studentsLoading ? '...' : studentAssignments.length})
+                  Student Assignments ({studentsLoading ? '...' : uniqueStudentCount})
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-[#7D8592]">
@@ -786,8 +789,8 @@ export default function CoachDetailPage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {studentAssignments.slice(0, 10).map((student) => (
-                      <div key={student.id} className="p-4 bg-gray-50 rounded-lg">
+                    {studentAssignments.slice(0, studentsVisibleCount).map((student) => (
+                      <div key={`${student.id}-${student.course_name}-${student.enrollment_date}`} className="p-4 bg-gray-50 rounded-lg">
                         <div className="flex items-center justify-between mb-2">
                           <h4 className="font-medium">{student.student_name}</h4>
                           <Badge
@@ -822,10 +825,21 @@ export default function CoachDetailPage() {
                         </div>
                       </div>
                     ))}
-                    {studentAssignments.length > 10 && (
-                      <p className="text-sm text-gray-500 text-center pt-2">
-                        ... and {studentAssignments.length - 10} more students
-                      </p>
+                    {studentAssignments.length > studentsVisibleCount && (
+                      <div className="flex justify-center pt-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setStudentsVisibleCount((prev) =>
+                              Math.min(prev + 10, studentAssignments.length)
+                            )
+                          }
+                        >
+                          Load more ({studentAssignments.length - studentsVisibleCount} remaining)
+                        </Button>
+                      </div>
                     )}
                   </div>
                 )}
@@ -848,7 +862,7 @@ export default function CoachDetailPage() {
                     <Users className="w-4 h-4 mr-2" />
                     <span className="text-sm ">Total Students</span>
                   </div>
-                  <span className="font-semibold">{coach.total_students || studentAssignments.length}</span>
+                  <span className="font-semibold">{uniqueStudentCount}</span>
                 </div>
 
                 <div className="flex items-center justify-between">

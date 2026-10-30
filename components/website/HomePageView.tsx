@@ -273,7 +273,7 @@ export default function HomePageView({
       />
 
       {/* Tagline - scroll reveal */}
-      <AnimatedSection variant="fadeSlideUp" className="py-16 md:py-20 bg-[#171A26] relative z-10">
+      <AnimatedSection variant="fadeSlideUp" className="py-10 md:py-14 bg-[#171A26] relative z-10">
         <div className="container mx-auto px-4 max-w-5xl">
           <h1 className="text-center text-white text-xl md:text-2xl lg:text-3xl font-medium">
             {ctaTitle}
@@ -287,7 +287,7 @@ export default function HomePageView({
       {/* Our Classes - Section 3: each card zooms individually (in view = scale 1, scroll past = scale 0) */}
       <section
         id="courses"
-        className="py-16 md:py-20 bg-[#171A26] scroll-mt-24 relative z-10"
+        className="py-12 md:py-16 bg-[#171A26] scroll-mt-24 relative z-10"
       >
         <div className="container mx-auto px-4 max-w-7xl">
           <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
@@ -301,6 +301,7 @@ export default function HomePageView({
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8"
             staggerDelay={0.12}
             childClassName="text-center group"
+            amount="some"
           >
             {classCards.map((c) => (
               <ScrollZoomContinuous key={c.id ?? c.name}>
@@ -332,7 +333,7 @@ export default function HomePageView({
       {mediaSectionItems.length > 0 ? (
         <section
           id="media"
-          className="py-16 md:py-20 bg-[#171A26] scroll-mt-24 relative z-10"
+          className="py-12 md:py-16 bg-[#171A26] scroll-mt-24 relative z-10"
         >
           <div className="container mx-auto px-4 max-w-7xl">
             <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
@@ -379,25 +380,22 @@ export default function HomePageView({
       {/* About: image (left); title, subtitle, rich text (right). Mobile: image first. Fallback benefits when no HTML. */}
       <AnimatedSection
         variant="fadeSlideUp"
-        className="py-16 md:py-20 bg-[#171A26] relative z-10"
+        className="py-12 md:py-16 bg-[#171A26] relative z-10"
       >
         <div className="container mx-auto px-4 max-w-7xl">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start lg:items-center">
-            <ScrollZoomContinuous>
-              <div className="overflow-hidden rounded-lg">
-                <img
-                  src={
-                    aboutImage
-                      ? resolveUploadUrl(aboutImage)
-                      : "/assets/img/courses/tr_yourself.png"
-                  }
-                  alt={aboutTitle || "About"}
-                  className="w-full h-auto object-cover"
-                />
-              </div>
-            </ScrollZoomContinuous>
-            <ScrollZoomContinuous>
-              <div>
+            <div className="overflow-hidden rounded-lg">
+              <img
+                src={
+                  aboutImage
+                    ? resolveUploadUrl(aboutImage)
+                    : "/assets/img/courses/tr_yourself.png"
+                }
+                alt={aboutTitle || "About"}
+                className="w-full h-auto object-cover"
+              />
+            </div>
+            <div>
                 <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">Discover</p>
                 <h2 className="text-3xl md:text-4xl font-bold text-[#FFB70F] mb-4">{aboutTitle || "About us"}</h2>
                 {aboutSubtitle ? <p className="text-gray-300 mb-6">{aboutSubtitle}</p> : null}
@@ -436,7 +434,6 @@ export default function HomePageView({
                   </div>
                 )}
               </div>
-            </ScrollZoomContinuous>
           </div>
         </div>
       </AnimatedSection>
@@ -593,11 +590,11 @@ export default function HomePageView({
           {showcaseAchievements.length === 0 ? (
             <p className="text-center text-gray-500 py-12 text-sm">No achievements yet</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Carousel className="px-2 md:px-8">
               {showcaseAchievements.slice(0, 12).map((a, i) => (
                 <ShowcaseAchievementCard key={a.id || i} item={a} />
               ))}
-            </div>
+            </Carousel>
           )}
         </div>
       </section>

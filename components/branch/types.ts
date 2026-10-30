@@ -2,6 +2,8 @@
  * Branch data shape returned by API (from backend branch model).
  */
 
+import { abbreviateDayName } from "@/lib/formatWeekdayRanges"
+
 export interface BranchAddress {
   line1?: string
   area?: string
@@ -45,7 +47,8 @@ export function formatOperationalTimingsForDisplay(
     const t = raw as Record<string, unknown>
     const open = pick(t, ["open", "open_time", "start", "from"])
     const close = pick(t, ["close", "close_time", "end", "to"])
-    const day = pick(t, ["day", "weekday"])
+    const rawDay = pick(t, ["day", "weekday"])
+    const day = rawDay ? abbreviateDayName(rawDay) : ""
     if (open && close) {
       parts.push(day ? `${day}: ${open} – ${close}` : `${open} – ${close}`)
     } else if (open || close) {

@@ -1,5 +1,7 @@
 import { getBackendApiUrl } from "./config"
 import { TokenManager } from "./tokenManager"
+import { BranchManagerAuth } from "./branchManagerAuth"
+import { getActiveBranchId } from "./activeBranch"
 
 export const CHAMPION_STATUSES = [
   { value: "draft", label: "Draft" },
@@ -101,11 +103,13 @@ export type ChampionStudentOption = {
 }
 
 function authHeaders(json = false): HeadersInit {
-  const token = TokenManager.getToken()
+  const token = BranchManagerAuth.getToken() || TokenManager.getToken()
   const h: Record<string, string> = { "Cache-Control": "no-cache" }
   if (token) h.Authorization = `Bearer ${token}`
   else h.Authorization = "Bearer "
   if (json) h["Content-Type"] = "application/json"
+  const activeBranchId = getActiveBranchId()
+  if (activeBranchId) h["X-Active-Branch-Id"] = activeBranchId
   return h
 }
 
@@ -216,7 +220,7 @@ class ChampionAPI {
   async studentOptions(params: { search?: string; limit?: number } = {}) {
     const qs = new URLSearchParams()
     if (params.search?.trim()) qs.set("search", params.search.trim())
-    qs.set("limit", String(params.limit ?? 30))
+    qs.set("limit", String(params.limit ?? 500))
     const res = await fetch(
       getBackendApiUrl(`champions/student-options?${qs.toString()}`),
       { headers: authHeaders(), cache: "no-store" }
@@ -226,12 +230,17 @@ class ChampionAPI {
   }
 
   async uploadPhoto(file: File) {
-    const token = TokenManager.getToken()
+    const token = BranchManagerAuth.getToken() || TokenManager.getToken()
     const formData = new FormData()
     formData.append("file", file)
+    const headers: Record<string, string> = {
+      Authorization: token ? `Bearer ${token}` : "Bearer ",
+    }
+    const activeBranchId = getActiveBranchId()
+    if (activeBranchId) headers["X-Active-Branch-Id"] = activeBranchId
     const res = await fetch(getBackendApiUrl("uploads"), {
       method: "POST",
-      headers: { Authorization: token ? `Bearer ${token}` : "Bearer " },
+      headers,
       body: formData,
     })
     if (!res.ok) throw new Error(await parseError(res))

@@ -135,8 +135,8 @@ export function RegPhoneOtpSection({
 
   if (isVerified) {
     return (
-      <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 flex items-center gap-2 text-green-800 text-sm">
-        <CheckCircle2 className="h-5 w-5 shrink-0" aria-hidden />
+      <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 flex items-center gap-2 text-green-800 text-sm">
+        <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden />
         <span>
           Mobile <span className="font-medium">{masked}</span> verified. You can continue to the next step.
         </span>
@@ -145,8 +145,8 @@ export function RegPhoneOtpSection({
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-[#F9F8FF] p-4 space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div className="rounded-xl border border-gray-200 bg-[#F9F8FF] p-2.5 space-y-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div>
           <p className="text-sm font-semibold text-black">Verify mobile number</p>
           <p className="text-xs text-gray-600 mt-0.5">We’ll send a one-time code to {masked}</p>
@@ -154,20 +154,21 @@ export function RegPhoneOtpSection({
         <Button
           type="button"
           variant="outline"
+          size="sm"
           onClick={sendOtp}
           disabled={sendBusy}
-          className="shrink-0 border-yellow-400 text-black hover:bg-yellow-50"
+          className="shrink-0 h-9 border-yellow-400 text-black hover:bg-yellow-50"
         >
           {sendBusy ? "Sending…" : "Send OTP"}
         </Button>
       </div>
 
-      {msg && <p className="text-sm text-green-700">{msg}</p>}
-      {err && <p className="text-sm text-red-600">{err}</p>}
+      {msg && <p className="text-xs text-green-700">{msg}</p>}
+      {err && <p className="text-xs text-red-600">{err}</p>}
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         <p className="text-xs text-gray-500">Enter the code from SMS</p>
-        <div className="flex justify-start gap-2 flex-wrap">
+        <div className="flex justify-start gap-1.5 flex-wrap">
           {otp.map((digit, index) => (
             <Input
               key={index}
@@ -180,7 +181,7 @@ export function RegPhoneOtpSection({
               value={digit}
               onChange={(e) => handleOtpChange(index, e.target.value)}
               onKeyDown={(e) => handleKeyDown(index, e)}
-              className="w-10 h-12 sm:w-11 sm:h-12 text-center text-lg font-bold bg-white border-gray-200 rounded-lg focus:border-yellow-400 focus:ring-yellow-400"
+              className="w-9 h-10 sm:w-10 sm:h-10 text-center text-base font-bold bg-white border-gray-200 rounded-lg focus:border-yellow-400 focus:ring-yellow-400"
               autoComplete="one-time-code"
             />
           ))}
@@ -188,9 +189,10 @@ export function RegPhoneOtpSection({
         <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
           <Button
             type="button"
+            size="sm"
             disabled={verifyBusy}
             onClick={() => void verifyOtp()}
-            className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
+            className="h-9 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
           >
             {verifyBusy ? "Verifying…" : "Verify OTP"}
           </Button>

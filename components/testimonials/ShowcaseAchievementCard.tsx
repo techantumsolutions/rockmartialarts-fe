@@ -17,29 +17,42 @@ export function ShowcaseAchievementCard({ item }: { item: ShowcaseAchievementIte
 
   return (
     <div className="bg-gray-900/50 rounded-xl border border-gray-800 overflow-hidden h-full flex flex-col transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:border-[#FFB70F]/40">
-      <div className="aspect-[4/3] bg-gray-800 relative">
+      {/* Fixed media frame — uniform aspect ratio without cropping images */}
+      <div className="relative w-full aspect-[4/3] shrink-0 overflow-hidden bg-gray-950 flex items-center justify-center">
+        {/* Ambient blurred backdrop so portrait/custom-ratio images blend seamlessly */}
         <SafeImage
           src={item.image || DEFAULT_IMAGE_PLACEHOLDER}
           alt=""
           resolveUrl={Boolean(item.image)}
-          className="w-full h-full object-cover"
+          className="absolute inset-0 w-full h-full object-cover blur-md scale-110 opacity-30 pointer-events-none"
+          aria-hidden
+          loading="lazy"
+        />
+        {/* Sharp full image preserving original aspect ratio without cropping */}
+        <SafeImage
+          src={item.image || DEFAULT_IMAGE_PLACEHOLDER}
+          alt={title}
+          resolveUrl={Boolean(item.image)}
+          className="relative z-10 w-full h-full object-contain"
           loading="lazy"
           decoding="async"
         />
       </div>
-      <div className="p-4 flex flex-col flex-1">
+      <div className="p-4 flex flex-col flex-1 min-h-[9.5rem]">
         <div className="flex items-center gap-3 mb-2">
           <SafeImage
             src={item.student_photo || DEFAULT_IMAGE_PLACEHOLDER}
             alt={item.student_name || ""}
             resolveUrl={Boolean(item.student_photo)}
-            className="w-10 h-10 rounded-full object-cover border border-[#FFB70F]/30"
+            className="w-10 h-10 shrink-0 rounded-full object-cover border border-[#FFB70F]/30"
             loading="lazy"
           />
           <span className="font-medium text-white truncate text-sm">{item.student_name || "Student"}</span>
         </div>
-        <h3 className="text-[#FFB70F] font-bold text-base mb-2 line-clamp-2">{title}</h3>
-        {desc ? <p className="text-gray-400 text-sm leading-relaxed line-clamp-4 flex-1">{desc}</p> : null}
+        <h3 className="text-[#FFB70F] font-bold text-base mb-2 line-clamp-2 min-h-[2.75rem]">{title}</h3>
+        <p className="text-gray-400 text-sm leading-relaxed line-clamp-3 flex-1">
+          {desc || "\u00A0"}
+        </p>
       </div>
     </div>
   )
