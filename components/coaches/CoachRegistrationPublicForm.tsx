@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react"
 import Link from "next/link"
+import { all as getAllCountries } from "country-codes-list"
 import { CheckCircle2, Loader2, Upload, UserPlus, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -26,6 +26,10 @@ import {
 
 type BranchOpt = { id: string; name: string }
 
+const COUNTRY_CALLING_CODES = getAllCountries().sort((a, b) =>
+  a.countryNameEn.localeCompare(b.countryNameEn)
+)
+
 type FormState = {
   first_name: string
   last_name: string
@@ -34,7 +38,6 @@ type FormState = {
   email: string
   country_code: string
   phone: string
-  password: string
   address: string
   area: string
   city: string
@@ -58,7 +61,6 @@ const INITIAL: FormState = {
   email: "",
   country_code: "+91",
   phone: "",
-  password: "",
   address: "",
   area: "",
   city: "",
@@ -67,7 +69,7 @@ const INITIAL: FormState = {
   country: "India",
   professional_experience: "",
   education_qualification: "",
-  designation: "Coach",
+  designation: "",
   specializations: [],
   service_location_ids: [],
   profile_image_url: "",
@@ -76,6 +78,7 @@ const INITIAL: FormState = {
 
 export default function CoachRegistrationPublicForm() {
   const [form, setForm] = useState<FormState>(INITIAL)
+  const [phoneCountry, setPhoneCountry] = useState("IN")
   const [branches, setBranches] = useState<BranchOpt[]>([])
   const [specializations, setSpecializations] = useState<CoachRegisterOption[]>([])
   const [experienceRanges, setExperienceRanges] = useState<CoachRegisterOption[]>([])
@@ -185,7 +188,6 @@ export default function CoachRegistrationPublicForm() {
         email: form.email.trim(),
         country_code: form.country_code.trim() || "+91",
         phone: form.phone.trim(),
-        password: form.password,
         address: form.address.trim(),
         area: form.area.trim() || undefined,
         city: form.city.trim(),
@@ -202,6 +204,7 @@ export default function CoachRegistrationPublicForm() {
       })
       setDone({ coach_id: result.coach_id, message: result.message })
       setForm(INITIAL)
+      setPhoneCountry("IN")
       setFieldErrors({})
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Registration failed"
@@ -377,28 +380,45 @@ export default function CoachRegistrationPublicForm() {
           <div className="space-y-1">
             <Label className="text-gray-300">Phone *</Label>
             <div className="flex gap-2">
+              <Select
+                value={phoneCountry}
+                onValueChange={(countryCode) => {
+                  const country = COUNTRY_CALLING_CODES.find(
+                    (item) => item.countryCode === countryCode
+                  )
+                  if (!country) return
+                  setPhoneCountry(country.countryCode)
+                  setForm((f) => ({
+                    ...f,
+                    country_code: `+${country.countryCallingCode}`,
+                  }))
+                }}
+              >
+                <SelectTrigger
+                  aria-label="Country calling code"
+                  className={`${fieldClass} w-28 shrink-0`}
+                >
+                  <SelectValue>{form.country_code}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {COUNTRY_CALLING_CODES.map((country) => (
+                    <SelectItem
+                      key={country.countryCode}
+                      value={country.countryCode}
+                      textValue={`${country.countryNameEn} +${country.countryCallingCode}`}
+                    >
+                      {country.flag} {country.countryNameEn} (+{country.countryCallingCode})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Input
-                className={`${fieldClass} w-24`}
-                value={form.country_code}
-                onChange={(e) => setForm((f) => ({ ...f, country_code: e.target.value }))}
-              />
-              <Input
-                className={fieldClass}
+                className={`${fieldClass} min-w-0 flex-1`}
                 required
                 value={form.phone}
                 onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
               />
             </div>
-          </div>
-          <div className="sm:col-span-2 space-y-1">
-            <Label className="text-gray-300">Password *</Label>
-            <PasswordInput
-              className={fieldClass}
-              required
-              minLength={6}
-              value={form.password}
-              onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-            />
           </div>
         </div>
       </div>
@@ -519,7 +539,7 @@ export default function CoachRegistrationPublicForm() {
               onValueChange={(v) => setForm((f) => ({ ...f, designation: v }))}
             >
               <SelectTrigger className={fieldClass}>
-                <SelectValue placeholder="Designation" />
+                <SelectValue placeholder="Select designation" />
               </SelectTrigger>
               <SelectContent>
                 {(designations.length
@@ -546,7 +566,7 @@ export default function CoachRegistrationPublicForm() {
           <div className="sm:col-span-2 space-y-2">
             <Label className="text-gray-300">Specializations *</Label>
             <div
-              className={`flex flex-wrap gap-3 rounded-md ${
+              className={`grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 lg:grid-cols-4 rounded-md ${
                 fieldErrors.specializations ? "ring-1 ring-red-500 p-2" : ""
               }`}
             >
@@ -560,12 +580,15 @@ export default function CoachRegistrationPublicForm() {
               ).map((s) => {
                 const v = optionValue(s)
                 return (
-                  <label key={v} className="flex items-center gap-2 text-sm text-gray-200">
+                  <label
+                    key={v}
+                    className="flex min-w-0 items-start gap-2 text-sm text-gray-200"
+                  >
                     <Checkbox
                       checked={form.specializations.includes(v)}
                       onCheckedChange={() => toggleSpec(v)}
                     />
-                    {optionLabel(s)}
+                    <span className="min-w-0">{optionLabel(s)}</span>
                   </label>
                 )
               })}
@@ -576,17 +599,20 @@ export default function CoachRegistrationPublicForm() {
           </div>
           <div className="sm:col-span-2 space-y-2">
             <Label className="text-gray-300">Service locations (branches) *</Label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 lg:grid-cols-4 max-h-48 overflow-y-auto pr-1">
               {branches.length === 0 ? (
                 <p className="text-sm text-gray-500">No branches available.</p>
               ) : (
                 branches.map((b) => (
-                  <label key={b.id} className="flex items-center gap-2 text-sm text-gray-200">
+                  <label
+                    key={b.id}
+                    className="flex min-w-0 items-start gap-2 text-sm text-gray-200"
+                  >
                     <Checkbox
                       checked={form.service_location_ids.includes(b.id)}
                       onCheckedChange={() => toggleLocation(b.id)}
                     />
-                    {b.name}
+                    <span className="min-w-0">{b.name}</span>
                   </label>
                 ))
               )}

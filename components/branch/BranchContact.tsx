@@ -19,7 +19,7 @@ export function BranchContact({ branch }: BranchContactProps) {
 
   return (
     <section
-      className="py-16 md:py-24 bg-[#171A26] relative z-10"
+      className="py-8 md:py-10 bg-[#171A26] relative z-10"
       data-aos="fade-up"
       data-aos-duration="600"
       data-aos-once="true"

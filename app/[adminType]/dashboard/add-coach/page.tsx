@@ -175,9 +175,7 @@ export default function AddCoachPage() {
     certifications: "",
     category: "",
     subCategory: "",
-    certificates: [] as Array<{ title: string, file: File | null, preview: string }>,
-    category: "",
-    subCategory: "",
+    certificates: [] as Array<{title: string, file: File | null, preview: string}>,
     certificationFiles: [] as File[],
 
     // Assignment Details
@@ -2298,6 +2296,150 @@ export default function AddCoachPage() {
               </div>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-[#4F5077]">Availability</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-[#7D8592]">
+              <p className="text-sm">Days and times this coach can be assigned to a batch.</p>
+              {availabilitySlots.map((slot, index) => (
+                <div key={`availability-${index}`} className="grid grid-cols-1 md:grid-cols-[1fr_140px_140px_auto] gap-3 items-end">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Day</Label>
+                    <Select
+                      value={slot.weekday}
+                      onValueChange={(value) =>
+                        setAvailabilitySlots((rows) =>
+                          rows.map((row, rowIndex) => (rowIndex === index ? { ...row, weekday: value } : row))
+                        )
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Day" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {WEEKDAY_CHECKLIST_ORDER.map((day) => (
+                          <SelectItem key={day} value={day}>
+                            {day}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Start time</Label>
+                    {isBranchAdmin ? (
+                      <WeeklySlotTimePicker
+                        value={slot.start_time}
+                        onChange={(val) =>
+                          setAvailabilitySlots((rows) =>
+                            rows.map((row, rowIndex) =>
+                              rowIndex === index ? { ...row, start_time: val } : row
+                            )
+                          )
+                        }
+                      />
+                    ) : (
+                      <Input
+                        type="time"
+                        value={slot.start_time}
+                        onChange={(e) =>
+                          setAvailabilitySlots((rows) =>
+                            rows.map((row, rowIndex) =>
+                              rowIndex === index ? { ...row, start_time: e.target.value } : row
+                            )
+                          )
+                        }
+                      />
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">End time</Label>
+                    {isBranchAdmin ? (
+                      <WeeklySlotTimePicker
+                        value={slot.end_time}
+                        onChange={(val) =>
+                          setAvailabilitySlots((rows) =>
+                            rows.map((row, rowIndex) =>
+                              rowIndex === index ? { ...row, end_time: val } : row
+                            )
+                          )
+                        }
+                      />
+                    ) : (
+                      <Input
+                        type="time"
+                        value={slot.end_time}
+                        onChange={(e) =>
+                          setAvailabilitySlots((rows) =>
+                            rows.map((row, rowIndex) =>
+                              rowIndex === index ? { ...row, end_time: e.target.value } : row
+                            )
+                          )
+                        }
+                      />
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-10 px-3 text-red-500 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => setSlotToDeleteIndex(index)}
+                    title="Remove slot"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+              {errors.availability && <p className="text-xs text-red-500">{errors.availability}</p>}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  setAvailabilitySlots((rows) => [
+                    ...rows,
+                    { weekday: "Monday", start_time: "06:00", end_time: "08:00" },
+                  ])
+                }
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add time
+              </Button>
+            </CardContent>
+          </Card>
+
+          <AlertDialog
+            open={slotToDeleteIndex !== null}
+            onOpenChange={(open) => !open && setSlotToDeleteIndex(null)}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete time slot?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete this availability slot
+                  {slotToDeleteIndex !== null && availabilitySlots[slotToDeleteIndex]
+                    ? ` (${availabilitySlots[slotToDeleteIndex].weekday} ${availabilitySlots[slotToDeleteIndex].start_time} – ${availabilitySlots[slotToDeleteIndex].end_time})`
+                    : ""}
+                  ? This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    if (slotToDeleteIndex !== null) {
+                      setAvailabilitySlots((rows) => rows.filter((_, rowIndex) => rowIndex !== slotToDeleteIndex))
+                      setSlotToDeleteIndex(null)
+                    }
+                  }}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
 
           {/* Additional Information */}
           <Card>

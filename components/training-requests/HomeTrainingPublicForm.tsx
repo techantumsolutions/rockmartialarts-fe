@@ -198,10 +198,10 @@ export default function HomeTrainingPublicForm() {
   }
 
   const fieldClass =
-    "bg-gray-950/60 border-gray-700 text-white placeholder:text-gray-500 focus-visible:ring-[#FFB70F]"
+    "scroll-mt-24 bg-gray-950/60 border-gray-700 text-white placeholder:text-gray-500 focus-visible:ring-[#FFB70F]"
 
   return (
-    <form onSubmit={onSubmit} className="space-y-8 max-w-3xl mx-auto">
+    <form onSubmit={onSubmit} className="w-full space-y-8">
       <style>{`
         .home-training-preferred-date {
           color-scheme: dark;

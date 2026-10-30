@@ -314,7 +314,7 @@ export default function ResidentialTrainingPublicForm() {
     "bg-gray-950/60 border-gray-700 text-white placeholder:text-gray-500 focus-visible:ring-[#FFB70F]"
 
   return (
-    <form onSubmit={onSubmit} className="space-y-8 max-w-3xl mx-auto">
+    <form onSubmit={onSubmit} className="w-full space-y-8">
       <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 md:p-8 space-y-5">
         <div className="flex items-center gap-3 mb-1">
           <div className="w-10 h-10 rounded-lg bg-[#FFB70F]/10 flex items-center justify-center">
@@ -325,7 +325,7 @@ export default function ResidentialTrainingPublicForm() {
             <p className="text-sm text-gray-400">Choose duration and preferred dates</p>
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-3">
+        <div className="grid grid-cols-1 auto-rows-fr gap-3 md:auto-rows-auto">
           {packages.map((pkg) => {
             const active = form.package_id === pkg.id
             return (
@@ -333,7 +333,7 @@ export default function ResidentialTrainingPublicForm() {
                 key={pkg.id}
                 type="button"
                 onClick={() => setForm((prev) => ({ ...prev, package_id: pkg.id }))}
-                className={`text-left rounded-lg border p-4 transition-colors ${
+                className={`h-full text-left rounded-lg border p-4 transition-colors ${
                   active
                     ? "border-[#FFB70F] bg-[#FFB70F]/10"
                     : "border-gray-700 bg-gray-950/40 hover:border-gray-500"

@@ -590,11 +590,11 @@ export default function HomePageView({
           {showcaseAchievements.length === 0 ? (
             <p className="text-center text-gray-500 py-12 text-sm">No achievements yet</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Carousel className="px-2 md:px-8">
               {showcaseAchievements.slice(0, 12).map((a, i) => (
                 <ShowcaseAchievementCard key={a.id || i} item={a} />
               ))}
-            </div>
+            </Carousel>
           )}
         </div>
       </section>
