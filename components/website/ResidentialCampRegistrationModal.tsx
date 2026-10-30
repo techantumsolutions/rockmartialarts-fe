@@ -100,6 +100,8 @@ export function ResidentialCampRegistrationModal({ open, onClose, content }: Pro
   const [confirmation, setConfirmation] = useState<CampPaymentSuccess | null>(null)
   const [downloading, setDownloading] = useState(false)
   const confirmRef = useRef<HTMLDivElement | null>(null)
+  const tabsRef = useRef<HTMLDivElement | null>(null)
+  const bodyRef = useRef<HTMLDivElement | null>(null)
   const fees = campFeeDisplay(content)
   const eventName = content.event_name || "Residential Camp"
   const dates = campFactValue(content, "Dates")
@@ -121,6 +123,32 @@ export function ResidentialCampRegistrationModal({ open, onClose, content }: Pro
     if (step !== "success" || !confirmation) return
     void preloadCampTicketAssets()
   }, [step, confirmation])
+
+  useEffect(() => {
+    if (step !== "form") return
+    const rafId = requestAnimationFrame(() => {
+      const container = tabsRef.current
+      if (!container) return
+      const activeButton = container.querySelector<HTMLElement>(`button[data-tab-id="${tab}"]`)
+      if (!activeButton) return
+
+      const containerRect = container.getBoundingClientRect()
+      const buttonRect = activeButton.getBoundingClientRect()
+      const offset = buttonRect.left - containerRect.left
+      const targetScrollLeft = container.scrollLeft + offset - container.clientWidth / 2 + buttonRect.width / 2
+
+      container.scrollTo({
+        left: Math.max(0, targetScrollLeft),
+        behavior: "smooth",
+      })
+
+      if (bodyRef.current) {
+        bodyRef.current.scrollTo({ top: 0, behavior: "smooth" })
+      }
+    })
+
+    return () => cancelAnimationFrame(rafId)
+  }, [tab, step])
 
   if (!open) return null
 
@@ -389,10 +417,11 @@ export function ResidentialCampRegistrationModal({ open, onClose, content }: Pro
         ) : (
           <>
             {step === "form" ? (
-              <div className="camp-reg-tabs">
+              <div ref={tabsRef} className="camp-reg-tabs">
                 {CAMP_REG_VISIBLE_TABS.map((item) => (
                   <button
                     key={item.id}
+                    data-tab-id={item.id}
                     type="button"
                     className={item.id === tab ? "is-active" : ""}
                     onClick={() => {
@@ -417,7 +446,7 @@ export function ResidentialCampRegistrationModal({ open, onClose, content }: Pro
               </div>
             ) : null}
 
-            <div className="camp-reg-body">
+            <div ref={bodyRef} className="camp-reg-body">
               {step === "review" ? (
                 <div className="camp-form-stack">
                   <CampRegistrationReview form={form} fees={fees} />
@@ -437,7 +466,24 @@ export function ResidentialCampRegistrationModal({ open, onClose, content }: Pro
                     <input placeholder="Enter participant's full name" value={form.participant.full_name} onChange={(e) => patch("participant", { full_name: e.target.value })} />
                   </Field>
                   <Field label="Date of Birth">
-                    <input type="date" value={form.participant.date_of_birth} onChange={(e) => patch("participant", { date_of_birth: e.target.value })} />
+                    <input
+                      type="date"
+                      min="1900-01-01"
+                      max={new Date().toISOString().slice(0, 10)}
+                      value={form.participant.date_of_birth}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        if (val) {
+                          const parts = val.split("-")
+                          if (parts[0] && parts[0].length > 4) {
+                            const clamped = [parts[0].slice(0, 4), ...parts.slice(1)].join("-")
+                            patch("participant", { date_of_birth: clamped })
+                            return
+                          }
+                        }
+                        patch("participant", { date_of_birth: val })
+                      }}
+                    />
                   </Field>
                   <Field label="Age">
                     <input type="number" min={1} placeholder="e.g. 12" value={form.participant.age} onChange={(e) => patch("participant", { age: e.target.value })} />
@@ -459,10 +505,34 @@ export function ResidentialCampRegistrationModal({ open, onClose, content }: Pro
                     <input placeholder="Enter parent or guardian full name" value={form.participant.parent_guardian_name} onChange={(e) => patch("participant", { parent_guardian_name: e.target.value })} />
                   </Field>
                   <Field label="Parent / Guardian Mobile">
-                    <input placeholder="10-digit mobile number" value={form.participant.parent_guardian_mobile} onChange={(e) => patch("participant", { parent_guardian_mobile: e.target.value })} />
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={10}
+                      placeholder="10-digit mobile number"
+                      value={form.participant.parent_guardian_mobile}
+                      onChange={(e) =>
+                        patch("participant", {
+                          parent_guardian_mobile: e.target.value.replace(/\D/g, "").slice(0, 10),
+                        })
+                      }
+                    />
                   </Field>
                   <Field label="Alternate Contact">
-                    <input placeholder="Alternate 10-digit mobile number" value={form.participant.alternate_contact} onChange={(e) => patch("participant", { alternate_contact: e.target.value })} />
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={10}
+                      placeholder="Alternate 10-digit mobile number"
+                      value={form.participant.alternate_contact}
+                      onChange={(e) =>
+                        patch("participant", {
+                          alternate_contact: e.target.value.replace(/\D/g, "").slice(0, 10),
+                        })
+                      }
+                    />
                   </Field>
                   <Field label="Email Address">
                     <input type="email" placeholder="name@example.com" value={form.participant.email} onChange={(e) => patch("participant", { email: e.target.value })} />
@@ -599,10 +669,34 @@ export function ResidentialCampRegistrationModal({ open, onClose, content }: Pro
                     <input placeholder="e.g. Father, Mother, Uncle" value={form.emergency.relationship} onChange={(e) => patch("emergency", { relationship: e.target.value })} />
                   </Field>
                   <Field label="Emergency Contact Number">
-                    <input placeholder="10-digit mobile number" value={form.emergency.phone} onChange={(e) => patch("emergency", { phone: e.target.value })} />
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={10}
+                      placeholder="10-digit mobile number"
+                      value={form.emergency.phone}
+                      onChange={(e) =>
+                        patch("emergency", {
+                          phone: e.target.value.replace(/\D/g, "").slice(0, 10),
+                        })
+                      }
+                    />
                   </Field>
                   <Field label="Alternate Emergency Number">
-                    <input placeholder="Alternate 10-digit mobile number" value={form.emergency.alternate_phone} onChange={(e) => patch("emergency", { alternate_phone: e.target.value })} />
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={10}
+                      placeholder="Alternate 10-digit mobile number"
+                      value={form.emergency.alternate_phone}
+                      onChange={(e) =>
+                        patch("emergency", {
+                          alternate_phone: e.target.value.replace(/\D/g, "").slice(0, 10),
+                        })
+                      }
+                    />
                   </Field>
                 </div>
               )}

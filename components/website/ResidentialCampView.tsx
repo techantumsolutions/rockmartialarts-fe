@@ -190,12 +190,21 @@ export function ResidentialCampView({
 
       {featureItems.length > 0 ? (
         <section className="feature-bar" aria-label="Camp highlights">
-          <div className="feature-bar-inner">
+          <div
+            className={`feature-bar-inner ${featureItems.length % 2 !== 0 ? "feature-bar-inner-odd" : ""}`}
+            style={{
+              ["--feature-count" as string]: featureItems.length,
+            }}
+          >
             {featureItems.map((item, i) => {
               const rawIcon = featureBarIconImage(item, i)
               const iconSrc = rawIcon ? resolvePublicAssetUrl(rawIcon) || rawIcon : ""
+              const isOddLast = featureItems.length % 2 !== 0 && i === featureItems.length - 1
               return (
-                <div className="feature-bar-item" key={`${item.label}-${i}`}>
+                <div
+                  className={`feature-bar-item ${isOddLast ? "feature-bar-item-odd-last" : ""}`}
+                  key={`${item.label}-${i}`}
+                >
                   {iconSrc ? (
                     <div className="feature-bar-icon">
                       <img src={iconSrc} alt="" />
@@ -243,9 +252,10 @@ export function ResidentialCampView({
         <section id="masters" className="masters-section">
           <div className="masters-section-inner">
             {masterProfiles.slice(0, 2).map((master, i) => {
-              const img =
+              const rawImg =
                 resolvePublicAssetUrl(masterProfileImage(master, i)) ||
                 masterProfileImage(master, i)
+              const img = rawImg && rawImg.includes("/campaign/master") ? `${rawImg}?v=3` : rawImg
               const quote = (master.quote || "").trim()
               const side = i === 0 ? "left" : "right"
               const copy = (

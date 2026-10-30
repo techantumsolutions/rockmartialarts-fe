@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Search, Edit, Trash2, RefreshCw, Eye, Link2, MessageCircle } from "lucide-react"
+import { Search, Edit, Trash2, RefreshCw, Eye, Link2, MessageCircle, UserPlus } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
@@ -71,6 +71,11 @@ interface Student {
   date_of_birth?: string
   is_active: boolean
   created_at?: string
+  created_by?: {
+    user_id?: string
+    name?: string
+    role?: string
+  }
   gender?: string
   age?: number | null
   courses?: Array<{
@@ -800,12 +805,13 @@ const paginatedStudents = filteredStudents.slice(
             </Button>
           </div>
           <div className="flex flex-wrap gap-2 sm:gap-3">
-            {/* <Button
+            <Button
               onClick={() => router.push(`${basePath}/create-student`)}
-              className="bg-yellow-400 hover:bg-yellow-500 text-white px-6 py-2 rounded-lg font-medium"
+              className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-medium px-4 sm:px-6 min-h-[48px] rounded-lg flex items-center space-x-2"
             >
-              + Add Student
-            </Button> */}
+              <UserPlus className="w-4 h-4 text-gray-900" />
+              <span>Add Student</span>
+            </Button>
             {adminType === "super-admin" && (
               <Button
                 onClick={() => router.push(`${basePath}/students/import`)}
@@ -1039,7 +1045,15 @@ const paginatedStudents = filteredStudents.slice(
                         </div>
                       </td>
                       <td className="py-4 px-6 whitespace-nowrap text-sm max-w-[11rem] sm:max-w-none align-top">
-                        {formatRegisteredDateTime(student.created_at)}
+                        <div>{formatRegisteredDateTime(student.created_at)}</div>
+                        {student.created_by && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            By: <span className="font-medium text-gray-700">{student.created_by.name || "User"}</span>
+                            <span className="ml-1 text-[10px] uppercase font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
+                              {(student.created_by.role || "").replace("_", " ")}
+                            </span>
+                          </div>
+                        )}
                       </td>
                       <td className="py-4 px-6">
                         {student.courses && student.courses.length > 0 ? (

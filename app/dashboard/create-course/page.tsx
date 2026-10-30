@@ -392,11 +392,6 @@ export default function CreateCoursePage() {
         throw new Error(errorMessage)
       }
 
-      toast({
-        title: "Success!",
-        description: `Course created successfully with ID: ${result.course_id || 'Generated'}`,
-      })
-
       setShowSuccessPopup(true)
 
     } catch (error) {

@@ -49,12 +49,61 @@ type ParticipantForm = {
   notes: string
 }
 
+type FieldErrors = Partial<Record<keyof ParticipantForm, string>>
+
 const EMPTY_PARTICIPANT: ParticipantForm = {
   participant_name: "",
   participant_phone: "",
   participant_email: "",
   participant_age: "",
   notes: "",
+}
+
+function validateParticipantField(field: keyof ParticipantForm, value: string): string | undefined {
+  const trimmed = (value || "").trim()
+  switch (field) {
+    case "participant_name":
+      if (!trimmed) return "Participant name is required"
+      if (trimmed.length < 2) return "Name must be at least 2 characters"
+      if (!/^[a-zA-Z\s.'-]+$/.test(trimmed)) return "Please enter a valid name (letters only)"
+      return undefined
+    case "participant_phone": {
+      if (!trimmed) return "Phone number is required"
+      if (trimmed.length < 10) return "Please enter a complete 10-digit mobile number"
+      if (!/^[6-9]\d{9}$/.test(trimmed)) return "Enter a valid 10-digit mobile number"
+      return undefined
+    }
+    case "participant_email": {
+      if (trimmed && !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(trimmed)) {
+        return "Please enter a valid email address (e.g. name@example.com)"
+      }
+      return undefined
+    }
+    case "participant_age":
+      if (trimmed) {
+        const n = Number(trimmed)
+        if (!Number.isInteger(n) || n < 3 || n > 120) {
+          return "Age must be between 3 and 120"
+        }
+      }
+      return undefined
+    case "notes":
+      if (value.length > 500) {
+        return "Notes cannot exceed 500 characters"
+      }
+      return undefined
+    default:
+      return undefined
+  }
+}
+
+function validateAllParticipant(form: ParticipantForm): FieldErrors {
+  const errors: FieldErrors = {}
+  for (const key of Object.keys(form) as (keyof ParticipantForm)[]) {
+    const err = validateParticipantField(key, form[key])
+    if (err) errors[key] = err
+  }
+  return errors
 }
 
 export default function DemoAvailabilityPublicView() {
@@ -72,6 +121,8 @@ export default function DemoAvailabilityPublicView() {
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<DemoSlot | null>(null)
   const [participant, setParticipant] = useState<ParticipantForm>(EMPTY_PARTICIPANT)
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
+  const [touched, setTouched] = useState<Partial<Record<keyof ParticipantForm, boolean>>>({})
   const [submitting, setSubmitting] = useState(false)
   const [paying, setPaying] = useState(false)
   const [confirmed, setConfirmed] = useState<DemoBooking | null>(null)
@@ -99,21 +150,10 @@ export default function DemoAvailabilityPublicView() {
         to: toDate || undefined,
       })
       setSlots(data.slots || [])
-      setMeta({ from: data.from, to: data.to, timezone: data.timezone })
-      setSelected((prev) => {
-        if (!prev) return null
-        const still = (data.slots || []).find(
-          (s) =>
-            s.schedule_id === prev.schedule_id &&
-            s.slot_date === prev.slot_date &&
-            s.start_time === prev.start_time
-        )
-        return still || null
-      })
+      setMeta(data.meta || null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load availability")
       setSlots([])
-      setMeta(null)
+      setError(e instanceof Error ? e.message : "Failed to load availability")
     } finally {
       setLoading(false)
     }
@@ -128,14 +168,34 @@ export default function DemoAvailabilityPublicView() {
   }, [loadSlots])
 
   const grouped = useMemo(() => {
-    const map = new Map<string, DemoSlot[]>()
-    for (const slot of slots) {
-      const key = slot.slot_date
-      if (!map.has(key)) map.set(key, [])
-      map.get(key)!.push(slot)
+    const m = new Map<string, DemoSlot[]>()
+    for (const s of slots) {
+      const list = m.get(s.slot_date) || []
+      list.push(s)
+      m.set(s.slot_date, list)
     }
-    return Array.from(map.entries())
+    return Array.from(m.entries()).sort(([a], [b]) => a.localeCompare(b))
   }, [slots])
+
+  const handleFieldChange = (field: keyof ParticipantForm, value: string) => {
+    let sanitized = value
+    if (field === "participant_phone") {
+      sanitized = value.replace(/\D/g, "").slice(0, 10)
+    } else if (field === "participant_email") {
+      sanitized = value.replace(/\s/g, "")
+    }
+    setParticipant((prev) => ({ ...prev, [field]: sanitized }))
+    if (touched[field]) {
+      const err = validateParticipantField(field, sanitized)
+      setFieldErrors((prev) => ({ ...prev, [field]: err }))
+    }
+  }
+
+  const handleFieldBlur = (field: keyof ParticipantForm) => {
+    setTouched((prev) => ({ ...prev, [field]: true }))
+    const err = validateParticipantField(field, participant[field])
+    setFieldErrors((prev) => ({ ...prev, [field]: err }))
+  }
 
   const startPayment = async (booking: DemoBooking) => {
     setPaying(true)
@@ -163,6 +223,8 @@ export default function DemoAvailabilityPublicView() {
             setPendingBooking(null)
             setSelected(null)
             setParticipant(EMPTY_PARTICIPANT)
+            setFieldErrors({})
+            setTouched({})
             await loadSlots()
           } catch (err) {
             setError(err instanceof Error ? err.message : "Payment verification failed")
@@ -203,14 +265,29 @@ export default function DemoAvailabilityPublicView() {
     e.preventDefault()
     if (!selected) return
     setError(null)
-    if (!participant.participant_name.trim() || !participant.participant_phone.trim()) {
-      setError("Participant name and phone are required")
+
+    const allTouched: Record<keyof ParticipantForm, boolean> = {
+      participant_name: true,
+      participant_phone: true,
+      participant_email: true,
+      participant_age: true,
+      notes: true,
+    }
+    setTouched(allTouched)
+
+    const errors = validateAllParticipant(participant)
+    setFieldErrors(errors)
+
+    if (Object.keys(errors).length > 0) {
+      const firstError = Object.values(errors)[0]
+      setError(firstError || "Please fill in the required fields correctly.")
       return
     }
+
     setSubmitting(true)
     try {
-      const age = participant.participant_age
-        ? parseInt(participant.participant_age, 10)
+      const age = participant.participant_age.trim()
+        ? parseInt(participant.participant_age.trim(), 10)
         : undefined
       const result = await demoSessionAPI.createBooking({
         schedule_id: selected.schedule_id,
@@ -232,6 +309,8 @@ export default function DemoAvailabilityPublicView() {
         setPendingBooking(null)
         setSelected(null)
         setParticipant(EMPTY_PARTICIPANT)
+        setFieldErrors({})
+        setTouched({})
         await loadSlots()
       }
     } catch (err) {
@@ -270,6 +349,8 @@ export default function DemoAvailabilityPublicView() {
           onClick={() => {
             setConfirmed(null)
             setError(null)
+            setFieldErrors({})
+            setTouched({})
             loadSlots()
           }}
         >
@@ -281,6 +362,16 @@ export default function DemoAvailabilityPublicView() {
 
   const fieldClass =
     "bg-[#0f121c] border-white/15 text-white placeholder:text-gray-500 focus-visible:ring-[#FFB70F]"
+
+  const getInputClass = (hasError?: boolean) =>
+    hasError
+      ? "bg-[#0f121c] border-red-500/80 text-white placeholder:text-gray-500 focus-visible:border-red-500 focus-visible:ring-1 focus-visible:ring-red-500 focus-visible:ring-offset-0 transition-colors"
+      : "bg-[#0f121c] border-white/15 text-white placeholder:text-gray-500 hover:border-white/30 focus-visible:border-[#FFB70F] focus-visible:ring-1 focus-visible:ring-[#FFB70F] focus-visible:ring-offset-0 transition-colors"
+
+  const getTextareaClass = (hasError?: boolean) =>
+    hasError
+      ? "bg-[#0f121c] border-red-500/80 text-white placeholder:text-gray-500 focus-visible:border-red-500 focus-visible:ring-1 focus-visible:ring-red-500 focus-visible:ring-offset-0 transition-colors resize-y"
+      : "bg-[#0f121c] border-white/15 text-white placeholder:text-gray-500 hover:border-white/30 focus-visible:border-[#FFB70F] focus-visible:ring-1 focus-visible:ring-[#FFB70F] focus-visible:ring-offset-0 transition-colors resize-y"
 
   return (
     <div className="space-y-6">
@@ -358,60 +449,44 @@ export default function DemoAvailabilityPublicView() {
             />
           </div>
         </div>
-
-        {meta ? (
-          <p className="text-xs text-gray-400">
-            Showing {meta.from} → {meta.to} ({meta.timezone}) · {slots.length} open slot
-            {slots.length === 1 ? "" : "s"}
-          </p>
-        ) : null}
       </div>
 
       {error ? (
-        <p className="text-sm text-red-400 bg-red-950/40 border border-red-800/40 rounded-lg px-4 py-3">
+        <div className="rounded-md border border-red-800/60 bg-red-950/40 text-red-200 px-3 py-2 text-sm">
           {error}
-        </p>
-      ) : null}
-
-      {pendingBooking && pendingBooking.payment_status === "pending" ? (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <p className="text-sm text-amber-100">
-            Booking reserved for {pendingBooking.participant_name}. Complete payment to confirm.
-          </p>
-          <Button
-            type="button"
-            className="bg-[#FFB70F] hover:bg-[#e0a00d] text-black"
-            disabled={paying}
-            onClick={() => startPayment(pendingBooking)}
-          >
-            {paying ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Opening payment…
-              </>
-            ) : (
-              `Pay ₹${pendingBooking.fee_inr}`
-            )}
-          </Button>
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="flex items-center justify-between text-sm text-gray-400 px-0.5">
+        <span>
+          Available demo slots
+          {meta ? ` (${meta.from} to ${meta.to})` : ""}
+        </span>
+        <span>{slots.length} available</span>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="lg:col-span-2 space-y-4">
           {loading ? (
-            <div className="flex items-center justify-center gap-2 py-16 text-gray-300">
-              <Loader2 className="w-5 h-5 animate-spin" />
-              Loading availability…
+            <div className="flex justify-center py-16">
+              <Loader2 className="w-8 h-8 animate-spin text-[#FFB70F]" />
             </div>
-          ) : grouped.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-white/15 px-6 py-14 text-center text-gray-400">
-              No bookable demo slots in this range. Try another branch, course, or dates.
+          ) : slots.length === 0 ? (
+            <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center text-gray-400 space-y-2">
+              <CalendarDays className="w-10 h-10 text-gray-500 mx-auto" />
+              <p>No demo slots found for the selected filters.</p>
+              <p className="text-xs text-gray-500">
+                Try expanding your dates or clearing branch / course filters.
+              </p>
             </div>
           ) : (
-            grouped.map(([day, daySlots]) => (
+            grouped.map(([day, daySlots], groupIdx) => (
               <div key={day} className="space-y-2">
-                <div className="flex items-center gap-2 text-white font-medium">
-                  <CalendarDays className="w-4 h-4 text-[#FFB70F]" />
+                <div
+                  className={`text-xs font-semibold uppercase tracking-wider text-gray-400 ${
+                    groupIdx === 0 ? "" : "pt-4"
+                  }`}
+                >
                   {formatSlotDate(day)}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -428,6 +503,8 @@ export default function DemoAvailabilityPublicView() {
                         onClick={() => {
                           setSelected(slot)
                           setError(null)
+                          setFieldErrors({})
+                          setTouched({})
                         }}
                         className={`text-left rounded-lg border px-4 py-3 transition-colors ${
                           isSelected
@@ -459,14 +536,23 @@ export default function DemoAvailabilityPublicView() {
           )}
         </div>
 
-        <div className="rounded-xl border border-white/10 bg-white/5 p-5 h-fit sticky top-24">
-          <h3 className="text-lg font-semibold text-white">Book this demo</h3>
+        <div className="space-y-2">
+          {slots.length > 0 && !loading ? (
+            <div
+              className="text-xs font-semibold uppercase tracking-wider text-transparent select-none hidden lg:block"
+              aria-hidden="true"
+            >
+              &nbsp;
+            </div>
+          ) : null}
+          <div className="rounded-xl border border-white/10 bg-white/5 p-5 h-fit sticky top-24">
+            <h3 className="text-lg font-semibold text-white">Book this demo</h3>
           {!selected ? (
             <p className="text-sm text-gray-400 mt-3">
               Choose an available time on the left to enter participant details and pay.
             </p>
           ) : (
-            <form onSubmit={onBook} className="mt-4 space-y-3">
+            <form onSubmit={onBook} noValidate className="mt-4 space-y-3">
               <div className="text-sm text-gray-200 space-y-1 pb-2 border-b border-white/10">
                 <p className="text-white font-medium">{formatSlotDate(selected.slot_date)}</p>
                 <p>
@@ -478,64 +564,112 @@ export default function DemoAvailabilityPublicView() {
                 <p className="text-[#FFB70F]">Fee ₹{selected.fee_inr} (set by academy)</p>
                 <p className="text-xs text-gray-400">{seatsLabel(selected)}</p>
               </div>
+
+              {pendingBooking ? (
+                <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-200 space-y-2">
+                  <p>
+                    Seat held for {pendingBooking.participant_name}. Complete payment to confirm.
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="w-full bg-[#FFB70F] hover:bg-[#e0a00d] text-black"
+                    disabled={paying}
+                    onClick={() => startPayment(pendingBooking)}
+                  >
+                    {paying ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
+                    Resume payment
+                  </Button>
+                </div>
+              ) : null}
+
               <div className="space-y-1">
-                <Label className="text-gray-300">Participant name *</Label>
+                <Label className="text-gray-300">
+                  Participant name <span className="text-[#FFB70F]">*</span>
+                </Label>
                 <Input
-                  className={fieldClass}
+                  className={getInputClass(!!(touched.participant_name && fieldErrors.participant_name))}
                   value={participant.participant_name}
-                  onChange={(e) =>
-                    setParticipant((p) => ({ ...p, participant_name: e.target.value }))
-                  }
-                  required
+                  onChange={(e) => handleFieldChange("participant_name", e.target.value)}
+                  onBlur={() => handleFieldBlur("participant_name")}
+                  placeholder="Enter full name"
                 />
+                {touched.participant_name && fieldErrors.participant_name ? (
+                  <p className="text-xs text-red-400 mt-1">{fieldErrors.participant_name}</p>
+                ) : null}
               </div>
+
               <div className="space-y-1">
-                <Label className="text-gray-300">Phone *</Label>
+                <Label className="text-gray-300">
+                  Phone <span className="text-[#FFB70F]">*</span>
+                </Label>
                 <Input
-                  className={fieldClass}
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
+                  pattern="[0-9]*"
+                  className={getInputClass(!!(touched.participant_phone && fieldErrors.participant_phone))}
                   value={participant.participant_phone}
-                  onChange={(e) =>
-                    setParticipant((p) => ({ ...p, participant_phone: e.target.value }))
-                  }
-                  required
+                  onChange={(e) => handleFieldChange("participant_phone", e.target.value)}
+                  onBlur={() => handleFieldBlur("participant_phone")}
+                  placeholder="10-digit mobile number"
                 />
+                {touched.participant_phone && fieldErrors.participant_phone ? (
+                  <p className="text-xs text-red-400 mt-1">{fieldErrors.participant_phone}</p>
+                ) : null}
               </div>
+
               <div className="space-y-1">
                 <Label className="text-gray-300">Email</Label>
                 <Input
                   type="email"
-                  className={fieldClass}
+                  inputMode="email"
+                  className={getInputClass(!!(touched.participant_email && fieldErrors.participant_email))}
                   value={participant.participant_email}
-                  onChange={(e) =>
-                    setParticipant((p) => ({ ...p, participant_email: e.target.value }))
-                  }
+                  onChange={(e) => handleFieldChange("participant_email", e.target.value)}
+                  onBlur={() => handleFieldBlur("participant_email")}
+                  placeholder="name@example.com"
                 />
+                {touched.participant_email && fieldErrors.participant_email ? (
+                  <p className="text-xs text-red-400 mt-1">{fieldErrors.participant_email}</p>
+                ) : null}
               </div>
+
               <div className="space-y-1">
                 <Label className="text-gray-300">Age</Label>
                 <Input
                   type="number"
                   min={1}
                   max={120}
-                  className={fieldClass}
+                  className={getInputClass(!!(touched.participant_age && fieldErrors.participant_age))}
                   value={participant.participant_age}
-                  onChange={(e) =>
-                    setParticipant((p) => ({ ...p, participant_age: e.target.value }))
-                  }
+                  onChange={(e) => handleFieldChange("participant_age", e.target.value)}
+                  onBlur={() => handleFieldBlur("participant_age")}
+                  placeholder="e.g. 15"
                 />
+                {touched.participant_age && fieldErrors.participant_age ? (
+                  <p className="text-xs text-red-400 mt-1">{fieldErrors.participant_age}</p>
+                ) : null}
               </div>
+
               <div className="space-y-1">
                 <Label className="text-gray-300">Notes</Label>
                 <Textarea
-                  className={fieldClass}
+                  className={getTextareaClass(!!(touched.notes && fieldErrors.notes))}
                   rows={2}
                   value={participant.notes}
-                  onChange={(e) => setParticipant((p) => ({ ...p, notes: e.target.value }))}
+                  onChange={(e) => handleFieldChange("notes", e.target.value)}
+                  onBlur={() => handleFieldBlur("notes")}
+                  placeholder="Any questions or special requests"
                 />
+                {touched.notes && fieldErrors.notes ? (
+                  <p className="text-xs text-red-400 mt-1">{fieldErrors.notes}</p>
+                ) : null}
               </div>
+
               <Button
                 type="submit"
-                className="w-full bg-[#FFB70F] hover:bg-[#e0a00d] text-black"
+                className="w-full bg-[#FFB70F] hover:bg-[#e0a00d] text-black font-semibold"
                 disabled={submitting || paying}
               >
                 {submitting || paying ? (
@@ -554,6 +688,7 @@ export default function DemoAvailabilityPublicView() {
               </p>
             </form>
           )}
+          </div>
         </div>
       </div>
     </div>

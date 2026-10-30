@@ -61,25 +61,28 @@ export default function OnlineLearningCataloguePage() {
         </div>
       </section>
 
-      <section className="py-12 md:py-16 bg-[#171A26]">
-        <div className="container mx-auto px-4 max-w-7xl space-y-8">
+      <section className="pt-6 pb-12 sm:pt-10 sm:pb-16 bg-[#171A26]">
+        <div className="container mx-auto px-4 max-w-7xl space-y-6 sm:space-y-8">
           <form
-            className="flex flex-col sm:flex-row gap-2 max-w-xl"
+            className="flex flex-col sm:flex-row gap-3 sm:gap-2.5 max-w-xl"
             onSubmit={(e) => {
               e.preventDefault()
               setSearch(searchInput.trim())
             }}
           >
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <Input
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Search courses…"
-                className="pl-9 bg-gray-950 border-gray-700 text-white"
+                className="h-10 sm:h-11 pl-10 rounded-lg bg-gray-950/80 border-gray-700 text-white placeholder:text-gray-500 focus-visible:ring-1 focus-visible:ring-[#FFB70F] focus-visible:border-[#FFB70F] text-sm"
               />
             </div>
-            <Button type="submit" className="bg-[#FFB70F] hover:bg-[#e0a00d] text-black">
+            <Button
+              type="submit"
+              className="h-10 sm:h-11 px-6 rounded-lg bg-[#FFB70F] hover:bg-[#e0a00d] text-black font-semibold text-sm transition-colors shadow-sm active:scale-95 shrink-0"
+            >
               Search
             </Button>
           </form>
@@ -96,7 +99,7 @@ export default function OnlineLearningCataloguePage() {
               </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8">
               {courses.map((c) => (
                 <Link
                   key={c.id}
