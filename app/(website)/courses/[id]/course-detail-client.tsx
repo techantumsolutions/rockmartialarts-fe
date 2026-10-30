@@ -17,6 +17,7 @@ import {
   Quote,
 } from "lucide-react"
 import { stripUuidFromPriceDisplay } from "@/lib/priceDisplay"
+import { formatTimingString } from "@/lib/formatWeekdayRanges"
 import { ShowcaseAchievementCard, type ShowcaseAchievementItem } from "@/components/testimonials"
 import { SafeImage, DEFAULT_IMAGE_PLACEHOLDER } from "@/components/ui/safe-image"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
@@ -590,11 +591,12 @@ function CourseDetailPageInner() {
     }
   }
 
-  const timingLine = (info.training_time || "").split(/\r?\n|[;,]/)[0]?.trim() || ""
-  const timingDisplay =
+  const timingLine = (info.training_time || "").trim()
+  const rawTiming =
     branchApplies && branchPricingInfo?.timings && branchPricingInfo.timings !== "—"
       ? branchPricingInfo.timings
       : timingLine
+  const timingDisplay = formatTimingString(rawTiming) || rawTiming
   const promoVideoUrl = media.promo_video_url || ""
   const effectiveLearningVideo = learning.video_url || promoVideoUrl
   const learningPoster =
@@ -714,13 +716,15 @@ function CourseDetailPageInner() {
                 </div>
               )}
 
-              {/* Timings - always single line */}
+              {/* Timings */}
               {(timingDisplay || timingLine) && (
                 <div className="flex items-center gap-3 py-5 px-4 text-white">
                   <Clock className="w-7 h-7 flex-shrink-0 opacity-90" />
                   <div className="min-w-0">
                     <p className="text-[11px] uppercase tracking-wider text-white/80">Timings</p>
-                    <p className="text-[12px] font-semibold truncate">{timingDisplay || timingLine}</p>
+                    <p className="text-[12px] font-semibold truncate" title={timingDisplay || timingLine}>
+                      {timingDisplay || timingLine}
+                    </p>
                   </div>
                 </div>
               )}

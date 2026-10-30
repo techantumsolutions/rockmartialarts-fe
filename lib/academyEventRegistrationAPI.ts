@@ -75,19 +75,75 @@ export function toEventRegApiPhone(raw: string): string {
   return (raw || "").trim()
 }
 
-async function parseError(res: Response): Promise<string> {
+export class AcademyEventRegistrationApiError extends Error {
+  status: number
+  detail?: unknown
+
+  constructor(message: string, status: number, detail?: unknown) {
+    super(message)
+    this.name = "AcademyEventRegistrationApiError"
+    this.status = status
+    this.detail = detail
+    Object.setPrototypeOf(this, AcademyEventRegistrationApiError.prototype)
+  }
+}
+
+export function isEventRegAuthError(error: unknown): boolean {
+  if (error instanceof AcademyEventRegistrationApiError) {
+    return error.status === 401 || error.status === 403
+  }
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    typeof (error as { status?: unknown }).status === "number"
+  ) {
+    const s = (error as { status: number }).status
+    return s === 401 || s === 403
+  }
+  return false
+}
+
+export function getEventRegApiErrorStatus(error: unknown): number | null {
+  if (error instanceof AcademyEventRegistrationApiError) {
+    return error.status
+  }
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    typeof (error as { status?: unknown }).status === "number"
+  ) {
+    return (error as { status: number }).status
+  }
+  return null
+}
+
+async function parseError(res: Response): Promise<{ message: string; detail?: unknown }> {
   try {
     const data = await res.json()
-    if (typeof data?.detail === "string") return data.detail
+    if (typeof data?.detail === "string") return { message: data.detail, detail: data.detail }
     if (Array.isArray(data?.detail)) {
-      return data.detail
-        .map((d: { msg?: string }) => d.msg || JSON.stringify(d))
-        .join("; ")
+      return {
+        message: data.detail
+          .map((d: { msg?: string }) => d.msg || JSON.stringify(d))
+          .join("; "),
+        detail: data.detail,
+      }
     }
-    return data?.message || res.statusText || "Request failed"
+    return {
+      message: data?.message || res.statusText || `Request failed (${res.status})`,
+      detail: data,
+    }
   } catch {
-    return res.statusText || "Request failed"
+    return {
+      message: res.statusText || `Request failed with status ${res.status}`,
+    }
   }
+}
+
+async function throwApiError(res: Response): Promise<never> {
+  const { message, detail } = await parseError(res)
+  throw new AcademyEventRegistrationApiError(message, res.status, detail)
 }
 
 function authHeaders(json = false, otpToken?: string | null): HeadersInit {
@@ -113,7 +169,7 @@ class AcademyEventRegistrationAPI {
         body: JSON.stringify({ phone: toEventRegApiPhone(phone) }),
       }
     )
-    if (!res.ok) throw new Error(await parseError(res))
+    if (!res.ok) await throwApiError(res)
     return res.json() as Promise<{ message: string; expires_in_seconds: number }>
   }
 
@@ -126,7 +182,7 @@ class AcademyEventRegistrationAPI {
         body: JSON.stringify({ phone: toEventRegApiPhone(phone), otp }),
       }
     )
-    if (!res.ok) throw new Error(await parseError(res))
+    if (!res.ok) await throwApiError(res)
     const data = (await res.json()) as {
       verified: boolean
       verification_token: string
@@ -142,7 +198,7 @@ class AcademyEventRegistrationAPI {
       getBackendApiUrl("academy-event-registrations/mine"),
       { headers: authHeaders(false, otpToken), cache: "no-store" }
     )
-    if (!res.ok) throw new Error(await parseError(res))
+    if (!res.ok) await throwApiError(res)
     return res.json() as Promise<{
       registrations: AcademyEventRegistration[]
       total: number
@@ -158,7 +214,7 @@ class AcademyEventRegistrationAPI {
       ),
       { headers: authHeaders(false, otpToken), cache: "no-store" }
     )
-    if (!res.ok) throw new Error(await parseError(res))
+    if (!res.ok) await throwApiError(res)
     return res.json() as Promise<{ registration: AcademyEventRegistration }>
   }
 
@@ -168,7 +224,7 @@ class AcademyEventRegistrationAPI {
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify(payload),
     })
-    if (!res.ok) throw new Error(await parseError(res))
+    if (!res.ok) await throwApiError(res)
     return res.json() as Promise<{
       message: string
       registration: AcademyEventRegistration
@@ -183,7 +239,7 @@ class AcademyEventRegistrationAPI {
       ),
       { method: "POST", headers: { Accept: "application/json" } }
     )
-    if (!res.ok) throw new Error(await parseError(res))
+    if (!res.ok) await throwApiError(res)
     return res.json() as Promise<{
       order: { id: string; amount: number; currency: string }
       key: string
@@ -212,7 +268,7 @@ class AcademyEventRegistrationAPI {
         body: JSON.stringify(payload),
       }
     )
-    if (!res.ok) throw new Error(await parseError(res))
+    if (!res.ok) await throwApiError(res)
     return res.json() as Promise<{
       message: string
       registration: AcademyEventRegistration
@@ -226,7 +282,7 @@ class AcademyEventRegistrationAPI {
       ),
       { method: "POST", headers: { Accept: "application/json" } }
     )
-    if (!res.ok) throw new Error(await parseError(res))
+    if (!res.ok) await throwApiError(res)
     return res.json() as Promise<{
       message: string
       registration: AcademyEventRegistration
