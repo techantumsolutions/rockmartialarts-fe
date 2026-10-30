@@ -202,23 +202,6 @@ export default function HomeTrainingPublicForm() {
 
   return (
     <form onSubmit={onSubmit} className="w-full space-y-8">
-      <style>{`
-        .home-training-preferred-date {
-          color-scheme: dark;
-        }
-        .home-training-preferred-date::-webkit-calendar-picker-indicator {
-          cursor: pointer;
-          opacity: 1;
-          filter: none;
-          width: 1.1rem;
-          height: 1.1rem;
-          background-color: transparent;
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
-          background-position: center;
-          background-size: 1.1rem 1.1rem;
-          background-repeat: no-repeat;
-        }
-      `}</style>
       <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 md:p-8 space-y-5">
         <div className="flex items-center gap-3 mb-1">
           <div className="w-10 h-10 rounded-lg bg-[#FFB70F]/10 flex items-center justify-center">

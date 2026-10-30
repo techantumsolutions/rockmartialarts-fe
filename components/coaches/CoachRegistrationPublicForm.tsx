@@ -263,23 +263,6 @@ export default function CoachRegistrationPublicForm() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-8 max-w-3xl mx-auto">
-      <style>{`
-        .coach-register-dob {
-          color-scheme: dark;
-        }
-        .coach-register-dob::-webkit-calendar-picker-indicator {
-          cursor: pointer;
-          opacity: 1;
-          filter: none;
-          width: 1.1rem;
-          height: 1.1rem;
-          background-color: transparent;
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
-          background-position: center;
-          background-size: 1.1rem 1.1rem;
-          background-repeat: no-repeat;
-        }
-      `}</style>
       {error ? (
         <p className="text-sm text-red-400 bg-red-950/40 border border-red-900 rounded-lg px-4 py-3">
           {error}
