@@ -708,10 +708,12 @@ export default function StudentDetailsPage() {
                           </div>
 
                           <div>
-                            <label className="text-sm font-medium text-gray-500">Status</label>
-                            <Badge className={getStatusColor(student.status || (student.is_active ? 'active' : 'inactive'))}>
-                              {student.status || (student.is_active ? 'Active' : 'Inactive')}
-                            </Badge>
+                            <label className="text-sm font-medium text-gray-500 block mb-1">Status</label>
+                            <div>
+                              <Badge className={getStatusColor(student.status || (student.is_active ? 'active' : 'inactive'))}>
+                                {student.status || (student.is_active ? 'Active' : 'Inactive')}
+                              </Badge>
+                            </div>
                           </div>
 
                           <div>
