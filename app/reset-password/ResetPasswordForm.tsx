@@ -19,6 +19,7 @@ function ResetPasswordForm() {
   const [success, setSuccess] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const isSetup = searchParams.get('setup') === 'true';
 
   useEffect(() => {
     const tokenFromUrl = searchParams.get('token');
@@ -71,8 +72,8 @@ function ResetPasswordForm() {
         throw new Error(data.detail || 'Failed to reset password.');
       }
 
-      setSuccess(data.message || 'Password has been reset successfully.');
-      toast.success('Password has been reset successfully! You can now log in.');
+      setSuccess(data.message || (isSetup ? 'Password has been set up successfully.' : 'Password has been reset successfully.'));
+      toast.success(isSetup ? 'Password created successfully! You can now log in.' : 'Password has been reset successfully! You can now log in.');
       router.push('/login');
 
     } catch (err: any) {
@@ -101,7 +102,12 @@ function ResetPasswordForm() {
       <div className="w-full max-w-md border-0 shadow-none">
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="text-center">
-            <h2 className="text-2xl font-bold tracking-wide">RESET PASSWORD</h2>
+            <h2 className="text-2xl font-bold tracking-wide">{isSetup ? "SET UP YOUR PASSWORD" : "RESET PASSWORD"}</h2>
+            {isSetup && (
+              <p className="text-sm text-gray-500 mt-2">
+                Welcome to Rock Martial Arts! Choose a secure password to activate your account.
+              </p>
+            )}
           </div>
 
           <div className="space-y-4">
@@ -191,7 +197,7 @@ function ResetPasswordForm() {
               className="w-full h-14 bg-[#FFD600] hover:bg-[#e6c200] text-white font-semibold rounded-xl shadow-md"
               disabled={isLoading || !token}
             >
-              {isLoading ? "Resetting..." : "Reset password"}
+              {isLoading ? (isSetup ? "Setting up..." : "Resetting...") : (isSetup ? "Set Password & Activate" : "Reset password")}
             </button>
           </div>
         </form>
