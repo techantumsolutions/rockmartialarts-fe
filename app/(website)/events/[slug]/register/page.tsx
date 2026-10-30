@@ -1,5 +1,4 @@
 "use client"
-
 import Link from "next/link"
 import { FormEvent, useEffect, useMemo, useState } from "react"
 import { useParams } from "next/navigation"
@@ -29,8 +28,64 @@ const EMPTY = {
   notes: "",
 }
 
-const fieldClass =
-  "bg-[#0f121c] border-white/15 text-white placeholder:text-gray-500 focus-visible:ring-[#FFB70F]"
+const getFieldClass = (hasError?: boolean) =>
+  hasError
+    ? "h-12 px-4 rounded-xl bg-gray-950/70 border border-red-500/80 text-white placeholder:text-gray-500 focus:border-red-500 focus-visible:border-red-500 focus-visible:ring-1 focus-visible:ring-red-500 focus-visible:ring-offset-0 transition-all duration-200 text-sm shadow-inner"
+    : "h-12 px-4 rounded-xl bg-gray-950/70 border border-gray-700/80 text-white placeholder:text-gray-500 hover:border-gray-500 focus:border-[#FFB70F] focus-visible:border-[#FFB70F] focus-visible:ring-1 focus-visible:ring-[#FFB70F] focus-visible:ring-offset-0 transition-all duration-200 text-sm shadow-inner"
+
+const getTextareaClass = (hasError?: boolean) =>
+  hasError
+    ? "p-3.5 rounded-xl bg-gray-950/70 border border-red-500/80 text-white placeholder:text-gray-500 focus:border-red-500 focus-visible:border-red-500 focus-visible:ring-1 focus-visible:ring-red-500 focus-visible:ring-offset-0 transition-all duration-200 text-sm shadow-inner resize-y"
+    : "p-3.5 rounded-xl bg-gray-950/70 border border-gray-700/80 text-white placeholder:text-gray-500 hover:border-gray-500 focus:border-[#FFB70F] focus-visible:border-[#FFB70F] focus-visible:ring-1 focus-visible:ring-[#FFB70F] focus-visible:ring-offset-0 transition-all duration-200 text-sm shadow-inner resize-y"
+
+const getFieldPlaceholder = (field: AcademyEventRegistrationField) => {
+  switch (field.key) {
+    case "participant_name":
+      return "Enter full name"
+    case "participant_phone":
+      return "Enter mobile number"
+    case "participant_email":
+      return "Enter email address"
+    case "participant_age":
+      return "Enter age"
+    case "notes":
+      return "Enter notes or special requests"
+    default:
+      return `Enter ${field.label.replace(/\s*\*$/, "").trim().toLowerCase()}`
+  }
+}
+
+function validateEventField(field: AcademyEventRegistrationField, value: string): string | undefined {
+  const trimmed = (value || "").trim()
+  if (field.required && !trimmed) {
+    return `${field.label.replace(/\s*\*$/, "").trim()} is required`
+  }
+  if (!trimmed) return undefined
+
+  if (field.key === "participant_name") {
+    if (trimmed.length < 2) return "Full name must be at least 2 characters"
+    if (!/^[a-zA-Z\s.'-]+$/.test(trimmed)) return "Please enter a valid name (letters only)"
+  } else if (field.key === "participant_phone" || field.field_type === "phone") {
+    if (trimmed.length < 10) return "Please enter a complete 10-digit mobile number"
+    if (!/^[6-9]\d{9}$/.test(trimmed)) {
+      return "Enter a valid 10-digit mobile number"
+    }
+  } else if (field.key === "participant_email" || field.field_type === "email") {
+    if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(trimmed)) {
+      return "Please enter a valid email address (e.g. name@example.com)"
+    }
+  } else if (field.key === "participant_age" || field.field_type === "number") {
+    const n = Number(trimmed)
+    if (!Number.isInteger(n) || n < 3 || n > 120) {
+      return "Age must be between 3 and 120"
+    }
+  } else if (field.key === "notes" || field.field_type === "textarea") {
+    if (value.length > 500) {
+      return "Notes cannot exceed 500 characters"
+    }
+  }
+  return undefined
+}
 
 export default function EventRegisterPage() {
   const params = useParams()
@@ -39,6 +94,8 @@ export default function EventRegisterPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({ ...EMPTY })
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [touched, setTouched] = useState<Record<string, boolean>>({})
   const [submitting, setSubmitting] = useState(false)
   const [paying, setPaying] = useState(false)
   const [confirmed, setConfirmed] = useState<AcademyEventRegistration | null>(
@@ -104,6 +161,37 @@ export default function EventRegisterPage() {
       .finally(() => setLoading(false))
   }, [slug])
 
+  const handleFieldChange = (key: string, value: string, fieldObj?: AcademyEventRegistrationField) => {
+    let sanitized = value
+    if (key === "participant_phone" || fieldObj?.field_type === "phone") {
+      sanitized = value.replace(/\D/g, "").slice(0, 10)
+    } else if (key === "participant_email" || fieldObj?.field_type === "email") {
+      sanitized = value.replace(/\s/g, "")
+    }
+    setForm((prev) => ({ ...prev, [key]: sanitized }))
+    if (touched[key] && fieldObj) {
+      const err = validateEventField(fieldObj, sanitized)
+      setFieldErrors((prev) => {
+        const next = { ...prev }
+        if (err) next[key] = err
+        else delete next[key]
+        return next
+      })
+    }
+  }
+
+  const handleFieldBlur = (key: string, fieldObj: AcademyEventRegistrationField) => {
+    const currentVal = (form as Record<string, string>)[key] || ""
+    setTouched((prev) => ({ ...prev, [key]: true }))
+    const err = validateEventField(fieldObj, currentVal)
+    setFieldErrors((prev) => {
+      const next = { ...prev }
+      if (err) next[key] = err
+      else delete next[key]
+      return next
+    })
+  }
+
   const startPayment = async (registration: AcademyEventRegistration) => {
     setPaying(true)
     setError(null)
@@ -135,6 +223,8 @@ export default function EventRegisterPage() {
             setConfirmed(verified.registration)
             setPending(null)
             setForm({ ...EMPTY })
+            setFieldErrors({})
+            setTouched({})
           } catch (err) {
             setError(
               err instanceof Error ? err.message : "Payment verification failed"
@@ -174,13 +264,23 @@ export default function EventRegisterPage() {
     if (!event) return
     setError(null)
 
+    const allTouched: Record<string, boolean> = {}
+    const errors: Record<string, string> = {}
+
     for (const f of fields) {
-      if (!f.required) continue
-      const val = (form as Record<string, string>)[f.key]
-      if (!val?.trim()) {
-        setError(`${f.label} is required`)
-        return
-      }
+      allTouched[f.key] = true
+      const val = (form as Record<string, string>)[f.key] || ""
+      const err = validateEventField(f, val)
+      if (err) errors[f.key] = err
+    }
+
+    setTouched(allTouched)
+    setFieldErrors(errors)
+
+    if (Object.keys(errors).length > 0) {
+      const firstError = Object.values(errors)[0]
+      setError(firstError || "Please fill in the required fields correctly.")
+      return
     }
 
     setSubmitting(true)
@@ -204,6 +304,8 @@ export default function EventRegisterPage() {
         setConfirmed(result.registration)
         setPending(null)
         setForm({ ...EMPTY })
+        setFieldErrors({})
+        setTouched({})
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed")
@@ -222,53 +324,40 @@ export default function EventRegisterPage() {
               <h1 className="text-2xl font-bold text-white">
                 Registration confirmed
               </h1>
-              <p className="text-gray-300 text-sm">
+              <p className="text-gray-300">
                 You are registered for{" "}
                 <span className="text-white font-medium">
-                  {confirmed.event_title || event?.title}
+                  {confirmed.event_title || event?.title || "the event"}
                 </span>
-                . We look forward to seeing you.
+                .
               </p>
               <div className="text-sm text-gray-400 space-y-1 text-left bg-black/20 rounded-lg p-4">
                 <p>Participant: {confirmed.participant_name}</p>
-                <p>Phone: {confirmed.participant_phone}</p>
-                {confirmed.participant_email ? (
-                  <p>Email: {confirmed.participant_email}</p>
-                ) : null}
-                <p>Fee: {formatEventFee(confirmed.fee_inr)}</p>
                 <p>Status: {registrationStatusLabel(confirmed.status)}</p>
                 {confirmed.razorpay_payment_id ? (
                   <p className="text-xs break-all">
-                    Payment: {confirmed.razorpay_payment_id}
+                    Payment ID: {confirmed.razorpay_payment_id}
                   </p>
                 ) : null}
-                <p className="text-xs text-gray-500 break-all">
-                  Ref: {confirmed.id}
-                </p>
               </div>
-                <div className="flex flex-wrap gap-3 justify-center pt-2">
+              <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
                 <Button
                   asChild
                   className="bg-[#FFB70F] hover:bg-[#e0a00d] text-black"
                 >
-                  <Link href={`/events/${event?.slug || slug}`}>
-                    Back to event
+                  <Link href="/events/my-registrations">
+                    View my registrations
                   </Link>
                 </Button>
-                <Button
-                  asChild
-                  variant="outline"
-                  className="border-gray-600 text-white"
-                >
-                  <Link href="/events/my-registrations">My registrations</Link>
-                </Button>
-                <Button
-                  asChild
-                  variant="outline"
-                  className="border-gray-600 text-white"
-                >
-                  <Link href="/events">Browse events</Link>
-                </Button>
+                {event?.slug ? (
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="border-gray-600 text-white"
+                  >
+                    <Link href={`/events/${event.slug}`}>Back to event</Link>
+                  </Button>
+                ) : null}
               </div>
             </div>
           </div>
@@ -279,77 +368,61 @@ export default function EventRegisterPage() {
 
   return (
     <main className="min-h-screen bg-[#171A26]">
-      <section className="py-16 md:py-24">
-        <div className="container mx-auto px-4 max-w-xl">
+      <section className="py-10 md:py-16">
+        <div className="container mx-auto px-4 max-w-xl space-y-6">
           <Link
-            href={event ? `/events/${event.slug || slug}` : "/events"}
-            className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-[#FFB70F] mb-8"
+            href={event?.slug ? `/events/${event.slug}` : "/events"}
+            className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-[#FFB70F]"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to event
           </Link>
-
           {loading ? (
-            <Loader2 className="w-8 h-8 animate-spin text-[#FFB70F]" />
-          ) : !event ? (
-            <div className="space-y-4">
-              <p className="text-red-300">{error || "Event not found"}</p>
-              <Button asChild className="bg-[#FFB70F] text-black">
-                <Link href="/events">Browse events</Link>
-              </Button>
+            <div className="flex justify-center py-20">
+              <Loader2 className="w-8 h-8 animate-spin text-[#FFB70F]" />
             </div>
-          ) : !event.registration_open ? (
-            <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 space-y-4">
-              <h1 className="text-2xl font-bold text-white">
-                Registration unavailable
-              </h1>
-              <p className="text-gray-400 text-sm">
-                {event.is_full
-                  ? "This event is at full capacity."
-                  : "Registration is closed for this event."}
-              </p>
-              <Button
-                asChild
-                variant="outline"
-                className="border-gray-600 text-white"
-              >
-                <Link href={`/events/${event.slug || slug}`}>
-                  View event details
-                </Link>
-              </Button>
+          ) : !event ? (
+            <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center text-gray-300">
+              Event not found.
             </div>
           ) : (
-            <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 space-y-5">
+            <div className="rounded-2xl border border-gray-800/80 bg-gray-900/60 p-6 sm:p-8 space-y-6 shadow-xl backdrop-blur-sm">
               <div>
-                <h1 className="text-2xl font-bold text-white">
+                <h1 className="text-2xl font-bold text-white mb-2">
                   Register — {event.title}
                 </h1>
-                <p className="text-gray-300 text-sm mt-2">
+                <p className="text-sm text-gray-300">
                   Fee:{" "}
-                  <span className="text-white font-medium">
+                  <span className="text-[#FFB70F] font-semibold">
                     {formatEventFee(event.fee_inr)}
                   </span>
-                  {event.seats_remaining != null
-                    ? ` · ${event.seats_remaining} seats left`
-                    : ""}
+                  {typeof event.capacity === "number" ? (
+                    <span className="text-gray-400 ml-2">
+                      ·{" "}
+                      {Math.max(
+                        0,
+                        event.capacity - (event.registrations_count || 0)
+                      )}{" "}
+                      seats left
+                    </span>
+                  ) : null}
                 </p>
               </div>
-
               {error ? (
                 <div className="rounded-md border border-red-800/60 bg-red-950/40 text-red-200 px-3 py-2 text-sm">
                   {error}
                 </div>
               ) : null}
-
               {pending ? (
-                <div className="rounded-md border border-amber-800/50 bg-amber-950/30 text-amber-100 px-3 py-3 text-sm space-y-2">
+                <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200 space-y-2">
                   <p>
                     Seat held pending payment for {pending.participant_name}.
                   </p>
                   <Button
                     type="button"
-                    disabled={paying}
+                    size="sm"
                     className="bg-[#FFB70F] hover:bg-[#e0a00d] text-black"
+                    disabled={paying}
                     onClick={() => void startPayment(pending)}
                   >
                     {paying ? (
@@ -359,33 +432,41 @@ export default function EventRegisterPage() {
                   </Button>
                 </div>
               ) : null}
-
-              <form onSubmit={onSubmit} className="space-y-4">
+              <form onSubmit={onSubmit} noValidate className="space-y-5">
                 {fields.map((f) => {
                   const value = (form as Record<string, string>)[f.key] || ""
-                  const setVal = (v: string) =>
-                    setForm((prev) => ({ ...prev, [f.key]: v }))
+                  const hasErr = !!(touched[f.key] && fieldErrors[f.key])
+
                   if (f.field_type === "textarea") {
                     return (
-                      <div key={f.key}>
-                        <Label className="text-gray-300">
+                      <div key={f.key} className="space-y-2">
+                        <Label className="block text-sm font-semibold text-gray-200 tracking-wide">
                           {f.label}
-                          {f.required ? " *" : ""}
+                          {f.required ? (
+                            <span className="text-[#FFB70F] ml-1 font-bold" title="Required">*</span>
+                          ) : null}
                         </Label>
                         <Textarea
                           rows={3}
                           value={value}
-                          onChange={(e) => setVal(e.target.value)}
-                          className={fieldClass}
+                          onChange={(e) => handleFieldChange(f.key, e.target.value, f)}
+                          onBlur={() => handleFieldBlur(f.key, f)}
+                          placeholder={getFieldPlaceholder(f)}
+                          className={getTextareaClass(hasErr)}
                         />
+                        {hasErr ? (
+                          <p className="text-xs text-red-400 mt-1">{fieldErrors[f.key]}</p>
+                        ) : null}
                       </div>
                     )
                   }
                   return (
-                    <div key={f.key}>
-                      <Label className="text-gray-300">
+                    <div key={f.key} className="space-y-2">
+                      <Label className="block text-sm font-semibold text-gray-200 tracking-wide">
                         {f.label}
-                        {f.required ? " *" : ""}
+                        {f.required ? (
+                          <span className="text-[#FFB70F] ml-1 font-bold" title="Required">*</span>
+                        ) : null}
                       </Label>
                       <Input
                         type={
@@ -397,20 +478,40 @@ export default function EventRegisterPage() {
                                 ? "tel"
                                 : "text"
                         }
+                        inputMode={
+                          f.field_type === "phone" || f.key === "participant_phone"
+                            ? "numeric"
+                            : f.field_type === "email" || f.key === "participant_email"
+                              ? "email"
+                              : undefined
+                        }
+                        maxLength={
+                          f.field_type === "phone" || f.key === "participant_phone"
+                            ? 10
+                            : undefined
+                        }
+                        pattern={
+                          f.field_type === "phone" || f.key === "participant_phone"
+                            ? "[0-9]*"
+                            : undefined
+                        }
                         min={f.field_type === "number" ? 1 : undefined}
                         value={value}
-                        onChange={(e) => setVal(e.target.value)}
-                        className={fieldClass}
-                        required={f.required}
+                        onChange={(e) => handleFieldChange(f.key, e.target.value, f)}
+                        onBlur={() => handleFieldBlur(f.key, f)}
+                        placeholder={getFieldPlaceholder(f)}
+                        className={getFieldClass(hasErr)}
                       />
+                      {hasErr ? (
+                        <p className="text-xs text-red-400 mt-1">{fieldErrors[f.key]}</p>
+                      ) : null}
                     </div>
                   )
                 })}
-
                 <Button
                   type="submit"
                   disabled={submitting || paying}
-                  className="w-full bg-[#FFB70F] hover:bg-[#e0a00d] text-black"
+                  className="w-full h-12 rounded-xl bg-[#FFB70F] hover:bg-[#e0a00d] text-black font-bold text-base shadow-md hover:shadow-lg transition-all active:scale-[0.99] mt-2"
                 >
                   {submitting || paying ? (
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -420,7 +521,6 @@ export default function EventRegisterPage() {
                     : "Confirm free registration"}
                 </Button>
               </form>
-
               <p className="text-xs text-gray-500 text-center">
                 Need help?{" "}
                 <Link

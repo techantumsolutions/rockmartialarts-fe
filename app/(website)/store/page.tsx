@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 
 const categories = [
   { id: "all", label: "All" },
@@ -33,6 +34,92 @@ const products = [
 
 export default function StorePage() {
   const [filter, setFilter] = useState("all")
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const pillRefs = useRef<(HTMLButtonElement | null)[]>([])
+
+  const currentIndex = categories.findIndex((c) => c.id === filter)
+
+  const centerPill = useCallback((idx: number, smooth = true) => {
+    // Feature only active for mobile and tablet screens (< lg / 1024px)
+    if (typeof window !== "undefined" && window.innerWidth >= 1024) return
+
+    const container = scrollContainerRef.current
+    const pill = pillRefs.current[idx]
+    if (!container || !pill) return
+
+    // Most left category: align to the start (left)
+    if (idx === 0) {
+      container.scrollTo({
+        left: 0,
+        behavior: smooth ? "smooth" : "auto",
+      })
+      return
+    }
+
+    // Most right category: align to the end (right)
+    if (idx === categories.length - 1) {
+      container.scrollTo({
+        left: container.scrollWidth,
+        behavior: smooth ? "smooth" : "auto",
+      })
+      return
+    }
+
+    // All categories in between: center in the middle of the horizontal bar
+    const containerRect = container.getBoundingClientRect()
+    const pillRect = pill.getBoundingClientRect()
+    const containerCenter = containerRect.left + containerRect.width / 2
+    const pillCenter = pillRect.left + pillRect.width / 2
+    const diff = pillCenter - containerCenter
+
+    if (Math.abs(diff) > 1) {
+      container.scrollBy({
+        left: diff,
+        behavior: smooth ? "smooth" : "auto",
+      })
+    }
+  }, [])
+
+  const handleSelect = (id: string, smooth = true) => {
+    setFilter(id)
+    const idx = categories.findIndex((c) => c.id === id)
+    if (idx !== -1) {
+      centerPill(idx, smooth)
+    }
+  }
+
+  useEffect(() => {
+    const idx = categories.findIndex((c) => c.id === filter)
+    if (idx !== -1) {
+      centerPill(idx, false)
+      const timer = setTimeout(() => {
+        centerPill(idx, false)
+      }, 50)
+      return () => clearTimeout(timer)
+    }
+  }, [filter, centerPill])
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) return
+      const idx = categories.findIndex((c) => c.id === filter)
+      if (idx !== -1) centerPill(idx, false)
+    }
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [filter, centerPill])
+
+  const goToPrev = () => {
+    if (currentIndex > 0) {
+      handleSelect(categories[currentIndex - 1].id, true)
+    }
+  }
+
+  const goToNext = () => {
+    if (currentIndex < categories.length - 1) {
+      handleSelect(categories[currentIndex + 1].id, true)
+    }
+  }
 
   const filteredProducts =
     filter === "all"
@@ -63,20 +150,74 @@ export default function StorePage() {
       {/* Filters & Products */}
       <section className="py-16 md:py-20 bg-[#171A26]">
         <div className="container mx-auto px-4 max-w-7xl">
-          <div className="flex flex-wrap gap-3 mb-10">
+          {/* Desktop View (lg and xl screens): Standard flex-wrap pills without arrows or scrolling */}
+          <div className="hidden lg:flex flex-wrap gap-3 mb-10">
             {categories.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => setFilter(cat.id)}
                 className={`rounded-lg px-5 py-2.5 text-sm font-medium transition-colors ${
                   filter === cat.id
-                    ? "bg-[#FFB70F] text-black"
-                    : "bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white"
+                    ? "bg-[#FFB70F] text-black font-semibold shadow-md shadow-[#FFB70F]/20"
+                    : "bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white border border-gray-700/40"
                 }`}
               >
                 {cat.label}
               </button>
             ))}
+          </div>
+
+          {/* Mobile & Tablet View (below lg: sm and md screens): Arrow navigation with auto-centering */}
+          <div className="lg:hidden relative mb-10 max-w-2xl mx-auto">
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* Left Arrow Button */}
+              <button
+                type="button"
+                onClick={goToPrev}
+                disabled={currentIndex <= 0}
+                className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full bg-gray-800 text-gray-200 hover:bg-[#FFB70F] hover:text-black disabled:opacity-20 disabled:pointer-events-none transition-all duration-200 border border-gray-700/60 shadow-md active:scale-95"
+                aria-label="Previous category"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+
+              {/* Horizontally Scrollable Pills for sm and md screens */}
+              <div
+                ref={scrollContainerRef}
+                className="flex-1 flex items-center gap-2.5 overflow-x-auto py-2 scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+              >
+                {categories.map((cat, idx) => {
+                  const isSelected = filter === cat.id
+                  return (
+                    <button
+                      key={cat.id}
+                      ref={(el) => {
+                        pillRefs.current[idx] = el
+                      }}
+                      onClick={() => handleSelect(cat.id, true)}
+                      className={`shrink-0 rounded-full px-5 py-2.5 text-sm font-medium transition-all duration-200 whitespace-nowrap active:scale-95 ${
+                        isSelected
+                          ? "bg-[#FFB70F] text-black font-semibold shadow-md shadow-[#FFB70F]/20"
+                          : "bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white border border-gray-700/40"
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Right Arrow Button */}
+              <button
+                type="button"
+                onClick={goToNext}
+                disabled={currentIndex >= categories.length - 1}
+                className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full bg-gray-800 text-gray-200 hover:bg-[#FFB70F] hover:text-black disabled:opacity-20 disabled:pointer-events-none transition-all duration-200 border border-gray-700/60 shadow-md active:scale-95"
+                aria-label="Next category"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">

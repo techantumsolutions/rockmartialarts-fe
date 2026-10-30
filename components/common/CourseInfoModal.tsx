@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { formatOperationalTimingsForDisplay } from "@/components/branch/types"
+import { formatTimingString } from "@/lib/formatWeekdayRanges"
 import type { BranchCourseScheduleEntry } from "@/components/branch/types"
 import {
   courseScheduleBatchCards,
@@ -133,7 +134,7 @@ export function CourseInfoModal({
   const timingsText = useMemo(() => {
     if (batchScheduleTextFallback && batchCards.length === 0)
       return batchScheduleTextFallback
-    if (apiTimings && apiTimings !== "—") return apiTimings
+    if (apiTimings && apiTimings !== "—") return formatTimingString(apiTimings)
     return fromBranch.replace(/\s*•\s*/g, "\n")
   }, [batchScheduleTextFallback, batchCards.length, apiTimings, fromBranch])
 

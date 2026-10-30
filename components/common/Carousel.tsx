@@ -29,38 +29,42 @@ export function Carousel({ children, className = "", slideClassName = "" }: Caro
 
   return (
     <div className={`relative ${className}`}>
-      <div className="overflow-hidden" ref={emblaRef}>
-        <div className="flex touch-pan-y">
-          {children.map((child, i) => (
-            <div
-              key={i}
-              className={`min-w-0 shrink-0 grow-0 flex-[0_0_100%] sm:flex-[0_0_50%] lg:flex-[0_0_33.333%] pr-4 box-border ${slideClassName}`}
+      <div className="relative px-10">
+        {children.length > 1 ? (
+          <>
+            <button
+              type="button"
+              onClick={scrollPrev}
+              className="absolute left-0 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-[#FFB70F]/50 bg-[#171A26] text-[#FFB70F] shadow-lg transition-colors hover:bg-[#FFB70F] hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFB70F] focus-visible:ring-offset-2 focus-visible:ring-offset-[#171A26]"
+              aria-label="Previous slide"
+              title="Previous slide"
             >
-              {child}
-            </div>
-          ))}
+              <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={scrollNext}
+              className="absolute right-0 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-[#FFB70F]/50 bg-[#171A26] text-[#FFB70F] shadow-lg transition-colors hover:bg-[#FFB70F] hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFB70F] focus-visible:ring-offset-2 focus-visible:ring-offset-[#171A26]"
+              aria-label="Next slide"
+              title="Next slide"
+            >
+              <ChevronRight className="h-5 w-5" aria-hidden="true" />
+            </button>
+          </>
+        ) : null}
+        <div className="overflow-hidden py-2" ref={emblaRef}>
+          <div className="flex touch-pan-y">
+            {children.map((child, i) => (
+              <div
+                key={i}
+                className={`min-w-0 shrink-0 grow-0 flex-[0_0_100%] sm:flex-[0_0_50%] lg:flex-[0_0_33.333%] pl-2 pr-4 box-border ${slideClassName}`}
+              >
+                {child}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
-      {children.length > 1 ? (
-        <>
-          <button
-            type="button"
-            onClick={scrollPrev}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/60 border border-gray-700 flex items-center justify-center text-white hover:border-[#FFB70F] hover:text-[#FFB70F] -ml-2 md:ml-0"
-            aria-label="Previous slide"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <button
-            type="button"
-            onClick={scrollNext}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/60 border border-gray-700 flex items-center justify-center text-white hover:border-[#FFB70F] hover:text-[#FFB70F] -mr-2 md:mr-0"
-            aria-label="Next slide"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
-        </>
-      ) : null}
     </div>
   )
 }

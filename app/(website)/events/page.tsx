@@ -72,35 +72,35 @@ export default function EventsCataloguePage() {
 
       <section className="py-12 md:py-16 bg-[#171A26]">
         <div className="container mx-auto px-4 max-w-7xl space-y-8">
-          <div className="flex flex-col md:flex-row gap-3 max-w-3xl">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 max-w-3xl">
             <form
-              className="flex flex-col sm:flex-row gap-2 flex-1"
+              className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1"
               onSubmit={(e) => {
                 e.preventDefault()
                 setSearch(searchInput.trim())
               }}
             >
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 <Input
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   placeholder="Search events…"
-                  className="pl-9 bg-gray-950 border-gray-700 text-white"
+                  className="h-11 pl-10 rounded-lg bg-gray-950/80 border-gray-700 text-white placeholder:text-gray-500 focus-visible:ring-1 focus-visible:ring-[#FFB70F] focus-visible:border-[#FFB70F]"
                 />
               </div>
               <Button
                 type="submit"
-                className="bg-[#FFB70F] hover:bg-[#e0a00d] text-black"
+                className="h-11 px-6 rounded-lg bg-[#FFB70F] hover:bg-[#e0a00d] text-black font-semibold text-sm shrink-0 transition-colors shadow-sm active:scale-95"
               >
                 Search
               </Button>
             </form>
             <Select value={eventType} onValueChange={setEventType}>
-              <SelectTrigger className="w-full md:w-44 bg-gray-950 border-gray-700 text-white">
-                <SelectValue placeholder="Type" />
+              <SelectTrigger className="h-11 w-full sm:w-48 rounded-lg bg-gray-950/80 border-gray-700 text-white px-3.5 focus:ring-1 focus:ring-[#FFB70F] focus:border-[#FFB70F] shrink-0">
+                <SelectValue placeholder="All types" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-gray-900 border-gray-700 text-white">
                 <SelectItem value="all">All types</SelectItem>
                 {ACADEMY_EVENT_TYPES.map((t) => (
                   <SelectItem key={t.value} value={t.value}>
