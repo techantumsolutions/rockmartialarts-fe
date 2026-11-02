@@ -64,14 +64,15 @@ export const apiConfig = getAPIConfig()
  * the browser talks to the backend on another port. In the browser we always use the
  * proxy so requests work without relying on env being set at build time.
  */
-export function getBackendApiUrl(path: string): string {
-  const p = path.startsWith('/') ? path.slice(1) : path
+export function getBackendApiUrl(path: string = ''): string {
+  const raw = path || ''
+  const p = raw.startsWith('/') ? raw.slice(1) : raw
   const useProxy =
     process.env.NEXT_PUBLIC_USE_BACKEND_PROXY === 'true' ||
     typeof window !== 'undefined'
   if (useProxy) {
-    return `/api/backend/${p}`
+    return p ? `/api/backend/${p}` : `/api/backend`
   }
   const base = (process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8003').replace(/\/$/, '')
-  return `${base}/api/${p}`
+  return p ? `${base}/api/${p}` : `${base}/api`
 }

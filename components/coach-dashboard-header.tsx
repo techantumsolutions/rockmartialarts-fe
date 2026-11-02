@@ -23,6 +23,7 @@ import {
   MoreVertical,
   DollarSign,
   ClipboardCheck,
+  CalendarCheck,
   BarChart3,
   Clock,
   CreditCard,
@@ -325,6 +326,13 @@ export default function CoachDashboardHeader({
                         Training Requests
                       </DropdownMenuItem>
                       <DropdownMenuItem
+                        onClick={() => handleDesktopNavigation("/coach-dashboard/my-attendance")}
+                        className="cursor-pointer hover:bg-gray-100/80 rounded-md px-3 py-2.5 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200 flex items-center"
+                      >
+                        <CalendarCheck className="w-4 h-4 mr-2 text-gray-500" />
+                        My Attendance
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
                         onClick={() => handleDesktopNavigation("/coach-dashboard/attendance")}
                         className="cursor-pointer hover:bg-gray-100/80 rounded-md px-3 py-2.5 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200 flex items-center"
                       >
@@ -501,6 +509,24 @@ export default function CoachDashboardHeader({
                           }`}
                         />
                         <span className="truncate">Training Requests</span>
+                      </button>
+                    )}
+
+                    {!isRestricted && (
+                      <button
+                        onClick={() => handleMobileNavigation("/coach-dashboard/my-attendance")}
+                        className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center space-x-3 ${
+                          pathname === "/coach-dashboard/my-attendance"
+                            ? "bg-gradient-to-r from-yellow-50 to-yellow-100/70 text-yellow-900 border-l-4 border-yellow-400 shadow-xs font-semibold"
+                            : "text-gray-700 hover:text-gray-900 hover:bg-gray-100/80"
+                        }`}
+                      >
+                        <CalendarCheck
+                          className={`w-4 h-4 flex-shrink-0 ${
+                            pathname === "/coach-dashboard/my-attendance" ? "text-yellow-600" : "text-gray-500"
+                          }`}
+                        />
+                        <span className="truncate">My Attendance</span>
                       </button>
                     )}
 
