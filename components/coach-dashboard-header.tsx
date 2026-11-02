@@ -27,6 +27,7 @@ import {
   Clock,
   CreditCard,
   UserPlus,
+  ClipboardList,
 } from "lucide-react"
 import { usePermissions } from "@/hooks/use-permissions"
 
@@ -192,6 +193,14 @@ export default function CoachDashboardHeader({
       exact: false,
       description: "Accept or decline leads",
       permissionId: "students",
+    },
+    {
+      name: "Training Requests",
+      path: "/coach-dashboard/training-requests",
+      icon: ClipboardList,
+      exact: false,
+      description: "Assigned training requests",
+      permissionId: "dashboard",
     },
     {
       name: "Subscription",

@@ -71,19 +71,52 @@ export default function CoachDashboard() {
       const coursesData = coachAssignments.courses || []
 
       // 2. Fetch students from branch search & coach endpoints
-      let rawStudents: any[] = []
-      if (coach.branch_id) {
-        try {
-          const res = await fetch(
-            getBackendApiUrl(`search/students?branch_id=${encodeURIComponent(coach.branch_id)}&limit=100`),
-            { headers }
-          )
-          if (res.ok) {
-            const json = await res.json()
-            rawStudents = Array.isArray(json.students) ? json.students : []
+      const studentMap = new Map<string, any>()
+
+      const mergeStudent = (st: any, isFromCoachEndpoint = false) => {
+        const sid = st.id || st.student_id
+        if (!sid) return
+
+        if (!studentMap.has(sid)) {
+          studentMap.set(sid, { ...st })
+        } else {
+          const existing = studentMap.get(sid)
+          const existingCourses = Array.isArray(existing.courses) ? existing.courses : []
+          const newCourses = Array.isArray(st.courses) ? st.courses : []
+          const mergedCourses = [...existingCourses]
+
+          newCourses.forEach((nc: any) => {
+            const ncid = nc.id || nc.course_id
+            if (ncid && !mergedCourses.some((mc: any) => (mc.id || mc.course_id) === ncid)) {
+              mergedCourses.push(nc)
+            }
+          })
+
+          if (st.course_id && !mergedCourses.some((mc: any) => (mc.id || mc.course_id) === st.course_id)) {
+            mergedCourses.push({
+              id: st.course_id,
+              course_id: st.course_id,
+              name: st.course_name,
+              batch_ref: st.batch_ref,
+              batch_name: st.batch_name,
+              branch_id: st.branch_id,
+            })
           }
-        } catch (e) {
-          console.warn("Could not fetch students from branch search:", e)
+
+          studentMap.set(sid, {
+            ...existing,
+            ...st,
+            full_name: st.full_name || st.student_name || existing.full_name || existing.student_name,
+            student_name: st.student_name || st.full_name || existing.student_name || existing.full_name,
+            email: st.email || existing.email,
+            phone: st.phone || existing.phone,
+            course_id: isFromCoachEndpoint ? (st.course_id || existing.course_id) : (existing.course_id || st.course_id),
+            course_name: isFromCoachEndpoint ? (st.course_name || existing.course_name) : (existing.course_name || st.course_name),
+            batch_ref: isFromCoachEndpoint ? (st.batch_ref || existing.batch_ref) : (existing.batch_ref || st.batch_ref),
+            batch_name: isFromCoachEndpoint ? (st.batch_name || existing.batch_name) : (existing.batch_name || st.batch_name),
+            courses: mergedCourses,
+            branches: existing.branches || st.branches,
+          })
         }
       }
 
@@ -92,13 +125,31 @@ export default function CoachDashboard() {
         if (res.ok) {
           const json = await res.json()
           const extra = json.students || json.enrolled_students || []
-          if (Array.isArray(extra) && extra.length > 0) {
-            rawStudents = [...rawStudents, ...extra]
+          if (Array.isArray(extra)) {
+            extra.forEach((s: any) => mergeStudent(s, true))
           }
         }
       } catch (e) {
         console.warn("Could not fetch students from coach endpoint:", e)
       }
+
+      if (coach.branch_id) {
+        try {
+          const res = await fetch(
+            getBackendApiUrl(`search/students?branch_id=${encodeURIComponent(coach.branch_id)}&limit=200`),
+            { headers }
+          )
+          if (res.ok) {
+            const json = await res.json()
+            const students = Array.isArray(json.students) ? json.students : []
+            students.forEach((s: any) => mergeStudent(s, false))
+          }
+        } catch (e) {
+          console.warn("Could not fetch students from branch search:", e)
+        }
+      }
+
+      const rawStudents = Array.from(studentMap.values())
 
       // 3. Filter strictly based on assigned courses and assigned batches in this branch!
       const assignedStudents = filterStudentsForCoach(rawStudents, coachAssignments)

@@ -48,6 +48,14 @@ export type CoachApprovalRow = {
     education_qualification?: string
     designation_id?: string
   }
+  registration_payment?: {
+    fee_amount?: number
+    currency?: string
+    razorpay_payment_id?: string
+    razorpay_order_id?: string
+    payment_status?: string
+    paid_at?: string
+  }
 }
 
 export type ApprovalHistoryEntry = {

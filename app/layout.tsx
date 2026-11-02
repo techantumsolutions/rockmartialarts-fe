@@ -8,6 +8,7 @@ import { Toaster } from '@/components/ui/toaster'
 import AccessibilityProvider from '@/components/accessibility-provider'
 import { FixedTopNavWrapper } from '@/components/FixedTopNavWrapper'
 import { TopNavSpacer } from '@/components/TopNavSpacer'
+import { RouteScrollToTop } from '@/components/layout/RouteScrollToTop'
 import { WhatsAppFloatButton } from '@/components/whatsapp-float-button'
 import './globals.css'
 
@@ -70,6 +71,7 @@ export default function RootLayout({
           <AuthProvider>
             <CMSProvider>
             <RegistrationProvider>
+              <RouteScrollToTop />
               <FixedTopNavWrapper />
               <TopNavSpacer>{children}</TopNavSpacer>
               <WhatsAppFloatButton />

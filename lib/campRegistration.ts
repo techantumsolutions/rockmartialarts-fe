@@ -175,16 +175,31 @@ function req(v: string, label: string): string | null {
 export function validateCampRegSection(form: CampRegistrationForm, tab: CampRegTabId): string | null {
   if (tab === "participant") {
     const p = form.participant
-    return (
-      req(p.full_name, "Full name") ||
-      req(p.date_of_birth, "Date of birth") ||
-      req(p.age, "Age") ||
-      req(p.gender, "Gender") ||
-      req(p.parent_guardian_name, "Parent / guardian name") ||
-      req(p.parent_guardian_mobile, "Parent / guardian mobile") ||
-      req(p.email, "Email") ||
-      req(p.address, "Address")
-    )
+    if (!p.full_name.trim()) return "Full name is required"
+    if (!p.date_of_birth.trim()) return "Date of birth is required"
+    const dobParts = p.date_of_birth.split("-")
+    const birthYear = dobParts[0]
+    if (!birthYear || birthYear.length !== 4) {
+      return "Date of birth year must be exactly 4 digits"
+    }
+    const birthYearNum = parseInt(birthYear, 10)
+    const currentYear = new Date().getFullYear()
+    if (isNaN(birthYearNum) || birthYearNum < 1900 || birthYearNum > currentYear) {
+      return `Birth year must be between 1900 and ${currentYear}`
+    }
+    if (!p.age.trim()) return "Age is required"
+    if (!p.gender.trim()) return "Gender is required"
+    if (!p.parent_guardian_name.trim()) return "Parent / guardian name is required"
+    const cleanMobile = p.parent_guardian_mobile.replace(/\D/g, "")
+    if (!cleanMobile) return "Parent / guardian mobile is required"
+    if (cleanMobile.length !== 10) return "Parent / guardian mobile must be a valid 10-digit number"
+    if (p.alternate_contact.trim()) {
+      const cleanAlt = p.alternate_contact.replace(/\D/g, "")
+      if (cleanAlt.length !== 10) return "Alternate contact must be a valid 10-digit number"
+    }
+    if (!p.email.trim()) return "Email is required"
+    if (!p.address.trim()) return "Address is required"
+    return null
   }
   if (tab === "training") {
     const t = form.training
@@ -216,7 +231,16 @@ export function validateCampRegSection(form: CampRegistrationForm, tab: CampRegT
   }
   if (tab === "emergency") {
     const e = form.emergency
-    return req(e.name, "Emergency contact") || req(e.relationship, "Relationship") || req(e.phone, "Emergency number")
+    if (!e.name.trim()) return "Emergency contact name is required"
+    if (!e.relationship.trim()) return "Relationship is required"
+    const cleanPhone = e.phone.replace(/\D/g, "")
+    if (!cleanPhone) return "Emergency contact number is required"
+    if (cleanPhone.length !== 10) return "Emergency contact number must be a valid 10-digit number"
+    if (e.alternate_phone.trim()) {
+      const cleanAltEmergency = e.alternate_phone.replace(/\D/g, "")
+      if (cleanAltEmergency.length !== 10) return "Alternate emergency number must be a valid 10-digit number"
+    }
+    return null
   }
   if (tab === "residential") {
     if (!form.residential.attended_before) return "Select whether attended a camp before"

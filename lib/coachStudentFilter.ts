@@ -164,10 +164,21 @@ export function isStudentAssignedToCoach(
 
   // Check which of the coach's courses match this student
   let matchingCourse: CoachAssignedCourse | null = null
-  for (const cid of studentCourseIds) {
-    if (coachCourseMap.has(cid)) {
-      matchingCourse = coachCourseMap.get(cid)!
-      break
+
+  // If a specific course is selected in the filter, prioritize matching that course
+  if (selectedCourseId && selectedCourseId !== "all") {
+    if (coachCourseMap.has(String(selectedCourseId)) && studentCourseIds.has(String(selectedCourseId))) {
+      matchingCourse = coachCourseMap.get(String(selectedCourseId))!
+    }
+  }
+
+  // Otherwise, match any of the coach's courses that the student is enrolled in
+  if (!matchingCourse) {
+    for (const cid of studentCourseIds) {
+      if (coachCourseMap.has(cid)) {
+        matchingCourse = coachCourseMap.get(cid)!
+        break
+      }
     }
   }
 
@@ -207,18 +218,35 @@ export function isStudentAssignedToCoach(
   }
 
   // 3. Batch verification
-  // Extract all batch refs associated with student
+  // Extract batch refs associated with student specifically for this matching course
   const studentBatchRefs = new Set<string>()
-  if (student.batch_ref) studentBatchRefs.add(String(student.batch_ref).trim())
-  if (student.course?.batch_ref) studentBatchRefs.add(String(student.course.batch_ref).trim())
-  if (student.batch_id) studentBatchRefs.add(String(student.batch_id).trim())
-  if (student.batch_name) studentBatchRefs.add(String(student.batch_name).trim().toLowerCase())
+
+  // Check matching course object from student.courses array first
   if (Array.isArray(student.courses)) {
-    student.courses.forEach((c: any) => {
+    const matchingStudentCourses = student.courses.filter(
+      (c: any) =>
+        String(c?.id || c?.course_id || "").trim() === String(matchingCourse.id) ||
+        String(c?.id || c?.course_id || "").trim() === String(matchingCourse.course_id) ||
+        String(c?.name || c?.course_name || "").trim().toLowerCase() === matchingCourse.name.trim().toLowerCase()
+    )
+    matchingStudentCourses.forEach((c: any) => {
       if (c.batch_ref) studentBatchRefs.add(String(c.batch_ref).trim())
       if (c.batch_id) studentBatchRefs.add(String(c.batch_id).trim())
       if (c.batch_name) studentBatchRefs.add(String(c.batch_name).trim().toLowerCase())
     })
+  }
+
+  // If student record itself directly points to matchingCourse (e.g. from coaches/{id}/students)
+  const isDirectCourseMatch =
+    String(student.course_id || student.course?.course_id || student.course?.id || "").trim() === String(matchingCourse.id) ||
+    String(student.course_id || student.course?.course_id || student.course?.id || "").trim() === String(matchingCourse.course_id) ||
+    String(student.course_name || student.course?.name || "").trim().toLowerCase() === matchingCourse.name.trim().toLowerCase()
+
+  if (isDirectCourseMatch || studentBatchRefs.size === 0) {
+    if (student.batch_ref) studentBatchRefs.add(String(student.batch_ref).trim())
+    if (student.course?.batch_ref) studentBatchRefs.add(String(student.course.batch_ref).trim())
+    if (student.batch_id) studentBatchRefs.add(String(student.batch_id).trim())
+    if (student.batch_name) studentBatchRefs.add(String(student.batch_name).trim().toLowerCase())
   }
 
   const assignedBatches = matchingCourse.batches || []
@@ -259,14 +287,14 @@ export function isStudentAssignedToCoach(
         }
       }
 
-      // If student has NO batch_ref recorded at all in DB:
-      // Include student only if this coach is the sole coach or assigned to all batches of the course
+      // If student has NO specific batch_ref recorded at all in DB (or is unassigned):
+      // Include student since they are enrolled in the coach's assigned course
       if (!matchesAnyCoachBatch) {
-        if (studentBatchRefs.size === 0) {
-          // Check if coach is assigned to batches of this course
+        const hasSpecificBatch = Array.from(studentBatchRefs).some(
+          (ref) => ref && ref !== "__unassigned__" && ref !== "unassigned"
+        )
+        if (!hasSpecificBatch) {
           matchesAnyCoachBatch = true
-        } else {
-          return false
         }
       }
 

@@ -46,6 +46,8 @@ interface Student {
   progress?: number
   attendance_percentage?: number
   status?: string
+  courses?: any[]
+  raw_student?: any
 }
 
 export default function StudentsListPage() {
@@ -91,7 +93,14 @@ export default function StudentsListPage() {
     if (selectedCourse === "all") {
       const allBatches: CoachAssignedBatch[] = []
       coachAssignments.courses.forEach((c) => allBatches.push(...c.batches))
-      setAvailableBatches(allBatches)
+      const seen = new Set<string>()
+      const uniqueBatches = allBatches.filter((b) => {
+        const id = b.id || b.batch_id
+        if (!id || seen.has(id)) return false
+        seen.add(id)
+        return true
+      })
+      setAvailableBatches(uniqueBatches)
     } else {
       const course = coachAssignments.courses.find(
         (c) => c.id === selectedCourse || c.course_id === selectedCourse
@@ -113,8 +122,33 @@ export default function StudentsListPage() {
       searchTerm: searchTerm,
     })
 
-    setFilteredStudents(filtered)
-  }, [searchTerm, selectedCourse, selectedBatch, allAssignedStudents, coachAssignments])
+    // If a specific course is selected, ensure the displayed course_name and batch match the selected course
+    const adjusted = filtered.map((s) => {
+      if (selectedCourse && selectedCourse !== "all" && Array.isArray(s.courses)) {
+        const matching = s.courses.find(
+          (c: any) =>
+            String(c?.id || c?.course_id || "").trim() === String(selectedCourse)
+        )
+        if (matching) {
+          const bRef = matching.batch_ref || s.batch_ref
+          const bName =
+            matching.batch_name ||
+            (bRef ? availableBatches.find((b) => b.id === bRef || b.batch_id === bRef)?.batch_name : null) ||
+            s.batch_name
+          return {
+            ...s,
+            course_name: matching.name || matching.course_name || s.course_name,
+            course_id: matching.id || matching.course_id || s.course_id,
+            batch_ref: bRef,
+            batch_name: bName,
+          }
+        }
+      }
+      return s
+    })
+
+    setFilteredStudents(adjusted)
+  }, [searchTerm, selectedCourse, selectedBatch, allAssignedStudents, coachAssignments, availableBatches])
 
   // Refresh function
   const handleRefresh = async () => {
@@ -154,11 +188,83 @@ export default function StudentsListPage() {
         return
       }
 
-      // 2. Fetch students from branch search via getBackendApiUrl
-      let rawStudents: any[] = []
+      // 2. Fetch students: merge coach-specific endpoint and branch search endpoint
+      const studentMap = new Map<string, any>()
+
+      const mergeStudent = (st: any, isFromCoachEndpoint = false) => {
+        const sid = st.id || st.student_id
+        if (!sid) return
+
+        if (!studentMap.has(sid)) {
+          studentMap.set(sid, { ...st })
+        } else {
+          const existing = studentMap.get(sid)
+          const existingCourses = Array.isArray(existing.courses) ? existing.courses : []
+          const newCourses = Array.isArray(st.courses) ? st.courses : []
+          const mergedCourses = [...existingCourses]
+
+          newCourses.forEach((nc: any) => {
+            const ncid = nc.id || nc.course_id
+            if (ncid && !mergedCourses.some((mc: any) => (mc.id || mc.course_id) === ncid)) {
+              mergedCourses.push(nc)
+            }
+          })
+
+          if (st.course_id && !mergedCourses.some((mc: any) => (mc.id || mc.course_id) === st.course_id)) {
+            mergedCourses.push({
+              id: st.course_id,
+              course_id: st.course_id,
+              name: st.course_name,
+              batch_ref: st.batch_ref,
+              batch_name: st.batch_name,
+              branch_id: st.branch_id,
+            })
+          }
+
+          studentMap.set(sid, {
+            ...existing,
+            ...st,
+            full_name: st.full_name || st.student_name || existing.full_name || existing.student_name,
+            student_name: st.student_name || st.full_name || existing.student_name || existing.full_name,
+            email: st.email || existing.email,
+            phone: st.phone || existing.phone,
+            course_id: isFromCoachEndpoint ? (st.course_id || existing.course_id) : (existing.course_id || st.course_id),
+            course_name: isFromCoachEndpoint ? (st.course_name || existing.course_name) : (existing.course_name || st.course_name),
+            batch_ref: isFromCoachEndpoint ? (st.batch_ref || existing.batch_ref) : (existing.batch_ref || st.batch_ref),
+            batch_name: isFromCoachEndpoint ? (st.batch_name || existing.batch_name) : (existing.batch_name || st.batch_name),
+            courses: mergedCourses,
+            branches: existing.branches || st.branches,
+          })
+        }
+      }
+
+      // Fetch from coach/students endpoint first (it has specific course/batch info for this coach)
+      try {
+        const coachStudentsRes = await fetch(
+          getBackendApiUrl(`coaches/${encodeURIComponent(coach.id)}/students`),
+          {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        )
+        if (coachStudentsRes.ok) {
+          const csData = await coachStudentsRes.json()
+          const extra = csData.students || csData.enrolled_students || []
+          if (Array.isArray(extra)) {
+            extra.forEach((s: any) => mergeStudent(s, true))
+          }
+        }
+      } catch (e) {
+        console.warn("Could not fetch from coach endpoint:", e)
+      }
+
+      // Fetch students from branch search via getBackendApiUrl
       try {
         const response = await fetch(
-          getBackendApiUrl(`search/students?branch_id=${encodeURIComponent(branchId)}&limit=100`),
+          getBackendApiUrl(`search/students?branch_id=${encodeURIComponent(branchId)}&limit=200`),
           {
             method: 'GET',
             headers: {
@@ -176,7 +282,10 @@ export default function StudentsListPage() {
 
         if (response.ok) {
           const data = await response.json()
-          rawStudents = data.students || []
+          const searchStudents = data.students || []
+          if (Array.isArray(searchStudents)) {
+            searchStudents.forEach((s: any) => mergeStudent(s, false))
+          }
         } else {
           console.warn(`search/students returned ${response.status}, trying fallback endpoints`)
         }
@@ -184,31 +293,8 @@ export default function StudentsListPage() {
         console.warn("Error fetching from search/students:", err)
       }
 
-      // Also fetch from coach/students endpoint to ensure completeness
-      try {
-        const coachStudentsRes = await fetch(
-          getBackendApiUrl(`coaches/${encodeURIComponent(coach.id)}/students`),
-          {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        )
-        if (coachStudentsRes.ok) {
-          const csData = await coachStudentsRes.json()
-          const extra = csData.students || csData.enrolled_students || []
-          if (Array.isArray(extra) && extra.length > 0) {
-            rawStudents = [...rawStudents, ...extra]
-          }
-        }
-      } catch (e) {
-        console.warn("Could not fetch from coach endpoint:", e)
-      }
-
-      // Fallback to attendance endpoint if rawStudents is still empty
-      if (rawStudents.length === 0) {
+      // Fallback to attendance endpoint if studentMap is still empty
+      if (studentMap.size === 0) {
         try {
           const todayStr = new Date().toISOString().split('T')[0]
           const attRes = await fetch(
@@ -223,12 +309,17 @@ export default function StudentsListPage() {
           )
           if (attRes.ok) {
             const attData = await attRes.json()
-            rawStudents = attData.students || []
+            const attStudents = attData.students || []
+            if (Array.isArray(attStudents)) {
+              attStudents.forEach((s: any) => mergeStudent(s, false))
+            }
           }
         } catch (e) {
           console.warn("Could not fetch from attendance endpoint fallback:", e)
         }
       }
+
+      const rawStudents = Array.from(studentMap.values())
 
       // 3. Filter strictly based on assigned courses and assigned batches in this branch!
       const assigned = filterStudentsForCoach(rawStudents, assignments)
@@ -240,18 +331,46 @@ export default function StudentsListPage() {
         if (b.batch_id) batchNameMap.set(b.batch_id, b.batch_name)
       })
 
+      const coachCourseIds = new Set(
+        assignments.courses.map((c) => String(c.course_id || c.id).trim())
+      )
+      const coachCourseNames = new Set(
+        assignments.courses.map((c) => c.name.trim().toLowerCase())
+      )
+
       // 4. Transform data into Student format
       const transformedStudents: Student[] = assigned.map((student: any) => {
-        const primaryCourse = student.courses?.[0]
+        // Find matching course for this coach
+        let matchingCourse = Array.isArray(student.courses)
+          ? student.courses.find(
+              (c: any) =>
+                coachCourseIds.has(String(c?.id || c?.course_id || "").trim()) ||
+                coachCourseNames.has(String(c?.name || c?.course_name || "").trim().toLowerCase())
+            )
+          : null
+
+        if (!matchingCourse) {
+          if (
+            coachCourseIds.has(String(student.course_id || student.course?.course_id || student.course?.id || "").trim()) ||
+            coachCourseNames.has(String(student.course_name || student.course?.name || "").trim().toLowerCase())
+          ) {
+            matchingCourse = student.course || student
+          } else {
+            matchingCourse = student.courses?.[0] || student.course || student
+          }
+        }
+
         const studentBatchRef =
+          matchingCourse?.batch_ref ||
           student.batch_ref ||
-          primaryCourse?.batch_ref ||
+          student.batch_id ||
           student.course?.batch_ref ||
+          student.courses?.[0]?.batch_ref ||
           ""
 
         const resolvedBatchName =
+          matchingCourse?.batch_name ||
           student.batch_name ||
-          primaryCourse?.batch_name ||
           (studentBatchRef ? batchNameMap.get(studentBatchRef) : null) ||
           ""
 
@@ -265,15 +384,17 @@ export default function StudentsListPage() {
           date_of_birth: student.date_of_birth,
           gender: student.gender,
           is_active: student.is_active,
-          enrollment_date: primaryCourse?.enrollment_date || student.enrollment_date,
-          course_name: primaryCourse?.name || primaryCourse?.course_name || student.course_name,
-          course_id: primaryCourse?.id || primaryCourse?.course_id || student.course_id,
+          enrollment_date: matchingCourse?.enrollment_date || student.enrollment_date,
+          course_name: matchingCourse?.name || matchingCourse?.course_name || student.course_name,
+          course_id: matchingCourse?.id || matchingCourse?.course_id || student.course_id,
           branch_name: student.branches?.[0]?.name || student.branch_name,
           branch_id: student.branches?.[0]?.id || student.branch_id,
           batch_ref: studentBatchRef,
           batch_name: resolvedBatchName,
-          progress: primaryCourse?.progress ?? student.progress,
+          progress: matchingCourse?.progress ?? student.progress,
           status: student.is_active ? 'active' : 'inactive',
+          courses: student.courses,
+          raw_student: student,
         }
       })
 
@@ -390,64 +511,60 @@ export default function StudentsListPage() {
                   />
                 </div>
 
-                {/* Course Filter Dropdown - show if more than one course assigned */}
-                {coachAssignments && coachAssignments.courses.length > 1 && (
-                  <div className="w-full md:w-56">
-                    <Select
-                      value={selectedCourse}
-                      onValueChange={(val) => {
-                        setSelectedCourse(val)
-                        setSelectedBatch("all")
-                      }}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="All Courses" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Courses</SelectItem>
-                        {coachAssignments.courses.map((course) => (
-                          <SelectItem
-                            key={course.id || course.course_id}
-                            value={course.course_id || course.id}
-                          >
-                            {course.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                {/* Course Filter Dropdown - show courses assigned to this coach with All option */}
+                <div className="w-full md:w-56">
+                  <Select
+                    value={selectedCourse}
+                    onValueChange={(val) => {
+                      setSelectedCourse(val)
+                      setSelectedBatch("all")
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="All Courses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Courses</SelectItem>
+                      {coachAssignments?.courses.map((course) => (
+                        <SelectItem
+                          key={course.id || course.course_id}
+                          value={course.course_id || course.id}
+                        >
+                          {course.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                {/* Batch Filter Dropdown - show if batches are available */}
-                {availableBatches.length > 1 && (
-                  <div className="w-full md:w-64">
-                    <Select
-                      value={selectedBatch}
-                      onValueChange={(val) => setSelectedBatch(val)}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="All Batches" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Batches</SelectItem>
-                        {availableBatches.map((batch) => {
-                          const timeStr =
-                            batch.start_time && batch.end_time
-                              ? ` (${batch.start_time} - ${batch.end_time})`
-                              : ""
-                          return (
-                            <SelectItem
-                              key={batch.id || batch.batch_id}
-                              value={batch.id || batch.batch_id}
-                            >
-                              {batch.batch_name}{timeStr}
-                            </SelectItem>
-                          )
-                        })}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                {/* Batch Filter Dropdown - show batches assigned for selected course with All option */}
+                <div className="w-full md:w-64">
+                  <Select
+                    value={selectedBatch}
+                    onValueChange={(val) => setSelectedBatch(val)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="All Batches" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Batches</SelectItem>
+                      {availableBatches.map((batch) => {
+                        const timeStr =
+                          batch.start_time && batch.end_time
+                            ? ` (${batch.start_time} - ${batch.end_time})`
+                            : ""
+                        return (
+                          <SelectItem
+                            key={batch.id || batch.batch_id}
+                            value={batch.id || batch.batch_id}
+                          >
+                            {batch.batch_name}{timeStr}
+                          </SelectItem>
+                        )
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
 
                 {/* Refresh Button */}
                 <Button

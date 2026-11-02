@@ -1,11 +1,12 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Loader2, Plus, Save, Trash2 } from "lucide-react"
+import { Loader2, Plus, Save, Trash2, Lock, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
 import {
   Select,
   SelectContent,
@@ -36,6 +37,13 @@ import {
 import { getBackendApiUrl } from "@/lib/config"
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import {
+  AssignedBatchInfo,
+  fetchCoachAssignedBatches,
+  checkSlotDeletionConflict,
+  getBatchConflictForSlots,
+  getBatchesCoveredBySlot,
+} from "@/lib/coachBatchConflict"
 
 type Props = {
   /** When omitted, uses /me endpoints (coach self-service). */
@@ -73,6 +81,12 @@ export default function CoachAvailabilityEditor({
   const [slotToDelete, setSlotToDelete] = useState<{ index: number; slot: WeeklySlot } | null>(null)
   const [coachProfile, setCoachProfile] = useState<{ branch_id?: string | null; branch_name?: string } | null>(null)
   const [branchMap, setBranchMap] = useState<Record<string, { name: string; code?: string }>>({})
+  const [assignedBatches, setAssignedBatches] = useState<AssignedBatchInfo[]>([])
+  const [blockedSlotDelete, setBlockedSlotDelete] = useState<{
+    slot: WeeklySlot
+    batch: AssignedBatchInfo
+  } | null>(null)
+  const [conflictWarning, setConflictWarning] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -153,6 +167,20 @@ export default function CoachAvailabilityEditor({
       setNotes(avail.notes || "")
       setTimezone(avail.timezone || opts.timezone_default || "Asia/Kolkata")
       setUpdatedAt(avail.updated_at || null)
+
+      // Fetch assigned batches for this coach to cross-verify availability changes
+      try {
+        const token =
+          BranchManagerAuth.getToken() ||
+          TokenManager.getToken() ||
+          (typeof window !== "undefined"
+            ? localStorage.getItem("access_token") || localStorage.getItem("token") || ""
+            : "")
+        const batches = await fetchCoachAssignedBatches(coachId, token)
+        setAssignedBatches(batches)
+      } catch (bErr) {
+        console.warn("Failed to load coach assigned batches for conflict check:", bErr)
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load availability")
     } finally {
@@ -195,7 +223,19 @@ export default function CoachAvailabilityEditor({
   }
 
   const updateSlot = (index: number, patch: Partial<WeeklySlot>) => {
-    setSlots((prev) => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)))
+    const newSlots = slots.map((s, i) => (i === index ? { ...s, ...patch } : s))
+    setSlots(newSlots)
+
+    // Check if new slots uncover any assigned batch
+    const conflict = getBatchConflictForSlots(assignedBatches, newSlots)
+    if (conflict) {
+      const daysStr = (conflict.days || []).join(", ")
+      setConflictWarning(
+        `This modification leaves batch "${conflict.batch_name}" in "${conflict.course_name}" (${daysStr} ${conflict.start_time} – ${conflict.end_time} at ${conflict.branch_name}) uncovered. Adjust slot hours to cover the batch, or change the coach for that batch first.`
+      )
+    } else {
+      setConflictWarning(null)
+    }
   }
 
   const formatSlotTime = (timeStr?: string): string => {
@@ -209,12 +249,52 @@ export default function CoachAvailabilityEditor({
     return `${String(h).padStart(2, "0")}:${m} ${suffix}`
   }
 
+  const handleDeleteSlotClick = (index: number, slot: WeeklySlot) => {
+    const conflictCheck = checkSlotDeletionConflict(index, slots, assignedBatches)
+    if (!conflictCheck.canDelete && conflictCheck.conflictingBatch) {
+      setBlockedSlotDelete({
+        slot,
+        batch: conflictCheck.conflictingBatch,
+      })
+      const b = conflictCheck.conflictingBatch
+      const daysStr = (b.days || []).join(", ")
+      toast({
+        title: "Cannot delete time slot",
+        description: `This coach is currently assigned to batch "${b.batch_name}" in "${b.course_name}" (${daysStr} ${b.start_time} – ${b.end_time} at ${b.branch_name}). Reassign the coach for that batch first.`,
+        variant: "destructive",
+      })
+      return
+    }
+    setSlotToDelete({ index, slot })
+  }
+
   const removeSlot = (index: number) => {
-    setSlots((prev) => prev.filter((_, i) => i !== index))
+    setSlots((prev) => {
+      const nextSlots = prev.filter((_, i) => i !== index)
+      const conflict = getBatchConflictForSlots(assignedBatches, nextSlots)
+      if (conflict) {
+        const daysStr = (conflict.days || []).join(", ")
+        setConflictWarning(
+          `Changes leave batch "${conflict.batch_name}" in "${conflict.course_name}" (${daysStr} ${conflict.start_time} – ${conflict.end_time} at ${conflict.branch_name}) uncovered.`
+        )
+      } else {
+        setConflictWarning(null)
+      }
+      return nextSlots
+    })
   }
 
   const confirmDeleteSlot = () => {
     if (slotToDelete !== null) {
+      const conflictCheck = checkSlotDeletionConflict(slotToDelete.index, slots, assignedBatches)
+      if (!conflictCheck.canDelete && conflictCheck.conflictingBatch) {
+        setBlockedSlotDelete({
+          slot: slotToDelete.slot,
+          batch: conflictCheck.conflictingBatch,
+        })
+        setSlotToDelete(null)
+        return
+      }
       removeSlot(slotToDelete.index)
       setSlotToDelete(null)
     }
@@ -240,6 +320,21 @@ export default function CoachAvailabilityEditor({
         return
       }
     }
+
+    // Cross-verify all slots cover all assigned batches
+    const conflict = getBatchConflictForSlots(assignedBatches, slots)
+    if (conflict) {
+      const daysStr = (conflict.days || []).join(", ")
+      const msg = `Cannot save availability: The coach is currently assigned to batch "${conflict.batch_name}" in "${conflict.course_name}" (${daysStr} ${conflict.start_time} – ${conflict.end_time} at ${conflict.branch_name}). You must first change the coach for that batch before removing or modifying this availability slot.`
+      setSaveError(msg)
+      toast({
+        title: "Assigned Batch Conflict",
+        description: msg,
+        variant: "destructive",
+      })
+      return
+    }
+
     setSaving(true)
     try {
       const payload = {
@@ -355,71 +450,92 @@ export default function CoachAvailabilityEditor({
           </Button>
         </CardHeader>
         <CardContent className="space-y-4">
+          {conflictWarning && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+              <div>{conflictWarning}</div>
+            </div>
+          )}
+
           {slots.length === 0 ? (
             <p className="text-sm text-gray-500">
               No weekly slots yet. Add slots for the days you are available.
             </p>
           ) : (
-            slots.map((slot, index) => (
-              <div
-                key={slot.id || index}
-                className="grid grid-cols-1 sm:grid-cols-6 lg:grid-cols-[130px_minmax(120px,1fr)_minmax(120px,1fr)_minmax(140px,1.5fr)_auto] gap-3 items-end border rounded-lg p-3 sm:p-4"
-              >
-                <div className="col-span-1 sm:col-span-2 lg:col-span-1">
-                  <Label className="text-xs text-[#6B7A99] mb-1 block">Day</Label>
-                  <Select
-                    value={slot.weekday}
-                    onValueChange={(v) => updateSlot(index, { weekday: v })}
-                  >
-                    <SelectTrigger className="w-full h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {WEEKDAYS.map((d) => (
-                        <SelectItem key={d.value} value={d.value}>
-                          {d.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="col-span-1 sm:col-span-2 lg:col-span-1">
-                  <Label className="text-xs text-[#6B7A99] mb-1 block">Start</Label>
-                  <WeeklySlotTimePicker
-                    value={slot.start_time}
-                    onChange={(val) => updateSlot(index, { start_time: val })}
-                  />
-                </div>
-                <div className="col-span-1 sm:col-span-2 lg:col-span-1">
-                  <Label className="text-xs text-[#6B7A99] mb-1 block">End</Label>
-                  <WeeklySlotTimePicker
-                    value={slot.end_time}
-                    onChange={(val) => updateSlot(index, { end_time: val })}
-                  />
-                </div>
-                <div className="col-span-1 sm:col-span-5 lg:col-span-1">
-                  <Label className="text-xs text-[#6B7A99] mb-1 block">Location</Label>
-                  <div
-                    className="h-9 w-full flex items-center rounded-md border bg-gray-50 px-3 text-sm text-[#4F5077] truncate"
-                    title={allocatedBranchName || "No branch allocated"}
-                  >
-                    {allocatedBranchName || "No branch allocated"}
+            slots.map((slot, index) => {
+              const activeBatches = getBatchesCoveredBySlot(slot, assignedBatches)
+              const hasActiveBatch = activeBatches.length > 0
+
+              return (
+                <div
+                  key={slot.id || index}
+                  className="grid grid-cols-1 sm:grid-cols-6 lg:grid-cols-[130px_minmax(120px,1fr)_minmax(120px,1fr)_minmax(140px,1.5fr)_auto] gap-3 items-end border rounded-lg p-3 sm:p-4"
+                >
+                  <div className="col-span-1 sm:col-span-2 lg:col-span-1">
+                    <Label className="text-xs text-[#6B7A99] mb-1 block">Day</Label>
+                    <Select
+                      value={slot.weekday}
+                      onValueChange={(v) => updateSlot(index, { weekday: v })}
+                    >
+                      <SelectTrigger className="w-full h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {WEEKDAYS.map((d) => (
+                          <SelectItem key={d.value} value={d.value}>
+                            {d.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
+                  <div className="col-span-1 sm:col-span-2 lg:col-span-1">
+                    <Label className="text-xs text-[#6B7A99] mb-1 block">Start</Label>
+                    <WeeklySlotTimePicker
+                      value={slot.start_time}
+                      onChange={(val) => updateSlot(index, { start_time: val })}
+                    />
+                  </div>
+                  <div className="col-span-1 sm:col-span-2 lg:col-span-1">
+                    <Label className="text-xs text-[#6B7A99] mb-1 block">End</Label>
+                    <WeeklySlotTimePicker
+                      value={slot.end_time}
+                      onChange={(val) => updateSlot(index, { end_time: val })}
+                    />
+                  </div>
+                  <div className="col-span-1 sm:col-span-5 lg:col-span-1">
+                    <Label className="text-xs text-[#6B7A99] mb-1 block">Location</Label>
+                    <div
+                      className="h-9 w-full flex items-center rounded-md border bg-gray-50 px-3 text-sm text-[#4F5077] truncate"
+                      title={allocatedBranchName || "No branch allocated"}
+                    >
+                      {allocatedBranchName || "No branch allocated"}
+                    </div>
+                  </div>
+                  <div className="col-span-1 sm:col-span-1 lg:col-span-1 flex justify-end items-center h-9">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteSlotClick(index, slot)}
+                      className="h-9 w-9 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 shrink-0"
+                      title={hasActiveBatch ? "Slot required by assigned batch" : "Remove slot"}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  {hasActiveBatch && (
+                    <div className="col-span-1 sm:col-span-6 lg:col-span-5 pt-1">
+                      <Badge variant="outline" className="text-amber-800 bg-amber-50 border-amber-300 text-xs font-normal gap-1">
+                        <Lock className="w-3 h-3 text-amber-600 inline mr-0.5" />
+                        Assigned to: {activeBatches.map(b => b.batch_name).join(", ")} ({activeBatches[0].course_name})
+                      </Badge>
+                    </div>
+                  )}
                 </div>
-                <div className="col-span-1 sm:col-span-1 lg:col-span-1 flex justify-end items-center h-9">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSlotToDelete({ index, slot })}
-                    className="h-9 w-9 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 shrink-0"
-                    title="Remove slot"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            ))
+              )
+            })
           )}
 
           {/* Week overview */}
@@ -481,6 +597,49 @@ export default function CoachAvailabilityEditor({
               className="bg-red-600 hover:bg-red-700 text-white"
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog shown when deletion is blocked by assigned batch */}
+      <AlertDialog
+        open={blockedSlotDelete !== null}
+        onOpenChange={(open) => !open && setBlockedSlotDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <Lock className="w-5 h-5 text-red-600" />
+              Cannot Delete Time Slot
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 pt-2 text-gray-700 text-sm">
+                <p>
+                  This coach is currently assigned to an active course batch during this time:
+                </p>
+                {blockedSlotDelete && (
+                  <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm">
+                    <p className="font-semibold text-red-900">
+                      {blockedSlotDelete.batch.batch_name} ({blockedSlotDelete.batch.course_name})
+                    </p>
+                    <p className="text-red-700 text-xs mt-1">
+                      Days: {(blockedSlotDelete.batch.days || []).join(", ")} | Time: {blockedSlotDelete.batch.start_time} – {blockedSlotDelete.batch.end_time}
+                    </p>
+                    <p className="text-red-700 text-xs">
+                      Branch: {blockedSlotDelete.batch.branch_name}
+                    </p>
+                  </div>
+                )}
+                <p className="text-xs text-gray-600 font-medium">
+                  You must first reassign or change the coach for this batch in the branch/course schedule before removing this availability slot.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setBlockedSlotDelete(null)} className="bg-[#4F5077] hover:bg-[#3d3e5c]">
+              Understood
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

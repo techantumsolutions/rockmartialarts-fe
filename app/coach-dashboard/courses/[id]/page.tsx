@@ -13,30 +13,39 @@ import {
   Users, 
   Clock, 
   Award, 
-  MapPin,
-  Loader2,
-  Calendar,
-  TrendingUp,
-  Mail,
-  Phone
+  Loader2, 
+  Calendar, 
+  Mail, 
+  Phone 
 } from "lucide-react"
 import CoachDashboardHeader from "@/components/coach-dashboard-header"
 import { checkCoachAuth } from "@/lib/coachAuth"
+import { getBackendApiUrl } from "@/lib/config"
 
 interface CourseDetails {
   id: string
   course_name: string
   course_code?: string
+  title?: string
+  name?: string
+  code?: string
   description?: string
   difficulty_level?: string
-  status: string
-  assigned_date: string
+  status?: string
+  assigned_date?: string
+  created_at?: string
   total_students?: number
   active_students?: number
+  enrolled_students?: number
   branch_name?: string
   category?: string
   syllabus?: string
   equipment_required?: string[]
+  batches?: any[]
+  course_content?: {
+    syllabus?: string
+    equipment_required?: string[]
+  }
   pricing?: {
     currency: string
     amount: number
@@ -45,14 +54,42 @@ interface CourseDetails {
 
 interface EnrolledStudent {
   id: string
+  student_id?: string
   full_name?: string
   student_name?: string  // Backend returns this field
   email: string
   phone?: string
-  enrollment_date: string
-  status: string
+  enrollment_date?: string
+  status?: string
   progress?: number
   attendance_percentage?: number
+  course_id?: string
+  courses?: any[]
+}
+
+function resolveAssignedDate(course: CourseDetails | null, coachData: any): string {
+  if (!course) return ""
+  if (course.assigned_date) return course.assigned_date
+
+  // Extract from batch timestamp if available (e.g. batch-1793167665606)
+  if (Array.isArray(course.batches) && course.batches.length > 0) {
+    for (const b of course.batches) {
+      const bId = String(b.id || b.batch_id || "")
+      const match = bId.match(/batch-(\d{10,13})/)
+      if (match) {
+        const num = Number(match[1])
+        const ms = match[1].length === 10 ? num * 1000 : num
+        const d = new Date(ms)
+        if (!isNaN(d.getTime())) return d.toISOString()
+      }
+    }
+  }
+
+  if (course.created_at) return course.created_at
+  if (coachData?.assignment_details?.join_date) return coachData.assignment_details.join_date
+  if (coachData?.hire_date) return coachData.hire_date
+  if (coachData?.created_at) return coachData.created_at
+  return ""
 }
 
 export default function CourseDetailsPage() {
@@ -90,8 +127,8 @@ export default function CourseDetailsPage() {
       setLoading(true)
       setError(null)
 
-      // Fetch course details from coach courses endpoint
-      const coursesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/coaches/${coachId}/courses`, {
+      // Fetch course details from coach courses endpoint via getBackendApiUrl
+      const coursesResponse = await fetch(getBackendApiUrl(`coaches/${encodeURIComponent(coachId)}/courses`), {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -110,18 +147,27 @@ export default function CourseDetailsPage() {
 
       const coursesData = await coursesResponse.json()
       const courses = coursesData.courses || coursesData.course_assignments || []
-      const courseDetail = courses.find((c: any) => c.id === courseId)
+      const found = courses.find((c: any) => (c.id || c.course_id) === courseId)
       
-      if (!courseDetail) {
+      if (!found) {
         setError("Course not found or not assigned to you")
         setLoading(false)
         return
       }
 
+      const courseDetail: CourseDetails = {
+        ...found,
+        course_name: found.course_name || found.name || found.title || "Course",
+        course_code: found.course_code || found.code || "",
+        status: found.status || (found.settings?.active === false ? "Inactive" : "Active"),
+        syllabus: found.syllabus || found.course_content?.syllabus || "",
+        equipment_required: found.equipment_required || found.course_content?.equipment_required || [],
+      }
+
       setCourse(courseDetail)
 
-      // Fetch students for this course
-      const studentsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/coaches/${coachId}/students`, {
+      // Fetch students for this course via getBackendApiUrl
+      const studentsResponse = await fetch(getBackendApiUrl(`coaches/${encodeURIComponent(coachId)}/students`), {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -133,7 +179,14 @@ export default function CourseDetailsPage() {
         const studentsData = await studentsResponse.json()
         const allStudents = studentsData.students || studentsData.enrolled_students || []
         // Filter students for this specific course
-        const courseStudents = allStudents.filter((s: any) => s.course_id === courseId)
+        const courseStudents = allStudents.filter((s: any) => {
+          const sCourseId = s.course_id || s.courseId
+          if (sCourseId === courseId) return true
+          if (Array.isArray(s.courses)) {
+            return s.courses.some((c: any) => (c.id || c.course_id) === courseId)
+          }
+          return false
+        })
         setStudents(courseStudents)
       }
 
@@ -282,14 +335,25 @@ export default function CourseDetailsPage() {
           </Card>
 
           {/* Course Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             <Card>
               <CardContent className="pt-6">
-                <div className="flex items-center space-x-2">
-                  <Users className="w-5 h-5 text-blue-500" />
+                <div className="flex items-center space-x-3">
+                  <div className="p-2.5 bg-blue-50 rounded-lg">
+                    <Users className="w-5 h-5 text-blue-500" />
+                  </div>
                   <div>
                     <p className="text-2xl font-bold text-blue-600">
-                      {course.active_students || course.total_students || 0}
+                      {(() => {
+                        if (students.length > 0) {
+                          const active = students.filter(s => {
+                            const st = (s.status || '').toLowerCase()
+                            return st === 'active' || !st
+                          }).length
+                          return active || students.length
+                        }
+                        return course.active_students || course.enrolled_students || course.total_students || 0
+                      })()}
                     </p>
                     <p className="text-sm text-gray-500">Active Students</p>
                   </div>
@@ -299,41 +363,20 @@ export default function CourseDetailsPage() {
 
             <Card>
               <CardContent className="pt-6">
-                <div className="flex items-center space-x-2">
-                  <Calendar className="w-5 h-5 text-green-500" />
+                <div className="flex items-center space-x-3">
+                  <div className="p-2.5 bg-green-50 rounded-lg">
+                    <Calendar className="w-5 h-5 text-green-500" />
+                  </div>
                   <div>
                     <p className="text-2xl font-bold text-green-600">
-                      {course.assigned_date ? new Date(course.assigned_date).toLocaleDateString() : 'N/A'}
+                      {(() => {
+                        const rawDate = resolveAssignedDate(course, coachData)
+                        if (!rawDate) return 'N/A'
+                        const d = new Date(rawDate)
+                        return isNaN(d.getTime()) ? 'N/A' : d.toLocaleDateString()
+                      })()}
                     </p>
                     <p className="text-sm text-gray-500">Assigned Date</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center space-x-2">
-                  <MapPin className="w-5 h-5 text-purple-500" />
-                  <div>
-                    <p className="text-lg font-bold text-purple-600">
-                      {course.branch_name || 'N/A'}
-                    </p>
-                    <p className="text-sm text-gray-500">Branch</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center space-x-2">
-                  <TrendingUp className="w-5 h-5 text-orange-500" />
-                  <div>
-                    <p className="text-2xl font-bold text-orange-600">
-                      {course.pricing ? `${course.pricing.currency} ${course.pricing.amount}` : 'N/A'}
-                    </p>
-                    <p className="text-sm text-gray-500">Course Fee</p>
                   </div>
                 </div>
               </CardContent>
@@ -466,7 +509,9 @@ export default function CourseDetailsPage() {
                               </td>
                               <td className="py-3 px-4">
                                 <span className="text-sm text-gray-600">
-                                  {new Date(student.enrollment_date).toLocaleDateString()}
+                                  {student.enrollment_date && !isNaN(new Date(student.enrollment_date).getTime())
+                                    ? new Date(student.enrollment_date).toLocaleDateString()
+                                    : 'N/A'}
                                 </span>
                               </td>
                               <td className="py-3 px-4">

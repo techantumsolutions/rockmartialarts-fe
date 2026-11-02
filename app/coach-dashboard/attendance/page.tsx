@@ -16,6 +16,12 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
   Calendar as CalendarIcon,
   Users,
   CheckCircle,
@@ -128,7 +134,14 @@ export default function CoachAttendancePage() {
     if (selectedCourse === "all") {
       const allBatches: CoachAssignedBatch[] = []
       coachAssignments.courses.forEach((c) => allBatches.push(...c.batches))
-      setAvailableBatches(allBatches)
+      const seen = new Set<string>()
+      const uniqueBatches = allBatches.filter((b) => {
+        const id = b.id || b.batch_id
+        if (!id || seen.has(id)) return false
+        seen.add(id)
+        return true
+      })
+      setAvailableBatches(uniqueBatches)
     } else {
       const course = coachAssignments.courses.find(
         (c) => c.id === selectedCourse || c.course_id === selectedCourse
@@ -212,7 +225,46 @@ export default function CoachAttendancePage() {
       return true
     })
 
-    setFilteredRecords(filtered)
+    // If a specific course is selected, ensure displayed course_name, batch, and status match that course
+    const adjusted = filtered.map((r) => {
+      if (selectedCourse && selectedCourse !== "all" && Array.isArray(r.raw_student?.courses)) {
+        const matching = r.raw_student.courses.find(
+          (c: any) =>
+            String(c?.id || c?.course_id || "").trim() === String(selectedCourse)
+        )
+        if (matching) {
+          const bRef = matching.batch_ref || r.batch_ref
+          const bName =
+            matching.batch_name ||
+            (bRef ? availableBatches.find((b) => b.id === bRef || b.batch_id === bRef)?.batch_name : null) ||
+            r.batch_name
+          const cTargetId = String(matching.id || matching.course_id || "").trim()
+          const cAtt =
+            matching.attendance ||
+            (r.raw_student.attendance_by_course ? r.raw_student.attendance_by_course[cTargetId] : null) ||
+            (r.raw_student.attendance && String(r.raw_student.attendance.course_id || "").trim() === cTargetId ? r.raw_student.attendance : null) ||
+            {}
+          const rawSt = String(cAtt.status || "").toLowerCase()
+          const isMarked = rawSt === "present" || rawSt === "late" || rawSt === "absent"
+
+          return {
+            ...r,
+            course_name: matching.name || matching.course_name || r.course_name,
+            course_id: matching.id || matching.course_id || r.course_id,
+            batch_ref: bRef,
+            batch_name: bName,
+            status: (isMarked ? rawSt : "not_marked") as "present" | "absent" | "late" | "not_marked",
+            already_marked: isMarked,
+            check_in_time: isMarked && cAtt.check_in_time ? new Date(cAtt.check_in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : "",
+            check_out_time: isMarked && cAtt.check_out_time ? new Date(cAtt.check_out_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : "",
+            notes: isMarked ? (cAtt.notes || "") : "",
+          }
+        }
+      }
+      return r
+    })
+
+    setFilteredRecords(adjusted)
   }, [searchTerm, selectedCourse, selectedBatch, attendanceRecords, coachAssignments, availableBatches])
 
   // Recalculate attendance stats dynamically based on filteredRecords
@@ -329,9 +381,11 @@ export default function CoachAttendancePage() {
     }
   }
 
-  const fetchAttendanceData = async (token: string, coach: any) => {
+  const fetchAttendanceData = async (token: string, coach: any, showLoader = true) => {
     try {
-      setLoading(true)
+      if (showLoader) {
+        setLoading(true)
+      }
       setError(null)
 
       const coachId = coach?.id || coach?._id
@@ -383,13 +437,47 @@ export default function CoachAttendancePage() {
         })
       })
 
+      const coachCourseIds = new Set(
+        assignments.courses.map((c) => String(c.course_id || c.id).trim())
+      )
+      const coachCourseNames = new Set(
+        assignments.courses.map((c) => c.name.trim().toLowerCase())
+      )
+
       // Transform assigned students into attendance records
       const records: AttendanceRecord[] = []
 
       for (const student of assignedStudents) {
-        // Get course information
-        const primaryCourse = student.courses?.[0]
-        const attendance = student.attendance || {}
+        // Find matching course for this coach
+        let matchingCourse = Array.isArray(student.courses)
+          ? student.courses.find(
+              (c: any) =>
+                coachCourseIds.has(String(c?.id || c?.course_id || "").trim()) ||
+                coachCourseNames.has(String(c?.name || c?.course_name || "").trim().toLowerCase())
+            )
+          : null
+
+        if (!matchingCourse) {
+          if (
+            coachCourseIds.has(String(student.course_id || student.course?.course_id || student.course?.id || "").trim()) ||
+            coachCourseNames.has(String(student.course_name || student.course?.name || "").trim().toLowerCase())
+          ) {
+            matchingCourse = student.course || student
+          } else {
+            matchingCourse = student.courses?.[0] || student.course || student
+          }
+        }
+
+        const targetCourseId = String(matchingCourse?.id || matchingCourse?.course_id || student.course_id || "").trim()
+
+        // Match attendance specifically for this course
+        const attendance =
+          matchingCourse?.attendance ||
+          (student.attendance_by_course && targetCourseId ? student.attendance_by_course[targetCourseId] : null) ||
+          (student.attendance && (!student.attendance.course_id || String(student.attendance.course_id).trim() === targetCourseId)
+            ? student.attendance
+            : null) ||
+          {}
 
         const rawStatus = String(attendance.status || "").toLowerCase()
         const alreadyMarked =
@@ -397,10 +485,11 @@ export default function CoachAttendancePage() {
 
         // Determine student's batch_ref and batch_name
         const sBatchRef =
+          matchingCourse?.batch_ref ||
           student.batch_ref ||
-          primaryCourse?.batch_ref ||
           student.batch_id ||
           student.course?.batch_ref ||
+          student.courses?.[0]?.batch_ref ||
           ""
 
         let batchDisplayName = ""
@@ -408,6 +497,8 @@ export default function CoachAttendancePage() {
           const bObj = batchLookup.get(sBatchRef)!
           const timeStr = bObj.start_time && bObj.end_time ? ` (${bObj.start_time} - ${bObj.end_time})` : ""
           batchDisplayName = `${bObj.batch_name}${timeStr}`
+        } else if (matchingCourse?.batch_name) {
+          batchDisplayName = matchingCourse.batch_name
         } else if (student.batch_name) {
           batchDisplayName = student.batch_name
         }
@@ -416,8 +507,8 @@ export default function CoachAttendancePage() {
           id: `${student.id}_${selectedDateStr}`,
           student_name: student.full_name || student.name || 'Unknown Student',
           student_id: student.id,
-          course_name: primaryCourse?.name || primaryCourse?.course_name || 'No Course Assigned',
-          course_id: primaryCourse?.id || primaryCourse?.course_id || '',
+          course_name: matchingCourse?.name || matchingCourse?.course_name || student.course_name || 'No Course Assigned',
+          course_id: matchingCourse?.id || matchingCourse?.course_id || student.course_id || '',
           date: selectedDateStr,
           status: (alreadyMarked ? rawStatus : "not_marked") as
             | "present"
@@ -425,19 +516,19 @@ export default function CoachAttendancePage() {
             | "late"
             | "not_marked",
           already_marked: alreadyMarked,
-          check_in_time: attendance.check_in_time ?
+          check_in_time: alreadyMarked && attendance.check_in_time ?
             new Date(attendance.check_in_time).toLocaleTimeString('en-US', {
               hour: '2-digit',
               minute: '2-digit',
               hour12: true
             }) : "",
-          check_out_time: attendance.check_out_time ?
+          check_out_time: alreadyMarked && attendance.check_out_time ?
             new Date(attendance.check_out_time).toLocaleTimeString('en-US', {
               hour: '2-digit',
               minute: '2-digit',
               hour12: true
             }) : "",
-          notes: attendance.notes || "",
+          notes: alreadyMarked ? (attendance.notes || "") : "",
           batch_ref: sBatchRef,
           batch_name: batchDisplayName,
           raw_student: student,
@@ -485,7 +576,9 @@ export default function CoachAttendancePage() {
         })
       }
     } finally {
-      setLoading(false)
+      if (showLoader) {
+        setLoading(false)
+      }
     }
   }
 
@@ -537,11 +630,6 @@ export default function CoachAttendancePage() {
                 ...r,
                 status,
                 already_marked: true,
-                check_in_time: status !== "absent" ? new Date().toLocaleTimeString('en-US', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  hour12: true
-                }) : undefined
               }
             : r
         )
@@ -555,11 +643,6 @@ export default function CoachAttendancePage() {
                 ...r,
                 status,
                 already_marked: true,
-                check_in_time: status !== "absent" ? new Date().toLocaleTimeString('en-US', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  hour12: true
-                }) : undefined
               }
             : r
         )
@@ -662,6 +745,11 @@ export default function CoachAttendancePage() {
           errorCount++
           console.error(`❌ Error saving attendance for ${record.student_name}:`, error)
         }
+      }
+
+      // Re-fetch updated attendance data so the table reflects the fresh state from backend
+      if (authResult.token && authResult.coach) {
+        await fetchAttendanceData(authResult.token, authResult.coach, false)
       }
 
       // Show result message
@@ -1031,64 +1119,60 @@ export default function CoachAttendancePage() {
                 />
               </div>
 
-              {/* Course Filter Dropdown - show if more than one course assigned */}
-              {coachAssignments && coachAssignments.courses.length > 1 && (
-                <div className="w-full sm:w-56">
-                  <Select
-                    value={selectedCourse}
-                    onValueChange={(val) => {
-                      setSelectedCourse(val)
-                      setSelectedBatch("all")
-                    }}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="All Courses" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Courses</SelectItem>
-                      {coachAssignments.courses.map((course) => (
-                        <SelectItem
-                          key={course.id || course.course_id}
-                          value={course.course_id || course.id}
-                        >
-                          {course.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+              {/* Course Filter Dropdown - show courses assigned to this coach with All option */}
+              <div className="w-full sm:w-56">
+                <Select
+                  value={selectedCourse}
+                  onValueChange={(val) => {
+                    setSelectedCourse(val)
+                    setSelectedBatch("all")
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="All Courses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Courses</SelectItem>
+                    {coachAssignments?.courses.map((course) => (
+                      <SelectItem
+                        key={course.id || course.course_id}
+                        value={course.course_id || course.id}
+                      >
+                        {course.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-              {/* Batch Filter Dropdown - show if course has multiple batches */}
-              {availableBatches.length > 1 && (
-                <div className="w-full sm:w-64">
-                  <Select
-                    value={selectedBatch}
-                    onValueChange={(val) => setSelectedBatch(val)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="All Batches" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Batches</SelectItem>
-                      {availableBatches.map((batch) => {
-                        const timeStr =
-                          batch.start_time && batch.end_time
-                            ? ` (${batch.start_time} - ${batch.end_time})`
-                            : ""
-                        return (
-                          <SelectItem
-                            key={batch.id || batch.batch_id}
-                            value={batch.id || batch.batch_id}
-                          >
-                            {batch.batch_name}{timeStr}
-                          </SelectItem>
-                        )
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+              {/* Batch Filter Dropdown - show batches assigned for selected course with All option */}
+              <div className="w-full sm:w-64">
+                <Select
+                  value={selectedBatch}
+                  onValueChange={(val) => setSelectedBatch(val)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="All Batches" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Batches</SelectItem>
+                    {availableBatches.map((batch) => {
+                      const timeStr =
+                        batch.start_time && batch.end_time
+                          ? ` (${batch.start_time} - ${batch.end_time})`
+                          : ""
+                      return (
+                        <SelectItem
+                          key={batch.id || batch.batch_id}
+                          value={batch.id || batch.batch_id}
+                        >
+                          {batch.batch_name}{timeStr}
+                        </SelectItem>
+                      )
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {hasUnsavedChanges && (
@@ -1154,13 +1238,6 @@ export default function CoachAttendancePage() {
                       </div>
                       
                       <div className="flex items-center space-x-4">
-                        {record.check_in_time && (
-                          <div className="text-center">
-                            <p className="text-xs text-gray-500">Check In</p>
-                            <p className="text-sm font-medium">{record.check_in_time}</p>
-                          </div>
-                        )}
-                        
                         {record.check_out_time && (
                           <div className="text-center">
                             <p className="text-xs text-gray-500">Check Out</p>
@@ -1173,31 +1250,48 @@ export default function CoachAttendancePage() {
                         </div>
                         
                         <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant={record.status === "present" ? "default" : "outline"}
-                            onClick={() => handleMarkAttendance(record.id, "present")}
-                            disabled={saveStatus[record.id] === 'saving'}
-                            className={record.status === "present" ? "bg-green-600 hover:bg-green-700" : ""}
-                          >
-                            {saveStatus[record.id] === 'saving' && record.status === "present" ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <CheckCircle className="h-3 w-3" />
-                            )}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant={record.status === "absent" ? "destructive" : "outline"}
-                            onClick={() => handleMarkAttendance(record.id, "absent")}
-                            disabled={saveStatus[record.id] === 'saving'}
-                          >
-                            {saveStatus[record.id] === 'saving' && record.status === "absent" ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <XCircle className="h-3 w-3" />
-                            )}
-                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant={record.status === "present" ? "default" : "outline"}
+                                onClick={() => handleMarkAttendance(record.id, "present")}
+                                disabled={saveStatus[record.id] === 'saving'}
+                                className={record.status === "present" ? "bg-green-600 hover:bg-green-700" : ""}
+                                aria-label="Mark Present"
+                              >
+                                {saveStatus[record.id] === 'saving' && record.status === "present" ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <CheckCircle className="h-3 w-3" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Mark Present</p>
+                            </TooltipContent>
+                          </Tooltip>
+
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant={record.status === "absent" ? "destructive" : "outline"}
+                                onClick={() => handleMarkAttendance(record.id, "absent")}
+                                disabled={saveStatus[record.id] === 'saving'}
+                                aria-label="Mark Absent"
+                              >
+                                {saveStatus[record.id] === 'saving' && record.status === "absent" ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <XCircle className="h-3 w-3" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Mark Absent</p>
+                            </TooltipContent>
+                          </Tooltip>
                         </div>
 
                         {/* Save Status Indicator */}
@@ -1212,13 +1306,21 @@ export default function CoachAttendancePage() {
                           </div>
                         )}
                         
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => router.push(`/coach-dashboard/students/${record.student_id}`)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => router.push(`/coach-dashboard/students/${record.student_id}`)}
+                              aria-label="View Student Details"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>View Student Details</p>
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
                     </div>
                   ))
@@ -1264,13 +1366,6 @@ export default function CoachAttendancePage() {
                           </div>
 
                           <div className="flex items-center space-x-4">
-                            {record.check_in_time && (
-                              <div className="text-center">
-                                <p className="text-xs text-gray-500">Check In</p>
-                                <p className="text-sm font-medium">{record.check_in_time}</p>
-                              </div>
-                            )}
-
                             {record.check_out_time && (
                               <div className="text-center">
                                 <p className="text-xs text-gray-500">Check Out</p>
@@ -1289,13 +1384,21 @@ export default function CoachAttendancePage() {
                               </div>
                             )}
 
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => router.push(`/coach-dashboard/students/${record.student_id}`)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => router.push(`/coach-dashboard/students/${record.student_id}`)}
+                                  aria-label="View Student Details"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>View Student Details</p>
+                              </TooltipContent>
+                            </Tooltip>
                           </div>
                         </div>
                       ))

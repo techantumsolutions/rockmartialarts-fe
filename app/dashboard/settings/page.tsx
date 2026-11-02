@@ -71,7 +71,10 @@ export default function SuperAdminSettingsPage() {
     // Backup Settings
     auto_backup: true,
     backup_frequency: "daily",
-    backup_retention: "30"
+    backup_retention: "30",
+
+    registration_fee: 500,
+    coach_registration_fee: 0
   })
 
   useEffect(() => {
@@ -107,6 +110,10 @@ export default function SuperAdminSettingsPage() {
           typeof settingsData.registration_fee === "number" && !Number.isNaN(settingsData.registration_fee)
             ? settingsData.registration_fee
             : 500,
+        coach_registration_fee:
+          typeof settingsData.coach_registration_fee === "number" && !Number.isNaN(settingsData.coach_registration_fee)
+            ? settingsData.coach_registration_fee
+            : 0,
       })
       setLoading(false)
     } catch (error) {
@@ -159,6 +166,10 @@ export default function SuperAdminSettingsPage() {
 
     if (typeof settings.registration_fee !== "number" || settings.registration_fee < 0 || Number.isNaN(settings.registration_fee)) {
       newErrors.registration_fee = "Registration fee must be a number ≥ 0"
+    }
+
+    if (typeof settings.coach_registration_fee !== "number" || settings.coach_registration_fee < 0 || Number.isNaN(settings.coach_registration_fee)) {
+      newErrors.coach_registration_fee = "Coach registration fee must be a number ≥ 0"
     }
 
     setErrors(newErrors)
@@ -369,25 +380,48 @@ export default function SuperAdminSettingsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="max-w-md">
-                <Label htmlFor="registration_fee" className="text-sm font-medium text-gray-700">
-                  Registration fee (INR)
-                </Label>
-                <Input
-                  id="registration_fee"
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={settings.registration_fee}
-                  onChange={(e) => handleInputChange("registration_fee", parseFloat(e.target.value) || 0)}
-                  className={errors.registration_fee ? "border-red-500" : ""}
-                />
-                {errors.registration_fee && (
-                  <p className="mt-1 text-sm text-red-600">{errors.registration_fee}</p>
-                )}
-                <p className="mt-1 text-xs text-gray-500">
-                  Default admission/registration amount on the public registration payment page (unless overridden per branch).
-                </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="registration_fee" className="text-sm font-medium text-gray-700">
+                    Registration fee (INR)
+                  </Label>
+                  <Input
+                    id="registration_fee"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={settings.registration_fee}
+                    onChange={(e) => handleInputChange("registration_fee", parseFloat(e.target.value) || 0)}
+                    className={errors.registration_fee ? "border-red-500" : ""}
+                  />
+                  {errors.registration_fee && (
+                    <p className="mt-1 text-sm text-red-600">{errors.registration_fee}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Default admission/registration amount on the public registration payment page (unless overridden per branch).
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="coach_registration_fee" className="text-sm font-medium text-gray-700">
+                    Coach registration fee (INR)
+                  </Label>
+                  <Input
+                    id="coach_registration_fee"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={settings.coach_registration_fee}
+                    onChange={(e) => handleInputChange("coach_registration_fee", parseFloat(e.target.value) || 0)}
+                    className={errors.coach_registration_fee ? "border-red-500" : ""}
+                  />
+                  {errors.coach_registration_fee && (
+                    <p className="mt-1 text-sm text-red-600">{errors.coach_registration_fee}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Fee collected via Razorpay on the public coach registration page (set to 0 for free registration).
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>

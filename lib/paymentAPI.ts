@@ -26,6 +26,12 @@ export interface PaymentStats {
   total_revenue: number
   payment_count: number
   average_payment: number
+  /** Physical hand cash revenue breakdown */
+  hand_cash_revenue?: number
+  period_hand_cash_revenue?: number
+  online_revenue?: number
+  period_online_revenue?: number
+  hand_cash_count?: number
   /** Paid payments in the selected date range */
   period_payment_count?: number
   /** Distinct students with a paid payment in the selected range */

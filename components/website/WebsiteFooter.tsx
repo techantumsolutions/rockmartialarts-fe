@@ -86,7 +86,7 @@ export function WebsiteFooter() {
 
           <div className="lg:col-span-3">
             <h6 className="text-[#FFB70F] font-semibold uppercase tracking-wide mb-4">Our Service</h6>
-            <ul className="list-none space-y-2">
+            <ul className="grid grid-cols-2 gap-x-4 gap-y-2 list-none">
               {courses.length > 0
                 ? courses.map((c) => (
                     <li key={c.id}>

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Search, Edit, Trash2, RefreshCw, Eye } from "lucide-react"
+import { Search, Edit, Trash2, RefreshCw, Eye, UserPlus } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
@@ -511,9 +511,10 @@ export default function BranchManagerStudentList() {
             </Button>
             <Button
               onClick={() => router.push("/branch-manager-dashboard/create-student")}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-medium px-4 sm:px-6 min-h-[40px] rounded-lg flex items-center space-x-2"
             >
-              Add Student
+              <UserPlus className="w-4 h-4 text-gray-900" />
+              <span>Add Student</span>
             </Button>
           </div>
         </div>
