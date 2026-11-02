@@ -89,6 +89,23 @@ function filterCoursesForParentCategory(
   )
 }
 
+/** Only categories that have at least one assignable course (keeps Rock masters out of empty partner orgs). */
+function categoriesForAssignableCourses(
+  allCategories: Category[],
+  assignableCourses: Course[]
+): Category[] {
+  if (!assignableCourses.length) return []
+  const courseCatIds = new Set(
+    assignableCourses.map((c) => c.category_id).filter(Boolean)
+  )
+  return allCategories.filter((parent) => {
+    if (parent.parent_category_id) return false
+    if (courseCatIds.has(parent.id)) return true
+    const subIds = parent.subcategories || []
+    return subIds.some((s) => courseCatIds.has(s.id))
+  })
+}
+
 interface CourseBatch {
   id: string
   start_time: string
@@ -471,14 +488,25 @@ export default function EditBranch() {
         setIsLoading(false)
       }
 
-      // Load courses
+      const token = TokenManager.getToken()
+      const authHeaders = {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        'Content-Type': 'application/json',
+      }
+
+      let loadedCourses: Course[] = []
+      // Load courses via authenticated API so partner orgs only see their own courses
       try {
         setIsLoadingCourses(true)
-        const coursesResponse = await fetch(getBackendApiUrl('courses/public/all'))
+        const coursesResponse = await fetch(
+          getBackendApiUrl('courses?active_only=true&limit=500'),
+          { headers: authHeaders }
+        )
         if (coursesResponse.ok) {
           const coursesData = await coursesResponse.json()
-          setCourses(coursesData.courses || [])
-          setFilteredCourses(coursesData.courses || [])
+          loadedCourses = coursesData.courses || []
+          setCourses(loadedCourses)
+          setFilteredCourses(loadedCourses)
         }
       } catch (error) {
         console.error('Error loading courses:', error)
@@ -486,13 +514,17 @@ export default function EditBranch() {
         setIsLoadingCourses(false)
       }
 
-      // Load categories
+      // Categories are Rock masters; for assignments only show ones that have assignable courses
       try {
         setIsLoadingCategories(true)
-        const categoriesResponse = await fetch(getBackendApiUrl('categories/public/all'))
+        const categoriesResponse = await fetch(
+          getBackendApiUrl('categories?active_only=true&include_subcategories=true&limit=200'),
+          { headers: authHeaders }
+        )
         if (categoriesResponse.ok) {
           const categoriesData = await categoriesResponse.json()
-          setCategories(categoriesData.categories || [])
+          const allCats: Category[] = categoriesData.categories || []
+          setCategories(categoriesForAssignableCourses(allCats, loadedCourses))
         }
       } catch (error) {
         console.error('Error loading categories:', error)
@@ -830,8 +862,6 @@ export default function EditBranch() {
 
     if (!formData.branch.name) newErrors.branchName = "Branch name is required"
     if (!formData.branch.code) newErrors.branchCode = "Branch code is required"
-    if (!formData.branch.email) newErrors.email = "Email is required"
-    if (!formData.branch.phone) newErrors.phone = "Phone is required"
     if (!formData.location_id) newErrors.location = "Location is required"
     if (!formData.manager_id) newErrors.manager = "Manager is required"
     if (!formData.branch.address.line1) newErrors.addressLine1 = "Address is required"
@@ -1193,7 +1223,7 @@ export default function EditBranch() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email *</Label>
+                  <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
                     type="email"
@@ -1202,13 +1232,13 @@ export default function EditBranch() {
                       ...formData,
                       branch: { ...formData.branch, email: e.target.value }
                     })}
-                    placeholder="branch@example.com"
+                    placeholder="Optional"
                   />
                   {errors.email && <p className="text-xs text-red-500">{errors.email}</p>}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Phone *</Label>
+                  <Label htmlFor="phone">Phone</Label>
                   <Input
                     id="phone"
                     value={formData.branch.phone}
@@ -1216,7 +1246,7 @@ export default function EditBranch() {
                       ...formData,
                       branch: { ...formData.branch, phone: e.target.value }
                     })}
-                    placeholder="+91 XXXXXXXXXX"
+                    placeholder="Optional"
                   />
                   {errors.phone && <p className="text-xs text-red-500">{errors.phone}</p>}
                 </div>
@@ -1615,9 +1645,7 @@ export default function EditBranch() {
                                     )}
                                   </div>
                                   <div className="space-y-2 col-span-full">
-                                    <Label className="text-xs text-gray-600 font-medium">
-                                      Duration Pricing (₹) <span className="text-red-500">*</span>
-                                    </Label>
+                                    <Label className="text-xs text-gray-600 font-medium">Duration Pricing (₹)</Label>
                                     <div className="space-y-2">
                                       {masterDurations.map((dur) => {
                                         const fpd = batch.fee_per_duration || {}

@@ -545,7 +545,7 @@ export default function ChampionsAdminPage() {
                   {champions.map((c) => (
                     <div
                       key={c.id}
-                      className="rounded-md border border-gray-100 bg-white px-3 py-3 flex flex-wrap gap-3"
+                      className="rounded-md border border-gray-100 bg-white px-3 py-3 flex flex-wrap items-center gap-3"
                     >
                       {c.photo_url ? (
                         <div className="w-16 h-16 shrink-0 overflow-hidden rounded-full bg-gray-100">
@@ -596,9 +596,9 @@ export default function ChampionsAdminPage() {
                           ].join(" · ")}
                         </p>
                       </div>
-                      <div className="flex flex-col gap-2 shrink-0 items-end">
+                      <div className="flex shrink-0 items-center gap-2 self-center">
                         {c.status !== "archived" ? (
-                          <label className="flex items-center gap-2 text-xs text-gray-600">
+                          <label className="flex h-8 items-center gap-2 text-xs text-gray-600 whitespace-nowrap">
                             <Switch
                               checked={c.status === "published"}
                               disabled={saving}
@@ -607,26 +607,25 @@ export default function ChampionsAdminPage() {
                             Published
                           </label>
                         ) : null}
-                        <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8"
+                          onClick={() => startEdit(c)}
+                        >
+                          Edit
+                        </Button>
+                        {c.status !== "archived" ? (
                           <Button
                             size="sm"
-                            variant="outline"
-                            onClick={() => startEdit(c)}
+                            variant="ghost"
+                            className="h-8 text-red-600"
+                            disabled={saving}
+                            onClick={() => void archive(c.id)}
                           >
-                            Edit
+                            Archive
                           </Button>
-                          {c.status !== "archived" ? (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-red-600"
-                              disabled={saving}
-                              onClick={() => void archive(c.id)}
-                            >
-                              Archive
-                            </Button>
-                          ) : null}
-                        </div>
+                        ) : null}
                       </div>
                     </div>
                   ))}

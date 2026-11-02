@@ -646,12 +646,17 @@ export default function AddCoachPage() {
       try {
         setIsLoadingCourses(true)
 
-        // Use public endpoint for courses (no authentication required)
-        const coursesResponse = await fetch(getBackendApiUrl('courses/public/all'), {
-          headers: {
-            'Content-Type': 'application/json'
+        // Authenticated list so partner orgs only see their own courses
+        const token = TokenManager.getToken()
+        const coursesResponse = await fetch(
+          getBackendApiUrl('courses?active_only=true&limit=500'),
+          {
+            headers: {
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              'Content-Type': 'application/json',
+            },
           }
-        })
+        )
 
         if (coursesResponse.ok) {
           const coursesData = await coursesResponse.json()

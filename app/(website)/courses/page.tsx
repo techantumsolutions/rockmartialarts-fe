@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useEffect, useLayoutEffect, useState, useCallback, useRef } from "react"
 import { Loader2, ArrowRight } from "lucide-react"
 import { toCourseSlug } from "@/lib/course-slug"
 import { SafeImage } from "@/components/ui/safe-image"
@@ -18,23 +18,128 @@ type CourseItem = {
   page_content?: { hero_section?: { hero_image?: string } }
 }
 
+const STORAGE_CACHE_KEY = "rma_courses_cache_v1"
+const STORAGE_SCROLL_KEY = "rma_courses_scroll_y"
+
+// In-memory cache across client-side route transitions
+let memoryCoursesCache: CourseItem[] | null = null
+
+function getInitialCourses(): CourseItem[] {
+  if (memoryCoursesCache && memoryCoursesCache.length > 0) {
+    return memoryCoursesCache
+  }
+  if (typeof window !== "undefined") {
+    try {
+      const saved = sessionStorage.getItem(STORAGE_CACHE_KEY)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          memoryCoursesCache = parsed
+          return parsed
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return []
+}
+
 function getCourseImage(c: CourseItem): string | null {
   return c.media_resources?.course_image_url || c.page_content?.hero_section?.hero_image || null
 }
 
 export default function CoursesPage() {
-  const [courses, setCourses] = useState<CourseItem[]>([])
-  const [loading, setLoading] = useState(true)
+  const [courses, setCourses] = useState<CourseItem[]>(getInitialCourses)
+  const [loading, setLoading] = useState<boolean>(() => courses.length === 0)
+  const restoredScrollRef = useRef(false)
+
+  // Save scroll position
+  const saveCurrentScroll = useCallback(() => {
+    if (typeof window !== "undefined") {
+      try {
+        sessionStorage.setItem(STORAGE_SCROLL_KEY, String(window.scrollY))
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [])
+
+  // Restore scroll position immediately when courses are ready
+  useLayoutEffect(() => {
+    if (typeof window === "undefined" || courses.length === 0 || restoredScrollRef.current) return
+
+    try {
+      const savedY = sessionStorage.getItem(STORAGE_SCROLL_KEY)
+      if (savedY !== null) {
+        const y = parseInt(savedY, 10)
+        if (!isNaN(y) && y > 0) {
+          restoredScrollRef.current = true
+          window.scrollTo({ top: y, behavior: "instant" as ScrollBehavior })
+          requestAnimationFrame(() => {
+            window.scrollTo({ top: y, behavior: "instant" as ScrollBehavior })
+          })
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [courses.length])
+
+  // Track scroll position on user scrolling
+  useEffect(() => {
+    let timeoutId: any
+    const handleScroll = () => {
+      clearTimeout(timeoutId)
+      timeoutId = setTimeout(() => {
+        if (window.scrollY > 0) {
+          try {
+            sessionStorage.setItem(STORAGE_SCROLL_KEY, String(window.scrollY))
+          } catch {
+            /* ignore */
+          }
+        }
+      }, 100)
+    }
+
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => {
+      clearTimeout(timeoutId)
+      window.removeEventListener("scroll", handleScroll)
+    }
+  }, [])
 
   useEffect(() => {
+    let cancelled = false
     fetch("/api/backend/courses/public/all", { headers: { "Content-Type": "application/json" } })
       .then((res) => (res.ok ? res.json() : Promise.resolve({ courses: [] })))
       .then((data) => {
+        if (cancelled) return
         const list = data.courses ?? data ?? []
-        setCourses(Array.isArray(list) ? list : [])
+        if (Array.isArray(list) && list.length > 0) {
+          memoryCoursesCache = list
+          try {
+            sessionStorage.setItem(STORAGE_CACHE_KEY, JSON.stringify(list))
+          } catch {
+            /* ignore */
+          }
+          setCourses(list)
+        } else if (!memoryCoursesCache || memoryCoursesCache.length === 0) {
+          setCourses([])
+        }
       })
-      .catch(() => setCourses([]))
-      .finally(() => setLoading(false))
+      .catch(() => {
+        if (!cancelled && (!memoryCoursesCache || memoryCoursesCache.length === 0)) {
+          setCourses([])
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   return (
@@ -56,10 +161,10 @@ export default function CoursesPage() {
       </section>
 
       {/* Courses grid from API */}
-      <section className="py-16 md:py-20 bg-[#171A26]">
+      <section className="py-16 md:py-20 bg-[#171A26] min-h-[60vh]">
         <div className="container mx-auto px-4 max-w-7xl">
           {loading ? (
-            <div className="flex justify-center py-16">
+            <div className="flex justify-center py-24">
               <Loader2 className="w-10 h-10 animate-spin text-[#FFB70F]" />
             </div>
           ) : courses.length === 0 ? (
@@ -76,6 +181,7 @@ export default function CoursesPage() {
                   <Link
                     key={c.id}
                     href={`/courses/${toCourseSlug(c)}`}
+                    onClick={saveCurrentScroll}
                     className="group flex h-full flex-col rounded-xl border border-gray-800 bg-gray-900/50 overflow-hidden hover:border-[#FFB70F] transition-colors"
                   >
                     <div className="aspect-[4/3] bg-gray-800 overflow-hidden">

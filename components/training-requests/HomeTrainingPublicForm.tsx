@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react"
 import Link from "next/link"
-import { CheckCircle2, Loader2, Home } from "lucide-react"
+import { CheckCircle2, Loader2, Home, CreditCard } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,6 +15,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { trainingRequestAPI } from "@/lib/trainingRequestAPI"
+import { settingsAPI } from "@/lib/settingsAPI"
+import { openRazorpayCheckout } from "@/lib/razorpay"
 
 type BranchOpt = { id: string; name: string }
 
@@ -64,6 +66,15 @@ const INITIAL: FormState = {
   special_requirements: "",
 }
 
+function formatInr(n?: number | null) {
+  if (n == null) return "—"
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(n)
+}
+
 function getBranchName(b: Record<string, unknown>): string {
   const nested = b.branch as { name?: string } | undefined
   return nested?.name || (b.name as string) || (b.code as string) || "Branch"
@@ -72,6 +83,7 @@ function getBranchName(b: Record<string, unknown>): string {
 export default function HomeTrainingPublicForm() {
   const [form, setForm] = useState<FormState>(INITIAL)
   const [branches, setBranches] = useState<BranchOpt[]>([])
+  const [trainingFee, setTrainingFee] = useState<number>(0)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submittedId, setSubmittedId] = useState<string | null>(null)
@@ -83,6 +95,14 @@ export default function HomeTrainingPublicForm() {
   }, [submittedId])
 
   useEffect(() => {
+    settingsAPI
+      .getPublicSettings()
+      .then((s) => {
+        const fee = Number(s.home_training_fee ?? s.homeTrainingFee ?? 0)
+        if (!Number.isNaN(fee)) setTrainingFee(fee)
+      })
+      .catch(() => {})
+
     fetch("/api/branches/public", { headers: { "Content-Type": "application/json" } })
       .then((res) => (res.ok ? res.json() : Promise.resolve({ branches: [] })))
       .then((data) => {
@@ -123,6 +143,46 @@ export default function HomeTrainingPublicForm() {
     return null
   }
 
+  const sendSubmission = async (paymentDetails?: {
+    razorpay_order_id?: string
+    razorpay_payment_id?: string
+    razorpay_signature?: string
+  }) => {
+    const branch = branches.find((b) => b.id === form.branch_id)
+    const age = form.participant_age ? parseInt(form.participant_age, 10) : undefined
+    const result = await trainingRequestAPI.submitHome({
+      contact_name: form.contact_name.trim(),
+      contact_phone: form.contact_phone.trim(),
+      contact_email: form.contact_email.trim() || undefined,
+      branch_id: form.branch_id || undefined,
+      branch_name: branch?.name,
+      source: "website",
+      notes: form.notes.trim() || undefined,
+      razorpay_order_id: paymentDetails?.razorpay_order_id,
+      razorpay_payment_id: paymentDetails?.razorpay_payment_id,
+      razorpay_signature: paymentDetails?.razorpay_signature,
+      details: {
+        participant_name: form.participant_name.trim(),
+        participant_age: age,
+        participant_phone: form.participant_phone.trim(),
+        participant_email: form.participant_email.trim() || undefined,
+        number_of_participants: parseInt(form.number_of_participants || "1", 10),
+        address_line1: form.address_line1.trim(),
+        address_line2: form.address_line2.trim() || undefined,
+        city: form.city.trim(),
+        state: form.state.trim(),
+        pincode: form.pincode.trim() || undefined,
+        preferred_date: form.preferred_date || undefined,
+        preferred_time: form.preferred_time.trim() || undefined,
+        training_type: form.training_type.trim() || undefined,
+        training_goals: form.training_goals.trim() || undefined,
+        special_requirements: form.special_requirements.trim() || undefined,
+      },
+    })
+    setSubmittedId(result.request?.id || "ok")
+    setForm(INITIAL)
+  }
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -131,41 +191,57 @@ export default function HomeTrainingPublicForm() {
       setError(v)
       return
     }
-    const branch = branches.find((b) => b.id === form.branch_id)
+
     setSubmitting(true)
     try {
-      const age = form.participant_age ? parseInt(form.participant_age, 10) : undefined
-      const result = await trainingRequestAPI.submitHome({
+      const orderData = await trainingRequestAPI.createOrder({
+        type: "home",
         contact_name: form.contact_name.trim(),
-        contact_phone: form.contact_phone.trim(),
         contact_email: form.contact_email.trim() || undefined,
-        branch_id: form.branch_id || undefined,
-        branch_name: branch?.name,
-        source: "website",
-        notes: form.notes.trim() || undefined,
-        details: {
-          participant_name: form.participant_name.trim(),
-          participant_age: age,
-          participant_phone: form.participant_phone.trim(),
-          participant_email: form.participant_email.trim() || undefined,
-          number_of_participants: parseInt(form.number_of_participants || "1", 10),
-          address_line1: form.address_line1.trim(),
-          address_line2: form.address_line2.trim() || undefined,
-          city: form.city.trim(),
-          state: form.state.trim(),
-          pincode: form.pincode.trim() || undefined,
-          preferred_date: form.preferred_date || undefined,
-          preferred_time: form.preferred_time.trim() || undefined,
-          training_type: form.training_type.trim() || undefined,
-          training_goals: form.training_goals.trim() || undefined,
-          special_requirements: form.special_requirements.trim() || undefined,
-        },
+        contact_phone: form.contact_phone.trim(),
       })
-      setSubmittedId(result.request?.id || "ok")
-      setForm(INITIAL)
+
+      if (orderData.fee_required && orderData.order_id) {
+        if (orderData.amount_inr && orderData.amount_inr !== trainingFee) {
+          setTrainingFee(orderData.amount_inr)
+        }
+        await openRazorpayCheckout({
+          amountPaise: orderData.amount_paise || 0,
+          razorpayKeyId: orderData.key_id || "",
+          currency: orderData.currency || "INR",
+          name: "Rock Martial Arts",
+          description: "Home Training Request Fee",
+          customerName: form.contact_name.trim(),
+          customerEmail: form.contact_email.trim(),
+          customerContact: form.contact_phone.trim(),
+          orderId: orderData.order_id,
+          onSuccess: async (rpResponse) => {
+            try {
+              await sendSubmission({
+                razorpay_order_id: rpResponse.razorpay_order_id,
+                razorpay_payment_id: rpResponse.razorpay_payment_id,
+                razorpay_signature: rpResponse.razorpay_signature,
+              })
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Payment succeeded but request submission failed")
+            } finally {
+              setSubmitting(false)
+            }
+          },
+          onDismiss: () => {
+            setSubmitting(false)
+          },
+          onPaymentFailure: (err) => {
+            setError(err?.description || "Payment failed. Please try again.")
+            setSubmitting(false)
+          },
+        })
+      } else {
+        await sendSubmission()
+        setSubmitting(false)
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to submit request")
-    } finally {
+      setError(err instanceof Error ? err.message : "Failed to process request")
       setSubmitting(false)
     }
   }
@@ -202,6 +278,18 @@ export default function HomeTrainingPublicForm() {
 
   return (
     <form onSubmit={onSubmit} className="w-full space-y-8">
+      {trainingFee > 0 && (
+        <div className="rounded-xl border border-[#FFB70F]/30 bg-[#FFB70F]/10 p-5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <CreditCard className="w-6 h-6 text-[#FFB70F]" />
+            <div>
+              <p className="text-sm text-gray-300">Home Training Fee</p>
+              <p className="text-2xl font-bold text-[#FFB70F]">{formatInr(trainingFee)}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 md:p-8 space-y-5">
         <div className="flex items-center gap-3 mb-1">
           <div className="w-10 h-10 rounded-lg bg-[#FFB70F]/10 flex items-center justify-center">
@@ -227,28 +315,28 @@ export default function HomeTrainingPublicForm() {
           </div>
           <div className="space-y-2">
             <Label className="text-gray-300">
-              Phone <span className="text-[#FFB70F]">*</span>
+              Phone number <span className="text-[#FFB70F]">*</span>
             </Label>
             <Input
               value={form.contact_phone}
               onChange={set("contact_phone")}
               className={fieldClass}
-              placeholder="Mobile number"
+              placeholder="10-digit mobile number"
               required
             />
           </div>
           <div className="space-y-2">
-            <Label className="text-gray-300">Email</Label>
+            <Label className="text-gray-300">Email address</Label>
             <Input
               type="email"
               value={form.contact_email}
               onChange={set("contact_email")}
               className={fieldClass}
-              placeholder="Optional"
+              placeholder="name@example.com"
             />
           </div>
           <div className="space-y-2">
-            <Label className="text-gray-300">Preferred branch</Label>
+            <Label className="text-gray-300">Nearest branch (optional)</Label>
             <Select
               value={form.branch_id || "none"}
               onValueChange={(v) =>
@@ -256,7 +344,7 @@ export default function HomeTrainingPublicForm() {
               }
             >
               <SelectTrigger className={`h-10 ${fieldClass}`}>
-                <SelectValue placeholder="Select branch (optional)" />
+                <SelectValue placeholder="Select branch" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">No preference</SelectItem>
@@ -274,12 +362,12 @@ export default function HomeTrainingPublicForm() {
       <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 md:p-8 space-y-5">
         <div>
           <h2 className="text-lg font-semibold text-white">Participant &amp; location</h2>
-          <p className="text-sm text-gray-400">Who will train and where</p>
+          <p className="text-sm text-gray-400">Who is training and where</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label className="text-gray-300">
-              Participant name <span className="text-[#FFB70F]">*</span>
+              Primary participant name <span className="text-[#FFB70F]">*</span>
             </Label>
             <Input
               value={form.participant_name}
@@ -297,7 +385,7 @@ export default function HomeTrainingPublicForm() {
               value={form.participant_age}
               onChange={set("participant_age")}
               className={fieldClass}
-              placeholder="Optional"
+              placeholder="e.g. 12"
             />
           </div>
           <div className="space-y-2">
@@ -308,6 +396,7 @@ export default function HomeTrainingPublicForm() {
               value={form.participant_phone}
               onChange={set("participant_phone")}
               className={fieldClass}
+              placeholder="Can be same as contact phone"
               required
             />
           </div>
@@ -339,7 +428,7 @@ export default function HomeTrainingPublicForm() {
               value={form.address_line1}
               onChange={set("address_line1")}
               className={fieldClass}
-              placeholder="House / flat, street"
+              placeholder="House / flat no., apartment, street"
               required
             />
           </div>
@@ -374,25 +463,16 @@ export default function HomeTrainingPublicForm() {
       <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 md:p-8 space-y-5">
         <div>
           <h2 className="text-lg font-semibold text-white">Training preferences</h2>
-          <p className="text-sm text-gray-400">Preferred schedule and goals</p>
+          <p className="text-sm text-gray-400">Goals, style, and schedule</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label className="text-gray-300">Preferred date</Label>
+            <Label className="text-gray-300">Preferred start date</Label>
             <Input
               type="date"
-              min="2000-01-01"
-              max="9999-12-31"
               value={form.preferred_date}
-              onChange={(e) => {
-                let v = e.target.value
-                const m = /^(\d+)-(\d{2})-(\d{2})$/.exec(v)
-                if (m && m[1].length > 4) {
-                  v = `${m[1].slice(0, 4)}-${m[2]}-${m[3]}`
-                }
-                setForm((prev) => ({ ...prev, preferred_date: v }))
-              }}
-              className={`${fieldClass} home-training-preferred-date`}
+              onChange={set("preferred_date")}
+              className={fieldClass}
             />
           </div>
           <div className="space-y-2">
@@ -401,16 +481,16 @@ export default function HomeTrainingPublicForm() {
               value={form.preferred_time}
               onChange={set("preferred_time")}
               className={fieldClass}
-              placeholder="e.g. Morning / 10:00 AM"
+              placeholder="e.g. 7:00 AM / Weekends"
             />
           </div>
           <div className="space-y-2 md:col-span-2">
-            <Label className="text-gray-300">Training type</Label>
+            <Label className="text-gray-300">Discipline / training type</Label>
             <Input
               value={form.training_type}
               onChange={set("training_type")}
               className={fieldClass}
-              placeholder="e.g. Karate, self-defense, fitness"
+              placeholder="e.g. Karate, Taekwondo, Self-Defense, Fitness"
             />
           </div>
           <div className="space-y-2 md:col-span-2">
@@ -419,7 +499,7 @@ export default function HomeTrainingPublicForm() {
               value={form.training_goals}
               onChange={set("training_goals")}
               className={`min-h-[80px] ${fieldClass}`}
-              placeholder="What would you like to achieve?"
+              placeholder="Fitness, belt grading, competition prep, discipline, etc."
             />
           </div>
           <div className="space-y-2 md:col-span-2">
@@ -457,8 +537,10 @@ export default function HomeTrainingPublicForm() {
           {submitting ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Submitting…
+              Processing…
             </>
+          ) : trainingFee > 0 ? (
+            `Pay ${formatInr(trainingFee)} & Submit Request`
           ) : (
             "Submit home training request"
           )}

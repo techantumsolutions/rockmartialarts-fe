@@ -14,8 +14,25 @@ import { TokenManager } from "@/lib/tokenManager"
 import { SuperAdminAuth } from "@/lib/auth"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { useToast } from "@/hooks/use-toast"
-import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
+import { useDashboardBasePath, useDashboardRole } from "@/lib/useDashboardBasePath"
 import { getBackendApiUrl } from "@/lib/config"
+
+function isBranchManagersAdminAuthenticated(): boolean {
+  if (SuperAdminAuth.isAuthenticated()) return true
+  if (!TokenManager.isAuthenticated()) return false
+  const role = String(TokenManager.getUser()?.role || "").toLowerCase()
+  return (
+    role === "partner_super_admin" ||
+    role === "super_admin" ||
+    role === "superadmin"
+  )
+}
+
+function getBranchManagersAdminToken(): string | null {
+  if (SuperAdminAuth.isAuthenticated()) return SuperAdminAuth.getToken()
+  if (isBranchManagersAdminAuthenticated()) return TokenManager.getToken()
+  return TokenManager.getToken() || SuperAdminAuth.getToken()
+}
 
 interface BranchManager {
   id: string
@@ -48,6 +65,7 @@ interface BranchManager {
 export default function BranchManagersListPage() {
   const router = useRouter()
   const basePath = useDashboardBasePath()
+  const dashboardRole = useDashboardRole()
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [showDeletePopup, setShowDeletePopup] = useState(false)
@@ -66,6 +84,16 @@ export default function BranchManagersListPage() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 15
+
+  const redirectToLogin = () => {
+    if (dashboardRole === "partner_super_admin") {
+      const slug =
+        typeof window !== "undefined" ? localStorage.getItem("partner_slug") : null
+      router.push(slug ? `/partners/${slug}/login` : "/login")
+      return
+    }
+    router.push("/superadmin/login")
+  }
 
   // Branch admin cannot access branch managers list — redirect to branch admin dashboard
   useEffect(() => {
@@ -95,19 +123,19 @@ useEffect(() => {
         }
       }
 
-      // 🔹 Step 2: Superadmin auth check
-      if (!SuperAdminAuth.isAuthenticated()) {
-        console.log("❌ Superadmin not authenticated")
-        router.push("/superadmin/login")
+      // 🔹 Step 2: Rock SA or Partner Super Admin auth
+      if (!isBranchManagersAdminAuthenticated()) {
+        console.log("❌ Admin not authenticated")
+        redirectToLogin()
         return
       }
 
-      const token = SuperAdminAuth.getToken()
+      const token = getBranchManagersAdminToken()
       console.log("🔑 Token available:", !!token)
 
       if (!token) {
         console.log("❌ No authentication token found")
-        router.push("/superadmin/login")
+        redirectToLogin()
         return
       }
 
@@ -181,7 +209,7 @@ useEffect(() => {
       setError(errorMessage)
 
       if (errorMessage.includes("Authentication token not found") || errorMessage.includes("Not authenticated")) {
-        router.push("/superadmin/login")
+        redirectToLogin()
       }
     } finally {
       setLoading(false)
@@ -206,9 +234,9 @@ useEffect(() => {
         // Enhanced authentication debugging
         console.log("🔍 Starting delete operation for branch manager:", selectedManager)
 
-        const token = SuperAdminAuth.getToken()
-        const user = SuperAdminAuth.getCurrentUser()
-        const isAuth = SuperAdminAuth.isAuthenticated()
+        const token = getBranchManagersAdminToken()
+        const user = SuperAdminAuth.getCurrentUser() || TokenManager.getUser()
+        const isAuth = isBranchManagersAdminAuthenticated()
 
         console.log("Authentication status:", {
           hasToken: !!token,
@@ -300,9 +328,9 @@ useEffect(() => {
     try {
       setIsSendingCredentials(true)
 
-      const token = SuperAdminAuth.getToken()
+      const token = getBranchManagersAdminToken()
 
-      if (!token || !SuperAdminAuth.isAuthenticated()) {
+      if (!token || !isBranchManagersAdminAuthenticated()) {
         throw new Error("Authentication token not found. Please login again.")
       }
 
@@ -341,9 +369,9 @@ useEffect(() => {
 
   const toggleManagerStatus = async (managerId: string, currentStatus: boolean) => {
     try {
-      const token = SuperAdminAuth.getToken()
+      const token = getBranchManagersAdminToken()
 
-      if (!token || !SuperAdminAuth.isAuthenticated()) {
+      if (!token || !isBranchManagersAdminAuthenticated()) {
         throw new Error("Authentication token not found. Please login again.")
       }
 
@@ -458,7 +486,7 @@ const filteredManagers = branchManagers.filter((manager) => {
                   <div className="flex gap-3 mt-4">
                     {error.includes('Authentication') ? (
                       <Button
-                        onClick={() => router.push('/superadmin/login')}
+                        onClick={() => redirectToLogin()}
                         className="bg-blue-600 hover:bg-blue-700 text-white"
                       >
                         Go to Superadmin Login
