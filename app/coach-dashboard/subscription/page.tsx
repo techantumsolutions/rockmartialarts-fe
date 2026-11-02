@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import CoachDashboardHeader from "@/components/coach-dashboard-header"
 import { checkCoachAuth } from "@/lib/coachAuth"
+import { refreshCoachSubscriptionStatus } from "@/lib/coachSubscriptionGuard"
 import { openRazorpayCheckout } from "@/lib/razorpay"
 import {
   coachSubscriptionAPI,
@@ -47,6 +48,7 @@ export default function CoachSubscriptionPage() {
   const [plans, setPlans] = useState<CoachSubscriptionPlan[]>([])
   const [sub, setSub] = useState<CoachSubscription | null>(null)
   const [history, setHistory] = useState<SubscriptionPayment[]>([])
+  const [regSource, setRegSource] = useState<string>("admin")
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -75,6 +77,7 @@ export default function CoachSubscriptionPage() {
       setPlans(planData.plans || [])
       setSub(me.subscription)
       setHistory(hist.payments || [])
+      setRegSource((me.registration_source || "admin").toLowerCase())
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load subscription")
     } finally {
@@ -114,7 +117,19 @@ export default function CoachSubscriptionPage() {
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
             })
-            toast({ title: "Subscription activated" })
+            try {
+              const rawCoach = localStorage.getItem("coach")
+              if (rawCoach) {
+                const coachObj = JSON.parse(rawCoach)
+                coachObj.subscription_status = "active"
+                coachObj.is_active = true
+                localStorage.setItem("coach", JSON.stringify(coachObj))
+              }
+            } catch {
+              // ignore
+            }
+            await refreshCoachSubscriptionStatus()
+            toast({ title: "Subscription activated", description: "Full dashboard access has been restored." })
             await load()
           } catch (err) {
             toast({
@@ -166,6 +181,20 @@ export default function CoachSubscriptionPage() {
           <CardContent>
             {loading ? (
               <p className="text-sm text-gray-500">Loading…</p>
+            ) : regSource !== "self" ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="bg-green-50 text-green-800 border-green-200">
+                    Exempt from Subscription
+                  </Badge>
+                </div>
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-900">
+                  <p className="font-medium">Administrator Assigned Coach</p>
+                  <p className="text-xs text-blue-700 mt-1">
+                    As an administrator-assigned coach, your account does not require a subscription and maintains continuous full dashboard access.
+                  </p>
+                </div>
+              </div>
             ) : !sub ? (
               <p className="text-sm text-[#6B7A99]">
                 No subscription yet. Choose a plan below to get started.

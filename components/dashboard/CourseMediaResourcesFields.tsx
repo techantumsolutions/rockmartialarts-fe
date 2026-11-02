@@ -54,11 +54,19 @@ function UploadButton({
   )
 }
 
-function RemoveButton({ onClick }: { onClick: () => void }) {
+function RemoveButton({
+  onClick,
+  confirmMessage,
+}: {
+  onClick: () => void
+  confirmMessage: string
+}) {
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={() => {
+        if (window.confirm(confirmMessage)) onClick()
+      }}
       className="inline-flex items-center gap-1 rounded-md border px-3 py-2 text-sm text-red-600 hover:bg-red-50"
     >
       <X className="w-4 h-4" />
@@ -127,7 +135,12 @@ export function CourseMediaResourcesFields({ value, onChange }: CourseMediaResou
               uploading={uploading === "image"}
               onFile={(file) => void runUpload("image", file)}
             />
-            {value.imageUrl ? <RemoveButton onClick={() => onChange({ imageUrl: "" })} /> : null}
+            {value.imageUrl ? (
+              <RemoveButton
+                confirmMessage="Remove this course image?"
+                onClick={() => onChange({ imageUrl: "" })}
+              />
+            ) : null}
           </div>
         </div>
 
@@ -151,7 +164,12 @@ export function CourseMediaResourcesFields({ value, onChange }: CourseMediaResou
               uploading={uploading === "video"}
               onFile={onPromoVideo}
             />
-            {value.videoUrl ? <RemoveButton onClick={() => onChange({ videoUrl: "" })} /> : null}
+            {value.videoUrl ? (
+              <RemoveButton
+                confirmMessage="Remove this promotional video?"
+                onClick={() => onChange({ videoUrl: "" })}
+              />
+            ) : null}
           </div>
         </div>
 
@@ -171,7 +189,10 @@ export function CourseMediaResourcesFields({ value, onChange }: CourseMediaResou
               onFile={(file) => void runUpload("poster", file)}
             />
             {value.videoPosterUrl ? (
-              <RemoveButton onClick={() => onChange({ videoPosterUrl: "" })} />
+              <RemoveButton
+                confirmMessage="Remove this video poster?"
+                onClick={() => onChange({ videoPosterUrl: "" })}
+              />
             ) : null}
           </div>
         </div>

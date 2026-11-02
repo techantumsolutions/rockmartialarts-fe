@@ -9,6 +9,17 @@ import {
   ToggleLeft,
   ToggleRight,
   XCircle,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Briefcase,
+  Award,
+  CreditCard,
+  Calendar,
+  AlertTriangle,
+  FileText,
+  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,10 +33,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import {
   approvalStatusLabel,
   coachApprovalAPI,
@@ -83,11 +103,19 @@ export default function CoachApprovalsAdminPage() {
   const [summary, setSummary] = useState<ApprovalSummary | null>(null)
   const limit = 25
 
+  // Detailed Coach Modal State
   const [detail, setDetail] = useState<CoachApprovalRow | null>(null)
   const [history, setHistory] = useState<ApprovalHistoryEntry[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [note, setNote] = useState("")
+  const [rowSavingId, setRowSavingId] = useState<string | null>(null)
+
+  // Rejection Dialog State (mandatory reason)
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false)
+  const [coachToReject, setCoachToReject] = useState<CoachApprovalRow | null>(null)
+  const [rejectionReason, setRejectionReason] = useState("")
+  const [rejectionError, setRejectionError] = useState<string | null>(null)
+  const [rejectSaving, setRejectSaving] = useState(false)
 
   const ensureAuth = () => {
     const token = BranchManagerAuth.getToken() || TokenManager.getToken()
@@ -137,7 +165,6 @@ export default function CoachApprovalsAdminPage() {
 
   const openDetail = async (coach: CoachApprovalRow) => {
     setDetail(coach)
-    setNote("")
     setDetailLoading(true)
     try {
       const data = await coachApprovalAPI.detail(coach.id)
@@ -145,7 +172,7 @@ export default function CoachApprovalsAdminPage() {
       setHistory(data.approval_history || [])
     } catch (e) {
       toast({
-        title: "Could not load details",
+        title: "Could not load full details",
         description: e instanceof Error ? e.message : "Error",
         variant: "destructive",
       })
@@ -156,9 +183,13 @@ export default function CoachApprovalsAdminPage() {
   }
 
   const refreshDetail = async (coachId: string) => {
-    const data = await coachApprovalAPI.detail(coachId)
-    setDetail(data.coach)
-    setHistory(data.approval_history || [])
+    try {
+      const data = await coachApprovalAPI.detail(coachId)
+      setDetail(data.coach)
+      setHistory(data.approval_history || [])
+    } catch {
+      // ignore
+    }
     await load()
   }
 
@@ -166,9 +197,11 @@ export default function CoachApprovalsAdminPage() {
     if (!detail) return
     setSaving(true)
     try {
-      await coachApprovalAPI.approve(detail.id, note.trim() || undefined)
-      toast({ title: "Coach approved", description: "They can now sign in." })
-      setNote("")
+      await coachApprovalAPI.approve(detail.id)
+      toast({
+        title: "Coach approved",
+        description: "Approval and password setup email sent to the coach.",
+      })
       await refreshDetail(detail.id)
     } catch (e) {
       toast({
@@ -181,22 +214,73 @@ export default function CoachApprovalsAdminPage() {
     }
   }
 
-  const handleReject = async () => {
-    if (!detail) return
-    setSaving(true)
+  const handleRowApprove = async (coachId: string) => {
+    setRowSavingId(coachId)
     try {
-      await coachApprovalAPI.reject(detail.id, note.trim() || undefined)
-      toast({ title: "Registration rejected" })
-      setNote("")
-      await refreshDetail(detail.id)
+      await coachApprovalAPI.approve(coachId)
+      toast({
+        title: "Coach approved",
+        description: "Approval and password setup email sent to the coach.",
+      })
+      if (detail?.id === coachId) {
+        await refreshDetail(coachId)
+      } else {
+        await load()
+      }
     } catch (e) {
       toast({
-        title: "Reject failed",
+        title: "Approve failed",
         description: e instanceof Error ? e.message : "Error",
         variant: "destructive",
       })
     } finally {
-      setSaving(false)
+      setRowSavingId(null)
+    }
+  }
+
+  const openRejectModal = (coach: CoachApprovalRow, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation()
+    setCoachToReject(coach)
+    setRejectionReason("")
+    setRejectionError(null)
+    setIsRejectModalOpen(true)
+  }
+
+  const handleConfirmReject = async () => {
+    if (!coachToReject) return
+    const reason = rejectionReason.trim()
+    if (!reason) {
+      setRejectionError("Please specify a reason for rejecting this application.")
+      return
+    }
+
+    setRejectSaving(true)
+    setRejectionError(null)
+    try {
+      await coachApprovalAPI.reject(coachToReject.id, reason)
+      toast({
+        title: "Application rejected",
+        description: "Rejection notification with reason sent to the coach.",
+      })
+      setIsRejectModalOpen(false)
+      const rejectedId = coachToReject.id
+      setCoachToReject(null)
+      setRejectionReason("")
+
+      if (detail?.id === rejectedId) {
+        await refreshDetail(rejectedId)
+      } else {
+        await load()
+      }
+    } catch (e: any) {
+      setRejectionError(e.message || "Failed to reject registration")
+      toast({
+        title: "Reject failed",
+        description: e.message || "Error",
+        variant: "destructive",
+      })
+    } finally {
+      setRejectSaving(false)
     }
   }
 
@@ -205,11 +289,10 @@ export default function CoachApprovalsAdminPage() {
     const next = !detail.is_active
     setSaving(true)
     try {
-      await coachApprovalAPI.setActive(detail.id, next, note.trim() || undefined)
+      await coachApprovalAPI.setActive(detail.id, next)
       toast({
         title: next ? "Coach activated" : "Coach deactivated",
       })
-      setNote("")
       await refreshDetail(detail.id)
     } catch (e) {
       toast({
@@ -222,19 +305,20 @@ export default function CoachApprovalsAdminPage() {
     }
   }
 
-  const status = (detail?.approval_status || "approved").toLowerCase()
-  const canApprove = status === "pending" || status === "rejected"
-  const canReject = status === "pending" || status === "approved"
-  const canToggleActive = status === "approved"
+  const detailStatus = (detail?.approval_status || "approved").toLowerCase()
+  const canApprove = detailStatus === "pending" || detailStatus === "rejected"
+  const canReject = detailStatus === "pending" || detailStatus === "approved"
+  const canToggleActive = detailStatus === "approved"
 
   return (
     <div className="min-h-screen bg-gray-50">
       <main className="w-full p-4 lg:px-8 lg:py-6 space-y-6">
+        {/* Page Header */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-[#4F5077]">Coach Approvals</h1>
             <p className="text-sm text-[#6B7A99] mt-1">
-              Review self-registered coaches, approve or reject, and manage active status.
+              Review self-registered coaches, approve or reject applications, and manage active status.
             </p>
           </div>
           <Button
@@ -248,32 +332,34 @@ export default function CoachApprovalsAdminPage() {
           </Button>
         </div>
 
+        {/* Summary Metric Cards */}
         {summary && (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {[
-              { label: "Pending", value: summary.pending },
-              { label: "Approved", value: summary.approved },
-              { label: "Rejected", value: summary.rejected },
-              { label: "Active", value: summary.active },
-              { label: "Inactive", value: summary.inactive },
+              { label: "Pending", value: summary.pending, color: "text-amber-600" },
+              { label: "Approved", value: summary.approved, color: "text-green-600" },
+              { label: "Rejected", value: summary.rejected, color: "text-red-600" },
+              { label: "Active", value: summary.active, color: "text-[#4F5077]" },
+              { label: "Inactive", value: summary.inactive, color: "text-gray-500" },
             ].map((s) => (
               <Card key={s.label}>
                 <CardContent className="py-4 px-4">
                   <p className="text-xs text-[#6B7A99]">{s.label}</p>
-                  <p className="text-xl font-semibold text-[#4F5077]">{s.value}</p>
+                  <p className={`text-xl font-semibold mt-1 ${s.color}`}>{s.value}</p>
                 </CardContent>
               </Card>
             ))}
           </div>
         )}
 
+        {/* Search & Filter Controls */}
         <Card>
           <CardContent className="pt-6 space-y-4">
             <div className="flex flex-wrap gap-3 items-end">
               <div className="relative flex-1 min-w-[200px] max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
-                  placeholder="Search name, email, phone…"
+                  placeholder="Search by name, email, phone…"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   onKeyDown={(e) => {
@@ -358,6 +444,7 @@ export default function CoachApprovalsAdminPage() {
 
             {error && <p className="text-sm text-red-600">{error}</p>}
 
+            {/* Coaches Table */}
             <div className="overflow-x-auto border rounded-lg">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b">
@@ -365,36 +452,44 @@ export default function CoachApprovalsAdminPage() {
                     <th className="text-left py-3 px-4 font-medium text-[#6B7A99]">Coach</th>
                     <th className="text-left py-3 px-4 font-medium text-[#6B7A99]">Contact</th>
                     <th className="text-left py-3 px-4 font-medium text-[#6B7A99]">Approval</th>
+                    <th className="text-left py-3 px-4 font-medium text-[#6B7A99]">Payment</th>
                     <th className="text-left py-3 px-4 font-medium text-[#6B7A99]">Active</th>
                     <th className="text-left py-3 px-4 font-medium text-[#6B7A99]">Source</th>
                     <th className="text-left py-3 px-4 font-medium text-[#6B7A99]">Submitted</th>
+                    <th className="text-left py-3 px-4 font-medium text-[#6B7A99]">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={6} className="py-10 text-center text-gray-500">
-                        <Loader2 className="w-5 h-5 animate-spin inline mr-2" />
-                        Loading…
+                      <td colSpan={8} className="py-10 text-center text-gray-500">
+                        <Loader2 className="w-5 h-5 animate-spin inline mr-2 text-yellow-500" />
+                        Loading coaches…
                       </td>
                     </tr>
                   ) : rows.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-10 text-center text-gray-500">
+                      <td colSpan={8} className="py-10 text-center text-gray-500">
                         No coaches match these filters.
                       </td>
                     </tr>
                   ) : (
                     rows.map((c) => {
                       const st = (c.approval_status || "approved").toLowerCase()
+                      const rowPending = st === "pending"
+                      const rowBusy = rowSavingId === c.id
+                      const hasPaid = c.registration_payment && c.registration_payment.payment_status === "paid"
+
                       return (
                         <tr
                           key={c.id}
-                          className="border-b hover:bg-gray-50 cursor-pointer"
+                          className="border-b hover:bg-yellow-50/40 transition-colors cursor-pointer group"
                           onClick={() => openDetail(c)}
                         >
                           <td className="py-3 px-4">
-                            <div className="font-medium text-[#4F5077]">{displayName(c)}</div>
+                            <div className="font-semibold text-[#4F5077] group-hover:text-yellow-700 transition-colors">
+                              {displayName(c)}
+                            </div>
                             <div className="text-xs text-gray-500 truncate max-w-[200px]">
                               {(c.areas_of_expertise || []).slice(0, 3).join(", ") || "—"}
                             </div>
@@ -409,6 +504,17 @@ export default function CoachApprovalsAdminPage() {
                             </Badge>
                           </td>
                           <td className="py-3 px-4">
+                            {hasPaid ? (
+                              <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-200">
+                                Paid ₹{Number(c.registration_payment?.fee_amount || 0).toLocaleString("en-IN")}
+                              </Badge>
+                            ) : c.registration_source === "admin" ? (
+                              <span className="text-xs text-gray-400">Exempt</span>
+                            ) : (
+                              <span className="text-xs text-gray-400">None</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4">
                             {c.is_active ? (
                               <span className="text-green-700 text-xs font-medium">Active</span>
                             ) : (
@@ -421,6 +527,49 @@ export default function CoachApprovalsAdminPage() {
                           <td className="py-3 px-4 text-[#6B7A99] text-xs">
                             {fmtDate(c.created_at)}
                           </td>
+                          <td
+                            className="py-3 px-4"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {rowPending ? (
+                              <div className="flex flex-wrap gap-2">
+                                <Button
+                                  size="sm"
+                                  className="h-8 bg-green-600 hover:bg-green-700 text-white gap-1"
+                                  disabled={rowBusy || saving}
+                                  onClick={() => void handleRowApprove(c.id)}
+                                  title="Approve coach & email 24h setup link"
+                                >
+                                  {rowBusy ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                  )}
+                                  Approve
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  className="h-8 gap-1"
+                                  disabled={rowBusy || saving}
+                                  onClick={(e) => openRejectModal(c, e)}
+                                  title="Reject with mandatory reason"
+                                >
+                                  <XCircle className="w-3.5 h-3.5" />
+                                  Reject
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 text-xs text-gray-600 hover:text-gray-900"
+                                onClick={() => openDetail(c)}
+                              >
+                                View Details
+                              </Button>
+                            )}
+                          </td>
                         </tr>
                       )
                     })
@@ -429,6 +578,7 @@ export default function CoachApprovalsAdminPage() {
               </table>
             </div>
 
+            {/* Pagination Controls */}
             <div className="flex items-center justify-between text-sm text-[#6B7A99]">
               <span>
                 Showing {rows.length ? skip + 1 : 0}–{skip + rows.length} of {total}
@@ -455,152 +605,298 @@ export default function CoachApprovalsAdminPage() {
           </CardContent>
         </Card>
 
-        {detail && (
-          <Card>
-            <CardHeader className="flex flex-row items-start justify-between gap-4">
-              <div>
-                <CardTitle className="text-[#4F5077]">{displayName(detail)}</CardTitle>
-                <p className="text-sm text-[#6B7A99] mt-1">
-                  {displayEmail(detail)} · {displayPhone(detail)}
-                </p>
-              </div>
-              <Button variant="ghost" size="sm" onClick={() => setDetail(null)}>
-                Close
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {detailLoading ? (
-                <div className="py-8 text-center text-gray-500">
-                  <Loader2 className="w-5 h-5 animate-spin inline" />
-                </div>
-              ) : (
-                <>
-                  <div className="grid md:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="text-xs text-[#6B7A99]">Approval</p>
-                      <Badge
-                        variant="outline"
-                        className={`mt-1 ${STATUS_BADGE[status] || ""}`}
-                      >
-                        {approvalStatusLabel(status)}
-                      </Badge>
-                    </div>
-                    <div>
-                      <p className="text-xs text-[#6B7A99]">Active status</p>
-                      <p className="mt-1 font-medium">
-                        {detail.is_active ? "Active" : "Inactive"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-[#6B7A99]">Experience</p>
-                      <p className="mt-1">
-                        {detail.professional_info?.professional_experience || "—"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-[#6B7A99]">Specializations</p>
-                      <p className="mt-1">
-                        {(detail.areas_of_expertise || []).join(", ") || "—"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-[#6B7A99]">Service locations</p>
-                      <p className="mt-1">
-                        {(detail.service_location_names || []).join(", ") ||
-                          (detail.service_location_ids || []).join(", ") ||
-                          "—"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-[#6B7A99]">Address</p>
-                      <p className="mt-1">
-                        {[
-                          detail.address_info?.address,
-                          detail.address_info?.city,
-                          detail.address_info?.state,
-                        ]
-                          .filter(Boolean)
-                          .join(", ") || "—"}
-                      </p>
-                    </div>
-                    {detail.about_short && (
-                      <div className="md:col-span-2">
-                        <p className="text-xs text-[#6B7A99]">About</p>
-                        <p className="mt-1">{detail.about_short}</p>
+        {/* 1. COACH DETAILS MODAL POPUP (Replaces bottom card) */}
+        <Dialog open={!!detail} onOpenChange={(open) => !open && setDetail(null)}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+            {detail && (
+              <>
+                {/* Modal Header */}
+                <DialogHeader className="p-6 pb-4 border-b bg-gray-50/70">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      {detail.profile_image_url ? (
+                        <img
+                          src={resolvePublicAssetUrl(detail.profile_image_url)}
+                          alt={displayName(detail)}
+                          className="w-14 h-14 rounded-full object-cover border-2 border-yellow-400 shadow-sm"
+                        />
+                      ) : (
+                        <div className="w-14 h-14 rounded-full bg-yellow-100 border-2 border-yellow-400 flex items-center justify-center text-yellow-800 font-bold text-lg shadow-sm">
+                          {displayName(detail).charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div>
+                        <DialogTitle className="text-xl font-bold text-[#4F5077]">
+                          {displayName(detail)}
+                        </DialogTitle>
+                        <DialogDescription className="text-sm text-[#6B7A99] mt-0.5">
+                          {displayEmail(detail)} · {displayPhone(detail)}
+                        </DialogDescription>
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                          <Badge variant="outline" className={STATUS_BADGE[detailStatus] || ""}>
+                            {approvalStatusLabel(detailStatus)}
+                          </Badge>
+                          <Badge variant="outline" className={detail.is_active ? "bg-green-50 text-green-800 border-green-200" : "bg-gray-100 text-gray-600 border-gray-200"}>
+                            {detail.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                          <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-200 capitalize">
+                            Source: {detail.registration_source || "admin"}
+                          </Badge>
+                        </div>
                       </div>
-                    )}
-                    {detail.registration_payment && (
-                      <div className="md:col-span-2 rounded-lg border border-gray-200 bg-gray-50/70 p-3">
-                        <p className="text-xs font-semibold text-gray-700">Registration Payment Details</p>
-                        <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                    </div>
+                  </div>
+                </DialogHeader>
+
+                {/* Modal Scrollable Body */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                  {detailLoading ? (
+                    <div className="py-12 text-center text-gray-500">
+                      <Loader2 className="w-6 h-6 animate-spin inline text-yellow-500 mr-2" />
+                      Loading details…
+                    </div>
+                  ) : (
+                    <>
+                      {/* Rejection Alert if rejected */}
+                      {detailStatus === "rejected" && (detail.rejection_reason || (history.find(h => h.action === "reject")?.note)) && (
+                        <div className="rounded-lg border border-red-200 bg-red-50 p-4 space-y-1">
+                          <div className="flex items-center gap-2 text-red-900 font-semibold text-sm">
+                            <AlertTriangle className="w-4 h-4 text-red-600" />
+                            Application Rejection Reason
+                          </div>
+                          <p className="text-sm text-red-800">
+                            {detail.rejection_reason || history.find(h => h.action === "reject")?.note}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Personal & Contact Details */}
+                      <div>
+                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
+                          Personal & Contact Information
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm bg-gray-50/60 p-4 rounded-lg border border-gray-100">
                           <div>
-                            <span className="text-[#6B7A99]">Fee Amount:</span>
-                            <p className="font-semibold text-gray-900">
-                              ₹{Number(detail.registration_payment.fee_amount || 0).toLocaleString("en-IN")}
+                            <span className="text-[#6B7A99] text-xs">Gender</span>
+                            <p className="font-medium capitalize text-gray-900 mt-0.5">
+                              {detail.personal_info?.gender || "—"}
                             </p>
                           </div>
                           <div>
-                            <span className="text-[#6B7A99]">Status:</span>
-                            <p className="font-semibold text-green-700 capitalize">
-                              {detail.registration_payment.payment_status || "Paid"}
+                            <span className="text-[#6B7A99] text-xs">Date of Birth</span>
+                            <p className="font-medium text-gray-900 mt-0.5">
+                              {detail.personal_info?.date_of_birth || "—"}
                             </p>
                           </div>
                           <div>
-                            <span className="text-[#6B7A99]">Payment ID:</span>
-                            <p className="font-mono text-gray-900 truncate" title={detail.registration_payment.razorpay_payment_id}>
-                              {detail.registration_payment.razorpay_payment_id || "—"}
+                            <span className="text-[#6B7A99] text-xs">Email Address</span>
+                            <p className="font-medium text-gray-900 mt-0.5 break-all">
+                              {displayEmail(detail)}
                             </p>
                           </div>
                           <div>
-                            <span className="text-[#6B7A99]">Paid At:</span>
-                            <p className="text-gray-900">
-                              {fmtDate(detail.registration_payment.paid_at)}
+                            <span className="text-[#6B7A99] text-xs">Phone Number</span>
+                            <p className="font-medium text-gray-900 mt-0.5">
+                              {displayPhone(detail)}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-[#6B7A99] text-xs">Submission Date</span>
+                            <p className="font-medium text-gray-900 mt-0.5">
+                              {fmtDate(detail.created_at)}
                             </p>
                           </div>
                         </div>
                       </div>
-                    )}
-                  </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="approval-note">Note (optional)</Label>
-                    <Textarea
-                      id="approval-note"
-                      value={note}
-                      onChange={(e) => setNote(e.target.value)}
-                      placeholder="Reason or comment for the audit trail…"
-                      rows={2}
-                    />
-                  </div>
+                      {/* Address & Assigned Branches */}
+                      <div>
+                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
+                          Address & Service Locations
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm bg-gray-50/60 p-4 rounded-lg border border-gray-100">
+                          <div>
+                            <span className="text-[#6B7A99] text-xs">Residential Address</span>
+                            <p className="font-medium text-gray-900 mt-0.5">
+                              {[
+                                detail.address_info?.address,
+                                detail.address_info?.city,
+                                detail.address_info?.state,
+                                detail.address_info?.country,
+                              ]
+                                .filter(Boolean)
+                                .join(", ") || "—"}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-[#6B7A99] text-xs">Selected Branches (Service Locations)</span>
+                            <p className="font-medium text-gray-900 mt-0.5">
+                              {(detail.service_location_names || []).join(", ") ||
+                                (detail.service_location_ids || []).join(", ") ||
+                                "—"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
 
+                      {/* Experience & Specialization */}
+                      <div>
+                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
+                          Experience & Specialization
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm bg-gray-50/60 p-4 rounded-lg border border-gray-100">
+                          <div>
+                            <span className="text-[#6B7A99] text-xs">Professional Experience</span>
+                            <p className="font-medium text-gray-900 mt-0.5">
+                              {detail.professional_info?.professional_experience || "—"}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-[#6B7A99] text-xs">Education / Qualification</span>
+                            <p className="font-medium text-gray-900 mt-0.5">
+                              {detail.professional_info?.education_qualification || "—"}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-[#6B7A99] text-xs">Designation</span>
+                            <p className="font-medium text-gray-900 mt-0.5">
+                              {detail.professional_info?.designation_id || "Coach"}
+                            </p>
+                          </div>
+                          <div className="sm:col-span-2 md:col-span-3">
+                            <span className="text-[#6B7A99] text-xs">Specializations</span>
+                            <div className="flex flex-wrap gap-1.5 mt-1.5">
+                              {(detail.areas_of_expertise || []).length > 0 ? (
+                                detail.areas_of_expertise!.map((spec) => (
+                                  <Badge key={spec} variant="secondary" className="bg-yellow-100/70 text-yellow-900 border-yellow-200">
+                                    {spec}
+                                  </Badge>
+                                ))
+                              ) : (
+                                <p className="text-gray-500 text-sm">—</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Registration Payment Information */}
+                      {detail.registration_payment && (
+                        <div>
+                          <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
+                            Registration Payment
+                          </h4>
+                          <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                              <div>
+                                <span className="text-[#6B7A99]">Fee Amount:</span>
+                                <p className="text-sm font-bold text-emerald-900 mt-0.5">
+                                  ₹{Number(detail.registration_payment.fee_amount || 0).toLocaleString("en-IN")}
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-[#6B7A99]">Payment Status:</span>
+                                <p className="text-sm font-semibold text-emerald-800 capitalize mt-0.5">
+                                  {detail.registration_payment.payment_status || "Paid"}
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-[#6B7A99]">Payment ID:</span>
+                                <p className="font-mono text-gray-900 truncate mt-0.5" title={detail.registration_payment.razorpay_payment_id}>
+                                  {detail.registration_payment.razorpay_payment_id || "—"}
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-[#6B7A99]">Paid At:</span>
+                                <p className="text-gray-900 mt-0.5">
+                                  {fmtDate(detail.registration_payment.paid_at)}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* About / Bio */}
+                      {detail.about_short && (
+                        <div>
+                          <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                            About Coach
+                          </h4>
+                          <div className="p-3.5 bg-gray-50 rounded-lg text-sm text-gray-700 leading-relaxed border border-gray-100">
+                            {detail.about_short}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Audit History Trail */}
+                      <div>
+                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
+                          Approval & Audit History
+                        </h4>
+                        {history.length === 0 ? (
+                          <p className="text-sm text-gray-400">No history records yet.</p>
+                        ) : (
+                          <ul className="space-y-3 border-l-2 border-yellow-300 pl-4 py-1">
+                            {history.map((h) => (
+                              <li key={h.id} className="text-sm relative">
+                                <span className="absolute -left-[21px] top-1.5 w-2.5 h-2.5 rounded-full bg-yellow-500 ring-2 ring-white" />
+                                <div className="font-semibold text-[#4F5077] capitalize">
+                                  {h.action.replace(/_/g, " ")}
+                                  {h.from_status || h.to_status
+                                    ? ` · ${h.from_status || "—"} → ${h.to_status}`
+                                    : ""}
+                                </div>
+                                <div className="text-xs text-[#6B7A99]">
+                                  {fmtDate(h.created_at)}
+                                  {h.actor_name ? ` · by ${h.actor_name}` : ""}
+                                  {typeof h.is_active_after === "boolean"
+                                    ? ` · active: ${h.is_active_after ? "yes" : "no"}`
+                                    : ""}
+                                </div>
+                                {h.note && (
+                                  <p className="text-xs text-gray-600 bg-gray-100/70 p-2 rounded mt-1">
+                                    <strong>Note:</strong> {h.note}
+                                  </p>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Modal Footer with Actions */}
+                <DialogFooter className="p-4 border-t bg-gray-50/70 flex flex-wrap items-center justify-between gap-3">
+                  <Button variant="outline" onClick={() => setDetail(null)}>
+                    Close
+                  </Button>
                   <div className="flex flex-wrap gap-2">
                     {canApprove && (
                       <Button
                         onClick={handleApprove}
                         disabled={saving}
-                        className="bg-green-600 hover:bg-green-700 gap-2"
+                        className="bg-green-600 hover:bg-green-700 text-white gap-1.5"
                       >
                         {saving ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
                           <CheckCircle2 className="w-4 h-4" />
                         )}
-                        Approve
+                        Approve & Send 24h Setup Email
                       </Button>
                     )}
                     {canReject && (
                       <Button
                         variant="destructive"
-                        onClick={handleReject}
+                        onClick={() => openRejectModal(detail)}
                         disabled={saving}
-                        className="gap-2"
+                        className="gap-1.5"
                       >
-                        {saving ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <XCircle className="w-4 h-4" />
-                        )}
-                        Reject
+                        <XCircle className="w-4 h-4" />
+                        Reject with Reason
                       </Button>
                     )}
                     {canToggleActive && (
@@ -608,7 +904,7 @@ export default function CoachApprovalsAdminPage() {
                         variant="outline"
                         onClick={handleToggleActive}
                         disabled={saving}
-                        className="gap-2"
+                        className="gap-1.5"
                       >
                         {detail.is_active ? (
                           <ToggleRight className="w-4 h-4 text-green-600" />
@@ -619,42 +915,76 @@ export default function CoachApprovalsAdminPage() {
                       </Button>
                     )}
                   </div>
+                </DialogFooter>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
 
-                  <div>
-                    <h3 className="font-semibold text-[#4F5077] mb-3">Approval history</h3>
-                    {history.length === 0 ? (
-                      <p className="text-sm text-gray-500">No history yet.</p>
-                    ) : (
-                      <ul className="space-y-3 border-l-2 border-gray-200 pl-4">
-                        {history.map((h) => (
-                          <li key={h.id} className="text-sm relative">
-                            <span className="absolute -left-[21px] top-1.5 w-2.5 h-2.5 rounded-full bg-[#4F5077]" />
-                            <div className="font-medium text-[#4F5077] capitalize">
-                              {h.action.replace(/_/g, " ")}
-                              {h.from_status || h.to_status
-                                ? ` · ${h.from_status || "—"} → ${h.to_status}`
-                                : ""}
-                            </div>
-                            <div className="text-xs text-[#6B7A99]">
-                              {fmtDate(h.created_at)}
-                              {h.actor_name ? ` · ${h.actor_name}` : ""}
-                              {typeof h.is_active_after === "boolean"
-                                ? ` · active: ${h.is_active_after ? "yes" : "no"}`
-                                : ""}
-                            </div>
-                            {h.note && (
-                              <p className="text-xs text-gray-600 mt-0.5">{h.note}</p>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </>
+        {/* 2. REJECTION REASON MODAL (Mandatory Reason Dialog) */}
+        <Dialog open={isRejectModalOpen} onOpenChange={setIsRejectModalOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-red-600 flex items-center gap-2">
+                <XCircle className="w-5 h-5 text-red-600" />
+                Reject Coach Application
+              </DialogTitle>
+              <DialogDescription>
+                {coachToReject ? (
+                  <>
+                    Please enter the reason for rejecting <strong>{displayName(coachToReject)}</strong>&apos;s application.
+                    This reason will be recorded in the audit trail and emailed directly to the coach.
+                  </>
+                ) : (
+                  "Please enter the reason for rejection."
+                )}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-2 py-2">
+              <Label htmlFor="rejection-reason" className="text-sm font-semibold text-gray-700">
+                Reason for Rejection <span className="text-red-500">*</span>
+              </Label>
+              <Textarea
+                id="rejection-reason"
+                placeholder="e.g. Incomplete martial arts certifications, location outside serviceable branches, etc."
+                rows={4}
+                value={rejectionReason}
+                onChange={(e) => {
+                  setRejectionReason(e.target.value)
+                  if (rejectionError) setRejectionError(null)
+                }}
+                className={`resize-none ${rejectionError ? "border-red-500" : ""}`}
+              />
+              {rejectionError && (
+                <p className="text-xs text-red-600 font-medium">{rejectionError}</p>
               )}
-            </CardContent>
-          </Card>
-        )}
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={() => setIsRejectModalOpen(false)}
+                disabled={rejectSaving}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleConfirmReject}
+                disabled={!rejectionReason.trim() || rejectSaving}
+                className="gap-1.5"
+              >
+                {rejectSaving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <XCircle className="w-4 h-4" />
+                )}
+                Confirm Rejection & Email Coach
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   )

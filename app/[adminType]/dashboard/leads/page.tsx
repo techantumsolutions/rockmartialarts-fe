@@ -507,7 +507,7 @@ export default function LeadsPage() {
               <p className="text-gray-500 text-sm py-8 text-center">No leads found.</p>
             ) : (
               <div className="overflow-x-auto lg:overflow-x-visible border rounded-lg">
-                <table className="w-full table-fixed text-sm text-left">
+                <table className="w-full min-w-[960px] lg:min-w-0 table-fixed text-sm text-left">
                   <colgroup>
                     <col className="w-[15%]" />
                     <col className="w-[11%]" />
