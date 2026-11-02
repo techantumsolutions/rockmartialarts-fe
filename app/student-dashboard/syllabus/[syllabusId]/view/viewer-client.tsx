@@ -93,12 +93,7 @@ export default function SyllabusViewerClient() {
       studentName={studentName}
       pageTitle="Syllabus viewer"
       pageDescription="Read-only authenticated PDF"
-      showBreadcrumb
-      breadcrumbItems={[
-        { label: "Dashboard", href: "/student-dashboard" },
-        { label: "Syllabus", href: backHref },
-        { label: "View" },
-      ]}
+      showBreadcrumb={false}
       onLogout={() => {
         TokenManager.clearAuthData()
         router.push("/login")

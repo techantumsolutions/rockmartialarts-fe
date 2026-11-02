@@ -734,6 +734,25 @@ export default function EditBranch() {
       }
     }
 
+    // Batch fee is required so student enroll can show pricing
+    for (const courseAssignment of formData.assignments.courses) {
+      if (courseAssignment.is_available === false) continue
+      const courseDef = courses.find((c) => c.id === courseAssignment.course_id)
+      const courseTitle = courseDef?.title || courseDef?.code || "Assigned course"
+      for (const batch of courseAssignment.batches) {
+        const batchLabel = (batch.batch_name || "").trim() || "Untitled batch"
+        const batchFee = parseFloat(String(batch.batch_fee ?? "").trim())
+        if (!(Number.isFinite(batchFee) && batchFee > 0)) {
+          toast({
+            title: "Batch pricing required",
+            description: `"${courseTitle}" → ${batchLabel}: enter a batch fee greater than 0.`,
+            variant: "destructive",
+          })
+          return
+        }
+      }
+    }
+
     setIsSubmitting(true)
 
     try {
@@ -1423,16 +1442,19 @@ export default function EditBranch() {
                                     </Select>
                                   </div>
                                   <div className="space-y-1">
-                                    <Label className="text-xs text-gray-600">Batch fee (₹)</Label>
+                                    <Label className="text-xs text-gray-600">
+                                      Batch fee (₹) <span className="text-red-500">*</span>
+                                    </Label>
                                     <Input
                                       type="text"
                                       inputMode="decimal"
-                                      placeholder="Optional — overrides tenure fee"
+                                      placeholder="Required — enter fee greater than 0"
                                       value={batch.batch_fee ?? ""}
                                       onChange={(e) =>
                                         updateBatch(course.id, batch.id, "batch_fee", e.target.value)
                                       }
                                       className="h-9"
+                                      required
                                     />
                                   </div>
                                 </div>

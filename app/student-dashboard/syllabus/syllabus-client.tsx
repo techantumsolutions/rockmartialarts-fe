@@ -141,11 +141,7 @@ export default function StudentSyllabusClient() {
       studentName={studentName}
       pageTitle="Course Syllabus"
       pageDescription="PDFs for your active enrollments."
-      showBreadcrumb
-      breadcrumbItems={[
-        { label: "Dashboard", href: "/student-dashboard" },
-        { label: "Syllabus" },
-      ]}
+      showBreadcrumb={false}
       onLogout={handleLogout}
     >
       <div className="space-y-6">
