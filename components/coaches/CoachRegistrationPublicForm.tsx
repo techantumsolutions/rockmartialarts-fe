@@ -23,6 +23,8 @@ import {
   optionValue,
   type CoachRegisterOption,
 } from "@/lib/coachRegistrationAPI"
+import { settingsAPI } from "@/lib/settingsAPI"
+import { openRazorpayCheckout } from "@/lib/razorpay"
 
 type BranchOpt = { id: string; name: string }
 
@@ -85,6 +87,7 @@ export default function CoachRegistrationPublicForm() {
   const [genders, setGenders] = useState<CoachRegisterOption[]>([])
   const [designations, setDesignations] = useState<CoachRegisterOption[]>([])
   const [countries, setCountries] = useState<CoachRegisterOption[]>([])
+  const [coachFee, setCoachFee] = useState<number>(0)
   const [submitting, setSubmitting] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -116,6 +119,16 @@ export default function CoachRegistrationPublicForm() {
       .catch(() => {
         setBranches([])
         setSpecializations([])
+      })
+
+    settingsAPI
+      .getPublicSettings()
+      .then((data) => {
+        const fee = Number(data.coachRegistrationFee ?? data.coach_registration_fee ?? 0)
+        setCoachFee(Number.isFinite(fee) && fee > 0 ? fee : 0)
+      })
+      .catch(() => {
+        setCoachFee(0)
       })
   }, [])
 
@@ -156,29 +169,11 @@ export default function CoachRegistrationPublicForm() {
     }
   }
 
-  const onSubmit = async (e: FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    const nextFieldErrors: {
-      experience?: string
-      specializations?: string
-      email?: string
-    } = {}
-    if (!form.professional_experience.trim()) {
-      nextFieldErrors.experience = "Experience is required"
-    }
-    if (form.specializations.length === 0) {
-      nextFieldErrors.specializations = "Select at least one specialization"
-    }
-    setFieldErrors(nextFieldErrors)
-    if (nextFieldErrors.experience || nextFieldErrors.specializations) {
-      return
-    }
-    if (form.service_location_ids.length === 0) {
-      setError("Select at least one service location (branch)")
-      return
-    }
-    setSubmitting(true)
+  const submitRegistration = async (paymentDetails?: {
+    razorpay_payment_id?: string
+    razorpay_order_id?: string
+    razorpay_signature?: string
+  }) => {
     try {
       const result = await coachRegistrationAPI.register({
         first_name: form.first_name.trim(),
@@ -201,6 +196,9 @@ export default function CoachRegistrationPublicForm() {
         service_location_ids: form.service_location_ids,
         profile_image_url: form.profile_image_url || undefined,
         about_short: form.about_short.trim() || undefined,
+        razorpay_payment_id: paymentDetails?.razorpay_payment_id,
+        razorpay_order_id: paymentDetails?.razorpay_order_id,
+        razorpay_signature: paymentDetails?.razorpay_signature,
       })
       setDone({ coach_id: result.coach_id, message: result.message })
       setForm(INITIAL)
@@ -225,6 +223,109 @@ export default function CoachRegistrationPublicForm() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const onSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    const nextFieldErrors: {
+      experience?: string
+      specializations?: string
+      email?: string
+    } = {}
+    if (!form.first_name.trim()) {
+      setError("First name is required")
+      return
+    }
+    if (!form.last_name.trim()) {
+      setError("Last name is required")
+      return
+    }
+    if (!form.gender) {
+      setError("Gender is required")
+      return
+    }
+    if (!form.date_of_birth) {
+      setError("Date of birth is required")
+      return
+    }
+    if (!form.email.trim()) {
+      nextFieldErrors.email = "Email is required"
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      nextFieldErrors.email = "Please enter a valid email address"
+    }
+    if (!form.phone.trim()) {
+      setError("Phone number is required")
+      return
+    }
+    if (!form.address.trim() || !form.city.trim() || !form.state.trim()) {
+      setError("Address, city and state are required")
+      return
+    }
+    if (!form.professional_experience.trim()) {
+      nextFieldErrors.experience = "Experience is required"
+    }
+    if (form.specializations.length === 0) {
+      nextFieldErrors.specializations = "Select at least one specialization"
+    }
+    setFieldErrors(nextFieldErrors)
+    if (nextFieldErrors.experience || nextFieldErrors.specializations || nextFieldErrors.email) {
+      return
+    }
+    if (form.service_location_ids.length === 0) {
+      setError("Select at least one service location (branch)")
+      return
+    }
+
+    setSubmitting(true)
+
+    // If coach registration fee is required (> 0), process via Razorpay
+    if (coachFee > 0) {
+      try {
+        const orderData = await coachRegistrationAPI.createOrder({
+          name: `${form.first_name.trim()} ${form.last_name.trim()}`,
+          email: form.email.trim(),
+          phone: `${form.country_code.trim() || "+91"}${form.phone.trim()}`,
+        })
+
+        if (orderData.fee_required && orderData.order_id) {
+          await openRazorpayCheckout({
+            amountPaise: orderData.amount_paise,
+            razorpayKeyId: orderData.key_id,
+            currency: orderData.currency || "INR",
+            name: "Rock Martial Arts",
+            description: "Coach Registration Fee",
+            customerName: `${form.first_name.trim()} ${form.last_name.trim()}`,
+            customerEmail: form.email.trim(),
+            customerContact: `${form.country_code.trim() || "+91"}${form.phone.trim()}`,
+            orderId: orderData.order_id,
+            onSuccess: async (rpResponse) => {
+              await submitRegistration({
+                razorpay_payment_id: rpResponse.razorpay_payment_id,
+                razorpay_order_id: rpResponse.razorpay_order_id,
+                razorpay_signature: rpResponse.razorpay_signature,
+              })
+            },
+            onDismiss: () => {
+              setSubmitting(false)
+              setError("Payment was cancelled. Complete the payment to submit your registration.")
+            },
+            onPaymentFailure: (failMsg) => {
+              setSubmitting(false)
+              setError(failMsg || "Payment failed. Please try again.")
+            },
+          })
+          return
+        }
+      } catch (err) {
+        setSubmitting(false)
+        setError(err instanceof Error ? err.message : "Failed to initiate payment")
+        return
+      }
+    }
+
+    // Direct registration (no fee required or fee is 0)
+    await submitRegistration()
   }
 
   const fieldClass =
@@ -660,16 +761,32 @@ export default function CoachRegistrationPublicForm() {
         </div>
       </div>
 
+      {coachFee > 0 && (
+        <div className="rounded-lg border border-[#FFB70F]/40 bg-[#FFB70F]/10 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-white text-sm">Coach Registration Fee:</span>
+              <span className="text-base font-bold text-[#FFB70F]">₹{coachFee.toLocaleString("en-IN")}</span>
+            </div>
+            <p className="text-xs text-gray-400 mt-0.5">
+              One-time non-refundable fee required to process your application via Razorpay.
+            </p>
+          </div>
+        </div>
+      )}
+
       <Button
         type="submit"
-        className="w-full bg-[#FFB70F] hover:bg-[#e0a00d] text-black"
+        className="w-full bg-[#FFB70F] hover:bg-[#e0a00d] text-black font-semibold"
         disabled={submitting || uploading}
       >
         {submitting ? (
           <>
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Submitting…
+            {coachFee > 0 ? "Processing payment..." : "Submitting…"}
           </>
+        ) : coachFee > 0 ? (
+          `Pay ₹${coachFee.toLocaleString("en-IN")} & Submit Application`
         ) : (
           "Submit coach registration"
         )}
