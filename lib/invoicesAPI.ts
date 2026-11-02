@@ -12,6 +12,12 @@ export type InvoiceListItem = {
   payment_id?: string | null
   cart_checkout_id?: string | null
   payment_reference?: string | null
+  payment_method?: string | null
+  payment_gateway_label?: string | null
+  payer_type?: "student" | "coach" | string
+  plan_id?: string | null
+  course_ids?: string[]
+  course_names?: string[]
   line_count?: number
   created_at?: string | null
   source?: string
@@ -269,6 +275,10 @@ export const invoicesAPI = {
     limit?: number
     search?: string
     payment_id?: string
+    payer_type?: "student" | "coach" | string
+    course_id?: string
+    plan_id?: string
+    payment_method?: "razorpay" | "offline" | string
     token?: string | null
   }): Promise<{ invoices: InvoiceListItem[]; total: number }> {
     const q = new URLSearchParams()
@@ -276,6 +286,10 @@ export const invoicesAPI = {
     if (params?.limit != null) q.set("limit", String(params.limit))
     if (params?.search) q.set("search", params.search)
     if (params?.payment_id) q.set("payment_id", params.payment_id)
+    if (params?.payer_type) q.set("payer_type", params.payer_type)
+    if (params?.course_id) q.set("course_id", params.course_id)
+    if (params?.plan_id) q.set("plan_id", params.plan_id)
+    if (params?.payment_method) q.set("payment_method", params.payment_method)
     const res = await fetch(`${getBackendApiUrl("invoices")}?${q.toString()}`, {
       headers: authHeaders(params?.token),
       cache: "no-store",
