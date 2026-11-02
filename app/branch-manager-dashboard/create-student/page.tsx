@@ -34,6 +34,7 @@ import {
   fetchRegistrationPricing,
   createRegistrationOrder,
   submitRegistrationPayment,
+  checkStudentAvailability,
   RegistrationBatch,
   RegistrationPricing,
 } from "@/lib/studentRegistrationPayment"
@@ -345,6 +346,33 @@ export default function CreateStudent() {
     }
 
     setIsSubmitting(true)
+
+    // Pre-payment database verification: Ensure email and phone do not already exist
+    try {
+      const email = formData.email.trim()
+      const phone = `${formData.countryCode}${formData.contactNumber.trim()}`
+      const availability = await checkStudentAvailability(email, phone)
+
+      if (!availability.available) {
+        setIsSubmitting(false)
+        const dupErrors: FormErrors = {}
+        if (availability.email_exists) {
+          dupErrors.email = "This email address is already registered."
+        }
+        if (availability.phone_exists) {
+          dupErrors.contactNumber = "This mobile number is already registered."
+        }
+        setErrors((prev) => ({ ...prev, ...dupErrors }))
+        toast({
+          title: "Student Already Exists",
+          description: availability.message || "A student with this email address or mobile number already exists.",
+          variant: "destructive",
+        })
+        return
+      }
+    } catch (checkErr) {
+      console.warn("Pre-payment availability check warning:", checkErr)
+    }
     const token = BranchManagerAuth.getToken()
     const branchId = formData.branch || headerBranchId
 

@@ -96,7 +96,6 @@ export default function PaymentTrackingPage() {
   const [recoverBlocked, setRecoverBlocked] = useState(false)
   /** Cancelled payment ids that still have a course registration (enrollment) to recover */
   const [recoverablePaymentIds, setRecoverablePaymentIds] = useState<Record<string, boolean>>({})
-  const [syncing, setSyncing] = useState(false)
   const [page, setPage] = useState(1)
   const [totalPayments, setTotalPayments] = useState(0)
   const pageSize = 20
@@ -703,38 +702,6 @@ export default function PaymentTrackingPage() {
           >
             {exporting ? "Exporting..." : "Export CSV"}
           </Button>
-
-          {isSuperAdmin && (
-            <Button
-              onClick={async () => {
-                if (syncing) return
-                try {
-                  setSyncing(true)
-                  const token = localStorage.getItem("token") || undefined
-                  await paymentAPI.syncRazorpayPayments(token)
-                  toast({
-                    title: "Razorpay sync completed",
-                    description: "Payment statuses have been reconciled.",
-                  })
-                  await fetchPayments()
-                  await fetchStats()
-                } catch (e) {
-                  toast({
-                    title: "Razorpay sync failed",
-                    description: e instanceof Error ? e.message : "Could not sync payments right now.",
-                    variant: "destructive",
-                  })
-                } finally {
-                  setSyncing(false)
-                }
-              }}
-              disabled={syncing}
-              className="bg-transparent border border-gray-300 text-gray-700 text-[10px] w-[140px] hover:bg-gray-100 px-6 py-2 rounded-md flex items-center gap-1"
-            >
-              {syncing ? "Syncing..." : "Sync Razorpay"}
-            </Button>
-          )}
-
         </div>
 
         <div className="bg-white rounded-b-xl shadow overflow-x-auto">
