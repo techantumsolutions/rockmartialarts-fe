@@ -363,12 +363,6 @@ export default function EditStudentProfilePage() {
           </Alert>
         )}
 
-        <div className="space-y-6">
-            {/* Personal Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Personal Information</CardTitle>
-                <CardDescription>Update your basic personal details</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -620,6 +614,12 @@ export default function EditStudentProfilePage() {
               onClick={() => router.push("/student-dashboard/profile")}
               disabled={saving}
             >
+          <div className="flex justify-end space-x-4">
+            <Button
+              variant="outline"
+              onClick={() => router.push("/student-dashboard/profile")}
+              disabled={saving}
+            >
               Cancel
             </Button>
             <Button
@@ -639,40 +639,3 @@ export default function EditStudentProfilePage() {
                 </>
               )}
             </Button>
-          </div>
-        </div>
-      </div>
-
-      {showSuccessPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Profile Updated Successfully!</h3>
-              <p className="text-gray-600 mb-6">Your profile information has been updated successfully.</p>
-              <Button
-                onClick={() => {
-                  setShowSuccessPopup(false)
-                  try {
-                    sessionStorage.setItem("studentProfileScrollTop", "1")
-                  } catch {
-                    /* ignore */
-                  }
-                  window.scrollTo({ top: 0, left: 0, behavior: "auto" })
-                  router.push("/student-dashboard/profile")
-                }}
-                className="w-full bg-yellow-400 hover:bg-yellow-500 text-white font-semibold py-3 rounded-xl"
-              >
-                Continue
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-    </StudentDashboardLayout>
-  )
-}

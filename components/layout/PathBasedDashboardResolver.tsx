@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { type DashboardRole } from "@/lib/dashboard-config"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { SuperAdminAuth } from "@/lib/auth"
+import { TokenManager } from "@/lib/tokenManager"
 import {
   ActiveBranchProvider,
   fetchAssignedBranches,
@@ -64,14 +65,30 @@ export default function PathBasedDashboardResolver({
     const normalized = adminType?.toLowerCase().replace(/_/g, "-")
     const isSuperAdminPath = normalized === "super-admin"
     const isBranchAdminPath = normalized === "branch-admin"
+    const isPartnerAdminPath = normalized === "partner-admin"
 
-    if (!isSuperAdminPath && !isBranchAdminPath) {
+    if (!isSuperAdminPath && !isBranchAdminPath && !isPartnerAdminPath) {
       router.replace("/superadmin/login")
       return
     }
 
     const isBranchManager = BranchManagerAuth.isAuthenticated() && BranchManagerAuth.getCurrentUser()
     const isSuperAdmin = SuperAdminAuth.isAuthenticated()
+    const partnerUser = TokenManager.getUser()
+    const isPartnerAdmin =
+      TokenManager.isAuthenticated() &&
+      String(partnerUser?.role || "").toLowerCase() === "partner_super_admin"
+
+    if (isPartnerAdminPath) {
+      if (isPartnerAdmin) {
+        setRole("partner_super_admin")
+        return
+      }
+      const slug =
+        (typeof window !== "undefined" && localStorage.getItem("partner_slug")) || ""
+      router.replace(slug ? `/partners/${slug}/login` : "/superadmin/login")
+      return
+    }
 
     if (isBranchAdminPath) {
       if (isBranchManager) {

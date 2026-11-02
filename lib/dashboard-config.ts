@@ -34,10 +34,81 @@ import {
   MessageSquareQuote,
   UserCog,
   Search,
+  Tags,
   type LucideIcon,
 } from "lucide-react"
 
-export type DashboardRole = "super_admin" | "branch_admin" | "student"
+export type DashboardRole = "super_admin" | "branch_admin" | "student" | "partner_super_admin"
+
+const PARTNER_ADMIN_BASE = "/partner-admin/dashboard"
+
+function remapNavBase(items: NavItem[], fromBase: string, toBase: string): NavItem[] {
+  const remap = (path: string) =>
+    path === fromBase || path.startsWith(`${fromBase}/`)
+      ? `${toBase}${path.slice(fromBase.length)}`
+      : path
+  return items.map((i) => ({
+    ...i,
+    path: remap(i.path),
+    children: i.children?.map((c) => ({ ...c, path: remap(c.path) })),
+  }))
+}
+
+/** Super-admin menu without partner-org creation / CMS partner pages. */
+function partnerSuperAdminMenu(basePath: string = PARTNER_ADMIN_BASE): NavItem[] {
+  const withoutPartners = SUPER_ADMIN_MENU.filter((i) => i.label !== "Partners")
+  const menu = remapNavBase(withoutPartners, SUPER_ADMIN_BASE, basePath)
+
+  // Keep Attendance in the top 7 navbar slots: insert partner-only items around it.
+  const branchesIdx = menu.findIndex((i) => i.label === "Branches")
+  const branchManagersItem: NavItem = {
+    label: "Branch Managers",
+    path: `${basePath}/branch-managers`,
+    icon: UserCog,
+    permissionId: "branches",
+  }
+  if (branchesIdx >= 0) {
+    menu.splice(branchesIdx + 1, 0, branchManagersItem)
+  } else {
+    menu.push(branchManagersItem)
+  }
+
+  // Categories after Attendance so Attendance stays visible (not pushed into ⋮)
+  const attendanceIdx = menu.findIndex((i) => i.label === "Attendance")
+  const categoriesItem: NavItem = {
+    label: "Categories",
+    path: `${basePath}/categories`,
+    icon: Tags,
+    permissionId: "courses",
+  }
+  if (attendanceIdx >= 0) {
+    menu.splice(attendanceIdx + 1, 0, categoriesItem)
+  } else {
+    const coursesIdx = menu.findIndex((i) => i.label === "Courses")
+    if (coursesIdx >= 0) menu.splice(coursesIdx + 1, 0, categoriesItem)
+    else menu.push(categoriesItem)
+  }
+
+  // White-label org branding — Partner SA only; always under More (⋮), not top nav
+  menu.push({
+    label: "Organization Branding",
+    path: `${basePath}/org-branding`,
+    icon: ImageIcon,
+    overflowOnly: true,
+  })
+
+  // Rename Rock "Homepage Achievements" for partner isolation context
+  const achievementsIdx = menu.findIndex((i) => i.path.endsWith("/achievements-showcase"))
+  if (achievementsIdx >= 0) {
+    menu[achievementsIdx] = {
+      ...menu[achievementsIdx],
+      label: "Organization Achievements",
+      overflowOnly: true,
+    }
+  }
+
+  return menu
+}
 
 export interface NavChild {
   label: string
@@ -248,7 +319,7 @@ export function filterNavItemsByPermission(
   items: NavItem[],
   opts: { role: DashboardRole; hasPermission: (id: string) => boolean }
 ): NavItem[] {
-  if (opts.role === "super_admin") {
+  if (opts.role === "super_admin" || opts.role === "partner_super_admin") {
     return items.filter((i) => i.enabled !== false).map((i) => ({
       ...i,
       children: i.children?.filter((c) => c.enabled !== false),
@@ -285,7 +356,7 @@ export function filterNavItemsByPermission(
     })
 }
 
-export function getMenuForRole(role: DashboardRole): NavItem[] {
+export function getMenuForRole(role: DashboardRole, basePathOverride?: string): NavItem[] {
   switch (role) {
     case "super_admin":
       return SUPER_ADMIN_MENU
@@ -293,24 +364,35 @@ export function getMenuForRole(role: DashboardRole): NavItem[] {
       return BRANCH_ADMIN_MENU
     case "student":
       return STUDENT_MENU
+    case "partner_super_admin":
+      return partnerSuperAdminMenu(basePathOverride || PARTNER_ADMIN_BASE)
     default:
       return SUPER_ADMIN_MENU
   }
 }
 
-export function getMainNavItems(role: DashboardRole): NavItem[] {
-  return getMenuForRole(role).filter((i) => !i.overflowOnly)
+export function getMainNavItems(role: DashboardRole, basePathOverride?: string): NavItem[] {
+  return getMenuForRole(role, basePathOverride).filter((i) => !i.overflowOnly)
 }
 
-export function getOverflowNavItems(role: DashboardRole): NavItem[] {
-  return getMenuForRole(role).filter((i) => i.overflowOnly)
+export function getOverflowNavItems(role: DashboardRole, basePathOverride?: string): NavItem[] {
+  return getMenuForRole(role, basePathOverride).filter((i) => i.overflowOnly)
 }
 
 /** Header action buttons (Add Course, Add Coach, etc.) - super_admin only gets Add Branch Manager / Add New Branch */
-export function getHeaderActionsForRole(role: DashboardRole): HeaderAction[] {
-  const base = role === "super_admin" ? SUPER_ADMIN_BASE : role === "branch_admin" ? BRANCH_ADMIN_BASE : ""
+export function getHeaderActionsForRole(role: DashboardRole, basePathOverride?: string): HeaderAction[] {
+  const base =
+    basePathOverride ||
+    (role === "super_admin"
+      ? SUPER_ADMIN_BASE
+      : role === "branch_admin"
+        ? BRANCH_ADMIN_BASE
+        : role === "partner_super_admin"
+          ? PARTNER_ADMIN_BASE
+          : "")
   switch (role) {
     case "super_admin":
+    case "partner_super_admin":
       return [
         { label: "Add Course", shortLabel: "Course", path: `${base}/create-course` },
         { label: "Add Coach", shortLabel: "Coach", path: `${base}/add-coach` },
@@ -337,6 +419,8 @@ export function getRoleLabel(role: DashboardRole): string {
       return "Branch Admin"
     case "student":
       return "Student"
+    case "partner_super_admin":
+      return "Partner admin"
     default:
       return "User"
   }
@@ -350,6 +434,12 @@ export function getBasePath(role: DashboardRole): string {
       return BRANCH_ADMIN_BASE
     case "student":
       return "/student-dashboard"
+    case "partner_super_admin":
+      if (typeof window !== "undefined") {
+        const slug = localStorage.getItem("partner_slug")
+        if (slug) return `/partners/${slug}/dashboard`
+      }
+      return PARTNER_ADMIN_BASE
     default:
       return SUPER_ADMIN_BASE
   }

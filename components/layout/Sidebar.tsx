@@ -4,6 +4,7 @@ import { useMemo } from "react"
 import { usePathname } from "next/navigation"
 import {
   filterNavItemsByPermission,
+  getBasePath,
   getMainNavItems,
   getOverflowNavItems,
   type DashboardRole,
@@ -18,14 +19,19 @@ interface SidebarProps {
 export default function Sidebar({ role, onNavigate }: SidebarProps) {
   const pathname = usePathname()
   const { hasPermission } = usePermissions(role)
+  const basePath = getBasePath(role)
 
   const menuItems = useMemo(
-    () => filterNavItemsByPermission(getMainNavItems(role), { role, hasPermission }),
-    [role, hasPermission]
+    () => filterNavItemsByPermission(getMainNavItems(role, basePath), { role, hasPermission }),
+    [role, hasPermission, basePath]
   )
   const overflowItems = useMemo(
-    () => filterNavItemsByPermission(getOverflowNavItems(role), { role, hasPermission }),
-    [role, hasPermission]
+    () =>
+      filterNavItemsByPermission(getOverflowNavItems(role, basePath), {
+        role,
+        hasPermission,
+      }),
+    [role, hasPermission, basePath]
   )
 
   const isActivePath = (path: string) => pathname === path || pathname.startsWith(path + "/")

@@ -964,7 +964,7 @@ export default function StudentPromotionsAdminPage() {
                   {promotions.map((p) => (
                     <div
                       key={p.id}
-                      className="rounded-md border border-gray-100 bg-white px-3 py-3 flex flex-wrap gap-3"
+                      className="rounded-md border border-gray-100 bg-white px-3 py-3 flex flex-wrap items-center gap-3"
                     >
                       {p.banner_url ? (
                         <div className="w-24 h-16 shrink-0 overflow-hidden rounded bg-gray-100">
@@ -1027,9 +1027,9 @@ export default function StudentPromotionsAdminPage() {
                           ].join(" · ")}
                         </p>
                       </div>
-                      <div className="flex flex-col gap-2 shrink-0 items-end">
+                      <div className="flex shrink-0 items-center gap-2 self-center">
                         {p.status !== "archived" ? (
-                          <label className="flex items-center gap-2 text-xs text-gray-600">
+                          <label className="flex h-8 items-center gap-2 text-xs text-gray-600 whitespace-nowrap">
                             <Switch
                               checked={p.status === "active"}
                               disabled={saving}
@@ -1038,26 +1038,25 @@ export default function StudentPromotionsAdminPage() {
                             Active
                           </label>
                         ) : null}
-                        <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8"
+                          onClick={() => startEdit(p)}
+                        >
+                          Edit
+                        </Button>
+                        {p.status !== "archived" ? (
                           <Button
                             size="sm"
-                            variant="outline"
-                            onClick={() => startEdit(p)}
+                            variant="ghost"
+                            className="h-8 text-red-600"
+                            disabled={saving}
+                            onClick={() => void archive(p.id)}
                           >
-                            Edit
+                            Archive
                           </Button>
-                          {p.status !== "archived" ? (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-red-600"
-                              disabled={saving}
-                              onClick={() => void archive(p.id)}
-                            >
-                              Archive
-                            </Button>
-                          ) : null}
-                        </div>
+                        ) : null}
                       </div>
                     </div>
                   ))}

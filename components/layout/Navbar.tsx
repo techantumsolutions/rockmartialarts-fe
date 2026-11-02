@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ChevronDown, MoreVertical, Settings, User, LogOut, FileText } from "lucide-react"
+import { ChevronDown, MoreVertical, Settings, User, LogOut, FileText, MapPin } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +26,7 @@ import {
   type NavItem,
 } from "@/lib/dashboard-config"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { TokenManager } from "@/lib/tokenManager"
 import { useActiveBranch } from "@/lib/activeBranch"
 import { usePermissions } from "@/hooks/use-permissions"
 
@@ -42,15 +43,39 @@ export default function Navbar({ role }: NavbarProps) {
   const { branches: assignedBranches, active: activeBranch, setActive: setActiveBranch } = useActiveBranch()
 
   const { cms } = useCMS()
+  const basePath = getBasePath(role)
+  const NAV_VISIBLE_LIMIT = 7
+
   const menuItems = useMemo(
-    () => filterNavItemsByPermission(getMainNavItems(role), { role, hasPermission }),
-    [role, hasPermission]
+    () =>
+      filterNavItemsByPermission(getMainNavItems(role, basePath), {
+        role,
+        hasPermission,
+      }),
+    [role, hasPermission, basePath]
   )
   const overflowNavItems = useMemo(
-    () => filterNavItemsByPermission(getOverflowNavItems(role), { role, hasPermission }),
-    [role, hasPermission]
+    () =>
+      filterNavItemsByPermission(getOverflowNavItems(role, basePath), {
+        role,
+        hasPermission,
+      }),
+    [role, hasPermission, basePath]
   )
-  const basePath = getBasePath(role)
+  const primaryNavItems = useMemo(
+    () => menuItems.filter((item) => item.label !== "Settings"),
+    [menuItems]
+  )
+  const visibleNavItems = useMemo(
+    () => primaryNavItems.slice(0, NAV_VISIBLE_LIMIT),
+    [primaryNavItems]
+  )
+  const moreNavItems = useMemo(() => {
+    const extras = primaryNavItems.slice(NAV_VISIBLE_LIMIT)
+    const seen = new Set(extras.map((i) => i.path))
+    const fromOverflow = overflowNavItems.filter((i) => !seen.has(i.path))
+    return [...extras, ...fromOverflow]
+  }, [primaryNavItems, overflowNavItems])
   const roleLabel = getRoleLabel(role)
 
   useEffect(() => {
@@ -66,13 +91,19 @@ export default function Navbar({ role }: NavbarProps) {
 
   const handleLogout = () => {
     if (typeof window !== "undefined") {
+      const partnerSlug = localStorage.getItem("partner_slug")
       if (role === "branch_admin") BranchManagerAuth.clearAuthData()
       else {
+        TokenManager.clearAuthData?.()
         localStorage.removeItem("token")
         localStorage.removeItem("user")
+        localStorage.removeItem("partner_slug")
+        localStorage.removeItem("partner_name")
       }
       if (role === "student") router.replace("/login")
       else if (role === "branch_admin") router.replace("/branch-manager/login")
+      else if (role === "partner_super_admin")
+        router.replace(partnerSlug ? `/partners/${partnerSlug}/login` : "/superadmin/login")
       else router.replace("/superadmin/login")
     }
   }
@@ -118,7 +149,7 @@ export default function Navbar({ role }: NavbarProps) {
 
           <div className="flex items-center gap-1 sm:gap-2 lg:gap-3 ml-auto flex-shrink-0">
             <nav className="hidden lg:flex items-center gap-2 xl:gap-3 2xl:gap-4">
-              {menuItems.filter(item => item.label !== "Settings").map((item) => {
+              {visibleNavItems.map((item) => {
                 const Icon = item.icon
                 return item.children ? (
                   <DropdownMenu key={item.path}>
@@ -154,16 +185,19 @@ export default function Navbar({ role }: NavbarProps) {
                   </button>
                 )
               })}
-              {(role === "super_admin" || role === "branch_admin") && (
+              {moreNavItems.length > 0 && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="pb-2 px-2 text-gray-700 hover:text-gray-900 cursor-pointer rounded-lg bg-gray-50 hover:bg-gray-100 transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center border border-gray-200 hover:border-gray-300 flex-shrink-0 h-8 w-8">
+                    <button
+                      aria-label="More navigation items"
+                      className="pb-2 px-2 text-gray-700 hover:text-gray-900 cursor-pointer rounded-lg bg-gray-50 hover:bg-gray-100 transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center border border-gray-200 hover:border-gray-300 flex-shrink-0 h-8 w-8"
+                    >
                       <MoreVertical className="w-4 h-4" />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuPortal>
-                    <DropdownMenuContent align="end" className="w-56 z-[1000] bg-white/95 backdrop-blur-md border border-gray-200/50 shadow-xl rounded-lg p-2" sideOffset={8}>
-                      {overflowNavItems.map((item) => {
+                    <DropdownMenuContent align="end" className="w-56 max-h-[70vh] overflow-y-auto z-[1000] bg-white/95 backdrop-blur-md border border-gray-200/50 shadow-xl rounded-lg p-2" sideOffset={8}>
+                      {moreNavItems.map((item) => {
                         const Icon = item.icon
                         if (item.children && item.children.length > 0) {
                           return item.children.map((child) => {
@@ -191,9 +225,25 @@ export default function Navbar({ role }: NavbarProps) {
                           </DropdownMenuItem>
                         )
                       })}
-                      {role === "super_admin" && (
+                      {(role === "super_admin" || role === "partner_super_admin") &&
+                        !visibleNavItems.some((i) => i.label === "Categories") &&
+                        !moreNavItems.some((i) => i.label === "Categories") && (
                         <DropdownMenuItem onClick={() => router.push(`${basePath}/categories`)} className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200">
                           Categories Management
+                        </DropdownMenuItem>
+                      )}
+                      {role === "partner_super_admin" &&
+                        !moreNavItems.some(
+                          (i) =>
+                            i.label === "Organization Branding" ||
+                            i.label === "Branding" ||
+                            i.path.endsWith("/org-branding")
+                        ) && (
+                        <DropdownMenuItem
+                          onClick={() => router.push(`${basePath}/org-branding`)}
+                          className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200"
+                        >
+                          Organization Branding
                         </DropdownMenuItem>
                       )}
                     </DropdownMenuContent>
@@ -252,10 +302,16 @@ export default function Navbar({ role }: NavbarProps) {
                     <User className="w-4 h-4" />
                     Profile
                   </DropdownMenuItem>
-                  {role === "super_admin" && (
+                  {(role === "super_admin" || role === "partner_super_admin") && (
                     <DropdownMenuItem onClick={() => router.push(settingsPath)} className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200 flex items-center gap-2">
                       <Settings className="w-4 h-4" />
                       Settings
+                    </DropdownMenuItem>
+                  )}
+                  {(role === "super_admin" || role === "partner_super_admin") && (
+                    <DropdownMenuItem onClick={() => router.push(`${basePath}/settings/geography`)} className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200 flex items-center gap-2">
+                      <MapPin className="w-4 h-4" />
+                      State & City
                     </DropdownMenuItem>
                   )}
                   {role === "super_admin" && (
