@@ -1,6 +1,7 @@
 import { getBackendApiUrl } from "./config"
 import { TokenManager } from "./tokenManager"
 import { BranchManagerAuth } from "./branchManagerAuth"
+import { getCoachAuthHeaders } from "./coachAuth"
 
 export type TrainingRequestType = "home" | "school" | "college" | "corporate" | "residential"
 
@@ -175,6 +176,10 @@ export type TrainingRequest = {
   assigned_coach_name?: string | null
   assigned_at?: string | null
   assigned_by?: string | null
+  coach_assignment_status?: "pending" | "accepted" | "rejected" | string | null
+  coach_rejection_reason?: string | null
+  coach_response_note?: string | null
+  coach_responded_at?: string | null
   created_by?: string | null
   created_at?: string
   updated_at?: string
@@ -279,6 +284,16 @@ export function paymentStatusLabel(status?: string | null) {
     failed: "Failed",
   }
   return map[String(status || "")] || status || "—"
+}
+
+
+function coachHeaders(json = false): HeadersInit {
+  const h: Record<string, string> = {
+    ...getCoachAuthHeaders(),
+    "Cache-Control": "no-cache",
+  }
+  if (json) h["Content-Type"] = "application/json"
+  return h
 }
 
 function authHeaders(json = false, optional = false): HeadersInit {
@@ -484,6 +499,59 @@ class TrainingRequestAPI {
         method: "PATCH",
         headers: authHeaders(true),
         body: JSON.stringify({ coach_id, note: note || null }),
+      }
+    )
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{ message: string; request: TrainingRequest }>
+  }
+  async myTrainingRequests(params: {
+    status?: string
+    type?: string
+    search?: string
+    skip?: number
+    limit?: number
+  } = {}) {
+    const qs = new URLSearchParams()
+    if (params.status && params.status !== "all") qs.set("status", params.status)
+    if (params.type && params.type !== "all") qs.set("type", params.type)
+    if (params.search && params.search.trim()) qs.set("search", params.search.trim())
+    qs.set("skip", String(params.skip ?? 0))
+    qs.set("limit", String(params.limit ?? 50))
+
+    const res = await fetch(
+      getBackendApiUrl(`training-requests/coach/my-requests?${qs.toString()}`),
+      {
+        headers: coachHeaders(),
+        cache: "no-store",
+      }
+    )
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{
+      requests: TrainingRequest[]
+      total: number
+      counts: {
+        all: number
+        pending: number
+        accepted: number
+        rejected: number
+      }
+    }>
+  }
+
+  async coachRespond(
+    requestId: string,
+    payload: {
+      action: "accept" | "reject"
+      reason?: string
+      note?: string
+    }
+  ) {
+    const res = await fetch(
+      getBackendApiUrl(`training-requests/${encodeURIComponent(requestId)}/coach-respond`),
+      {
+        method: "POST",
+        headers: coachHeaders(true),
+        body: JSON.stringify(payload),
       }
     )
     if (!res.ok) throw new Error(await parseError(res))

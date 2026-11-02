@@ -25,6 +25,9 @@ export type CoachRegistrationPayload = {
   service_location_ids: string[]
   profile_image_url?: string | null
   about_short?: string | null
+  razorpay_payment_id?: string
+  razorpay_order_id?: string
+  razorpay_signature?: string
 }
 
 async function parseError(res: Response): Promise<string> {
@@ -67,6 +70,23 @@ class CoachRegistrationAPI {
     })
     if (!res.ok) throw new Error(await parseError(res))
     return res.json() as Promise<{ file_url: string; message?: string }>
+  }
+
+  async createOrder(payload: { name?: string; email?: string; phone?: string }) {
+    const res = await fetch(getBackendApiUrl("coaches/register/create-order"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{
+      fee_required: boolean
+      order_id?: string
+      amount_paise?: number
+      amount_inr?: number
+      currency?: string
+      key_id?: string
+    }>
   }
 
   async register(payload: CoachRegistrationPayload) {

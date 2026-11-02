@@ -540,7 +540,30 @@ export default function TrainingRequestsAdminPage() {
                               ? paymentStatusLabel(row.payment_status)
                               : "—"}
                           </td>
-                          <td className="px-3 py-2">{row.assigned_coach_name || "—"}</td>
+                          <td className="px-3 py-2 text-xs">
+                            {row.assigned_coach_name ? (
+                              <div className="flex flex-col">
+                                <span className="font-medium text-gray-900">{row.assigned_coach_name}</span>
+                                {row.coach_assignment_status === "accepted" && (
+                                  <span className="text-[11px] text-emerald-700 font-semibold">
+                                    ✓ Accepted
+                                  </span>
+                                )}
+                                {row.coach_assignment_status === "rejected" && (
+                                  <span className="text-[11px] text-red-600 font-semibold" title={row.coach_rejection_reason || undefined}>
+                                    ✗ Declined
+                                  </span>
+                                )}
+                                {(!row.coach_assignment_status || row.coach_assignment_status === "pending") && (
+                                  <span className="text-[11px] text-amber-700 font-normal">
+                                    Pending response
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </td>
                           <td className="px-3 py-2">{fmtDate(row.created_at)}</td>
                         </tr>
                       )
@@ -787,9 +810,54 @@ export default function TrainingRequestsAdminPage() {
                     </p>
                   ) : (
                     <div className="space-y-3">
-                      <p className="text-sm text-gray-600">
-                        Current: {detail.assigned_coach_name || "Unassigned"}
-                      </p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-gray-600">
+                          Current: <b className="text-gray-900">{detail.assigned_coach_name || "Unassigned"}</b>
+                        </p>
+                        {detail.coach_assignment_status === "accepted" && (
+                          <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-300 text-xs">
+                            ✓ Accepted by Coach
+                          </Badge>
+                        )}
+                        {detail.coach_assignment_status === "rejected" && (
+                          <Badge variant="outline" className="bg-red-50 text-red-800 border-red-300 text-xs">
+                            ✗ Declined by Coach
+                          </Badge>
+                        )}
+                        {detail.coach_assignment_status === "pending" && detail.assigned_coach_name && (
+                          <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 text-xs">
+                            Pending Response
+                          </Badge>
+                        )}
+                      </div>
+
+                      {detail.coach_assignment_status === "rejected" && (
+                        <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-red-900 text-xs space-y-1">
+                          <div className="font-bold text-red-800 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-red-600"></span>
+                            Coach Declined this Request ({fmtDate(detail.coach_responded_at)})
+                          </div>
+                          <p><b>Rejection Reason:</b> {detail.coach_rejection_reason || "No specific reason provided"}</p>
+                          {detail.coach_response_note && (
+                            <p className="text-gray-600"><b>Coach note:</b> {detail.coach_response_note}</p>
+                          )}
+                          <p className="text-[11px] text-gray-500 pt-1">
+                            You can reassign this training request to another coach using the selector below.
+                          </p>
+                        </div>
+                      )}
+
+                      {detail.coach_assignment_status === "accepted" && (
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-emerald-900 text-xs space-y-1">
+                          <div className="font-bold text-emerald-800 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
+                            Coach Accepted ({fmtDate(detail.coach_responded_at)})
+                          </div>
+                          {detail.coach_response_note && (
+                            <p className="text-gray-700"><b>Coach note:</b> {detail.coach_response_note}</p>
+                          )}
+                        </div>
+                      )}
                       <div className="space-y-1">
                         <Label>Coach</Label>
                         <Select value={coachId || undefined} onValueChange={setCoachId}>

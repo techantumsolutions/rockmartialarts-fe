@@ -529,6 +529,37 @@ export default function CoachApprovalsAdminPage() {
                         <p className="mt-1">{detail.about_short}</p>
                       </div>
                     )}
+                    {detail.registration_payment && (
+                      <div className="md:col-span-2 rounded-lg border border-gray-200 bg-gray-50/70 p-3">
+                        <p className="text-xs font-semibold text-gray-700">Registration Payment Details</p>
+                        <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                          <div>
+                            <span className="text-[#6B7A99]">Fee Amount:</span>
+                            <p className="font-semibold text-gray-900">
+                              ₹{Number(detail.registration_payment.fee_amount || 0).toLocaleString("en-IN")}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-[#6B7A99]">Status:</span>
+                            <p className="font-semibold text-green-700 capitalize">
+                              {detail.registration_payment.payment_status || "Paid"}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-[#6B7A99]">Payment ID:</span>
+                            <p className="font-mono text-gray-900 truncate" title={detail.registration_payment.razorpay_payment_id}>
+                              {detail.registration_payment.razorpay_payment_id || "—"}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-[#6B7A99]">Paid At:</span>
+                            <p className="text-gray-900">
+                              {fmtDate(detail.registration_payment.paid_at)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-2">

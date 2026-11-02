@@ -32,6 +32,7 @@ export interface SystemSettings {
 
   /** Default registration / admission fee (INR) for public checkout */
   registration_fee: number
+  coach_registration_fee: number
   
   created_at?: string
   updated_at?: string
@@ -58,12 +59,27 @@ export interface SettingsResponse {
   backup_frequency: string
   backup_retention: string
   registration_fee: number
+  coach_registration_fee: number
   created_at: string
   updated_at: string
 }
 
 export class SettingsAPI extends BaseAPI {
   private readonly endpoint = '/api/settings'
+
+  /**
+   * Get public registration settings (no auth)
+   */
+  async getPublicSettings(): Promise<{
+    registrationFee: number
+    coachRegistrationFee: number
+    registration_fee?: number
+    coach_registration_fee?: number
+  }> {
+    return this.makeRequest(`${this.endpoint}/public`, {
+      method: 'GET'
+    })
+  }
 
   /**
    * Get current system settings
