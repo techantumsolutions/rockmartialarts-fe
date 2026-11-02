@@ -309,7 +309,8 @@ body[data-scroll-locked] {
 }
 
 .coach-register-dob::-webkit-calendar-picker-indicator,
-.home-training-preferred-date::-webkit-calendar-picker-indicator {
+.home-training-preferred-date::-webkit-calendar-picker-indicator,
+.demo-session-date::-webkit-calendar-picker-indicator {
   cursor: pointer;
   opacity: 1;
   filter: none;
@@ -341,4 +342,8 @@ body[data-scroll-locked] {
   -webkit-box-orient: vertical !important;
   -webkit-line-clamp: 3 !important;
   overflow: hidden !important;
+}
+
+.demo-session-date {
+  color-scheme: dark;
 }

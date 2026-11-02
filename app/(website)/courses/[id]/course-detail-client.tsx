@@ -335,6 +335,8 @@ function CourseDetailPageInner() {
       router.back()
     }
   }, [router])
+  const [locationOpen, setLocationOpen] = useState(false)
+  const [durationOpen, setDurationOpen] = useState(false)
 
   const handleAddToCartClick = useCallback(() => {
     if (typeof window === "undefined") return
@@ -586,6 +588,9 @@ function CourseDetailPageInner() {
   const effectiveDurationKey = selectedDurationKey ?? (durations[0]?.id ?? durations[0]?.code ?? null)
 
   const selectedBranch = branches.find((b) => b.branch_id === effectiveLocationId) || branches[0]
+  const selectedDuration =
+    durations.find((duration) => duration.id === effectiveDurationKey || duration.code === effectiveDurationKey) ||
+    durations[0]
 
   const branchApplies =
     !!branchPricingInfo && branchPricingInfo.branch_id === effectiveLocationId
@@ -711,17 +716,44 @@ function CourseDetailPageInner() {
                   <div className="min-w-0 flex-1">
                     <p className="text-[10.5px] sm:text-[11px] uppercase tracking-wider text-white/80 font-medium leading-none">Select Location</p>
                     {branches.length > 1 ? (
-                      <select
-                        className="mt-1 w-full bg-transparent text-[12px] font-semibold outline-none border-none focus:ring-0 cursor-pointer py-0 leading-tight"
-                        value={effectiveLocationId ?? ""}
-                        onChange={(e) => persistBranchAndUrl(e.target.value || null)}
-                      >
-                        {branches.map((b) => (
-                          <option key={b.branch_id} value={b.branch_id} className="text-black">
-                            {b.branch_name || b.location}
-                          </option>
-                        ))}
-                      </select>
+                      <Popover open={locationOpen} onOpenChange={setLocationOpen}>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            aria-expanded={locationOpen}
+                            aria-haspopup="listbox"
+                            aria-label="Select location"
+                            className="mt-1 flex w-full min-w-0 items-center justify-between gap-2 text-left text-[12px] font-semibold leading-tight"
+                          >
+                            <span className="truncate">
+                              {selectedBranch?.branch_name || branches.find((branch) => branch.branch_id === effectiveLocationId)?.branch_name || info.location}
+                            </span>
+                            <ChevronDown className={`h-4 w-4 shrink-0 transition-transform duration-200 ${locationOpen ? "rotate-180" : ""}`} />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="z-50 w-[var(--radix-popover-trigger-width)] min-w-[180px] border-white/10 bg-[#171A26] p-1 text-white">
+                          <div role="listbox" aria-label="Locations" className="max-h-60 overflow-y-auto">
+                            {branches.map((branch) => {
+                              const selected = branch.branch_id === effectiveLocationId
+                              return (
+                                <button
+                                  key={branch.branch_id}
+                                  type="button"
+                                  role="option"
+                                  aria-selected={selected}
+                                  onClick={() => {
+                                    persistBranchAndUrl(branch.branch_id || null)
+                                    setLocationOpen(false)
+                                  }}
+                                  className={`w-full rounded px-3 py-2 text-left text-sm hover:bg-white/10 ${selected ? "bg-white/10 font-semibold" : ""}`}
+                                >
+                                  {branch.branch_name || branch.location}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     ) : (
                       <p className="mt-1 text-[12px] font-semibold truncate leading-tight">
                         {selectedBranch?.branch_name || info.location}
@@ -738,17 +770,46 @@ function CourseDetailPageInner() {
                   <div className="min-w-0 flex-1">
                     <p className="text-[10.5px] sm:text-[11px] uppercase tracking-wider text-white/80 font-medium leading-none">Course Duration</p>
                     {durations.length > 0 ? (
-                      <select
-                        className="mt-1 w-full bg-transparent text-[12px] font-semibold outline-none border-none focus:ring-0 cursor-pointer py-0 leading-tight"
-                        value={effectiveDurationKey ?? ""}
-                        onChange={(e) => setSelectedDurationKey(e.target.value || null)}
-                      >
-                        {durations.map((d) => (
-                          <option key={d.id} value={d.id} className="text-black">
-                            {d.name || d.code || `${d.duration_months ?? ""} month(s)`}
-                          </option>
-                        ))}
-                      </select>
+                      <Popover open={durationOpen} onOpenChange={setDurationOpen}>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            aria-expanded={durationOpen}
+                            aria-haspopup="listbox"
+                            aria-label="Select course duration"
+                            className="mt-1 flex w-full min-w-0 items-center justify-between gap-2 text-left text-[12px] font-semibold leading-tight"
+                          >
+                            <span className="truncate">
+                              {selectedDuration?.name ||
+                                selectedDuration?.code ||
+                                `${selectedDuration?.duration_months ?? ""} month(s)`}
+                            </span>
+                            <ChevronDown className={`h-4 w-4 shrink-0 transition-transform duration-200 ${durationOpen ? "rotate-180" : ""}`} />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="z-50 w-[var(--radix-popover-trigger-width)] min-w-[180px] border-white/10 bg-[#171A26] p-1 text-white">
+                          <div role="listbox" aria-label="Course durations" className="max-h-60 overflow-y-auto">
+                            {durations.map((duration) => {
+                              const selected = duration.id === effectiveDurationKey
+                              return (
+                                <button
+                                  key={duration.id}
+                                  type="button"
+                                  role="option"
+                                  aria-selected={selected}
+                                  onClick={() => {
+                                    setSelectedDurationKey(duration.id || null)
+                                    setDurationOpen(false)
+                                  }}
+                                  className={`w-full rounded px-3 py-2 text-left text-sm hover:bg-white/10 ${selected ? "bg-white/10 font-semibold" : ""}`}
+                                >
+                                  {duration.name || duration.code || `${duration.duration_months ?? ""} month(s)`}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     ) : (
                       <p className="mt-1 text-[12px] font-semibold truncate leading-tight">{info.duration}</p>
                     )}

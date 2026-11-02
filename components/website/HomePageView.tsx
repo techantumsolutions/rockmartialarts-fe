@@ -60,6 +60,7 @@ export interface HomePageViewProps {
   }[]
   testimonialsTitle: string
   testimonialsSubtitle: string
+  testimonialsEnabled: boolean
   classCards: { id?: string; name: string; img: string; href: string }[]
   physicalBenefits: string[]
   mentalBenefits: string[]
@@ -171,6 +172,7 @@ export default function HomePageView({
   mediaSectionItems = [],
   testimonialsTitle,
   testimonialsSubtitle,
+  testimonialsEnabled,
   classCards,
   physicalBenefits,
   mentalBenefits,
@@ -274,7 +276,7 @@ export default function HomePageView({
 
       {/* Tagline - scroll reveal */}
       <AnimatedSection variant="fadeSlideUp" className="py-10 md:py-14 bg-[#171A26] relative z-10">
-        <div className="container mx-auto px-4 max-w-5xl">
+        <div className="mx-auto w-full max-w-7xl px-4">
           <h1 className="text-center text-white text-xl md:text-2xl lg:text-3xl font-medium">
             {ctaTitle}
           </h1>
@@ -289,7 +291,7 @@ export default function HomePageView({
         id="courses"
         className="py-12 md:py-16 bg-[#171A26] scroll-mt-24 relative z-10"
       >
-        <div className="container mx-auto px-4 max-w-7xl">
+        <div className="mx-auto w-full max-w-7xl px-4">
           <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
             <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
             <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">
@@ -335,7 +337,7 @@ export default function HomePageView({
           id="media"
           className="py-12 md:py-16 bg-[#171A26] scroll-mt-24 relative z-10"
         >
-          <div className="container mx-auto px-4 max-w-7xl">
+          <div className="mx-auto w-full max-w-7xl px-4">
             <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
               <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
               {(mediaSectionSubtitle || "").trim() ? (
@@ -382,7 +384,7 @@ export default function HomePageView({
         variant="fadeSlideUp"
         className="py-12 md:py-16 bg-[#171A26] relative z-10"
       >
-        <div className="container mx-auto px-4 max-w-7xl">
+        <div className="mx-auto w-full max-w-7xl px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start lg:items-center">
             <div className="overflow-hidden rounded-lg">
               <img
@@ -440,7 +442,7 @@ export default function HomePageView({
 
       {/* Our Expert Masters — up to 8 coaches; desktop 4 / tablet 2 / mobile 1 */}
       <section className="py-16 md:py-20 bg-[#171A26] relative z-10">
-        <div className="container mx-auto px-4 max-w-7xl">
+        <div className="mx-auto w-full max-w-7xl px-4">
           <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
             <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
             <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">Our Members</p>
@@ -502,8 +504,9 @@ export default function HomePageView({
       </section>
 
       {/* Student testimonials (MongoDB marketing) — carousel, max 6 */}
+      {testimonialsEnabled && (
       <section className="py-16 md:py-20 bg-[#171A26] relative z-10">
-        <div className="container mx-auto px-4 max-w-7xl">
+        <div className="mx-auto w-full max-w-7xl px-4">
           <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
             <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
             <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">{testimonialsSubtitle}</p>
@@ -578,10 +581,11 @@ export default function HomePageView({
           )}
         </div>
       </section>
+      )}
 
       {/* Student achievements showcase (MongoDB) */}
       <section className="py-16 md:py-20 bg-[#171A26] relative z-10 border-t border-gray-800/80">
-        <div className="container mx-auto px-4 max-w-7xl">
+        <div className="mx-auto w-full max-w-7xl px-4">
           <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
             <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
             <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">Celebrate</p>
@@ -601,7 +605,7 @@ export default function HomePageView({
 
       {/* CTA section — scroll reveal, single prominent CTA */}
       <AnimatedSection variant="fadeSlideUp" className="py-16 md:py-24 bg-[#171A26] relative z-10">
-        <div className="container mx-auto px-4 max-w-3xl text-center">
+        <div className="mx-auto w-full max-w-7xl px-4 text-center">
           <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
             {bottomCtaTitle || "Start your martial arts journey today"}
           </h2>
