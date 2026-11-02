@@ -220,6 +220,10 @@ export default function CoachAvailabilityEditor({
   const addSlot = () => {
     const defaultLoc = allocatedBranchId || null
     setSlots((prev) => [...prev, { ...emptySlot(), service_location_id: defaultLoc }])
+    toast({
+      title: "Slot added",
+      description: "Fill in the day and time, then save availability.",
+    })
   }
 
   const updateSlot = (index: number, patch: Partial<WeeklySlot>) => {
