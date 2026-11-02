@@ -2,7 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { CreditCard, Loader2, RefreshCw } from "lucide-react"
+import {
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  CreditCard,
+  Loader2,
+  RefreshCw,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -44,7 +51,7 @@ export default function CoachSubscriptionPage() {
   const [coachEmail, setCoachEmail] = useState("")
   const [ready, setReady] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [paying, setPaying] = useState(false)
+  const [payingPlanId, setPayingPlanId] = useState<string | null>(null)
   const [plans, setPlans] = useState<CoachSubscriptionPlan[]>([])
   const [sub, setSub] = useState<CoachSubscription | null>(null)
   const [history, setHistory] = useState<SubscriptionPayment[]>([])
@@ -89,8 +96,30 @@ export default function CoachSubscriptionPage() {
     load()
   }, [load])
 
+  const status = (sub?.status || "").toLowerCase()
+
   const handlePay = async (plan: CoachSubscriptionPlan) => {
-    setPaying(true)
+    // Prevent renewal if the current plan is still actively subscribed (not expired)
+    const isCurrentPlan = Boolean(
+      sub && (sub.plan_id === plan.id || sub.plan_snapshot?.id === plan.id)
+    )
+    if (isCurrentPlan && status === "active") {
+      toast({
+        title: "Plan already active",
+        description: "Your subscription is currently active and cannot be renewed until it expires or enters grace period.",
+      })
+      return
+    }
+
+    if (regSource !== "self") {
+      toast({
+        title: "Exempt account",
+        description: "Your account is administrator-assigned and does not require a subscription.",
+      })
+      return
+    }
+
+    setPayingPlanId(plan.id)
     try {
       const checkout = await coachSubscriptionAPI.checkout(plan.id)
       await openRazorpayCheckout({
@@ -129,7 +158,10 @@ export default function CoachSubscriptionPage() {
               // ignore
             }
             await refreshCoachSubscriptionStatus()
-            toast({ title: "Subscription activated", description: "Full dashboard access has been restored." })
+            toast({
+              title: "Subscription activated",
+              description: "Full dashboard access has been restored.",
+            })
             await load()
           } catch (err) {
             toast({
@@ -138,10 +170,18 @@ export default function CoachSubscriptionPage() {
               variant: "destructive",
             })
           } finally {
-            setPaying(false)
+            setPayingPlanId(null)
           }
         },
-        onDismiss: () => setPaying(false),
+        onDismiss: () => setPayingPlanId(null),
+        onPaymentFailure: (failMsg) => {
+          toast({
+            title: "Payment failed",
+            description: failMsg || "Payment was not completed. Please try again.",
+            variant: "destructive",
+          })
+          setPayingPlanId(null)
+        },
       })
     } catch (e) {
       toast({
@@ -149,11 +189,9 @@ export default function CoachSubscriptionPage() {
         description: e instanceof Error ? e.message : "Error",
         variant: "destructive",
       })
-      setPaying(false)
+      setPayingPlanId(null)
     }
   }
-
-  const status = (sub?.status || "").toLowerCase()
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -174,6 +212,7 @@ export default function CoachSubscriptionPage() {
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
+        {/* Current status card */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base text-[#4F5077]">Current status</CardTitle>
@@ -205,7 +244,7 @@ export default function CoachSubscriptionPage() {
                   <Badge variant="outline" className={STATUS_BADGE[status] || ""}>
                     {subscriptionStatusLabel(status)}
                   </Badge>
-                  <span className="text-[#6B7A99]">
+                  <span className="text-[#6B7A99] font-medium">
                     {sub.plan_snapshot?.name || "Plan"}
                   </span>
                 </div>
@@ -217,14 +256,22 @@ export default function CoachSubscriptionPage() {
                   <span className="text-[#6B7A99]">Grace ends: </span>
                   {fmt(sub.grace_ends_at)}
                 </p>
+                {status === "active" && (
+                  <p className="text-emerald-700 text-xs flex items-center gap-1.5 pt-0.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>Your subscription is active. All dashboard features are fully accessible.</span>
+                  </p>
+                )}
                 {status === "grace" && (
-                  <p className="text-orange-800 text-xs">
-                    Your paid period ended. Renew before grace ends to avoid deactivation.
+                  <p className="text-orange-800 text-xs flex items-center gap-1.5 pt-0.5">
+                    <Clock className="w-3.5 h-3.5 text-orange-700 shrink-0" />
+                    <span>Your paid period ended. Renew before grace ends to avoid deactivation.</span>
                   </p>
                 )}
                 {status === "expired" && (
-                  <p className="text-red-700 text-xs">
-                    Subscription expired. Renew to restore dashboard access.
+                  <p className="text-red-700 text-xs flex items-center gap-1.5 pt-0.5">
+                    <AlertCircle className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                    <span>Subscription expired. Renew to restore dashboard access.</span>
                   </p>
                 )}
               </div>
@@ -232,6 +279,7 @@ export default function CoachSubscriptionPage() {
           </CardContent>
         </Card>
 
+        {/* Available plans card */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base text-[#4F5077]">Available plans</CardTitle>
@@ -240,38 +288,170 @@ export default function CoachSubscriptionPage() {
             {plans.length === 0 ? (
               <p className="text-sm text-gray-500">No active plans configured.</p>
             ) : (
-              plans.map((p) => (
-                <div
-                  key={p.id}
-                  className="flex flex-wrap items-center justify-between gap-3 border rounded-lg p-4"
-                >
-                  <div>
-                    <div className="font-medium text-[#4F5077]">{p.name}</div>
-                    <div className="text-sm text-[#6B7A99]">
-                      ₹{p.fee_inr} · {p.duration_days} days · {p.grace_period_days}-day grace
-                    </div>
-                    {p.description && (
-                      <p className="text-xs text-gray-500 mt-1">{p.description}</p>
-                    )}
-                  </div>
-                  <Button
-                    onClick={() => handlePay(p)}
-                    disabled={paying}
-                    className="gap-2 bg-[#4F5077] hover:bg-[#3d3e5c]"
+              plans.map((p) => {
+                const isCurrentPlan = Boolean(
+                  sub && (sub.plan_id === p.id || sub.plan_snapshot?.id === p.id)
+                )
+                const isCurrentActive = Boolean(isCurrentPlan && status === "active")
+                const isCurrentGrace = Boolean(isCurrentPlan && status === "grace")
+                const isCurrentExpired = Boolean(isCurrentPlan && status === "expired")
+                const isPlanPaying = payingPlanId === p.id
+                const isAnyPaying = payingPlanId !== null
+                const isExempt = regSource !== "self"
+
+                // A plan's button is disabled if:
+                // 1. It is already subscribed and active (cannot renew before expiry)
+                // 2. The coach is admin-exempt
+                // 3. Any plan is actively in checkout processing
+                const isButtonDisabled = isCurrentActive || isExempt || isAnyPaying
+
+                return (
+                  <div
+                    key={p.id}
+                    className={`flex flex-wrap items-center justify-between gap-4 border rounded-xl p-4 md:p-5 transition-all ${
+                      isCurrentActive
+                        ? "border-emerald-300 bg-emerald-50/30 ring-1 ring-emerald-200"
+                        : isCurrentGrace
+                          ? "border-amber-300 bg-amber-50/30"
+                          : isCurrentExpired
+                            ? "border-red-200 bg-red-50/20"
+                            : "border-gray-200 bg-white hover:border-gray-300"
+                    }`}
                   >
-                    {paying ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <CreditCard className="w-4 h-4" />
-                    )}
-                    {sub && ["active", "grace"].includes(status) ? "Renew" : "Subscribe"}
-                  </Button>
-                </div>
-              ))
+                    <div className="space-y-1.5 flex-1 min-w-[240px]">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold text-base text-[#4F5077]">{p.name}</span>
+                        {isCurrentActive && (
+                          <Badge
+                            variant="outline"
+                            className="bg-emerald-100 text-emerald-800 border-emerald-300 gap-1 text-xs font-medium"
+                          >
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            Current Active Plan
+                          </Badge>
+                        )}
+                        {isCurrentGrace && (
+                          <Badge
+                            variant="outline"
+                            className="bg-amber-100 text-amber-900 border-amber-300 gap-1 text-xs font-medium"
+                          >
+                            <Clock className="w-3 h-3 text-amber-600" />
+                            In Grace Period
+                          </Badge>
+                        )}
+                        {isCurrentExpired && (
+                          <Badge
+                            variant="outline"
+                            className="bg-red-100 text-red-800 border-red-300 gap-1 text-xs font-medium"
+                          >
+                            <AlertCircle className="w-3 h-3 text-red-600" />
+                            Expired
+                          </Badge>
+                        )}
+                        {p.is_default && !isCurrentPlan && (
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+                            Recommended
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="text-sm text-[#4F5077]">
+                        <span className="text-lg font-bold text-gray-900">
+                          ₹{p.fee_inr.toLocaleString("en-IN")}
+                        </span>
+                        <span className="text-xs text-[#6B7A99] ml-2">
+                          · {p.duration_days} days · {p.grace_period_days}-day grace period
+                        </span>
+                      </div>
+
+                      {p.description && (
+                        <p className="text-xs text-gray-600">{p.description}</p>
+                      )}
+
+                      {isCurrentActive && (
+                        <p className="text-xs text-emerald-700 flex items-center gap-1.5 pt-0.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>
+                            Active until <strong>{fmt(sub?.ends_at)}</strong>. Renewal unlocks once expired or in grace period.
+                          </span>
+                        </p>
+                      )}
+
+                      {isCurrentGrace && (
+                        <p className="text-xs text-amber-800 flex items-center gap-1.5 pt-0.5">
+                          <Clock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                          <span>
+                            Grace period ends <strong>{fmt(sub?.grace_ends_at)}</strong>. Renew now to avoid deactivation.
+                          </span>
+                        </p>
+                      )}
+
+                      {isCurrentExpired && (
+                        <p className="text-xs text-red-700 flex items-center gap-1.5 pt-0.5">
+                          <AlertCircle className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                          <span>
+                            Expired on <strong>{fmt(sub?.ends_at)}</strong>. Renew to restore full dashboard access.
+                          </span>
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <Button
+                        onClick={() => handlePay(p)}
+                        disabled={isButtonDisabled}
+                        className={`gap-2 min-w-[130px] font-medium transition-colors ${
+                          isCurrentActive
+                            ? "bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-50 cursor-not-allowed opacity-90 shadow-none"
+                            : isCurrentGrace || isCurrentExpired
+                              ? "bg-amber-600 hover:bg-amber-700 text-white shadow-sm"
+                              : "bg-[#4F5077] hover:bg-[#3d3e5c] text-white"
+                        }`}
+                      >
+                        {isPlanPaying ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Processing…
+                          </>
+                        ) : isCurrentActive ? (
+                          <>
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            Active
+                          </>
+                        ) : isExempt ? (
+                          "Exempt"
+                        ) : isCurrentGrace || isCurrentExpired ? (
+                          <>
+                            <CreditCard className="w-4 h-4" />
+                            Renew
+                          </>
+                        ) : sub && ["active", "grace"].includes(status) ? (
+                          <>
+                            <CreditCard className="w-4 h-4" />
+                            Switch Plan
+                          </>
+                        ) : (
+                          <>
+                            <CreditCard className="w-4 h-4" />
+                            Subscribe
+                          </>
+                        )}
+                      </Button>
+
+                      {isCurrentActive && (
+                        <span className="text-[11px] text-gray-500 text-right">
+                          Cannot renew while active
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })
             )}
           </CardContent>
         </Card>
 
+        {/* Payment history card */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base text-[#4F5077]">Payment history</CardTitle>

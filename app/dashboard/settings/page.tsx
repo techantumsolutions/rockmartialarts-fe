@@ -73,7 +73,13 @@ export default function SuperAdminSettingsPage() {
     backup_retention: "30",
 
     registration_fee: 500,
-    coach_registration_fee: 0
+    coach_registration_fee: 0,
+    coach_registration_fee_note: "",
+    home_training_fee: 0,
+    school_training_fee: 0,
+    college_training_fee: 0,
+    corporate_training_fee: 0,
+    residential_training_fee: 0,
   })
 
   useEffect(() => {
@@ -113,6 +119,10 @@ export default function SuperAdminSettingsPage() {
           typeof settingsData.coach_registration_fee === "number" && !Number.isNaN(settingsData.coach_registration_fee)
             ? settingsData.coach_registration_fee
             : 0,
+        coach_registration_fee_note:
+          typeof settingsData.coach_registration_fee_note === "string"
+            ? settingsData.coach_registration_fee_note
+            : "",
       })
       setLoading(false)
     } catch (error) {
@@ -126,7 +136,7 @@ export default function SuperAdminSettingsPage() {
     }
   }
 
-  const handleInputChange = (field: string, value: string | boolean) => {
+  const handleInputChange = (field: string, value: string | boolean | number) => {
     setSettings(prev => ({ ...prev, [field]: value }))
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: "" }))
@@ -158,6 +168,22 @@ export default function SuperAdminSettingsPage() {
 
     if (typeof settings.coach_registration_fee !== "number" || settings.coach_registration_fee < 0 || Number.isNaN(settings.coach_registration_fee)) {
       newErrors.coach_registration_fee = "Coach registration fee must be a number ≥ 0"
+    }
+
+    if (typeof settings.home_training_fee !== "number" || settings.home_training_fee < 0 || Number.isNaN(settings.home_training_fee)) {
+      newErrors.home_training_fee = "Home training fee must be a number ≥ 0"
+    }
+    if (typeof settings.school_training_fee !== "number" || settings.school_training_fee < 0 || Number.isNaN(settings.school_training_fee)) {
+      newErrors.school_training_fee = "School training fee must be a number ≥ 0"
+    }
+    if (typeof settings.college_training_fee !== "number" || settings.college_training_fee < 0 || Number.isNaN(settings.college_training_fee)) {
+      newErrors.college_training_fee = "College training fee must be a number ≥ 0"
+    }
+    if (typeof settings.corporate_training_fee !== "number" || settings.corporate_training_fee < 0 || Number.isNaN(settings.corporate_training_fee)) {
+      newErrors.corporate_training_fee = "Corporate training fee must be a number ≥ 0"
+    }
+    if (typeof settings.residential_training_fee !== "number" || settings.residential_training_fee < 0 || Number.isNaN(settings.residential_training_fee)) {
+      newErrors.residential_training_fee = "Residential training fee must be a number ≥ 0"
     }
 
     setErrors(newErrors)
@@ -408,6 +434,127 @@ export default function SuperAdminSettingsPage() {
                   )}
                   <p className="mt-1 text-xs text-gray-500">
                     Fee collected via Razorpay on the public coach registration page (set to 0 for free registration).
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="coach_registration_fee_note" className="text-sm font-medium text-gray-700">
+                    Coach registration fee note / subtext
+                  </Label>
+                  <Input
+                    id="coach_registration_fee_note"
+                    type="text"
+                    value={settings.coach_registration_fee_note || ""}
+                    onChange={(e) => handleInputChange("coach_registration_fee_note", e.target.value)}
+                    placeholder="e.g. One-time non-refundable fee required to process your application via Razorpay."
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Custom subtext displayed in the fee card on the coach registration page. Leave empty to hide.
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="home_training_fee" className="text-sm font-medium text-gray-700">
+                    Home training fee (INR)
+                  </Label>
+                  <Input
+                    id="home_training_fee"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={settings.home_training_fee}
+                    onChange={(e) => handleInputChange("home_training_fee", parseFloat(e.target.value) || 0)}
+                    className={errors.home_training_fee ? "border-red-500" : ""}
+                  />
+                  {errors.home_training_fee && (
+                    <p className="mt-1 text-sm text-red-600">{errors.home_training_fee}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Fee collected via Razorpay on the public home training request page.
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="school_training_fee" className="text-sm font-medium text-gray-700">
+                    School training fee (INR)
+                  </Label>
+                  <Input
+                    id="school_training_fee"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={settings.school_training_fee}
+                    onChange={(e) => handleInputChange("school_training_fee", parseFloat(e.target.value) || 0)}
+                    className={errors.school_training_fee ? "border-red-500" : ""}
+                  />
+                  {errors.school_training_fee && (
+                    <p className="mt-1 text-sm text-red-600">{errors.school_training_fee}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Fee collected via Razorpay on the public school training request page.
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="college_training_fee" className="text-sm font-medium text-gray-700">
+                    College training fee (INR)
+                  </Label>
+                  <Input
+                    id="college_training_fee"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={settings.college_training_fee}
+                    onChange={(e) => handleInputChange("college_training_fee", parseFloat(e.target.value) || 0)}
+                    className={errors.college_training_fee ? "border-red-500" : ""}
+                  />
+                  {errors.college_training_fee && (
+                    <p className="mt-1 text-sm text-red-600">{errors.college_training_fee}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Fee collected via Razorpay on the public college training request page.
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="corporate_training_fee" className="text-sm font-medium text-gray-700">
+                    Corporate training fee (INR)
+                  </Label>
+                  <Input
+                    id="corporate_training_fee"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={settings.corporate_training_fee}
+                    onChange={(e) => handleInputChange("corporate_training_fee", parseFloat(e.target.value) || 0)}
+                    className={errors.corporate_training_fee ? "border-red-500" : ""}
+                  />
+                  {errors.corporate_training_fee && (
+                    <p className="mt-1 text-sm text-red-600">{errors.corporate_training_fee}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Fee collected via Razorpay on the public corporate training request page.
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="residential_training_fee" className="text-sm font-medium text-gray-700">
+                    Residential training fee (INR)
+                  </Label>
+                  <Input
+                    id="residential_training_fee"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={settings.residential_training_fee}
+                    onChange={(e) => handleInputChange("residential_training_fee", parseFloat(e.target.value) || 0)}
+                    className={errors.residential_training_fee ? "border-red-500" : ""}
+                  />
+                  {errors.residential_training_fee && (
+                    <p className="mt-1 text-sm text-red-600">{errors.residential_training_fee}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Fee collected via Razorpay on the public residential training request page.
                   </p>
                 </div>
               </div>

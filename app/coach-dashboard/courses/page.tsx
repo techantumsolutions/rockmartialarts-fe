@@ -247,7 +247,7 @@ export default function AssignedCoursesPage() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {courses.map((course) => (
-                    <Card key={course.id} className="hover:shadow-lg transition-shadow duration-200">
+                    <Card key={course.id} className="flex flex-col h-full hover:shadow-lg transition-shadow duration-200">
                       <CardHeader>
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
@@ -280,7 +280,7 @@ export default function AssignedCoursesPage() {
                         )}
                       </CardHeader>
                       
-                      <CardContent>
+                      <CardContent className="flex-1 flex flex-col justify-between pt-0">
                         <div className="space-y-3">
                           {/* Course Details */}
                           <div className="flex items-center justify-between text-sm">
@@ -338,10 +338,13 @@ export default function AssignedCoursesPage() {
                             </div>
                           </div>
 
-                          {/* Action Button */}
+                        </div>
+
+                        {/* Action Button */}
+                        <div className="pt-4 mt-auto">
                           <Button 
                             onClick={() => router.push(`/coach-dashboard/courses/${course.id}`)}
-                            className="w-full mt-4 bg-yellow-400 hover:bg-yellow-500 text-black"
+                            className="w-full bg-yellow-400 hover:bg-yellow-500 text-black"
                           >
                             <Eye className="w-4 h-4 mr-2" />
                             View Details
