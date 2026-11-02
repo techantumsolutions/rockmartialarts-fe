@@ -24,7 +24,7 @@ export function ShowcaseAchievementCard({ item }: { item: ShowcaseAchievementIte
           src={item.image || DEFAULT_IMAGE_PLACEHOLDER}
           alt=""
           resolveUrl={Boolean(item.image)}
-          className="absolute inset-0 w-full h-full object-cover blur-md scale-110 opacity-30 pointer-events-none"
+          className="absolute inset-0 w-full h-full object-cover object-center blur-xl scale-110 opacity-70 pointer-events-none"
           aria-hidden
           loading="lazy"
         />
@@ -33,7 +33,7 @@ export function ShowcaseAchievementCard({ item }: { item: ShowcaseAchievementIte
           src={item.image || DEFAULT_IMAGE_PLACEHOLDER}
           alt={title}
           resolveUrl={Boolean(item.image)}
-          className="relative z-10 w-full h-full object-contain"
+          className="relative z-10 w-full h-full object-contain object-center"
           loading="lazy"
           decoding="async"
         />

@@ -1,8 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState } from "react"
-import { ArrowRight, Calendar, Loader2, MapPin, Search } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { ArrowRight, Calendar, ChevronDown, Loader2, MapPin, Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { SafeImage } from "@/components/ui/safe-image"
@@ -13,13 +13,6 @@ import {
   formatEventFee,
   type AcademyEvent,
 } from "@/lib/academyEventAPI"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 
 function formatWhen(iso?: string | null) {
   if (!iso) return null
@@ -37,6 +30,30 @@ export default function EventsCataloguePage() {
   const [searchInput, setSearchInput] = useState("")
   const [search, setSearch] = useState("")
   const [eventType, setEventType] = useState("all")
+  const [eventTypeOpen, setEventTypeOpen] = useState(false)
+  const eventTypeDropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        eventTypeDropdownRef.current &&
+        !eventTypeDropdownRef.current.contains(event.target as Node)
+      ) {
+        setEventTypeOpen(false)
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setEventTypeOpen(false)
+    }
+
+    document.addEventListener("mousedown", handleClickOutside)
+    document.addEventListener("keydown", handleEscape)
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+      document.removeEventListener("keydown", handleEscape)
+    }
+  }, [])
 
   useEffect(() => {
     setLoading(true)
@@ -96,19 +113,54 @@ export default function EventsCataloguePage() {
                 Search
               </Button>
             </form>
-            <Select value={eventType} onValueChange={setEventType}>
-              <SelectTrigger className="h-11 w-full sm:w-48 rounded-lg bg-gray-950/80 border-gray-700 text-white px-3.5 focus:ring-1 focus:ring-[#FFB70F] focus:border-[#FFB70F] shrink-0">
-                <SelectValue placeholder="All types" />
-              </SelectTrigger>
-              <SelectContent className="bg-gray-900 border-gray-700 text-white">
-                <SelectItem value="all">All types</SelectItem>
-                {ACADEMY_EVENT_TYPES.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>
-                    {t.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div
+              ref={eventTypeDropdownRef}
+              className="relative w-full sm:w-48 shrink-0"
+              onMouseLeave={() => setEventTypeOpen(false)}
+            >
+              <button
+                type="button"
+                onClick={() => setEventTypeOpen((open) => !open)}
+                onMouseEnter={() => setEventTypeOpen(true)}
+                className="flex h-11 w-full items-center justify-between rounded-lg border border-gray-700 bg-gray-950/80 px-3.5 text-left text-white focus:border-[#FFB70F] focus:outline-none focus:ring-1 focus:ring-[#FFB70F]"
+                aria-expanded={eventTypeOpen}
+                aria-haspopup="menu"
+                aria-label="Filter events by type"
+              >
+                <span>
+                  {eventType === "all"
+                    ? "All types"
+                    : ACADEMY_EVENT_TYPES.find((type) => type.value === eventType)?.label}
+                </span>
+                <ChevronDown
+                  className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${eventTypeOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+              {eventTypeOpen && (
+                <div
+                  role="menu"
+                  className="absolute left-0 top-full z-50 mt-1 w-full rounded-lg border border-gray-700 bg-gray-900 py-1 text-white shadow-xl"
+                >
+                  {[{ value: "all", label: "All types" }, ...ACADEMY_EVENT_TYPES].map(
+                    (type) => (
+                      <button
+                        key={type.value}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={eventType === type.value}
+                        onClick={() => {
+                          setEventType(type.value)
+                          setEventTypeOpen(false)
+                        }}
+                        className="w-full px-3.5 py-2 text-left hover:bg-white/10 focus:bg-white/10 focus:outline-none"
+                      >
+                        {type.label}
+                      </button>
+                    )
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {loading ? (

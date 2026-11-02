@@ -17,6 +17,7 @@ import {
   ChevronDown,
   Check,
   Quote,
+  X,
 } from "lucide-react"
 import { stripUuidFromPriceDisplay } from "@/lib/priceDisplay"
 import { formatTimingString } from "@/lib/formatWeekdayRanges"
@@ -275,6 +276,27 @@ function normalizeFeeMap(raw: Record<string, number | string> | null | undefined
 /* Component                                                           */
 /* ------------------------------------------------------------------ */
 
+const memoryCourseDetailCache: Record<string, CourseData> = {}
+
+function getInitialCourseDetail(slug: string): CourseData | null {
+  if (!slug) return null
+  const decoded = decodeURIComponent(slug).toLowerCase()
+  if (memoryCourseDetailCache[decoded]) return memoryCourseDetailCache[decoded]
+  if (typeof window !== "undefined") {
+    try {
+      const stored = sessionStorage.getItem(`rma_course_detail_${decoded}`)
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        memoryCourseDetailCache[decoded] = parsed
+        return parsed
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return null
+}
+
 function CourseDetailPageInner() {
   const params = useParams()
   const router = useRouter()
@@ -305,6 +327,16 @@ function CourseDetailPageInner() {
   const [showcaseLoading, setShowcaseLoading] = useState(false)
   const [selectedBatchIndex, setSelectedBatchIndex] = useState(0)
   const [timingsOpen, setTimingsOpen] = useState(false)
+  const [selectedGalleryImg, setSelectedGalleryImg] = useState<string | null>(null)
+
+  const handleBackNavigation = useCallback((e: React.MouseEvent) => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      e.preventDefault()
+      router.back()
+    }
+  }, [router])
+  const [locationOpen, setLocationOpen] = useState(false)
+  const [durationOpen, setDurationOpen] = useState(false)
 
   const handleAddToCartClick = useCallback(() => {
     if (typeof window === "undefined") return
@@ -342,7 +374,19 @@ function CourseDetailPageInner() {
         if (!res.ok) throw new Error(res.status === 404 ? "Course not found" : "Failed to load")
         return res.json()
       })
-      .then((data) => setCourse(flattenPublicCoursePayload(data)))
+      .then((data) => {
+        const flattened = flattenPublicCoursePayload(data)
+        if (slug) {
+          const decoded = decodeURIComponent(slug).toLowerCase()
+          memoryCourseDetailCache[decoded] = flattened
+          try {
+            sessionStorage.setItem(`rma_course_detail_${decoded}`, JSON.stringify(flattened))
+          } catch {
+            /* ignore */
+          }
+        }
+        setCourse(flattened)
+      })
       .catch((e) => { setError(e.message); setCourse(null) })
       .finally(() => setLoading(false))
   }, [slug])
@@ -496,7 +540,7 @@ function CourseDetailPageInner() {
   if (error || !course) return (
     <main className="min-h-screen bg-[#171A26] flex items-center justify-center px-4">
       <div className="text-center text-white"><p className="text-red-300 mb-6 text-lg">{error || "Course not found."}</p>
-        <Link href="/courses" className="inline-flex items-center gap-2 rounded-lg bg-[#FFB70F] px-6 py-3 text-black font-semibold hover:bg-[#F73322] hover:text-white transition-colors"><ArrowLeft className="w-4 h-4" /> Back to Courses</Link>
+        <Link href="/courses" onClick={handleBackNavigation} className="inline-flex items-center gap-2 rounded-lg bg-[#FFB70F] px-6 py-3 text-black font-semibold hover:bg-[#F73322] hover:text-white transition-colors"><ArrowLeft className="w-4 h-4" /> Back to Courses</Link>
       </div>
     </main>
   )
@@ -544,6 +588,9 @@ function CourseDetailPageInner() {
   const effectiveDurationKey = selectedDurationKey ?? (durations[0]?.id ?? durations[0]?.code ?? null)
 
   const selectedBranch = branches.find((b) => b.branch_id === effectiveLocationId) || branches[0]
+  const selectedDuration =
+    durations.find((duration) => duration.id === effectiveDurationKey || duration.code === effectiveDurationKey) ||
+    durations[0]
 
   const branchApplies =
     !!branchPricingInfo && branchPricingInfo.branch_id === effectiveLocationId
@@ -669,17 +716,44 @@ function CourseDetailPageInner() {
                   <div className="min-w-0 flex-1">
                     <p className="text-[10.5px] sm:text-[11px] uppercase tracking-wider text-white/80 font-medium leading-none">Select Location</p>
                     {branches.length > 1 ? (
-                      <select
-                        className="mt-1 w-full bg-transparent text-[12px] font-semibold outline-none border-none focus:ring-0 cursor-pointer py-0 leading-tight"
-                        value={effectiveLocationId ?? ""}
-                        onChange={(e) => persistBranchAndUrl(e.target.value || null)}
-                      >
-                        {branches.map((b) => (
-                          <option key={b.branch_id} value={b.branch_id} className="text-black">
-                            {b.branch_name || b.location}
-                          </option>
-                        ))}
-                      </select>
+                      <Popover open={locationOpen} onOpenChange={setLocationOpen}>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            aria-expanded={locationOpen}
+                            aria-haspopup="listbox"
+                            aria-label="Select location"
+                            className="mt-1 flex w-full min-w-0 items-center justify-between gap-2 text-left text-[12px] font-semibold leading-tight"
+                          >
+                            <span className="truncate">
+                              {selectedBranch?.branch_name || branches.find((branch) => branch.branch_id === effectiveLocationId)?.branch_name || info.location}
+                            </span>
+                            <ChevronDown className={`h-4 w-4 shrink-0 transition-transform duration-200 ${locationOpen ? "rotate-180" : ""}`} />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="z-50 w-[var(--radix-popover-trigger-width)] min-w-[180px] border-white/10 bg-[#171A26] p-1 text-white">
+                          <div role="listbox" aria-label="Locations" className="max-h-60 overflow-y-auto">
+                            {branches.map((branch) => {
+                              const selected = branch.branch_id === effectiveLocationId
+                              return (
+                                <button
+                                  key={branch.branch_id}
+                                  type="button"
+                                  role="option"
+                                  aria-selected={selected}
+                                  onClick={() => {
+                                    persistBranchAndUrl(branch.branch_id || null)
+                                    setLocationOpen(false)
+                                  }}
+                                  className={`w-full rounded px-3 py-2 text-left text-sm hover:bg-white/10 ${selected ? "bg-white/10 font-semibold" : ""}`}
+                                >
+                                  {branch.branch_name || branch.location}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     ) : (
                       <p className="mt-1 text-[12px] font-semibold truncate leading-tight">
                         {selectedBranch?.branch_name || info.location}
@@ -696,17 +770,46 @@ function CourseDetailPageInner() {
                   <div className="min-w-0 flex-1">
                     <p className="text-[10.5px] sm:text-[11px] uppercase tracking-wider text-white/80 font-medium leading-none">Course Duration</p>
                     {durations.length > 0 ? (
-                      <select
-                        className="mt-1 w-full bg-transparent text-[12px] font-semibold outline-none border-none focus:ring-0 cursor-pointer py-0 leading-tight"
-                        value={effectiveDurationKey ?? ""}
-                        onChange={(e) => setSelectedDurationKey(e.target.value || null)}
-                      >
-                        {durations.map((d) => (
-                          <option key={d.id} value={d.id} className="text-black">
-                            {d.name || d.code || `${d.duration_months ?? ""} month(s)`}
-                          </option>
-                        ))}
-                      </select>
+                      <Popover open={durationOpen} onOpenChange={setDurationOpen}>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            aria-expanded={durationOpen}
+                            aria-haspopup="listbox"
+                            aria-label="Select course duration"
+                            className="mt-1 flex w-full min-w-0 items-center justify-between gap-2 text-left text-[12px] font-semibold leading-tight"
+                          >
+                            <span className="truncate">
+                              {selectedDuration?.name ||
+                                selectedDuration?.code ||
+                                `${selectedDuration?.duration_months ?? ""} month(s)`}
+                            </span>
+                            <ChevronDown className={`h-4 w-4 shrink-0 transition-transform duration-200 ${durationOpen ? "rotate-180" : ""}`} />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="z-50 w-[var(--radix-popover-trigger-width)] min-w-[180px] border-white/10 bg-[#171A26] p-1 text-white">
+                          <div role="listbox" aria-label="Course durations" className="max-h-60 overflow-y-auto">
+                            {durations.map((duration) => {
+                              const selected = duration.id === effectiveDurationKey
+                              return (
+                                <button
+                                  key={duration.id}
+                                  type="button"
+                                  role="option"
+                                  aria-selected={selected}
+                                  onClick={() => {
+                                    setSelectedDurationKey(duration.id || null)
+                                    setDurationOpen(false)
+                                  }}
+                                  className={`w-full rounded px-3 py-2 text-left text-sm hover:bg-white/10 ${selected ? "bg-white/10 font-semibold" : ""}`}
+                                >
+                                  {duration.name || duration.code || `${duration.duration_months ?? ""} month(s)`}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     ) : (
                       <p className="mt-1 text-[12px] font-semibold truncate leading-tight">{info.duration}</p>
                     )}
@@ -871,7 +974,7 @@ function CourseDetailPageInner() {
                   Add to cart
                 </button>
               ) : null}
-              <Link href="/courses" className="col-span-full mt-1 inline-flex items-center justify-self-center gap-2 text-white font-semibold hover:text-[#FFB70F] transition-colors md:col-span-2 md:mt-0">
+              <Link href="/courses" onClick={handleBackNavigation} className="col-span-full mt-1 inline-flex items-center justify-self-center gap-2 text-white font-semibold hover:text-[#FFB70F] transition-colors md:col-span-2 md:mt-0">
                 <ArrowLeft className="w-4 h-4" /> View All Courses
               </Link>
             </div>
@@ -1036,11 +1139,31 @@ function CourseDetailPageInner() {
               <h2 className="sr-only">Gallery — {displayTitle}</h2>
             )}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {gallery.map((url, i) => (
-                <div key={i} className="overflow-hidden rounded-lg group">
-                  <img src={url} alt="" className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" />
-                </div>
-              ))}
+              {gallery.map((url, i) => {
+                const resolvedUrl = resolveUploadUrl(url)
+                return (
+                  <div
+                    key={i}
+                    onClick={() => setSelectedGalleryImg(resolvedUrl)}
+                    className="relative overflow-hidden rounded-lg group h-56 sm:h-64 bg-[#171A26] border border-gray-800 flex items-center justify-center cursor-pointer shadow-md hover:border-[#FFB70F]/50 transition-colors"
+                  >
+                    {/* Ambient blurred backdrop so portrait and landscape images fill the card gracefully */}
+                    <img
+                      src={resolvedUrl}
+                      alt=""
+                      className="absolute inset-0 w-full h-full object-cover blur-xl opacity-30 scale-110 pointer-events-none select-none"
+                      aria-hidden="true"
+                    />
+                    {/* Main image: object-contain prevents head/feet cropping and keeps full subject visible */}
+                    <img
+                      src={resolvedUrl}
+                      alt={`Gallery ${i + 1}`}
+                      className="relative z-10 max-h-full max-w-full object-contain p-2 scale-105 transition-transform duration-500"
+                      loading="lazy"
+                    />
+                  </div>
+                )
+              })}
             </div>
           </div>
         </section>
@@ -1184,6 +1307,28 @@ function CourseDetailPageInner() {
             .filter((d) => d.id)}
         />
       ) : null}
+      {/* Gallery Lightbox Modal */}
+      {selectedGalleryImg && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setSelectedGalleryImg(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setSelectedGalleryImg(null)}
+            className="absolute top-4 right-4 text-white/80 hover:text-white p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors z-50"
+            aria-label="Close image preview"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <img
+            src={selectedGalleryImg}
+            alt="Gallery preview"
+            className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </main>
   )
 }
