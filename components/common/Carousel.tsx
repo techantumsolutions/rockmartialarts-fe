@@ -57,7 +57,7 @@ export function Carousel({ children, className = "", slideClassName = "" }: Caro
             {children.map((child, i) => (
               <div
                 key={i}
-                className={`min-w-0 shrink-0 grow-0 flex-[0_0_100%] sm:flex-[0_0_50%] lg:flex-[0_0_33.333%] pl-2 pr-4 box-border ${slideClassName}`}
+                className={`min-w-0 shrink-0 grow-0 flex-[0_0_100%] sm:flex-[0_0_50%] lg:flex-[0_0_33.333%] px-4 box-border ${slideClassName}`}
               >
                 {child}
               </div>

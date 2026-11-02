@@ -33,6 +33,12 @@ export interface SystemSettings {
   /** Default registration / admission fee (INR) for public checkout */
   registration_fee: number
   coach_registration_fee: number
+  coach_registration_fee_note?: string
+  home_training_fee?: number
+  school_training_fee?: number
+  college_training_fee?: number
+  corporate_training_fee?: number
+  residential_training_fee?: number
   
   created_at?: string
   updated_at?: string
@@ -60,6 +66,12 @@ export interface SettingsResponse {
   backup_retention: string
   registration_fee: number
   coach_registration_fee: number
+  coach_registration_fee_note?: string
+  home_training_fee?: number
+  school_training_fee?: number
+  college_training_fee?: number
+  corporate_training_fee?: number
+  residential_training_fee?: number
   created_at: string
   updated_at: string
 }
@@ -73,8 +85,20 @@ export class SettingsAPI extends BaseAPI {
   async getPublicSettings(): Promise<{
     registrationFee: number
     coachRegistrationFee: number
+    coachRegistrationFeeNote?: string
+    homeTrainingFee?: number
+    schoolTrainingFee?: number
+    collegeTrainingFee?: number
+    corporateTrainingFee?: number
+    residentialTrainingFee?: number
     registration_fee?: number
     coach_registration_fee?: number
+    coach_registration_fee_note?: string
+    home_training_fee?: number
+    school_training_fee?: number
+    college_training_fee?: number
+    corporate_training_fee?: number
+    residential_training_fee?: number
   }> {
     return this.makeRequest(`${this.endpoint}/public`, {
       method: 'GET'

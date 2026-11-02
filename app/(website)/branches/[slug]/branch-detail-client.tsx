@@ -30,6 +30,27 @@ type BranchTestimonial = {
   rating?: number
 }
 
+const memoryBranchCache: Record<string, BranchData> = {}
+
+function getInitialBranch(slug: string): BranchData | null {
+  if (!slug) return null
+  const decoded = decodeURIComponent(slug).toLowerCase()
+  if (memoryBranchCache[decoded]) return memoryBranchCache[decoded]
+  if (typeof window !== "undefined") {
+    try {
+      const stored = sessionStorage.getItem(`rma_branch_cache_${decoded}`)
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        memoryBranchCache[decoded] = parsed
+        return parsed
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return null
+}
+
 export default function BranchDetailPage() {
   const params = useParams()
   const router = useRouter()

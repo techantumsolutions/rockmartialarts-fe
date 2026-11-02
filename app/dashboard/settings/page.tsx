@@ -16,7 +16,6 @@ import {
   Shield, 
   Bell, 
   Database, 
-  Mail, 
   Globe, 
   Lock, 
   Save, 
@@ -74,7 +73,13 @@ export default function SuperAdminSettingsPage() {
     backup_retention: "30",
 
     registration_fee: 500,
-    coach_registration_fee: 0
+    coach_registration_fee: 0,
+    coach_registration_fee_note: "",
+    home_training_fee: 0,
+    school_training_fee: 0,
+    college_training_fee: 0,
+    corporate_training_fee: 0,
+    residential_training_fee: 0,
   })
 
   useEffect(() => {
@@ -114,6 +119,10 @@ export default function SuperAdminSettingsPage() {
           typeof settingsData.coach_registration_fee === "number" && !Number.isNaN(settingsData.coach_registration_fee)
             ? settingsData.coach_registration_fee
             : 0,
+        coach_registration_fee_note:
+          typeof settingsData.coach_registration_fee_note === "string"
+            ? settingsData.coach_registration_fee_note
+            : "",
       })
       setLoading(false)
     } catch (error) {
@@ -127,7 +136,7 @@ export default function SuperAdminSettingsPage() {
     }
   }
 
-  const handleInputChange = (field: string, value: string | boolean) => {
+  const handleInputChange = (field: string, value: string | boolean | number) => {
     setSettings(prev => ({ ...prev, [field]: value }))
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: "" }))
@@ -139,17 +148,6 @@ export default function SuperAdminSettingsPage() {
 
     if (!settings.system_name.trim()) {
       newErrors.system_name = "System name is required"
-    }
-
-    if (settings.email_enabled) {
-      if (!settings.smtp_host.trim()) {
-        newErrors.smtp_host = "SMTP host is required when email is enabled"
-      }
-      if (!settings.smtp_port.trim()) {
-        newErrors.smtp_port = "SMTP port is required when email is enabled"
-      } else if (!/^\d+$/.test(settings.smtp_port)) {
-        newErrors.smtp_port = "SMTP port must be a number"
-      }
     }
 
     if (!settings.session_timeout.trim()) {
@@ -170,6 +168,22 @@ export default function SuperAdminSettingsPage() {
 
     if (typeof settings.coach_registration_fee !== "number" || settings.coach_registration_fee < 0 || Number.isNaN(settings.coach_registration_fee)) {
       newErrors.coach_registration_fee = "Coach registration fee must be a number ≥ 0"
+    }
+
+    if (typeof settings.home_training_fee !== "number" || settings.home_training_fee < 0 || Number.isNaN(settings.home_training_fee)) {
+      newErrors.home_training_fee = "Home training fee must be a number ≥ 0"
+    }
+    if (typeof settings.school_training_fee !== "number" || settings.school_training_fee < 0 || Number.isNaN(settings.school_training_fee)) {
+      newErrors.school_training_fee = "School training fee must be a number ≥ 0"
+    }
+    if (typeof settings.college_training_fee !== "number" || settings.college_training_fee < 0 || Number.isNaN(settings.college_training_fee)) {
+      newErrors.college_training_fee = "College training fee must be a number ≥ 0"
+    }
+    if (typeof settings.corporate_training_fee !== "number" || settings.corporate_training_fee < 0 || Number.isNaN(settings.corporate_training_fee)) {
+      newErrors.corporate_training_fee = "Corporate training fee must be a number ≥ 0"
+    }
+    if (typeof settings.residential_training_fee !== "number" || settings.residential_training_fee < 0 || Number.isNaN(settings.residential_training_fee)) {
+      newErrors.residential_training_fee = "Residential training fee must be a number ≥ 0"
     }
 
     setErrors(newErrors)
@@ -422,6 +436,127 @@ export default function SuperAdminSettingsPage() {
                     Fee collected via Razorpay on the public coach registration page (set to 0 for free registration).
                   </p>
                 </div>
+
+                <div>
+                  <Label htmlFor="coach_registration_fee_note" className="text-sm font-medium text-gray-700">
+                    Coach registration fee note / subtext
+                  </Label>
+                  <Input
+                    id="coach_registration_fee_note"
+                    type="text"
+                    value={settings.coach_registration_fee_note || ""}
+                    onChange={(e) => handleInputChange("coach_registration_fee_note", e.target.value)}
+                    placeholder="e.g. One-time non-refundable fee required to process your application via Razorpay."
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Custom subtext displayed in the fee card on the coach registration page. Leave empty to hide.
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="home_training_fee" className="text-sm font-medium text-gray-700">
+                    Home training fee (INR)
+                  </Label>
+                  <Input
+                    id="home_training_fee"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={settings.home_training_fee}
+                    onChange={(e) => handleInputChange("home_training_fee", parseFloat(e.target.value) || 0)}
+                    className={errors.home_training_fee ? "border-red-500" : ""}
+                  />
+                  {errors.home_training_fee && (
+                    <p className="mt-1 text-sm text-red-600">{errors.home_training_fee}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Fee collected via Razorpay on the public home training request page.
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="school_training_fee" className="text-sm font-medium text-gray-700">
+                    School training fee (INR)
+                  </Label>
+                  <Input
+                    id="school_training_fee"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={settings.school_training_fee}
+                    onChange={(e) => handleInputChange("school_training_fee", parseFloat(e.target.value) || 0)}
+                    className={errors.school_training_fee ? "border-red-500" : ""}
+                  />
+                  {errors.school_training_fee && (
+                    <p className="mt-1 text-sm text-red-600">{errors.school_training_fee}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Fee collected via Razorpay on the public school training request page.
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="college_training_fee" className="text-sm font-medium text-gray-700">
+                    College training fee (INR)
+                  </Label>
+                  <Input
+                    id="college_training_fee"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={settings.college_training_fee}
+                    onChange={(e) => handleInputChange("college_training_fee", parseFloat(e.target.value) || 0)}
+                    className={errors.college_training_fee ? "border-red-500" : ""}
+                  />
+                  {errors.college_training_fee && (
+                    <p className="mt-1 text-sm text-red-600">{errors.college_training_fee}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Fee collected via Razorpay on the public college training request page.
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="corporate_training_fee" className="text-sm font-medium text-gray-700">
+                    Corporate training fee (INR)
+                  </Label>
+                  <Input
+                    id="corporate_training_fee"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={settings.corporate_training_fee}
+                    onChange={(e) => handleInputChange("corporate_training_fee", parseFloat(e.target.value) || 0)}
+                    className={errors.corporate_training_fee ? "border-red-500" : ""}
+                  />
+                  {errors.corporate_training_fee && (
+                    <p className="mt-1 text-sm text-red-600">{errors.corporate_training_fee}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Fee collected via Razorpay on the public corporate training request page.
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="residential_training_fee" className="text-sm font-medium text-gray-700">
+                    Residential training fee (INR)
+                  </Label>
+                  <Input
+                    id="residential_training_fee"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={settings.residential_training_fee}
+                    onChange={(e) => handleInputChange("residential_training_fee", parseFloat(e.target.value) || 0)}
+                    className={errors.residential_training_fee ? "border-red-500" : ""}
+                  />
+                  {errors.residential_training_fee && (
+                    <p className="mt-1 text-sm text-red-600">{errors.residential_training_fee}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Fee collected via Razorpay on the public residential training request page.
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -533,100 +668,6 @@ export default function SuperAdminSettingsPage() {
                         checked={settings.sms_notifications}
                         onCheckedChange={(checked) => handleInputChange("sms_notifications", checked)}
                       />
-                    </div>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Email Configuration */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Mail className="w-5 h-5" />
-                Email Configuration
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-sm font-medium text-gray-700">Enable Email</Label>
-                  <p className="text-xs text-gray-500">
-                    Allow the system to send emails
-                  </p>
-                </div>
-                <Switch
-                  checked={settings.email_enabled}
-                  onCheckedChange={(checked) => handleInputChange("email_enabled", checked)}
-                />
-              </div>
-
-              {settings.email_enabled && (
-                <>
-                  <Separator />
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="smtp_host" className="text-sm font-medium text-gray-700">
-                        SMTP Host *
-                      </Label>
-                      <Input
-                        id="smtp_host"
-                        value={settings.smtp_host}
-                        onChange={(e) => handleInputChange("smtp_host", e.target.value)}
-                        className={errors.smtp_host ? "border-red-500" : ""}
-                        placeholder="smtp.gmail.com"
-                      />
-                      {errors.smtp_host && (
-                        <p className="mt-1 text-sm text-red-600">{errors.smtp_host}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <Label htmlFor="smtp_port" className="text-sm font-medium text-gray-700">
-                        SMTP Port *
-                      </Label>
-                      <Input
-                        id="smtp_port"
-                        value={settings.smtp_port}
-                        onChange={(e) => handleInputChange("smtp_port", e.target.value)}
-                        className={errors.smtp_port ? "border-red-500" : ""}
-                        placeholder="587"
-                      />
-                      {errors.smtp_port && (
-                        <p className="mt-1 text-sm text-red-600">{errors.smtp_port}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <Label htmlFor="smtp_username" className="text-sm font-medium text-gray-700">
-                        SMTP Username
-                      </Label>
-                      <Input
-                        id="smtp_username"
-                        value={settings.smtp_username}
-                        onChange={(e) => handleInputChange("smtp_username", e.target.value)}
-                        placeholder="your-email@gmail.com"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="smtp_security" className="text-sm font-medium text-gray-700">
-                        SMTP Security
-                      </Label>
-                      <Select
-                        value={settings.smtp_security}
-                        onValueChange={(value) => handleInputChange("smtp_security", value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select security protocol" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">None</SelectItem>
-                          <SelectItem value="tls">TLS</SelectItem>
-                          <SelectItem value="ssl">SSL</SelectItem>
-                        </SelectContent>
-                      </Select>
                     </div>
                   </div>
                 </>

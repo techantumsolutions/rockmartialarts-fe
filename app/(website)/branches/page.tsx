@@ -5,6 +5,13 @@ import { useEffect, useState } from "react"
 import { Building2, Loader2, Mail, MapPin, Phone, Search } from "lucide-react"
 import { branchNameToSlug } from "@/lib/branch-slug"
 import { useGeographyDropdowns } from "@/hooks/use-geography-dropdowns"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 type Branch = {
   id: string
@@ -63,6 +70,31 @@ function branchHref(b: Branch): string {
 
 const selectClass =
   "w-full h-12 rounded-xl bg-gray-900 border border-gray-700 text-white px-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#FFB70F] focus:border-transparent disabled:opacity-50"
+
+let memoryBranchesCache: Branch[] | null = null
+let memoryBranchesTotal = 0
+
+function getInitialBranches(): { branches: Branch[]; total: number } {
+  if (memoryBranchesCache && memoryBranchesCache.length > 0) {
+    return { branches: memoryBranchesCache, total: memoryBranchesTotal }
+  }
+  if (typeof window !== "undefined") {
+    try {
+      const stored = sessionStorage.getItem("rma_branches_list_cache")
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (Array.isArray(parsed.branches)) {
+          memoryBranchesCache = parsed.branches
+          memoryBranchesTotal = parsed.total || parsed.branches.length
+          return { branches: parsed.branches, total: memoryBranchesTotal }
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return { branches: [], total: 0 }
+}
 
 export default function BranchesDiscoveryPage() {
   const geography = useGeographyDropdowns()
@@ -150,38 +182,60 @@ export default function BranchesDiscoveryPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs uppercase tracking-wider text-gray-400 mb-2">State</label>
-              <select
-                className={selectClass}
-                value={geography.selectedStateId}
-                onChange={(e) => geography.setSelectedStateId(e.target.value)}
+              <Select
+                value={geography.selectedStateId || "all"}
+                onValueChange={(val) => geography.setSelectedStateId(val === "all" ? "" : val)}
                 disabled={geography.isLoadingStates}
-                aria-label="Filter by state"
               >
-                <option value="">All states</option>
-                {geography.states.map((state) => (
-                  <option key={state.id} value={state.id}>
-                    {state.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full h-12 rounded-xl bg-gray-900 border border-gray-700 text-white px-4 text-sm focus:ring-2 focus:ring-[#FFB70F] focus:border-transparent disabled:opacity-50">
+                  <SelectValue placeholder="All states" />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-900 border-gray-700 text-white max-h-64">
+                  <SelectItem value="all" className="focus:bg-gray-800 focus:text-[#FFB70F] cursor-pointer">
+                    All states
+                  </SelectItem>
+                  {geography.states
+                    .filter((state) => Boolean(state.id))
+                    .map((state) => (
+                      <SelectItem
+                        key={state.id}
+                        value={state.id}
+                        className="focus:bg-gray-800 focus:text-[#FFB70F] cursor-pointer"
+                      >
+                        {state.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <label className="block text-xs uppercase tracking-wider text-gray-400 mb-2">City</label>
-              <select
-                className={selectClass}
-                value={geography.selectedCityId}
-                onChange={(e) => geography.setSelectedCityId(e.target.value)}
+              <Select
+                value={geography.selectedCityId || "all"}
+                onValueChange={(val) => geography.setSelectedCityId(val === "all" ? "" : val)}
                 disabled={geography.isLoadingCities || cityDisabled}
-                aria-label="Filter by city"
               >
-                <option value="">{cityDisabled ? "Select a state first" : "All cities"}</option>
-                {geography.cities.map((city) => (
-                  <option key={city.id} value={city.id}>
-                    {city.name}
-                    {typeof city.branch_count === "number" ? ` (${city.branch_count})` : ""}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full h-12 rounded-xl bg-gray-900 border border-gray-700 text-white px-4 text-sm focus:ring-2 focus:ring-[#FFB70F] focus:border-transparent disabled:opacity-50">
+                  <SelectValue placeholder={cityDisabled ? "Select a state first" : "All cities"} />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-900 border-gray-700 text-white max-h-64">
+                  <SelectItem value="all" className="focus:bg-gray-800 focus:text-[#FFB70F] cursor-pointer">
+                    {cityDisabled ? "Select a state first" : "All cities"}
+                  </SelectItem>
+                  {geography.cities
+                    .filter((city) => Boolean(city.id))
+                    .map((city) => (
+                      <SelectItem
+                        key={city.id}
+                        value={city.id}
+                        className="focus:bg-gray-800 focus:text-[#FFB70F] cursor-pointer"
+                      >
+                        {city.name}
+                        {typeof city.branch_count === "number" ? ` (${city.branch_count})` : ""}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <label className="block text-xs uppercase tracking-wider text-gray-400 mb-2">Search</label>
@@ -247,53 +301,95 @@ export default function BranchesDiscoveryPage() {
                 const fullAddress = formatAddress(addr)
                 const phone = getBranchPhone(b)
                 const email = getBranchEmail(b)
+                const branchName = getBranchName(b)
                 return (
                   <div
                     key={b.id}
-                    className="flex h-full flex-col rounded-xl border border-gray-800 bg-gray-900/50 p-6 hover:border-[#FFB70F] transition-colors"
+                    className="flex flex-col justify-between rounded-xl border border-gray-800 bg-gray-900/50 p-6 hover:border-[#FFB70F] transition-colors h-full min-h-[310px]"
                   >
-                    <div className="flex items-start gap-3 mb-4">
-                      <div className="w-12 h-12 rounded-lg bg-[#FFB70F]/10 flex items-center justify-center flex-shrink-0">
-                        <Building2 className="w-6 h-6 text-[#FFB70F]" />
-                      </div>
-                      <div>
-                        <h2 className="text-xl font-bold text-[#FFB70F]">{getBranchName(b)}</h2>
-                        {location ? (
-                          <p className="text-gray-400 text-sm flex items-center gap-1 mt-1">
-                            <MapPin className="w-3.5 h-3.5" />
-                            {location}
+                    <div>
+                      {/* Header */}
+                      <div className="flex items-start gap-3 mb-4">
+                        <div className="w-12 h-12 rounded-lg bg-[#FFB70F]/10 flex items-center justify-center flex-shrink-0">
+                          <Building2 className="w-6 h-6 text-[#FFB70F]" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h2 className="text-xl font-bold text-[#FFB70F] truncate" title={branchName}>
+                            {branchName}
+                          </h2>
+                          <p className="text-gray-400 text-sm flex items-center gap-1 mt-1 truncate min-h-[1.25rem]">
+                            {location ? (
+                              <>
+                                <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                                <span className="truncate" title={location}>
+                                  {location}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="invisible select-none">&nbsp;</span>
+                            )}
                           </p>
-                        ) : null}
+                        </div>
+                      </div>
+
+                      {/* Details */}
+                      <div className="space-y-3">
+                        {/* Address: fixed height container with line clamp */}
+                        <div className="flex items-start gap-2 text-gray-300 text-sm h-[4.5rem]">
+                          <MapPin className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                          <span
+                            className="line-clamp-3 leading-relaxed flex-1"
+                            style={{
+                              display: '-webkit-box',
+                              WebkitBoxOrient: 'vertical',
+                              WebkitLineClamp: 3,
+                              overflow: 'hidden',
+                            }}
+                            title={fullAddress || undefined}
+                          >
+                            {fullAddress ? fullAddress : <span className="text-gray-500 italic">Address not available</span>}
+                          </span>
+                        </div>
+
+                        {/* Phone */}
+                        <div className="flex items-center gap-2 text-gray-300 text-sm h-5 overflow-hidden">
+                          <Phone className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                          {phone ? (
+                            <a href={`tel:${phone}`} className="hover:text-[#FFB70F] transition-colors truncate">
+                              {phone}
+                            </a>
+                          ) : (
+                            <span className="text-gray-500 italic">Not available</span>
+                          )}
+                        </div>
+
+                        {/* Email */}
+                        <div className="flex items-center gap-2 text-gray-300 text-sm h-5 overflow-hidden">
+                          <Mail className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                          {email ? (
+                            <a
+                              href={`mailto:${email}`}
+                              className="hover:text-[#FFB70F] transition-colors truncate"
+                              title={email}
+                            >
+                              {email}
+                            </a>
+                          ) : (
+                            <span className="text-gray-500 italic">Not available</span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    {fullAddress ? (
-                      <div className="flex items-start gap-2 mb-3 text-gray-300 text-sm">
-                        <MapPin className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                        <span>{fullAddress}</span>
-                      </div>
-                    ) : null}
-                    {phone ? (
-                      <div className="flex items-center gap-2 mb-3 text-gray-300 text-sm">
-                        <Phone className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                        <a href={`tel:${phone}`} className="hover:text-[#FFB70F] transition-colors">
-                          {phone}
-                        </a>
-                      </div>
-                    ) : null}
-                    {email ? (
-                      <div className="flex items-center gap-2 mb-3 text-gray-300 text-sm">
-                        <Mail className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                        <a href={`mailto:${email}`} className="hover:text-[#FFB70F] transition-colors">
-                          {email}
-                        </a>
-                      </div>
-                    ) : null}
-                    <Link
-                      href={branchHref(b)}
-                      className="mt-auto self-start pt-4 text-sm font-medium text-[#FFB70F] hover:text-white transition-colors"
-                    >
-                      View branch details →
-                    </Link>
+
+                    {/* Button pinned at fixed bottom position */}
+                    <div className="mt-auto pt-4 border-t border-gray-800/60">
+                      <Link
+                        href={branchHref(b)}
+                        className="inline-flex items-center text-sm font-medium text-[#FFB70F] hover:text-white transition-colors"
+                      >
+                        View branch details →
+                      </Link>
+                    </div>
                   </div>
                 )
               })}

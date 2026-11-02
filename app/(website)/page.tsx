@@ -348,6 +348,7 @@ export default async function HomePage() {
     }))
   const testimonialsTitle = homepage.testimonials_title || "Success stories"
   const testimonialsSubtitle = homepage.testimonials_subtitle || "Testimonials"
+  const testimonialsEnabled = homepage.testimonials_enabled !== false
   const testimonials: { name: string; role: string; quote?: string; image?: string; achievement?: string }[] = []
 
   const ctaTitle = homepage.cta_title || "Learn martial arts with discipline energy enhance your physical and mental well-being with our holistic tai-chi training."
@@ -381,6 +382,7 @@ export default async function HomePage() {
       mediaSectionItems={mediaSectionItems}
       testimonialsTitle={testimonialsTitle}
       testimonialsSubtitle={testimonialsSubtitle}
+      testimonialsEnabled={testimonialsEnabled}
       classCards={classCards}
       physicalBenefits={physicalBenefits}
       mentalBenefits={mentalBenefits}

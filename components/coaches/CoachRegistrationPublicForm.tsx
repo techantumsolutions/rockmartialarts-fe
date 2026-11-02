@@ -88,6 +88,7 @@ export default function CoachRegistrationPublicForm() {
   const [designations, setDesignations] = useState<CoachRegisterOption[]>([])
   const [countries, setCountries] = useState<CoachRegisterOption[]>([])
   const [coachFee, setCoachFee] = useState<number>(0)
+  const [coachFeeNote, setCoachFeeNote] = useState<string>("")
   const [submitting, setSubmitting] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -95,6 +96,7 @@ export default function CoachRegistrationPublicForm() {
     experience?: string
     specializations?: string
     email?: string
+    phone?: string
   }>({})
   const [done, setDone] = useState<{ coach_id: string; message: string } | null>(null)
   const successRef = useRef<HTMLDivElement>(null)
@@ -126,9 +128,12 @@ export default function CoachRegistrationPublicForm() {
       .then((data) => {
         const fee = Number(data.coachRegistrationFee ?? data.coach_registration_fee ?? 0)
         setCoachFee(Number.isFinite(fee) && fee > 0 ? fee : 0)
+        const note = (data.coachRegistrationFeeNote ?? data.coach_registration_fee_note ?? "").trim()
+        setCoachFeeNote(note)
       })
       .catch(() => {
         setCoachFee(0)
+        setCoachFeeNote("")
       })
   }, [])
 
@@ -232,6 +237,7 @@ export default function CoachRegistrationPublicForm() {
       experience?: string
       specializations?: string
       email?: string
+      phone?: string
     } = {}
     if (!form.first_name.trim()) {
       setError("First name is required")
@@ -249,14 +255,23 @@ export default function CoachRegistrationPublicForm() {
       setError("Date of birth is required")
       return
     }
-    if (!form.email.trim()) {
+    const cleanEmail = form.email.trim()
+    if (!cleanEmail) {
       nextFieldErrors.email = "Email is required"
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
-      nextFieldErrors.email = "Please enter a valid email address"
+    } else if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(cleanEmail)) {
+      nextFieldErrors.email = "Please enter a valid email address (e.g. name@example.com)"
     }
-    if (!form.phone.trim()) {
-      setError("Phone number is required")
-      return
+    const cleanPhone = form.phone.trim()
+    if (!cleanPhone) {
+      nextFieldErrors.phone = "Phone number is required"
+    } else if (form.country_code === "+91") {
+      if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+        nextFieldErrors.phone = "Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9"
+      }
+    } else {
+      if (!/^\d{7,15}$/.test(cleanPhone)) {
+        nextFieldErrors.phone = "Please enter a valid phone number (7 to 15 digits)"
+      }
     }
     if (!form.address.trim() || !form.city.trim() || !form.state.trim()) {
       setError("Address, city and state are required")
@@ -269,7 +284,7 @@ export default function CoachRegistrationPublicForm() {
       nextFieldErrors.specializations = "Select at least one specialization"
     }
     setFieldErrors(nextFieldErrors)
-    if (nextFieldErrors.experience || nextFieldErrors.specializations || nextFieldErrors.email) {
+    if (nextFieldErrors.experience || nextFieldErrors.specializations || nextFieldErrors.email || nextFieldErrors.phone) {
       return
     }
     if (form.service_location_ids.length === 0) {
@@ -279,49 +294,50 @@ export default function CoachRegistrationPublicForm() {
 
     setSubmitting(true)
 
-    // If coach registration fee is required (> 0), process via Razorpay
-    if (coachFee > 0) {
-      try {
-        const orderData = await coachRegistrationAPI.createOrder({
-          name: `${form.first_name.trim()} ${form.last_name.trim()}`,
-          email: form.email.trim(),
-          phone: `${form.country_code.trim() || "+91"}${form.phone.trim()}`,
-        })
+    // Verify with backend whether registration fee is required and create Razorpay order
+    try {
+      const orderData = await coachRegistrationAPI.createOrder({
+        name: `${form.first_name.trim()} ${form.last_name.trim()}`,
+        email: form.email.trim(),
+        phone: `${form.country_code.trim() || "+91"}${form.phone.trim()}`,
+      })
 
-        if (orderData.fee_required && orderData.order_id) {
-          await openRazorpayCheckout({
-            amountPaise: orderData.amount_paise,
-            razorpayKeyId: orderData.key_id,
-            currency: orderData.currency || "INR",
-            name: "Rock Martial Arts",
-            description: "Coach Registration Fee",
-            customerName: `${form.first_name.trim()} ${form.last_name.trim()}`,
-            customerEmail: form.email.trim(),
-            customerContact: `${form.country_code.trim() || "+91"}${form.phone.trim()}`,
-            orderId: orderData.order_id,
-            onSuccess: async (rpResponse) => {
-              await submitRegistration({
-                razorpay_payment_id: rpResponse.razorpay_payment_id,
-                razorpay_order_id: rpResponse.razorpay_order_id,
-                razorpay_signature: rpResponse.razorpay_signature,
-              })
-            },
-            onDismiss: () => {
-              setSubmitting(false)
-              setError("Payment was cancelled. Complete the payment to submit your registration.")
-            },
-            onPaymentFailure: (failMsg) => {
-              setSubmitting(false)
-              setError(failMsg || "Payment failed. Please try again.")
-            },
-          })
-          return
+      if (orderData.fee_required && orderData.order_id) {
+        if (orderData.amount_inr && orderData.amount_inr !== coachFee) {
+          setCoachFee(orderData.amount_inr)
         }
-      } catch (err) {
-        setSubmitting(false)
-        setError(err instanceof Error ? err.message : "Failed to initiate payment")
+        await openRazorpayCheckout({
+          amountPaise: orderData.amount_paise,
+          razorpayKeyId: orderData.key_id,
+          currency: orderData.currency || "INR",
+          name: "Rock Martial Arts",
+          description: "Coach Registration Fee",
+          customerName: `${form.first_name.trim()} ${form.last_name.trim()}`,
+          customerEmail: form.email.trim(),
+          customerContact: `${form.country_code.trim() || "+91"}${form.phone.trim()}`,
+          orderId: orderData.order_id,
+          onSuccess: async (rpResponse) => {
+            await submitRegistration({
+              razorpay_payment_id: rpResponse.razorpay_payment_id,
+              razorpay_order_id: rpResponse.razorpay_order_id,
+              razorpay_signature: rpResponse.razorpay_signature,
+            })
+          },
+          onDismiss: () => {
+            setSubmitting(false)
+            setError("Payment was cancelled. Complete the payment to submit your registration.")
+          },
+          onPaymentFailure: (failMsg) => {
+            setSubmitting(false)
+            setError(failMsg || "Payment failed. Please try again.")
+          },
+        })
         return
       }
+    } catch (err) {
+      setSubmitting(false)
+      setError(err instanceof Error ? err.message : "Failed to initiate payment")
+      return
     }
 
     // Direct registration (no fee required or fee is 0)
@@ -385,6 +401,7 @@ export default function CoachRegistrationPublicForm() {
             <Label className="text-gray-300">First name *</Label>
             <Input
               className={fieldClass}
+              placeholder="e.g. Rahul"
               required
               value={form.first_name}
               onChange={(e) => setForm((f) => ({ ...f, first_name: e.target.value }))}
@@ -394,6 +411,7 @@ export default function CoachRegistrationPublicForm() {
             <Label className="text-gray-300">Last name *</Label>
             <Input
               className={fieldClass}
+              placeholder="e.g. Sharma"
               required
               value={form.last_name}
               onChange={(e) => setForm((f) => ({ ...f, last_name: e.target.value }))}
@@ -428,6 +446,7 @@ export default function CoachRegistrationPublicForm() {
             <Label className="text-gray-300">Date of birth *</Label>
             <Input
               type="date"
+              placeholder="YYYY-MM-DD"
               min="1900-01-01"
               max="9999-12-31"
               className={`${fieldClass} coach-register-dob`}
@@ -447,6 +466,7 @@ export default function CoachRegistrationPublicForm() {
             <Label className="text-gray-300">Email *</Label>
             <Input
               type="email"
+              placeholder="e.g. coach@example.com"
               className={`${fieldClass}${fieldErrors.email ? " border-red-500" : ""}`}
               required
               value={form.email}
@@ -497,12 +517,23 @@ export default function CoachRegistrationPublicForm() {
                 </SelectContent>
               </Select>
               <Input
-                className={`${fieldClass} min-w-0 flex-1`}
+                type="tel"
+                placeholder={form.country_code === "+91" ? "e.g. 9876543210" : "Mobile / phone number"}
+                className={`${fieldClass} min-w-0 flex-1${fieldErrors.phone ? " border-red-500" : ""}`}
                 required
                 value={form.phone}
-                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, "")
+                  if (fieldErrors.phone) {
+                    setFieldErrors((prev) => ({ ...prev, phone: undefined }))
+                  }
+                  setForm((f) => ({ ...f, phone: val }))
+                }}
               />
             </div>
+            {fieldErrors.phone ? (
+              <p className="text-xs text-red-400 mt-1">{fieldErrors.phone}</p>
+            ) : null}
           </div>
         </div>
       </div>
@@ -514,6 +545,7 @@ export default function CoachRegistrationPublicForm() {
             <Label className="text-gray-300">Address *</Label>
             <Input
               className={fieldClass}
+              placeholder="House / Flat no., building, street address"
               required
               value={form.address}
               onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
@@ -523,6 +555,7 @@ export default function CoachRegistrationPublicForm() {
             <Label className="text-gray-300">Area</Label>
             <Input
               className={fieldClass}
+              placeholder="Locality, sector, or landmark"
               value={form.area}
               onChange={(e) => setForm((f) => ({ ...f, area: e.target.value }))}
             />
@@ -531,6 +564,7 @@ export default function CoachRegistrationPublicForm() {
             <Label className="text-gray-300">City *</Label>
             <Input
               className={fieldClass}
+              placeholder="e.g. Hyderabad"
               required
               value={form.city}
               onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
@@ -540,6 +574,7 @@ export default function CoachRegistrationPublicForm() {
             <Label className="text-gray-300">State *</Label>
             <Input
               className={fieldClass}
+              placeholder="e.g. Telangana"
               required
               value={form.state}
               onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))}
@@ -549,6 +584,7 @@ export default function CoachRegistrationPublicForm() {
             <Label className="text-gray-300">Pincode</Label>
             <Input
               className={fieldClass}
+              placeholder="e.g. 500081"
               value={form.zip_code}
               onChange={(e) => setForm((f) => ({ ...f, zip_code: e.target.value }))}
             />
@@ -641,6 +677,7 @@ export default function CoachRegistrationPublicForm() {
             <Label className="text-gray-300">Education / qualification</Label>
             <Input
               className={fieldClass}
+              placeholder="e.g. B.P.Ed, Sports Science Degree, Certified Martial Arts Trainer"
               value={form.education_qualification}
               onChange={(e) =>
                 setForm((f) => ({ ...f, education_qualification: e.target.value }))
@@ -706,6 +743,7 @@ export default function CoachRegistrationPublicForm() {
             <Label className="text-gray-300">About you</Label>
             <Textarea
               className={fieldClass}
+              placeholder="Brief overview of coaching experience, achievements, and training philosophy..."
               rows={3}
               value={form.about_short}
               onChange={(e) => setForm((f) => ({ ...f, about_short: e.target.value }))}
@@ -768,9 +806,11 @@ export default function CoachRegistrationPublicForm() {
               <span className="font-semibold text-white text-sm">Coach Registration Fee:</span>
               <span className="text-base font-bold text-[#FFB70F]">₹{coachFee.toLocaleString("en-IN")}</span>
             </div>
-            <p className="text-xs text-gray-400 mt-0.5">
-              One-time non-refundable fee required to process your application via Razorpay.
-            </p>
+            {coachFeeNote ? (
+              <p className="text-xs text-gray-400 mt-0.5">
+                {coachFeeNote}
+              </p>
+            ) : null}
           </div>
         </div>
       )}

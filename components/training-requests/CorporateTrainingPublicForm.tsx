@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react"
 import Link from "next/link"
-import { Briefcase, CheckCircle2, Loader2 } from "lucide-react"
+import { Briefcase, CheckCircle2, Loader2, CreditCard } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,6 +15,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { trainingRequestAPI } from "@/lib/trainingRequestAPI"
+import { settingsAPI } from "@/lib/settingsAPI"
+import { openRazorpayCheckout } from "@/lib/razorpay"
 
 type BranchOpt = { id: string; name: string }
 
@@ -70,6 +72,15 @@ const INITIAL: FormState = {
   special_requirements: "",
 }
 
+function formatInr(n?: number | null) {
+  if (n == null) return "—"
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(n)
+}
+
 function getBranchName(b: Record<string, unknown>): string {
   const nested = b.branch as { name?: string } | undefined
   return nested?.name || (b.name as string) || (b.code as string) || "Branch"
@@ -78,11 +89,20 @@ function getBranchName(b: Record<string, unknown>): string {
 export default function CorporateTrainingPublicForm() {
   const [form, setForm] = useState<FormState>(INITIAL)
   const [branches, setBranches] = useState<BranchOpt[]>([])
+  const [trainingFee, setTrainingFee] = useState<number>(0)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submittedId, setSubmittedId] = useState<string | null>(null)
 
   useEffect(() => {
+    settingsAPI
+      .getPublicSettings()
+      .then((s) => {
+        const fee = Number(s.corporate_training_fee ?? s.corporateTrainingFee ?? 0)
+        if (!Number.isNaN(fee)) setTrainingFee(fee)
+      })
+      .catch(() => {})
+
     fetch("/api/branches/public", { headers: { "Content-Type": "application/json" } })
       .then((res) => (res.ok ? res.json() : Promise.resolve({ branches: [] })))
       .then((data) => {
@@ -118,6 +138,48 @@ export default function CorporateTrainingPublicForm() {
     return null
   }
 
+  const sendSubmission = async (paymentDetails?: {
+    razorpay_order_id?: string
+    razorpay_payment_id?: string
+    razorpay_signature?: string
+  }) => {
+    const branch = branches.find((b) => b.id === form.branch_id)
+    const result = await trainingRequestAPI.submitCorporate({
+      contact_name: form.contact_name.trim(),
+      contact_phone: form.contact_phone.trim(),
+      contact_email: form.contact_email.trim() || undefined,
+      branch_id: form.branch_id || undefined,
+      branch_name: branch?.name,
+      source: "website",
+      notes: form.notes.trim() || undefined,
+      razorpay_order_id: paymentDetails?.razorpay_order_id,
+      razorpay_payment_id: paymentDetails?.razorpay_payment_id,
+      razorpay_signature: paymentDetails?.razorpay_signature,
+      details: {
+        organization_name: form.organization_name.trim(),
+        organization_type: form.organization_type.trim() || undefined,
+        industry: form.industry.trim() || undefined,
+        contact_designation: form.contact_designation.trim() || undefined,
+        employee_count: parseInt(form.employee_count || "1", 10),
+        department_or_team: form.department_or_team.trim() || undefined,
+        training_requirement: form.training_requirement.trim() || undefined,
+        address_line1: form.address_line1.trim(),
+        address_line2: form.address_line2.trim() || undefined,
+        city: form.city.trim(),
+        state: form.state.trim(),
+        pincode: form.pincode.trim() || undefined,
+        preferred_date: form.preferred_date || undefined,
+        preferred_time: form.preferred_time.trim() || undefined,
+        schedule_notes: form.schedule_notes.trim() || undefined,
+        training_type: form.training_type.trim() || undefined,
+        training_goals: form.training_goals.trim() || undefined,
+        special_requirements: form.special_requirements.trim() || undefined,
+      },
+    })
+    setSubmittedId(result.request?.id || "ok")
+    setForm(INITIAL)
+  }
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -126,43 +188,57 @@ export default function CorporateTrainingPublicForm() {
       setError(v)
       return
     }
-    const branch = branches.find((b) => b.id === form.branch_id)
+
     setSubmitting(true)
     try {
-      const result = await trainingRequestAPI.submitCorporate({
+      const orderData = await trainingRequestAPI.createOrder({
+        type: "corporate",
         contact_name: form.contact_name.trim(),
-        contact_phone: form.contact_phone.trim(),
         contact_email: form.contact_email.trim() || undefined,
-        branch_id: form.branch_id || undefined,
-        branch_name: branch?.name,
-        source: "website",
-        notes: form.notes.trim() || undefined,
-        details: {
-          organization_name: form.organization_name.trim(),
-          organization_type: form.organization_type.trim() || undefined,
-          industry: form.industry.trim() || undefined,
-          contact_designation: form.contact_designation.trim() || undefined,
-          employee_count: parseInt(form.employee_count || "1", 10),
-          department_or_team: form.department_or_team.trim() || undefined,
-          training_requirement: form.training_requirement.trim() || undefined,
-          address_line1: form.address_line1.trim(),
-          address_line2: form.address_line2.trim() || undefined,
-          city: form.city.trim(),
-          state: form.state.trim(),
-          pincode: form.pincode.trim() || undefined,
-          preferred_date: form.preferred_date || undefined,
-          preferred_time: form.preferred_time.trim() || undefined,
-          schedule_notes: form.schedule_notes.trim() || undefined,
-          training_type: form.training_type.trim() || undefined,
-          training_goals: form.training_goals.trim() || undefined,
-          special_requirements: form.special_requirements.trim() || undefined,
-        },
+        contact_phone: form.contact_phone.trim(),
       })
-      setSubmittedId(result.request?.id || "ok")
-      setForm(INITIAL)
+
+      if (orderData.fee_required && orderData.order_id) {
+        if (orderData.amount_inr && orderData.amount_inr !== trainingFee) {
+          setTrainingFee(orderData.amount_inr)
+        }
+        await openRazorpayCheckout({
+          amountPaise: orderData.amount_paise || 0,
+          razorpayKeyId: orderData.key_id || "",
+          currency: orderData.currency || "INR",
+          name: "Rock Martial Arts",
+          description: "Corporate Training Request Fee",
+          customerName: form.contact_name.trim(),
+          customerEmail: form.contact_email.trim(),
+          customerContact: form.contact_phone.trim(),
+          orderId: orderData.order_id,
+          onSuccess: async (rpResponse) => {
+            try {
+              await sendSubmission({
+                razorpay_order_id: rpResponse.razorpay_order_id,
+                razorpay_payment_id: rpResponse.razorpay_payment_id,
+                razorpay_signature: rpResponse.razorpay_signature,
+              })
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Payment succeeded but submission failed")
+            } finally {
+              setSubmitting(false)
+            }
+          },
+          onDismiss: () => {
+            setSubmitting(false)
+          },
+          onPaymentFailure: (err) => {
+            setError(err?.description || "Payment failed. Please try again.")
+            setSubmitting(false)
+          },
+        })
+      } else {
+        await sendSubmission()
+        setSubmitting(false)
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to submit request")
-    } finally {
+      setError(err instanceof Error ? err.message : "Failed to process request")
       setSubmitting(false)
     }
   }
@@ -173,7 +249,7 @@ export default function CorporateTrainingPublicForm() {
         <CheckCircle2 className="w-14 h-14 text-[#FFB70F] mx-auto mb-4" />
         <h2 className="text-2xl font-bold text-white mb-2">Request submitted</h2>
         <p className="text-gray-300 mb-6">
-          Thank you. Our team will review your corporate training request and get back to you soon.
+          Thank you. Our corporate training team will review your requirements and reach out to discuss the proposal.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Button
@@ -196,26 +272,38 @@ export default function CorporateTrainingPublicForm() {
 
   return (
     <form onSubmit={onSubmit} className="w-full space-y-8">
+      {trainingFee > 0 && (
+        <div className="rounded-xl border border-[#FFB70F]/30 bg-[#FFB70F]/10 p-5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <CreditCard className="w-6 h-6 text-[#FFB70F]" />
+            <div>
+              <p className="text-sm text-gray-300">Corporate Training Program Fee</p>
+              <p className="text-2xl font-bold text-[#FFB70F]">{formatInr(trainingFee)}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 md:p-8 space-y-5">
         <div className="flex items-center gap-3 mb-1">
           <div className="w-10 h-10 rounded-lg bg-[#FFB70F]/10 flex items-center justify-center">
             <Briefcase className="w-5 h-5 text-[#FFB70F]" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-white">Organization &amp; contact</h2>
-            <p className="text-sm text-gray-400">Company details and who we should reach</p>
+            <h2 className="text-lg font-semibold text-white">Company &amp; contact</h2>
+            <p className="text-sm text-gray-400">Organization details and HR / admin coordinator</p>
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2 md:col-span-2">
             <Label className="text-gray-300">
-              Organization name <span className="text-[#FFB70F]">*</span>
+              Company / Organization name <span className="text-[#FFB70F]">*</span>
             </Label>
             <Input
               value={form.organization_name}
               onChange={set("organization_name")}
               className={fieldClass}
-              placeholder="Company / organization name"
+              placeholder="e.g. Acme Technologies Pvt Ltd"
               required
             />
           </div>
@@ -225,20 +313,63 @@ export default function CorporateTrainingPublicForm() {
               value={form.organization_type}
               onChange={set("organization_type")}
               className={fieldClass}
-              placeholder="e.g. IT, Manufacturing, Startup"
+              placeholder="e.g. MNC, Startup, PSU, IT services, Manufacturing"
             />
           </div>
           <div className="space-y-2">
-            <Label className="text-gray-300">Industry</Label>
+            <Label className="text-gray-300">Industry / domain</Label>
             <Input
               value={form.industry}
               onChange={set("industry")}
               className={fieldClass}
-              placeholder="Optional"
+              placeholder="e.g. Software, Banking, Healthcare, Logistics"
             />
           </div>
           <div className="space-y-2">
-            <Label className="text-gray-300">Preferred branch</Label>
+            <Label className="text-gray-300">
+              Contact person name <span className="text-[#FFB70F]">*</span>
+            </Label>
+            <Input
+              value={form.contact_name}
+              onChange={set("contact_name")}
+              className={fieldClass}
+              placeholder="HR Lead / Facilities Manager / CSR Lead"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-gray-300">Designation</Label>
+            <Input
+              value={form.contact_designation}
+              onChange={set("contact_designation")}
+              className={fieldClass}
+              placeholder="e.g. Head of People / Ops Manager"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-gray-300">
+              Phone number <span className="text-[#FFB70F]">*</span>
+            </Label>
+            <Input
+              value={form.contact_phone}
+              onChange={set("contact_phone")}
+              className={fieldClass}
+              placeholder="10-digit mobile number"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-gray-300">Official email address</Label>
+            <Input
+              type="email"
+              value={form.contact_email}
+              onChange={set("contact_email")}
+              className={fieldClass}
+              placeholder="hr@company.com"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-gray-300">Nearest branch (optional)</Label>
             <Select
               value={form.branch_id || "none"}
               onValueChange={(v) =>
@@ -246,7 +377,7 @@ export default function CorporateTrainingPublicForm() {
               }
             >
               <SelectTrigger className={`h-10 ${fieldClass}`}>
-                <SelectValue placeholder="Select branch (optional)" />
+                <SelectValue placeholder="Select branch" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">No preference</SelectItem>
@@ -258,60 +389,19 @@ export default function CorporateTrainingPublicForm() {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label className="text-gray-300">
-              Contact name <span className="text-[#FFB70F]">*</span>
-            </Label>
-            <Input
-              value={form.contact_name}
-              onChange={set("contact_name")}
-              className={fieldClass}
-              placeholder="HR / admin contact"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-gray-300">Designation</Label>
-            <Input
-              value={form.contact_designation}
-              onChange={set("contact_designation")}
-              className={fieldClass}
-              placeholder="e.g. HR Manager, Admin"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-gray-300">
-              Phone <span className="text-[#FFB70F]">*</span>
-            </Label>
-            <Input
-              value={form.contact_phone}
-              onChange={set("contact_phone")}
-              className={fieldClass}
-              placeholder="Mobile number"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-gray-300">Email</Label>
-            <Input
-              type="email"
-              value={form.contact_email}
-              onChange={set("contact_email")}
-              className={fieldClass}
-              placeholder="Optional"
-            />
-          </div>
         </div>
       </div>
 
       <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 md:p-8 space-y-5">
         <div>
-          <h2 className="text-lg font-semibold text-white">Employees &amp; location</h2>
-          <p className="text-sm text-gray-400">Headcount and where training will happen</p>
+          <h2 className="text-lg font-semibold text-white">Employees &amp; office location</h2>
+          <p className="text-sm text-gray-400">Headcount and venue details</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label className="text-gray-300">Employee count</Label>
+            <Label className="text-gray-300">
+              Expected employee count <span className="text-[#FFB70F]">*</span>
+            </Label>
             <Input
               type="number"
               min={1}
@@ -319,6 +409,7 @@ export default function CorporateTrainingPublicForm() {
               value={form.employee_count}
               onChange={set("employee_count")}
               className={fieldClass}
+              required
             />
           </div>
           <div className="space-y-2">
@@ -327,27 +418,27 @@ export default function CorporateTrainingPublicForm() {
               value={form.department_or_team}
               onChange={set("department_or_team")}
               className={fieldClass}
-              placeholder="e.g. All staff / Security team"
+              placeholder="e.g. All employees / Women employees / Security staff"
             />
           </div>
           <div className="space-y-2 md:col-span-2">
-            <Label className="text-gray-300">Training requirement</Label>
+            <Label className="text-gray-300">Training requirement brief</Label>
             <Textarea
               value={form.training_requirement}
               onChange={set("training_requirement")}
-              className={`min-h-[80px] ${fieldClass}`}
-              placeholder="Brief: self-defense workshop, wellness sessions, etc."
+              className={`min-h-[70px] ${fieldClass}`}
+              placeholder="e.g. POSH-aligned self-defense workshop, wellness day fitness demo, regular desk-break conditioning"
             />
           </div>
           <div className="space-y-2 md:col-span-2">
             <Label className="text-gray-300">
-              Address line 1 <span className="text-[#FFB70F]">*</span>
+              Office / Venue address line 1 <span className="text-[#FFB70F]">*</span>
             </Label>
             <Input
               value={form.address_line1}
               onChange={set("address_line1")}
               className={fieldClass}
-              placeholder="Office / venue address"
+              placeholder="Office park, tower, floor, street"
               required
             />
           </div>
@@ -357,7 +448,7 @@ export default function CorporateTrainingPublicForm() {
               value={form.address_line2}
               onChange={set("address_line2")}
               className={fieldClass}
-              placeholder="Floor / landmark"
+              placeholder="Tech park / Area"
             />
           </div>
           <div className="space-y-2">
@@ -381,12 +472,12 @@ export default function CorporateTrainingPublicForm() {
 
       <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 md:p-8 space-y-5">
         <div>
-          <h2 className="text-lg font-semibold text-white">Schedule &amp; training</h2>
-          <p className="text-sm text-gray-400">Preferred timing and program goals</p>
+          <h2 className="text-lg font-semibold text-white">Format &amp; schedule</h2>
+          <p className="text-sm text-gray-400">Timings, mode, and program goals</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label className="text-gray-300">Preferred start date</Label>
+            <Label className="text-gray-300">Proposed date</Label>
             <Input
               type="date"
               value={form.preferred_date}
@@ -395,34 +486,34 @@ export default function CorporateTrainingPublicForm() {
             />
           </div>
           <div className="space-y-2">
-            <Label className="text-gray-300">Preferred time</Label>
+            <Label className="text-gray-300">Preferred time slot</Label>
             <Input
               value={form.preferred_time}
               onChange={set("preferred_time")}
               className={fieldClass}
-              placeholder="e.g. Lunch break / 6:00 PM"
+              placeholder="e.g. Lunch hour 1:00 PM / Post-work 5:30 PM"
             />
           </div>
           <div className="space-y-2 md:col-span-2">
             <Label className="text-gray-300">Schedule notes</Label>
-            <Textarea
+            <Input
               value={form.schedule_notes}
               onChange={set("schedule_notes")}
-              className={`min-h-[60px] ${fieldClass}`}
-              placeholder="Weekly days, session length, holidays…"
+              className={fieldClass}
+              placeholder="e.g. Half-day offsite, 2-hour webinar + practical, recurring weekly batch"
             />
           </div>
           <div className="space-y-2 md:col-span-2">
-            <Label className="text-gray-300">Training type</Label>
+            <Label className="text-gray-300">Program discipline</Label>
             <Input
               value={form.training_type}
               onChange={set("training_type")}
               className={fieldClass}
-              placeholder="e.g. Self-defense, wellness, fitness"
+              placeholder="e.g. Self-Defense & Safety, Krav Maga, Corporate Wellness, Combat Fitness"
             />
           </div>
           <div className="space-y-2 md:col-span-2">
-            <Label className="text-gray-300">Training goals</Label>
+            <Label className="text-gray-300">Program goals</Label>
             <Textarea
               value={form.training_goals}
               onChange={set("training_goals")}
@@ -465,8 +556,10 @@ export default function CorporateTrainingPublicForm() {
           {submitting ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Submitting…
+              Processing…
             </>
+          ) : trainingFee > 0 ? (
+            `Pay ${formatInr(trainingFee)} & Submit Request`
           ) : (
             "Submit corporate training request"
           )}

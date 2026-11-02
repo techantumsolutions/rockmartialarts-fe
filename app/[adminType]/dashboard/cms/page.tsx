@@ -60,6 +60,7 @@ interface HomepageSection {
   media_section?: HomepageMediaItem[]
   testimonials_title?: string
   testimonials_subtitle?: string
+  testimonials_enabled?: boolean
   cta_title?: string
   cta_subtitle?: string
   bottom_cta_title?: string
@@ -172,6 +173,7 @@ export default function CMSPage() {
       const popupJson = popupRes.ok ? await popupRes.json().catch(() => ({})) : {}
       setHomepage({
         ...hp,
+        testimonials_enabled: hp.testimonials_enabled !== false,
         popup_form: normalizePopupFormForCms(popupJson.popup_form ?? hp.popup_form),
       })
       setFooter(data.footer || {})
@@ -319,6 +321,7 @@ export default function CMSPage() {
       const popupJson = await popupRes.json().catch(() => ({}))
       setHomepage({
         ...savedHp,
+        testimonials_enabled: savedHp.testimonials_enabled !== false,
         popup_form: normalizePopupFormForCms(popupJson.popup_form ?? popupForSave),
       })
       setFooter(data.footer || {})
@@ -1224,8 +1227,18 @@ export default function CMSPage() {
           </Card>
 
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle className="text-[#4F5077]">Testimonials Section</CardTitle>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">
+                  {homepage.testimonials_enabled === false ? "Disabled" : "Enabled"}
+                </span>
+                <Switch
+                  aria-label="Enable testimonials section on homepage"
+                  checked={homepage.testimonials_enabled !== false}
+                  onCheckedChange={(enabled) => setHomepage({ ...homepage, testimonials_enabled: enabled })}
+                />
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 gap-4">
