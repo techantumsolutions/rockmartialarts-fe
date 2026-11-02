@@ -87,6 +87,7 @@ export default function CoachApprovalsAdminPage() {
   const [history, setHistory] = useState<ApprovalHistoryEntry[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [rowSavingId, setRowSavingId] = useState<string | null>(null)
   const [note, setNote] = useState("")
 
   const ensureAuth = () => {
@@ -197,6 +198,50 @@ export default function CoachApprovalsAdminPage() {
       })
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleRowApprove = async (coachId: string) => {
+    setRowSavingId(coachId)
+    try {
+      await coachApprovalAPI.approve(coachId)
+      toast({ title: "Coach approved", description: "They can now sign in." })
+      if (detail?.id === coachId) {
+        setNote("")
+        await refreshDetail(coachId)
+      } else {
+        await load()
+      }
+    } catch (e) {
+      toast({
+        title: "Approve failed",
+        description: e instanceof Error ? e.message : "Error",
+        variant: "destructive",
+      })
+    } finally {
+      setRowSavingId(null)
+    }
+  }
+
+  const handleRowReject = async (coachId: string) => {
+    setRowSavingId(coachId)
+    try {
+      await coachApprovalAPI.reject(coachId)
+      toast({ title: "Registration rejected" })
+      if (detail?.id === coachId) {
+        setNote("")
+        await refreshDetail(coachId)
+      } else {
+        await load()
+      }
+    } catch (e) {
+      toast({
+        title: "Reject failed",
+        description: e instanceof Error ? e.message : "Error",
+        variant: "destructive",
+      })
+    } finally {
+      setRowSavingId(null)
     }
   }
 
@@ -368,25 +413,28 @@ export default function CoachApprovalsAdminPage() {
                     <th className="text-left py-3 px-4 font-medium text-[#6B7A99]">Active</th>
                     <th className="text-left py-3 px-4 font-medium text-[#6B7A99]">Source</th>
                     <th className="text-left py-3 px-4 font-medium text-[#6B7A99]">Submitted</th>
+                    <th className="text-left py-3 px-4 font-medium text-[#6B7A99]">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={6} className="py-10 text-center text-gray-500">
+                      <td colSpan={7} className="py-10 text-center text-gray-500">
                         <Loader2 className="w-5 h-5 animate-spin inline mr-2" />
                         Loading…
                       </td>
                     </tr>
                   ) : rows.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-10 text-center text-gray-500">
+                      <td colSpan={7} className="py-10 text-center text-gray-500">
                         No coaches match these filters.
                       </td>
                     </tr>
                   ) : (
                     rows.map((c) => {
                       const st = (c.approval_status || "approved").toLowerCase()
+                      const rowPending = st === "pending"
+                      const rowBusy = rowSavingId === c.id
                       return (
                         <tr
                           key={c.id}
@@ -420,6 +468,44 @@ export default function CoachApprovalsAdminPage() {
                           </td>
                           <td className="py-3 px-4 text-[#6B7A99] text-xs">
                             {fmtDate(c.created_at)}
+                          </td>
+                          <td
+                            className="py-3 px-4"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {rowPending ? (
+                              <div className="flex flex-wrap gap-2">
+                                <Button
+                                  size="sm"
+                                  className="h-8 bg-green-600 hover:bg-green-700 gap-1"
+                                  disabled={rowBusy || saving}
+                                  onClick={() => void handleRowApprove(c.id)}
+                                >
+                                  {rowBusy ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                  )}
+                                  Approve
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  className="h-8 gap-1"
+                                  disabled={rowBusy || saving}
+                                  onClick={() => void handleRowReject(c.id)}
+                                >
+                                  {rowBusy ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <XCircle className="w-3.5 h-3.5" />
+                                  )}
+                                  Reject
+                                </Button>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-gray-400">—</span>
+                            )}
                           </td>
                         </tr>
                       )

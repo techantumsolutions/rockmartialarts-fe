@@ -78,8 +78,7 @@ interface BranchStats {
 export default function AttendanceOverviewPage() {
   const router = useRouter()
   const basePath = useDashboardBasePath()
-  const isBranchManagerDashboard = basePath === "/branch-admin/dashboard"
-  
+
   // State management
   const [stats, setStats] = useState<AttendanceOverviewStats>({
     total_students: 0,
@@ -196,38 +195,55 @@ export default function AttendanceOverviewPage() {
         console.warn("⚠️ Branches endpoint failed:", branchesResponse.status)
       }
 
-      // Backend /attendance/stats returns student_*_today / coach_*_today for all roles.
-      // (Super-admin previously mapped non-existent today_present_* / average_* fields — wrong zeros.)
+      // Prefer roster-derived present/absent so overview cards match Manage Students/Coaches
+      // for the same date. Unmarked (not_marked) must NOT count as absent.
       const uniqueStudentRosterCount = new Set(
         studentData.map((student: any) => String(student.id || "")).filter(Boolean)
       ).size
+      const uniqueCoachRosterCount = new Set(
+        coachData.map((coach: any) => String(coach.id || "")).filter(Boolean)
+      ).size
       const isAttended = (status?: string) => status === "present" || status === "late"
+      const isExplicitAbsent = (status?: string) => status === "absent"
+
+      const rosterStudentPresent = studentData.filter((s: any) =>
+        isAttended(s.attendance?.status)
+      ).length
+      const rosterStudentAbsent = studentData.filter((s: any) =>
+        isExplicitAbsent(s.attendance?.status)
+      ).length
+      const rosterCoachPresent = coachData.filter((c: any) =>
+        isAttended(c.attendance?.status)
+      ).length
+      const rosterCoachAbsent = coachData.filter((c: any) =>
+        isExplicitAbsent(c.attendance?.status)
+      ).length
+
       let overviewStats: AttendanceOverviewStats
 
       if (statsData) {
-        const studentPresent =
-          (statsData.student_present_today || 0) + (statsData.student_late_today || 0)
+        const studentPresent = studentRosterLoaded
+          ? rosterStudentPresent
+          : (statsData.student_present_today || 0) + (statsData.student_late_today || 0)
         const coachPresent =
-          (statsData.coach_present_today || 0) + (statsData.coach_late_today || 0)
-        const totalStudents =
-          isBranchManagerDashboard && studentRosterLoaded
-            ? uniqueStudentRosterCount
-            : statsData.total_students || 0
-        const totalCoaches = statsData.total_coaches || 0
-        const studentAbsent = Math.max(
-          0,
-          statsData.student_absent_today ?? Math.max(0, totalStudents - studentPresent)
-        )
-        const coachAbsent = Math.max(
-          0,
-          statsData.coach_absent_today ?? Math.max(0, totalCoaches - coachPresent)
-        )
+          coachData.length > 0
+            ? rosterCoachPresent
+            : (statsData.coach_present_today || 0) + (statsData.coach_late_today || 0)
+        const totalStudents = studentRosterLoaded
+          ? uniqueStudentRosterCount
+          : statsData.total_students || 0
+        const totalCoaches =
+          coachData.length > 0 ? uniqueCoachRosterCount : statsData.total_coaches || 0
+        const studentAbsent = studentRosterLoaded
+          ? rosterStudentAbsent
+          : Math.max(0, Number(statsData.student_absent_today) || 0)
+        const coachAbsent =
+          coachData.length > 0
+            ? rosterCoachAbsent
+            : Math.max(0, Number(statsData.coach_absent_today) || 0)
         const studentRate =
-          totalStudents > 0
-            ? (studentPresent / totalStudents) * 100
-            : 0
-        const coachRate =
-          totalCoaches > 0 ? (coachPresent / totalCoaches) * 100 : 0
+          totalStudents > 0 ? (studentPresent / totalStudents) * 100 : 0
+        const coachRate = totalCoaches > 0 ? (coachPresent / totalCoaches) * 100 : 0
         const totalPeople = totalStudents + totalCoaches
         const overallRate =
           totalPeople > 0 ? ((studentPresent + coachPresent) / totalPeople) * 100 : 0
@@ -245,35 +261,29 @@ export default function AttendanceOverviewPage() {
         }
       } else {
         // Fallback: calculate from student and coach roster responses
-        const studentPresent = studentData.filter((s: any) => isAttended(s.attendance?.status)).length
-        const studentAbsent = studentData.filter(
-          (s: any) => !s.attendance || s.attendance?.status === "absent"
-        ).length
-        const coachPresent = coachData.filter((c: any) => isAttended(c.attendance?.status)).length
-        const coachAbsent = coachData.filter(
-          (c: any) => !c.attendance || c.attendance?.status === "absent"
-        ).length
-        const studentTotal = isBranchManagerDashboard ? uniqueStudentRosterCount : studentData.length
-        const coachTotal = coachData.length
+        const studentTotal = uniqueStudentRosterCount
+        const coachTotal = uniqueCoachRosterCount
         const peopleTotal = studentTotal + coachTotal
 
         overviewStats = {
           total_students: studentTotal,
           total_coaches: coachTotal,
-          student_present_today: studentPresent,
-          student_absent_today: studentAbsent,
-          coach_present_today: coachPresent,
-          coach_absent_today: coachAbsent,
+          student_present_today: rosterStudentPresent,
+          student_absent_today: rosterStudentAbsent,
+          coach_present_today: rosterCoachPresent,
+          coach_absent_today: rosterCoachAbsent,
           overall_attendance_rate:
             peopleTotal > 0
-              ? Number((((studentPresent + coachPresent) / peopleTotal) * 100).toFixed(1))
+              ? Number(
+                  (((rosterStudentPresent + rosterCoachPresent) / peopleTotal) * 100).toFixed(1)
+                )
               : 0,
           student_attendance_rate:
             studentTotal > 0
-              ? Number(((studentPresent / studentTotal) * 100).toFixed(1))
+              ? Number(((rosterStudentPresent / studentTotal) * 100).toFixed(1))
               : 0,
           coach_attendance_rate:
-            coachTotal > 0 ? Number(((coachPresent / coachTotal) * 100).toFixed(1)) : 0,
+            coachTotal > 0 ? Number(((rosterCoachPresent / coachTotal) * 100).toFixed(1)) : 0,
         }
       }
 
