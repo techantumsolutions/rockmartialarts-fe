@@ -31,6 +31,19 @@ const nextConfig = {
       { source: "/store.html", destination: "/store", permanent: true },
     ]
   },
+  async rewrites() {
+    return [
+      // White-label partner dashboard URLs → shared partner-admin pages
+      {
+        source: "/partners/:slug/dashboard",
+        destination: "/partner-admin/dashboard",
+      },
+      {
+        source: "/partners/:slug/dashboard/:path*",
+        destination: "/partner-admin/dashboard/:path*",
+      },
+    ]
+  },
 }
 
 export default nextConfig

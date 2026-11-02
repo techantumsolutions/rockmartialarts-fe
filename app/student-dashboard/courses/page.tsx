@@ -1332,7 +1332,7 @@ export default function StudentCoursesPage() {
                     onClick={openBrowseNewEnrollment}
                     className="bg-blue-600 hover:bg-blue-700"
                   >
-                    Enroll Course
+                    Browse Courses
                   </Button>
                 )}
                 <Button variant="outline" onClick={handleRefresh}>

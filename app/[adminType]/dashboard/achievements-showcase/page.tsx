@@ -28,6 +28,8 @@ export default function ManageShowcaseAchievementsPage() {
   const router = useRouter()
   const adminType = ((params?.adminType as string) || "super-admin").toLowerCase().replace(/_/g, "-")
   const isSuperAdmin = adminType === "super-admin"
+  const isPartnerAdmin = adminType === "partner-admin"
+  const canManage = isSuperAdmin || isPartnerAdmin
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [rows, setRows] = useState<Row[]>([])
@@ -35,10 +37,10 @@ export default function ManageShowcaseAchievementsPage() {
   const [togglingId, setTogglingId] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!isSuperAdmin) {
+    if (!canManage) {
       router.replace(`/${adminType}/dashboard`)
     }
-  }, [isSuperAdmin, adminType, router])
+  }, [canManage, adminType, router])
 
   const load = useCallback(async () => {
     const token = TokenManager.getToken()
@@ -60,9 +62,9 @@ export default function ManageShowcaseAchievementsPage() {
   }, [toast])
 
   useEffect(() => {
-    if (!isSuperAdmin) return
+    if (!canManage) return
     load()
-  }, [isSuperAdmin, load])
+  }, [canManage, load])
 
   const toggleFeatured = async (row: Row) => {
     const token = TokenManager.getToken()
@@ -98,7 +100,7 @@ export default function ManageShowcaseAchievementsPage() {
     )
   })
 
-  if (!isSuperAdmin) {
+  if (!canManage) {
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
         <Loader2 className="w-10 h-10 animate-spin text-[#E1BB33]" />
@@ -118,10 +120,18 @@ export default function ManageShowcaseAchievementsPage() {
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Homepage achievements</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {isPartnerAdmin ? "Organization achievements" : "Homepage achievements"}
+          </h1>
           <p className="text-gray-600 text-sm mt-1">
             Achievements are created on the student details page. Mark them as{" "}
-            <span className="font-medium text-gray-800">Featured</span> here to show them on the home page.
+            <span className="font-medium text-gray-800">Featured</span> here
+            {isPartnerAdmin
+              ? " to highlight them on your organization landing page."
+              : " to show them on the home page."}
+            {isPartnerAdmin
+              ? " Only students from your organization branches are listed."
+              : ""}
           </p>
         </div>
         <Input

@@ -29,6 +29,12 @@ import {
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { TokenManager } from "@/lib/tokenManager"
+import { useDashboardRole } from "@/lib/useDashboardBasePath"
+
+function isCategoryAdminRole(role?: string | null): boolean {
+  const r = (role || "").toLowerCase()
+  return r === "super_admin" || r === "superadmin" || r === "partner_super_admin"
+}
 
 interface Category {
   id: string
@@ -64,6 +70,7 @@ interface FormErrors {
 export default function CategoriesManagementPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const dashboardRole = useDashboardRole()
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -99,17 +106,25 @@ export default function CategoriesManagementPage() {
     color_code: ""
   })
 
+  const redirectToLogin = () => {
+    if (dashboardRole === "partner_super_admin") {
+      const slug =
+        typeof window !== "undefined" ? localStorage.getItem("partner_slug") : null
+      router.push(slug ? `/partners/${slug}/login` : "/login")
+      return
+    }
+    router.push("/superadmin/login")
+  }
+
   useEffect(() => {
-    // Check authentication
     if (!TokenManager.isAuthenticated()) {
-      router.push("/superadmin/login")
+      redirectToLogin()
       return
     }
 
-    // Check if user is superadmin
     const user = TokenManager.getUser()
-    if (!user || user.role !== "superadmin") {
-      router.push("/superadmin/login")
+    if (!user || !isCategoryAdminRole(user.role)) {
+      redirectToLogin()
       return
     }
 
@@ -132,7 +147,7 @@ export default function CategoriesManagementPage() {
           description: "Please log in to continue",
           variant: "destructive"
         })
-        router.push("/superadmin/login")
+        redirectToLogin()
         return
       }
       const response = await fetch(getBackendApiUrl(`categories?active_only=${showActiveOnly}&limit=200`), {
@@ -148,7 +163,7 @@ export default function CategoriesManagementPage() {
           setCategories(result.categories)
         }
       } else if (response.status === 401 || response.status === 403) {
-        router.push("/superadmin/login")
+        redirectToLogin()
       } else {
         toast({
           title: "Error",
@@ -266,7 +281,7 @@ export default function CategoriesManagementPage() {
           description: "Please log in to continue",
           variant: "destructive"
         })
-        router.push("/superadmin/login")
+        redirectToLogin()
         return
       }
       const apiPayload = {
@@ -383,7 +398,7 @@ export default function CategoriesManagementPage() {
           description: "Please log in to continue",
           variant: "destructive"
         })
-        router.push("/superadmin/login")
+        redirectToLogin()
         return
       }
       
@@ -535,7 +550,7 @@ export default function CategoriesManagementPage() {
           description: "Please log in to continue",
           variant: "destructive"
         })
-        router.push("/superadmin/login")
+        redirectToLogin()
         return
       }
       const apiPayload = {

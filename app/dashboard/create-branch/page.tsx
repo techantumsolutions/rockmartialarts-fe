@@ -1351,19 +1351,16 @@ export default function CreateBranchPage() {
                                     </Select>
                                   </div>
                                   <div className="space-y-1">
-                                    <Label className="text-xs text-gray-600">
-                                      Batch fee (₹) <span className="text-red-500">*</span>
-                                    </Label>
+                                    <Label className="text-xs text-gray-600">Batch fee (₹)</Label>
                                     <Input
                                       type="text"
                                       inputMode="decimal"
-                                      placeholder="Required — enter fee greater than 0"
+                                      placeholder="Optional — overrides tenure fee"
                                       value={batch.batch_fee ?? ""}
                                       onChange={(e) =>
                                         updateBatch(course.id, batch.id, "batch_fee", e.target.value)
                                       }
                                       className="h-9"
-                                      required
                                     />
                                   </div>
                                 </div>

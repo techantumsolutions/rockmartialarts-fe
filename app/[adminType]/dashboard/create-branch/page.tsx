@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Building, MapPin, Clock, Users, CreditCard, X, Plus, Trash2 } from "lucide-react"
@@ -71,6 +70,23 @@ function filterCoursesForParentCategory(
       course.category_id === parentCategoryId ||
       (!!course.category_id && subIds.has(course.category_id))
   )
+}
+
+/** Only categories that have at least one assignable course (keeps Rock masters out of empty partner orgs). */
+function categoriesForAssignableCourses(
+  allCategories: Category[],
+  assignableCourses: Course[]
+): Category[] {
+  if (!assignableCourses.length) return []
+  const courseCatIds = new Set(
+    assignableCourses.map((c) => c.category_id).filter(Boolean)
+  )
+  return allCategories.filter((parent) => {
+    if (parent.parent_category_id) return false
+    if (courseCatIds.has(parent.id)) return true
+    const subIds = parent.subcategories || []
+    return subIds.some((s) => courseCatIds.has(s.id))
+  })
 }
 
 interface CourseBatch {
@@ -142,13 +158,19 @@ interface FormData {
   is_collaboration_partner?: boolean
 }
 
-export default function CreateBranchPage() {
+type CreateBranchPageProps = {
+  /** When true, creates a collaboration partner branch and returns to Partner Profiles. */
+  asPartner?: boolean
+}
+
+export default function CreateBranchPage({ asPartner = false }: CreateBranchPageProps) {
   const router = useRouter()
   const basePath = useDashboardBasePath()
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
+  const listPath = asPartner ? `${basePath}/partner-profiles` : `${basePath}/branches`
 
   // API data state
   const [courses, setCourses] = useState<Course[]>([])
@@ -314,14 +336,25 @@ export default function CreateBranchPage() {
     }
 
     const loadData = async () => {
-      // Load courses
+      const token = TokenManager.getToken()
+      const authHeaders = {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        'Content-Type': 'application/json',
+      }
+
+      let loadedCourses: Course[] = []
+      // Load courses via authenticated API so partner orgs only see their own courses
       try {
         setIsLoadingCourses(true)
-        const coursesResponse = await fetch(getBackendApiUrl('courses/public/all'))
+        const coursesResponse = await fetch(
+          getBackendApiUrl('courses?active_only=true&limit=500'),
+          { headers: authHeaders }
+        )
         if (coursesResponse.ok) {
           const coursesData = await coursesResponse.json()
-          setCourses(coursesData.courses || [])
-          setFilteredCourses(coursesData.courses || [])
+          loadedCourses = coursesData.courses || []
+          setCourses(loadedCourses)
+          setFilteredCourses(loadedCourses)
         }
       } catch (error) {
         console.error('Error loading courses:', error)
@@ -329,13 +362,17 @@ export default function CreateBranchPage() {
         setIsLoadingCourses(false)
       }
 
-      // Load categories
+      // Categories are Rock masters; for assignments only show ones that have assignable courses
       try {
         setIsLoadingCategories(true)
-        const categoriesResponse = await fetch(getBackendApiUrl('categories/public/all'))
+        const categoriesResponse = await fetch(
+          getBackendApiUrl('categories?active_only=true&include_subcategories=true&limit=200'),
+          { headers: authHeaders }
+        )
         if (categoriesResponse.ok) {
           const categoriesData = await categoriesResponse.json()
-          setCategories(categoriesData.categories || [])
+          const allCats: Category[] = categoriesData.categories || []
+          setCategories(categoriesForAssignableCourses(allCats, loadedCourses))
         }
       } catch (error) {
         console.error('Error loading categories:', error)
@@ -624,8 +661,6 @@ export default function CreateBranchPage() {
 
     if (!formData.branch.name) newErrors.branchName = "Branch name is required"
     if (!formData.branch.code) newErrors.branchCode = "Branch code is required"
-    if (!formData.branch.email) newErrors.email = "Email is required"
-    if (!formData.branch.phone) newErrors.phone = "Phone is required"
     if (!formData.location_id) newErrors.location = "Location is required"
     if (!formData.manager_id) newErrors.manager = "Manager is required"
     if (!formData.branch.address.line1) newErrors.addressLine1 = "Address is required"
@@ -741,8 +776,9 @@ export default function CreateBranchPage() {
         },
         bank_details: formData.bank_details,
         admission_fee: formData.admission_fee,
-        is_collaboration_partner: !!formData.is_collaboration_partner,
-        allows_collaboration: !!formData.is_collaboration_partner,
+        // Own-branch create defaults to false; partner create page forces true.
+        is_collaboration_partner: !!asPartner,
+        allows_collaboration: !!asPartner,
       }
       
       console.log("Submitting branch data:", JSON.stringify(submitData, null, 2))
@@ -759,14 +795,16 @@ export default function CreateBranchPage() {
       if (response.ok) {
         setShowSuccessPopup(true)
         setTimeout(() => {
-          router.push(`${basePath}/branches`)
+          router.push(listPath)
         }, 2000)
       } else {
         const errorData = await response.json()
         console.error("Branch creation failed:", errorData)
         
         // Handle error message properly (could be string, object, or array)
-        let errorMessage = "Failed to create branch."
+        let errorMessage = asPartner
+          ? "Failed to create partner."
+          : "Failed to create branch."
         if (typeof errorData.detail === 'string') {
           errorMessage = errorData.detail
         } else if (typeof errorData.message === 'string') {
@@ -797,21 +835,30 @@ export default function CreateBranchPage() {
 
   return (
     <>
-      <Header title="Create Branch" role={useDashboardRole()} />
+      <Header
+        title={asPartner ? "Create Partner" : "Create Branch"}
+        role={useDashboardRole()}
+      />
       <div className="p-4 pt-4 md:p-8 md:pt-4">
         <div className="mb-6 flex items-center justify-between">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:space-x-4 md:gap-0">
             <Button
               variant="ghost"
-              onClick={() => router.push(`${basePath}/branches`)}
+              onClick={() => router.push(listPath)}
               className="flex items-center self-start px-2 md:px-4"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-[#4F5077]">Create Branch</h1>
-              <p className="text-sm md:text-base text-gray-500">Add a new branch to your organization</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-[#4F5077]">
+                {asPartner ? "Create Partner" : "Create Branch"}
+              </h1>
+              <p className="text-sm md:text-base text-gray-500">
+                {asPartner
+                  ? "Add a new collaboration partner branch"
+                  : "Add a new branch to your organization"}
+              </p>
             </div>
           </div>
         </div>
@@ -862,35 +909,9 @@ export default function CreateBranchPage() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-3 rounded-md border border-gray-100 bg-gray-50 px-3 py-3 md:flex-row md:items-center md:justify-between">
-                <div className="space-y-0.5 min-w-0">
-                  <Label htmlFor="isCollaborationPartner" className="text-sm font-medium">
-                    Is Collaboration Partner
-                  </Label>
-                  <p className="text-xs text-gray-500">
-                    Default is No. Partner branding and CMS features only apply when Yes.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
-                  <span className="text-xs text-gray-500">
-                    {formData.is_collaboration_partner ? "Yes" : "No"}
-                  </span>
-                  <Switch
-                    id="isCollaborationPartner"
-                    checked={!!formData.is_collaboration_partner}
-                    onCheckedChange={(checked) =>
-                      setFormData({
-                        ...formData,
-                        is_collaboration_partner: !!checked,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email *</Label>
+                  <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
                     type="email"
@@ -899,13 +920,13 @@ export default function CreateBranchPage() {
                       ...formData,
                       branch: { ...formData.branch, email: e.target.value }
                     })}
-                    placeholder="branch@example.com"
+                    placeholder="Optional"
                   />
                   {errors.email && <p className="text-xs text-red-500">{errors.email}</p>}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Phone *</Label>
+                  <Label htmlFor="phone">Phone</Label>
                   <Input
                     id="phone"
                     value={formData.branch.phone}
@@ -913,7 +934,7 @@ export default function CreateBranchPage() {
                       ...formData,
                       branch: { ...formData.branch, phone: e.target.value }
                     })}
-                    placeholder="+91 XXXXXXXXXX"
+                    placeholder="Optional"
                   />
                   {errors.phone && <p className="text-xs text-red-500">{errors.phone}</p>}
                 </div>
@@ -1620,7 +1641,7 @@ export default function CreateBranchPage() {
         <div className="mt-6 flex flex-col-reverse gap-3 md:flex-row md:justify-end md:space-x-4 md:gap-0">
           <Button
             variant="outline"
-            onClick={() => router.push(`${basePath}/branches`)}
+            onClick={() => router.push(listPath)}
             className="w-full md:w-auto"
           >
             Cancel
@@ -1630,7 +1651,11 @@ export default function CreateBranchPage() {
             disabled={isSubmitting}
             className="w-full md:w-auto bg-[#FA6669] hover:bg-[#e55557]"
           >
-            {isSubmitting ? "Creating..." : "Create Branch"}
+            {isSubmitting
+              ? "Creating..."
+              : asPartner
+                ? "Create Partner"
+                : "Create Branch"}
           </Button>
         </div>
       </div>
@@ -1642,8 +1667,16 @@ export default function CreateBranchPage() {
             <CardContent className="pt-6">
               <div className="text-center space-y-4">
                 <div className="text-green-500 text-6xl">✓</div>
-                <h3 className="text-xl font-bold">Branch Created Successfully!</h3>
-                <p className="text-gray-500">Redirecting to branches list...</p>
+                <h3 className="text-xl font-bold">
+                  {asPartner
+                    ? "Partner Created Successfully!"
+                    : "Branch Created Successfully!"}
+                </h3>
+                <p className="text-gray-500">
+                  {asPartner
+                    ? "Redirecting to partner profiles..."
+                    : "Redirecting to branches list..."}
+                </p>
               </div>
             </CardContent>
           </Card>

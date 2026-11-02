@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { getBackendApiUrl } from "@/lib/config"
 import { dropdownAPI } from "@/lib/dropdownAPI"
-import type { GeoCity, GeoState } from "@/lib/geographyAPI"
+import { geographyAPI, type GeoCity, type GeoState } from "@/lib/geographyAPI"
+import { TokenManager } from "@/lib/tokenManager"
 
 export type { GeoCity, GeoState }
 
@@ -15,6 +16,32 @@ function matchesCity(city: GeoCity, value?: string) {
   if (!value) return false
   const v = value.trim().toLowerCase()
   return city.id === value || (city.name || "").trim().toLowerCase() === v
+}
+
+function mapStates(list: any[]): GeoState[] {
+  return (list || []).map((s: any) => ({
+    id: s.id,
+    name: s.name,
+    code: s.code || "",
+    slug: s.slug,
+    is_active: s.is_active !== false,
+    display_order: s.display_order || 0,
+  }))
+}
+
+function mapCities(list: any[]): GeoCity[] {
+  return (list || []).map((c: any) => ({
+    id: c.id,
+    name: c.name,
+    code: c.code || "",
+    slug: c.slug,
+    state_id: c.state_id || "",
+    state: c.state || c.state_name || "",
+    state_name: c.state_name || c.state || "",
+    is_active: c.is_active !== false,
+    display_order: c.display_order || 0,
+    branch_count: typeof c.branch_count === "number" ? c.branch_count : undefined,
+  }))
 }
 
 export function useGeographyDropdowns(options: UseGeographyDropdownsOptions = {}) {
@@ -34,53 +61,58 @@ export function useGeographyDropdowns(options: UseGeographyDropdownsOptions = {}
       setIsLoadingCities(true)
       setError(null)
       try {
-        const [statesRes, citiesRes] = await Promise.all([
-          fetch(getBackendApiUrl("states/public?active_only=true")),
-          fetch(getBackendApiUrl("cities/public?active_only=true")),
-        ])
-        const statesJson = statesRes.ok ? await statesRes.json() : { states: [] }
-        const citiesJson = citiesRes.ok ? await citiesRes.json() : { cities: [] }
-        let nextStates: GeoState[] = (statesJson.states || []).map((s: any) => ({
-          id: s.id,
-          name: s.name,
-          code: s.code || "",
-          slug: s.slug,
-          is_active: s.is_active !== false,
-          display_order: s.display_order || 0,
-        }))
-        let nextCities: GeoCity[] = (citiesJson.cities || []).map((c: any) => ({
-          id: c.id,
-          name: c.name,
-          code: c.code || "",
-          slug: c.slug,
-          state_id: c.state_id || "",
-          state: c.state || c.state_name || "",
-          state_name: c.state_name || c.state || "",
-          is_active: c.is_active !== false,
-          display_order: c.display_order || 0,
-          branch_count: typeof c.branch_count === "number" ? c.branch_count : undefined,
-        }))
+        const token = TokenManager.getToken()
+        let nextStates: GeoState[] = []
+        let nextCities: GeoCity[] = []
+        let usedAuthTenantScope = false
 
-        if (nextCities.length === 0) {
+        // Authenticated admins (Rock SA / Partner) get tenant-scoped geography.
+        // Empty results are valid for a new partner — do not fall back to Rock public data.
+        if (token && TokenManager.isAuthenticated()) {
           try {
-            const options = await dropdownAPI.getCategoryOptions("locations")
-            nextCities = (options || [])
-              .filter((opt) => opt.is_active !== false)
-              .map((opt) => {
-                const parts = (opt.label || opt.value || "").split(",").map((p) => p.trim())
-                return {
-                  id: opt.value,
-                  name: parts[0] || opt.label || opt.value,
-                  code: opt.value,
-                  state: parts[1] || "",
-                  state_name: parts[1] || "",
-                  state_id: "",
-                  is_active: true,
-                  display_order: opt.order || 0,
-                }
-              })
+            const [statesRes, citiesRes] = await Promise.all([
+              geographyAPI.getStates(token, { active_only: true }),
+              geographyAPI.getCities(token, { active_only: true }),
+            ])
+            nextStates = mapStates(statesRes?.states || [])
+            nextCities = mapCities(citiesRes?.cities || [])
+            usedAuthTenantScope = true
           } catch {
-            // keep empty
+            // fall through to public
+          }
+        }
+
+        if (!usedAuthTenantScope) {
+          const [statesRes, citiesRes] = await Promise.all([
+            fetch(getBackendApiUrl("states/public?active_only=true")),
+            fetch(getBackendApiUrl("cities/public?active_only=true")),
+          ])
+          const statesJson = statesRes.ok ? await statesRes.json() : { states: [] }
+          const citiesJson = citiesRes.ok ? await citiesRes.json() : { cities: [] }
+          nextStates = mapStates(statesJson.states || [])
+          nextCities = mapCities(citiesJson.cities || [])
+
+          if (nextCities.length === 0) {
+            try {
+              const options = await dropdownAPI.getCategoryOptions("locations")
+              nextCities = (options || [])
+                .filter((opt) => opt.is_active !== false)
+                .map((opt) => {
+                  const parts = (opt.label || opt.value || "").split(",").map((p) => p.trim())
+                  return {
+                    id: opt.value,
+                    name: parts[0] || opt.label || opt.value,
+                    code: opt.value,
+                    state: parts[1] || "",
+                    state_name: parts[1] || "",
+                    state_id: "",
+                    is_active: true,
+                    display_order: opt.order || 0,
+                  }
+                })
+            } catch {
+              // keep empty
+            }
           }
         }
 
