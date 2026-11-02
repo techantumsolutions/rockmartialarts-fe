@@ -35,11 +35,7 @@ export default function StudentPerformancePage() {
       studentName={name}
       pageTitle="Performance"
       pageDescription="Your training snapshot, achievements, and coach notes."
-      showBreadcrumb
-      breadcrumbItems={[
-        { label: "Dashboard", href: "/student-dashboard" },
-        { label: "Performance" },
-      ]}
+      showBreadcrumb={false}
     >
       <StudentPerformanceDashboardClient canEdit={false} title="My performance" />
     </StudentDashboardLayout>

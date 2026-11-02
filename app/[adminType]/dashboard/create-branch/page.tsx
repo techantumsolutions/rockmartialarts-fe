@@ -661,6 +661,48 @@ export default function CreateBranchPage() {
       }
     }
 
+    // Duration pricing is required so student enroll can show plans/amounts
+    for (const courseAssignment of formData.assignments.courses) {
+      if (courseAssignment.is_available === false) continue
+      const courseDef = courses.find((c) => c.id === courseAssignment.course_id)
+      const courseTitle = courseDef?.title || courseDef?.code || "Assigned course"
+      for (const batch of courseAssignment.batches) {
+        const batchLabel = (batch.batch_name || "").trim() || "Untitled batch"
+        const fpd = batch.fee_per_duration || {}
+        const hasFee = Object.values(fpd).some((v) => {
+          const n = parseFloat(String(v ?? "").trim())
+          return Number.isFinite(n) && n > 0
+        })
+        const batchFee = parseFloat(String(batch.batch_fee ?? "").trim())
+        if (!hasFee && !(Number.isFinite(batchFee) && batchFee > 0)) {
+          toast({
+            title: "Batch pricing required",
+            description: `"${courseTitle}" → ${batchLabel}: enter at least one duration fee greater than 0.`,
+            variant: "destructive",
+          })
+          return
+        }
+        if (masterDurations.length > 0) {
+          const missing = masterDurations.filter((dur) => {
+            const raw = fpd[dur.id] ?? (dur.code ? fpd[dur.code] : undefined)
+            if (raw === undefined || String(raw).trim() === "") return false
+            const n = parseFloat(String(raw).trim())
+            return !(Number.isFinite(n) && n > 0)
+          })
+          // If they typed any fee for a duration, it must be > 0 (already covered by hasFee check for empty).
+          // Require every listed duration that has a value to be valid — and overall at least one fee (hasFee).
+          if (missing.length > 0) {
+            toast({
+              title: "Batch pricing required",
+              description: `"${courseTitle}" → ${batchLabel}: duration fees must be greater than 0.`,
+              variant: "destructive",
+            })
+            return
+          }
+        }
+      }
+    }
+
     setIsSubmitting(true)
 
     try {
@@ -1261,7 +1303,9 @@ export default function CreateBranchPage() {
                                     </Select>
                                   </div>
                                   <div className="space-y-2 col-span-full">
-                                    <Label className="text-xs text-gray-600 font-medium">Duration Pricing (₹)</Label>
+                                    <Label className="text-xs text-gray-600 font-medium">
+                                      Duration Pricing (₹) <span className="text-red-500">*</span>
+                                    </Label>
                                     <div className="space-y-2">
                                       {masterDurations.map((dur) => {
                                         const fpd = batch.fee_per_duration || {}

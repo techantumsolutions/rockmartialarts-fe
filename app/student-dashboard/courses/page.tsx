@@ -1247,7 +1247,7 @@ export default function StudentCoursesPage() {
                 className="bg-blue-600 hover:bg-blue-700"
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Browse Courses
+                Enroll Course
               </Button>
             )}
           </div>
@@ -1332,7 +1332,7 @@ export default function StudentCoursesPage() {
                     onClick={openBrowseNewEnrollment}
                     className="bg-blue-600 hover:bg-blue-700"
                   >
-                    Browse Courses
+                    Enroll Course
                   </Button>
                 )}
                 <Button variant="outline" onClick={handleRefresh}>
@@ -1390,6 +1390,7 @@ export default function StudentCoursesPage() {
                       )}
 
                       <div className="flex gap-2 flex-wrap">
+                        {/* Change Branch — temporarily hidden
                         <Button 
                           size="sm" 
                           variant="outline"
@@ -1399,6 +1400,7 @@ export default function StudentCoursesPage() {
                           <MapPin className="h-4 w-4 mr-2" />
                           Change Branch
                         </Button>
+                        */}
                         {course.payment_status === 'pending' && (
                           <Button 
                             size="sm"
@@ -1704,7 +1706,7 @@ export default function StudentCoursesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Branch Change Dialog */}
+      {/* Branch Change Dialog — temporarily hidden
       <Dialog open={showBranchChangeDialog} onOpenChange={setShowBranchChangeDialog}>
         <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-hidden flex flex-col p-0">
           <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
@@ -1760,6 +1762,7 @@ export default function StudentCoursesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      */}
     </StudentDashboardLayout>
   )
 }

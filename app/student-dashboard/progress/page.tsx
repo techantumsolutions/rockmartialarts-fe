@@ -128,7 +128,6 @@ export default function StudentProgressPage() {
       <StudentDashboardLayout
         studentName={studentData?.name}
         onLogout={handleLogout}
-        isLoading={true}
       >
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

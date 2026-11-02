@@ -68,6 +68,18 @@ export default function StudentProfilePage() {
     setAuthToken(localStorage.getItem("token"))
   }, [])
 
+  // After save from profile/edit, open Profile at the top
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem("studentProfileScrollTop") === "1") {
+        sessionStorage.removeItem("studentProfileScrollTop")
+        window.scrollTo({ top: 0, left: 0, behavior: "auto" })
+      }
+    } catch {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" })
+    }
+  }, [])
+
   useEffect(() => {
     const loadProfile = async () => {
       try {

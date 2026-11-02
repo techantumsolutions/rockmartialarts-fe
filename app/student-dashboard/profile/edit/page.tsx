@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import StudentDashboardLayout from "@/components/student-dashboard-layout"
-import { Save, ArrowLeft, AlertCircle, CheckCircle } from "lucide-react"
+import { Save, ArrowLeft, AlertCircle } from "lucide-react"
 import { studentProfileAPI, type StudentProfile, type StudentProfileUpdateData } from "@/lib/studentProfileAPI"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
@@ -21,7 +21,7 @@ export default function EditStudentProfilePage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -207,7 +207,7 @@ export default function EditStudentProfilePage() {
 
     setSaving(true)
     setError(null)
-    setSuccess(null)
+    setShowSuccessPopup(false)
 
     try {
       const token = localStorage.getItem("token")
@@ -256,8 +256,6 @@ export default function EditStudentProfilePage() {
 
       await studentProfileAPI.updateProfile(updateData, token)
 
-      setSuccess("Profile updated successfully!")
-
       // Update localStorage with new data
       const user = localStorage.getItem("user")
       if (user) {
@@ -281,10 +279,7 @@ export default function EditStudentProfilePage() {
         }
       }
 
-      // Redirect after a short delay
-      setTimeout(() => {
-        router.push("/student-dashboard/profile")
-      }, 2000)
+      setShowSuccessPopup(true)
 
     } catch (error: any) {
       console.error("Error saving profile:", error)
@@ -364,15 +359,6 @@ export default function EditStudentProfilePage() {
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               {error}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {success && (
-          <Alert className="border-green-200 bg-green-50">
-            <CheckCircle className="h-4 w-4 text-green-600" />
-            <AlertDescription className="text-green-800">
-              {success}
             </AlertDescription>
           </Alert>
         )}
@@ -656,6 +642,37 @@ export default function EditStudentProfilePage() {
           </div>
         </div>
       </div>
+
+      {showSuccessPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Profile Updated Successfully!</h3>
+              <p className="text-gray-600 mb-6">Your profile information has been updated successfully.</p>
+              <Button
+                onClick={() => {
+                  setShowSuccessPopup(false)
+                  try {
+                    sessionStorage.setItem("studentProfileScrollTop", "1")
+                  } catch {
+                    /* ignore */
+                  }
+                  window.scrollTo({ top: 0, left: 0, behavior: "auto" })
+                  router.push("/student-dashboard/profile")
+                }}
+                className="w-full bg-yellow-400 hover:bg-yellow-500 text-white font-semibold py-3 rounded-xl"
+              >
+                Continue
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </StudentDashboardLayout>
   )
 }

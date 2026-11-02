@@ -243,11 +243,7 @@ export default function StudentAttendancePage() {
     <StudentDashboardLayout
       pageTitle="Attendance"
       pageDescription="Track your class attendance and punctuality"
-      showBreadcrumb={true}
-      breadcrumbItems={[
-        { label: "Dashboard", href: "/student-dashboard" },
-        { label: "Attendance" }
-      ]}
+      showBreadcrumb={false}
     >
       {/* Error Alert */}
       {error && (
