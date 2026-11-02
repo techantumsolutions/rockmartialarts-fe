@@ -171,6 +171,94 @@ export async function fetchRegistrationPricing(
 }
 
 /**
+ * Verify whether student email or phone is already registered in the database.
+ * Call this BEFORE triggering payment gateway or submitting.
+ */
+export async function checkStudentAvailability(
+  email?: string,
+  phone?: string
+): Promise<{
+  available: boolean
+  email_exists: boolean
+  phone_exists: boolean
+  message?: string
+}> {
+  const cleanEmail = (email || "").trim()
+  const cleanPhone = (phone || "").trim()
+
+  if (!cleanEmail && !cleanPhone) {
+    return { available: true, email_exists: false, phone_exists: false }
+  }
+
+  try {
+    const res = await fetch(getBackendApiUrl("auth/check-student-availability"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: cleanEmail || undefined, phone: cleanPhone || undefined }),
+    })
+
+    if (res.ok) {
+      return await res.json()
+    }
+  } catch (e) {
+    console.warn("Primary check-student-availability endpoint failed, falling back to legacy checks", e)
+  }
+
+  // Fallback to separate checks if check-student-availability is unavailable
+  let emailExists = false
+  let phoneExists = false
+
+  try {
+    if (cleanEmail) {
+      const emailRes = await fetch(getBackendApiUrl("auth/check-user"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: cleanEmail }),
+      })
+      if (emailRes.ok) {
+        const data = await emailRes.json()
+        if (data?.exists) emailExists = true
+      }
+    }
+  } catch (e) {
+    console.warn("Fallback email check error:", e)
+  }
+
+  try {
+    if (cleanPhone) {
+      const phoneRes = await fetch(getBackendApiUrl("auth/check-phone"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: cleanPhone }),
+      })
+      if (phoneRes.ok) {
+        const data = await phoneRes.json()
+        if (data?.exists) phoneExists = true
+      }
+    }
+  } catch (e) {
+    console.warn("Fallback phone check error:", e)
+  }
+
+  const available = !emailExists && !phoneExists
+  let message: string | undefined = undefined
+  if (emailExists && phoneExists) {
+    message = "Both this email address and mobile number are already registered."
+  } else if (emailExists) {
+    message = "This email address is already registered."
+  } else if (phoneExists) {
+    message = "This mobile number is already registered."
+  }
+
+  return {
+    available,
+    email_exists: emailExists,
+    phone_exists: phoneExists,
+    message,
+  }
+}
+
+/**
  * Create a Razorpay registration order on the backend
  */
 export async function createRegistrationOrder(payload: {
