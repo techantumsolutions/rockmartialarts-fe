@@ -128,60 +128,96 @@ export default function ContactPage() {
                 const fullAddress = formatAddress(addr)
                 const phone = getBranchPhone(b)
                 const email = getBranchEmail(b)
+                const branchName = getBranchName(b)
 
                 return (
                   <div
                     key={b.id}
-                    className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 hover:border-[#FFB70F] transition-colors"
+                    className="flex flex-col justify-between rounded-xl border border-gray-800 bg-gray-900/50 p-6 hover:border-[#FFB70F] transition-colors h-full min-h-[310px]"
                   >
-                    <div className="flex items-start gap-3 mb-4">
-                      <div className="w-12 h-12 rounded-lg bg-[#FFB70F]/10 flex items-center justify-center flex-shrink-0">
-                        <Building2 className="w-6 h-6 text-[#FFB70F]" />
-                      </div>
-                      <div>
-                        <h2 className="text-xl font-bold text-[#FFB70F]">
-                          {getBranchName(b)}
-                        </h2>
-                        {location && (
-                          <p className="text-gray-400 text-sm flex items-center gap-1 mt-1">
-                            <MapPin className="w-3.5 h-3.5" />
-                            {location}
+                    <div>
+                      {/* Header */}
+                      <div className="flex items-start gap-3 mb-4">
+                        <div className="w-12 h-12 rounded-lg bg-[#FFB70F]/10 flex items-center justify-center flex-shrink-0">
+                          <Building2 className="w-6 h-6 text-[#FFB70F]" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h2 className="text-xl font-bold text-[#FFB70F] truncate" title={branchName}>
+                            {branchName}
+                          </h2>
+                          <p className="text-gray-400 text-sm flex items-center gap-1 mt-1 truncate min-h-[1.25rem]">
+                            {location ? (
+                              <>
+                                <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                                <span className="truncate" title={location}>
+                                  {location}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="invisible select-none">&nbsp;</span>
+                            )}
                           </p>
-                        )}
+                        </div>
+                      </div>
+
+                      {/* Details */}
+                      <div className="space-y-3">
+                        {/* Address: fixed height container with line clamp */}
+                        <div className="flex items-start gap-2 text-gray-300 text-sm h-[4.5rem]">
+                          <MapPin className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                          <span
+                            className="line-clamp-3 leading-relaxed flex-1"
+                            style={{
+                              display: '-webkit-box',
+                              WebkitBoxOrient: 'vertical',
+                              WebkitLineClamp: 3,
+                              overflow: 'hidden',
+                            }}
+                            title={fullAddress || undefined}
+                          >
+                            {fullAddress ? fullAddress : <span className="text-gray-500 italic">Address not available</span>}
+                          </span>
+                        </div>
+
+                        {/* Phone */}
+                        <div className="flex items-center gap-2 text-gray-300 text-sm h-5 overflow-hidden">
+                          <Phone className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                          {phone ? (
+                            <a href={`tel:${phone}`} className="hover:text-[#FFB70F] transition-colors truncate">
+                              {phone}
+                            </a>
+                          ) : (
+                            <span className="text-gray-500 italic">Not available</span>
+                          )}
+                        </div>
+
+                        {/* Email */}
+                        <div className="flex items-center gap-2 text-gray-300 text-sm h-5 overflow-hidden">
+                          <Mail className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                          {email ? (
+                            <a
+                              href={`mailto:${email}`}
+                              className="hover:text-[#FFB70F] transition-colors truncate"
+                              title={email}
+                            >
+                              {email}
+                            </a>
+                          ) : (
+                            <span className="text-gray-500 italic">Not available</span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    {fullAddress && (
-                      <div className="flex items-start gap-2 mb-3 text-gray-300 text-sm">
-                        <MapPin className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                        <span>{fullAddress}</span>
-                      </div>
-                    )}
-
-                    {phone && (
-                      <div className="flex items-center gap-2 mb-3 text-gray-300 text-sm">
-                        <Phone className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                        <a href={`tel:${phone}`} className="hover:text-[#FFB70F] transition-colors">
-                          {phone}
-                        </a>
-                      </div>
-                    )}
-
-                    {email && (
-                      <div className="flex items-center gap-2 mb-3 text-gray-300 text-sm">
-                        <Mail className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                        <a href={`mailto:${email}`} className="hover:text-[#FFB70F] transition-colors">
-                          {email}
-                        </a>
-                      </div>
-                    )}
-
-                    <Link
-                      href={`/branches/${branchNameToSlug(getBranchName(b))}`}
-                      className="inline-block mt-4 text-sm font-medium text-[#FFB70F] hover:text-white transition-colors"
-                    >
-                      View branch details →
-                    </Link>
+                    {/* Button pinned at fixed bottom position */}
+                    <div className="mt-auto pt-4 border-t border-gray-800/60">
+                      <Link
+                        href={`/branches/${encodeURIComponent(branchNameToSlug(branchName) || b.id)}`}
+                        className="inline-flex items-center text-sm font-medium text-[#FFB70F] hover:text-white transition-colors"
+                      >
+                        View branch details →
+                      </Link>
+                    </div>
                   </div>
                 )
               })}

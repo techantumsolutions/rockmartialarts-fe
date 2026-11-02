@@ -4,12 +4,33 @@
 
 @custom-variant dark (&:is(.dark *));
 
+html {
+  background-color: #171A26;
+}
+
 html,
 body {
   padding: 0;
   margin: 0;
   overflow-x: hidden;
   font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Prevent Radix UI dropdowns / dialogs from shifting the page left and leaving a right-side scrollbar gap */
+html body[data-scroll-locked],
+body[data-scroll-locked] {
+  margin-right: 0px !important;
+  padding-right: 0px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+.right-scroll-bar-position {
+  right: 0px !important;
+}
+
+.width-before-scroll-bar {
+  margin-right: 0px !important;
 }
 
 .roboto{
@@ -299,4 +320,25 @@ body {
   background-position: center;
   background-size: 1.1rem 1.1rem;
   background-repeat: no-repeat;
+}
+
+
+/* Explicit line-clamp fallbacks for robust cross-browser clamping */
+.line-clamp-1 {
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 1 !important;
+  overflow: hidden !important;
+}
+.line-clamp-2 {
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 2 !important;
+  overflow: hidden !important;
+}
+.line-clamp-3 {
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 3 !important;
+  overflow: hidden !important;
 }
