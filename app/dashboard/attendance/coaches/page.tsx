@@ -62,7 +62,26 @@ import { formatTimeIST } from "@/lib/formatRegisteredDate"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { TokenManager } from "@/lib/tokenManager"
 
+function isPartnerDashboardPath(path: string): boolean {
+  return (
+    path.startsWith("/partner-admin/") ||
+    /^\/partners\/[^/]+\/dashboard/.test(path)
+  )
+}
+
 function getCoachAttendanceHeaders(): Record<string, string> | null {
+  if (typeof window !== "undefined") {
+    const path = window.location.pathname || ""
+    const partnerUser = TokenManager.getUser()
+    if (
+      isPartnerDashboardPath(path) ||
+      String(partnerUser?.role || "").toLowerCase() === "partner_super_admin"
+    ) {
+      const token = TokenManager.getToken()
+      if (!token) return null
+      return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+    }
+  }
   if (checkAuth().isAuthenticated) return getAuthHeaders()
   const token = BranchManagerAuth.getToken() || TokenManager.getToken()
   if (!token) return null
@@ -114,7 +133,10 @@ export default function SuperAdminCoachAttendancePage() {
     !!pathname &&
     (pathname.startsWith("/super-admin/dashboard") ||
       pathname.startsWith("/branch-admin/dashboard") ||
-      pathname.startsWith("/branch-manager-dashboard/"))
+      pathname.startsWith("/branch-manager-dashboard/") ||
+      pathname.startsWith("/partner-admin/dashboard") ||
+      /^\/partners\/[^/]+\/dashboard/.test(pathname))
+  const isPartnerAdminRoute = !!pathname && isPartnerDashboardPath(pathname)
 
   // Enhanced state management
   const [attendanceRecords, setAttendanceRecords] = useState<CoachAttendanceRecord[]>([])
@@ -618,7 +640,11 @@ export default function SuperAdminCoachAttendancePage() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Coach Attendance Management</h1>
-          <p className="text-gray-600">Manage coach attendance across all branches</p>
+          <p className="text-gray-600">
+            {isPartnerAdminRoute
+              ? "Manage coach attendance for your organization branches"
+              : "Manage coach attendance across all branches"}
+          </p>
         </div>
 
         {/* Alerts */}
