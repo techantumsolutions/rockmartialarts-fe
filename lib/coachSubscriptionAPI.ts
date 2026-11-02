@@ -117,6 +117,9 @@ class CoachSubscriptionAPI {
       subscription: CoachSubscription | null
       coach_is_active: boolean
       approval_status?: string
+      registration_source?: "admin" | "self"
+      requires_subscription?: boolean
+      has_active_subscription?: boolean
     }>
   }
 

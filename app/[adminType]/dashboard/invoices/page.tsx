@@ -1,16 +1,33 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Loader2, FileText, Printer, Search } from "lucide-react"
 import { invoicesAPI, type InvoiceListItem } from "@/lib/invoicesAPI"
+import { dashboardAPI } from "@/lib/dashboardAPI"
+import {
+  coachSubscriptionAPI,
+  type CoachSubscriptionPlan,
+} from "@/lib/coachSubscriptionAPI"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
+
+type PayerTypeFilter = "all" | "student" | "coach"
+type PaymentMethodFilter = "all" | "online" | "offline"
+
+type CourseOption = { id: string; name: string }
 
 function formatMoney(amount?: number, currency = "INR") {
   const value = typeof amount === "number" ? amount : 0
@@ -58,46 +75,107 @@ export default function AdminInvoicesPage() {
   const [serverTotal, setServerTotal] = useState(0)
   const [printingId, setPrintingId] = useState<string | null>(null)
 
+  const [payerType, setPayerType] = useState<PayerTypeFilter>("all")
+  const [courseId, setCourseId] = useState("all")
+  const [planId, setPlanId] = useState("all")
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodFilter>("all")
+
+  const [courses, setCourses] = useState<CourseOption[]>([])
+  const [plans, setPlans] = useState<CoachSubscriptionPlan[]>([])
+
   const filteredItems = useMemo(
     () => allItems.filter((inv) => matchesInvoiceSearch(inv, search)),
     [allItems, search]
   )
 
   const activeQuery = search.trim()
+  const hasFilters =
+    payerType !== "all" ||
+    paymentMethod !== "all" ||
+    (payerType === "student" && courseId !== "all") ||
+    (payerType === "coach" && planId !== "all")
   const visibleCount = filteredItems.length
 
-  async function load(q?: string) {
-    const term = (q ?? search).trim()
-    setLoading(true)
-    try {
-      if (!TokenManager.isAuthenticated()) {
-        router.push(adminType.includes("branch") ? "/branch-manager/login" : "/superadmin/login")
-        return
+  const load = useCallback(
+    async (q?: string) => {
+      const term = (q ?? search).trim()
+      setLoading(true)
+      try {
+        if (!TokenManager.isAuthenticated()) {
+          router.push(adminType.includes("branch") ? "/branch-manager/login" : "/superadmin/login")
+          return
+        }
+        const data = await invoicesAPI.list({
+          limit: 100,
+          search: term || undefined,
+          payer_type: payerType !== "all" ? payerType : undefined,
+          course_id:
+            payerType === "student" && courseId !== "all" ? courseId : undefined,
+          plan_id: payerType === "coach" && planId !== "all" ? planId : undefined,
+          payment_method: paymentMethod !== "all" ? paymentMethod : undefined,
+        })
+        const invoices = Array.isArray(data.invoices) ? data.invoices : []
+        setAllItems(invoices)
+        setServerTotal(Number(data.total || invoices.length))
+        if (typeof q === "string") {
+          setSearch(q)
+        }
+      } catch (err) {
+        toast({
+          title: "Could not load invoices",
+          description: err instanceof Error ? err.message : "Please try again.",
+          variant: "destructive",
+        })
+      } finally {
+        setLoading(false)
       }
-      const data = await invoicesAPI.list({
-        limit: 100,
-        search: term || undefined,
-      })
-      const invoices = Array.isArray(data.invoices) ? data.invoices : []
-      setAllItems(invoices)
-      setServerTotal(Number(data.total || invoices.length))
-      if (typeof q === "string") {
-        setSearch(q)
-      }
-    } catch (err) {
-      toast({
-        title: "Could not load invoices",
-        description: err instanceof Error ? err.message : "Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
+    },
+    [
+      adminType,
+      courseId,
+      payerType,
+      paymentMethod,
+      planId,
+      router,
+      search,
+      toast,
+    ]
+  )
 
   useEffect(() => {
-    void load("")
+    void load()
+    // Initial load + whenever server-side filters change
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payerType, courseId, planId, paymentMethod])
+
+  useEffect(() => {
+    async function loadFilterOptions() {
+      const token = TokenManager.getToken()
+      if (!token) return
+      try {
+        const [courseRes, planRes] = await Promise.all([
+          dashboardAPI.getCourses(token, { limit: 200, active_only: true }),
+          coachSubscriptionAPI.listPlans(false),
+        ])
+        const courseList = Array.isArray(courseRes)
+          ? courseRes
+          : Array.isArray(courseRes?.courses)
+            ? courseRes.courses
+            : []
+        setCourses(
+          courseList
+            .filter((c: { id?: string }) => typeof c?.id === "string" && c.id)
+            .map((c: { id: string; title?: string; name?: string; course_name?: string }) => ({
+              id: c.id,
+              name: c.title || c.name || c.course_name || c.id,
+            }))
+        )
+        setPlans(Array.isArray(planRes?.plans) ? planRes.plans : [])
+      } catch {
+        // Filter dropdowns stay empty; list still works without options.
+      }
+    }
+    void loadFilterOptions()
   }, [])
 
   async function handlePrint(id: string) {
@@ -113,6 +191,14 @@ export default function AdminInvoicesPage() {
     } finally {
       setPrintingId(null)
     }
+  }
+
+  function clearAll() {
+    setSearch("")
+    setPayerType("all")
+    setCourseId("all")
+    setPlanId("all")
+    setPaymentMethod("all")
   }
 
   return (
@@ -160,19 +246,90 @@ export default function AdminInvoicesPage() {
             >
               Search
             </Button>
-            {activeQuery ? (
+            {activeQuery || hasFilters ? (
               <Button
                 type="button"
                 variant="outline"
                 disabled={loading}
                 onClick={() => {
-                  setSearch("")
-                  void load("")
+                  if (hasFilters) {
+                    clearAll()
+                  } else {
+                    setSearch("")
+                    void load("")
+                  }
                 }}
               >
                 Clear
               </Button>
             ) : null}
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <Select
+              value={payerType}
+              onValueChange={(v) => {
+                const next = v as PayerTypeFilter
+                setPayerType(next)
+                if (next !== "student") setCourseId("all")
+                if (next !== "coach") setPlanId("all")
+              }}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Payment type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All payment types</SelectItem>
+                <SelectItem value="student">Student</SelectItem>
+                <SelectItem value="coach">Coach</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {payerType === "student" ? (
+              <Select value={courseId} onValueChange={setCourseId}>
+                <SelectTrigger className="w-[220px]">
+                  <SelectValue placeholder="Course" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All courses</SelectItem>
+                  {courses.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
+
+            {payerType === "coach" ? (
+              <Select value={planId} onValueChange={setPlanId}>
+                <SelectTrigger className="w-[220px]">
+                  <SelectValue placeholder="Subscription plan" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All subscription plans</SelectItem>
+                  {plans.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
+
+            <Select
+              value={paymentMethod}
+              onValueChange={(v) => setPaymentMethod(v as PaymentMethodFilter)}
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Payment method" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All payment methods</SelectItem>
+                <SelectItem value="online">Online</SelectItem>
+                <SelectItem value="offline">Offline (Hand Cash)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {loading ? (
@@ -183,11 +340,11 @@ export default function AdminInvoicesPage() {
             <div className="rounded-lg border border-dashed p-10 text-center text-muted-foreground">
               <FileText className="mx-auto mb-3 h-10 w-10 opacity-40" />
               <p className="font-medium text-gray-800">
-                {activeQuery ? "No matching invoices" : "No invoices yet"}
+                {activeQuery || hasFilters ? "No matching invoices" : "No invoices yet"}
               </p>
               <p className="text-sm mt-1">
-                {activeQuery
-                  ? "Try a different invoice number, customer name, or payment reference."
+                {activeQuery || hasFilters
+                  ? "Try a different search or filter combination."
                   : "Invoices appear automatically when payments succeed."}
               </p>
             </div>
