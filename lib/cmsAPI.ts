@@ -19,6 +19,7 @@ export interface HomepageSection {
   courses_subtitle?: string
   testimonials_title?: string
   testimonials_subtitle?: string
+  testimonials_enabled?: boolean
   cta_title?: string
   cta_subtitle?: string
   popup_form?: PopupFormSettings

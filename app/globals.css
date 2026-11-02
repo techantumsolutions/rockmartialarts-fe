@@ -288,7 +288,8 @@ body {
 }
 
 .coach-register-dob::-webkit-calendar-picker-indicator,
-.home-training-preferred-date::-webkit-calendar-picker-indicator {
+.home-training-preferred-date::-webkit-calendar-picker-indicator,
+.demo-session-date::-webkit-calendar-picker-indicator {
   cursor: pointer;
   opacity: 1;
   filter: none;
@@ -299,4 +300,8 @@ body {
   background-position: center;
   background-size: 1.1rem 1.1rem;
   background-repeat: no-repeat;
+}
+
+.demo-session-date {
+  color-scheme: dark;
 }
