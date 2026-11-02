@@ -30,6 +30,7 @@ import {
   ClipboardList,
 } from "lucide-react"
 import { usePermissions } from "@/hooks/use-permissions"
+import { useCoachSubscriptionGuard } from "@/lib/coachSubscriptionGuard"
 
 interface CoachDashboardHeaderProps {
   currentPage?: string
@@ -237,10 +238,13 @@ export default function CoachDashboardHeader({
   ]
 
   const { hasPermission } = usePermissions("coach")
-  const navigationItems = useMemo(
-    () => navigationItemsAll.filter((item) => !item.permissionId || hasPermission(item.permissionId)),
-    [hasPermission]
-  )
+  const { isRestricted } = useCoachSubscriptionGuard()
+  const navigationItems = useMemo(() => {
+    if (isRestricted) {
+      return navigationItemsAll.filter((item) => item.path === "/coach-dashboard/subscription")
+    }
+    return navigationItemsAll.filter((item) => !item.permissionId || hasPermission(item.permissionId))
+  }, [isRestricted, hasPermission])
 
   return (
     // sticky (not fixed) so page content starts below the header on all coach pages
@@ -251,7 +255,7 @@ export default function CoachDashboardHeader({
           <div className="flex items-center flex-shrink-0">
             <button
               type="button"
-              onClick={() => router.push("/coach-dashboard")}
+              onClick={() => router.push(isRestricted ? "/coach-dashboard/subscription" : "/coach-dashboard")}
               className="focus:outline-none transition-transform hover:scale-105"
               aria-label="Coach dashboard home"
             >
@@ -287,6 +291,7 @@ export default function CoachDashboardHeader({
               })}
 
               {/* Quick Actions Dropdown (Click-based) */}
+              {!isRestricted && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -327,6 +332,7 @@ export default function CoachDashboardHeader({
                   </DropdownMenuContent>
                 </DropdownMenuPortal>
               </DropdownMenu>
+              )}
             </nav>
 
             {/* User Icon with Non-Flickering Hover Dropdown (Profile & Logout) */}
@@ -363,6 +369,7 @@ export default function CoachDashboardHeader({
                         <p className="text-sm font-semibold text-gray-800 truncate">{coachName}</p>
                       </div>
                     )}
+                    {!isRestricted && (
                     <button
                       type="button"
                       onClick={() => {
@@ -374,6 +381,7 @@ export default function CoachDashboardHeader({
                       <User className="w-4 h-4 text-gray-500" />
                       <span>Profile</span>
                     </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => {
@@ -462,6 +470,7 @@ export default function CoachDashboardHeader({
 
                   {/* Drawer Footer Actions */}
                   <div className="p-4 sm:p-5 border-t border-gray-200/70 space-y-2 bg-gray-50/50">
+                    {!isRestricted && (
                     <button
                       onClick={() => handleMobileNavigation("/coach-dashboard/profile")}
                       className="w-full text-left px-3.5 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors flex items-center space-x-2.5"
@@ -469,6 +478,7 @@ export default function CoachDashboardHeader({
                       <User className="w-4 h-4 text-gray-500" />
                       <span>My Profile</span>
                     </button>
+                    )}
                     <Button
                       onClick={handleLogout}
                       variant="outline"

@@ -17,7 +17,6 @@ import {
   Shield, 
   Bell, 
   Database, 
-  Mail, 
   Globe, 
   Lock, 
   Save, 
@@ -139,17 +138,6 @@ export default function SuperAdminSettingsPage() {
 
     if (!settings.system_name.trim()) {
       newErrors.system_name = "System name is required"
-    }
-
-    if (settings.email_enabled) {
-      if (!settings.smtp_host.trim()) {
-        newErrors.smtp_host = "SMTP host is required when email is enabled"
-      }
-      if (!settings.smtp_port.trim()) {
-        newErrors.smtp_port = "SMTP port is required when email is enabled"
-      } else if (!/^\d+$/.test(settings.smtp_port)) {
-        newErrors.smtp_port = "SMTP port must be a number"
-      }
     }
 
     if (!settings.session_timeout.trim()) {
@@ -531,100 +519,6 @@ export default function SuperAdminSettingsPage() {
                         checked={settings.sms_notifications}
                         onCheckedChange={(checked) => handleInputChange("sms_notifications", checked)}
                       />
-                    </div>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Email Configuration */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Mail className="w-5 h-5" />
-                Email Configuration
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-sm font-medium text-gray-700">Enable Email</Label>
-                  <p className="text-xs text-gray-500">
-                    Allow the system to send emails
-                  </p>
-                </div>
-                <Switch
-                  checked={settings.email_enabled}
-                  onCheckedChange={(checked) => handleInputChange("email_enabled", checked)}
-                />
-              </div>
-
-              {settings.email_enabled && (
-                <>
-                  <Separator />
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="smtp_host" className="text-sm font-medium text-gray-700">
-                        SMTP Host *
-                      </Label>
-                      <Input
-                        id="smtp_host"
-                        value={settings.smtp_host}
-                        onChange={(e) => handleInputChange("smtp_host", e.target.value)}
-                        className={errors.smtp_host ? "border-red-500" : ""}
-                        placeholder="smtp.gmail.com"
-                      />
-                      {errors.smtp_host && (
-                        <p className="mt-1 text-sm text-red-600">{errors.smtp_host}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <Label htmlFor="smtp_port" className="text-sm font-medium text-gray-700">
-                        SMTP Port *
-                      </Label>
-                      <Input
-                        id="smtp_port"
-                        value={settings.smtp_port}
-                        onChange={(e) => handleInputChange("smtp_port", e.target.value)}
-                        className={errors.smtp_port ? "border-red-500" : ""}
-                        placeholder="587"
-                      />
-                      {errors.smtp_port && (
-                        <p className="mt-1 text-sm text-red-600">{errors.smtp_port}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <Label htmlFor="smtp_username" className="text-sm font-medium text-gray-700">
-                        SMTP Username
-                      </Label>
-                      <Input
-                        id="smtp_username"
-                        value={settings.smtp_username}
-                        onChange={(e) => handleInputChange("smtp_username", e.target.value)}
-                        placeholder="your-email@gmail.com"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="smtp_security" className="text-sm font-medium text-gray-700">
-                        SMTP Security
-                      </Label>
-                      <Select
-                        value={settings.smtp_security}
-                        onValueChange={(value) => handleInputChange("smtp_security", value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select security protocol" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">None</SelectItem>
-                          <SelectItem value="tls">TLS</SelectItem>
-                          <SelectItem value="ssl">SSL</SelectItem>
-                        </SelectContent>
-                      </Select>
                     </div>
                   </div>
                 </>

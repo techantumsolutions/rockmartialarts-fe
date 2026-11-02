@@ -177,13 +177,13 @@ class CoachApprovalAPI {
     return res.json()
   }
 
-  async reject(coachId: string, note?: string) {
+  async reject(coachId: string, reason?: string) {
     const res = await fetch(
       getBackendApiUrl(`coaches/${encodeURIComponent(coachId)}/reject`),
       {
         method: "POST",
         headers: authHeaders(true),
-        body: JSON.stringify({ note: note || null }),
+        body: JSON.stringify({ reason: reason || null, note: reason || null }),
       }
     )
     if (!res.ok) throw new Error(await parseError(res))
