@@ -46,6 +46,7 @@ export default function MyEventRegistrationsPage() {
   const [phoneInput, setPhoneInput] = useState("")
   const [otp, setOtp] = useState<string[]>(() => Array(DIGITS).fill(""))
   const [otpSent, setOtpSent] = useState(false)
+  const [otpSecondsRemaining, setOtpSecondsRemaining] = useState(0)
   const [verified, setVerified] = useState(false)
   const [authVia, setAuthVia] = useState<string | null>(null)
   const [maskedPhone, setMaskedPhone] = useState<string | null>(null)
@@ -61,6 +62,17 @@ export default function MyEventRegistrationsPage() {
   const apiPhone = toEventRegApiPhone(phoneInput)
   const national = apiPhone.startsWith("+91") ? apiPhone.slice(3) : phoneInput.replace(/\D/g, "").slice(-10)
   const readyForOtp = /^[6-9]\d{9}$/.test(national)
+  const otpExpired = otpSent && otpSecondsRemaining === 0
+
+  useEffect(() => {
+    if (!otpSent || otpSecondsRemaining <= 0) return
+
+    const timer = window.setTimeout(() => {
+      setOtpSecondsRemaining((remaining) => Math.max(remaining - 1, 0))
+    }, 1000)
+
+    return () => window.clearTimeout(timer)
+  }, [otpSent, otpSecondsRemaining])
 
   const loadInitial = useCallback(async () => {
     setLoading(true)
@@ -214,8 +226,9 @@ export default function MyEventRegistrationsPage() {
     setTemporaryError(false)
     setMsg(null)
     try {
-      await academyEventRegistrationAPI.sendOtp(apiPhone)
+      const result = await academyEventRegistrationAPI.sendOtp(apiPhone)
       setOtpSent(true)
+      setOtpSecondsRemaining(result.expires_in_seconds)
       setMsg("OTP sent. Check your SMS.")
       setOtp(Array(DIGITS).fill(""))
       inputRefs.current[0]?.focus()
@@ -227,6 +240,12 @@ export default function MyEventRegistrationsPage() {
   }
 
   const verifyOtp = async () => {
+    if (otpExpired) {
+      setError("OTP expired. Please request a new one.")
+      setOtp(Array(DIGITS).fill(""))
+      return
+    }
+
     const code = otp.join("")
     if (code.length < DIGITS) {
       setError(`Enter all ${DIGITS} digits from your SMS.`)
@@ -265,6 +284,7 @@ export default function MyEventRegistrationsPage() {
     setAuthVia(null)
     setMaskedPhone(null)
     setOtpSent(false)
+    setOtpSecondsRemaining(0)
     setOtp(Array(DIGITS).fill(""))
     setMsg(null)
     setError(null)
@@ -424,6 +444,13 @@ export default function MyEventRegistrationsPage() {
                 {otpSent ? "Resend OTP" : "Send OTP"}
               </Button>
               {msg ? <p className="text-sm text-green-400">{msg}</p> : null}
+              {otpSent ? (
+                <p className={`text-sm ${otpExpired ? "text-red-400" : "text-gray-400"}`}>
+                  {otpExpired
+                    ? "OTP expired. Please request a new one."
+                    : `OTP expires in ${otpSecondsRemaining} seconds.`}
+                </p>
+              ) : null}
 
               {otpSent ? (
                 <form onSubmit={onVerifySubmit} className="space-y-4 pt-2">
@@ -441,6 +468,7 @@ export default function MyEventRegistrationsPage() {
                           inputMode="numeric"
                           maxLength={1}
                           value={d}
+                          disabled={otpExpired || busy}
                           onChange={(e) => {
                             const v = e.target.value.replace(/\D/g, "").slice(-1)
                             const next = [...otp]
@@ -460,7 +488,7 @@ export default function MyEventRegistrationsPage() {
                   </div>
                   <Button
                     type="submit"
-                    disabled={busy}
+                    disabled={busy || otpExpired}
                     className="bg-[#FFB70F] hover:bg-[#e0a00d] text-black"
                   >
                     {busy ? (

@@ -1,18 +1,11 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react"
-import { CalendarDays, CheckCircle2, Loader2, MapPin, RefreshCw } from "lucide-react"
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react"
+import { CalendarDays, CheckCircle2, ChevronDown, Loader2, MapPin, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { openRazorpayCheckout } from "@/lib/razorpay"
 import {
   bookingStatusLabel,
@@ -50,6 +43,83 @@ type ParticipantForm = {
 }
 
 type FieldErrors = Partial<Record<keyof ParticipantForm, string>>
+type DemoFilterOption = { id: string; name: string }
+
+type DemoFilterDropdownProps = {
+  label: string
+  value: string
+  options: DemoFilterOption[]
+  onChange: (value: string) => void
+}
+
+function DemoFilterDropdown({ label, value, options, onChange }: DemoFilterDropdownProps) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false)
+    }
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false)
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    document.addEventListener("keydown", handleEscape)
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+      document.removeEventListener("keydown", handleEscape)
+    }
+  }, [])
+
+  const allLabel = label === "Branch" ? "All branches" : "All courses"
+  const selectedLabel =
+    value === "all" ? allLabel : options.find((option) => option.id === value)?.name
+
+  return (
+    <div
+      ref={ref}
+      className="relative"
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((currentlyOpen) => !currentlyOpen)}
+        onMouseEnter={() => setOpen(true)}
+        className="flex h-10 w-full items-center justify-between rounded-md border border-white/15 bg-[#0f121c] px-3 text-left text-sm text-white hover:border-white/30 focus-visible:border-[#FFB70F] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#FFB70F]"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label={label}
+      >
+        <span className="truncate">{selectedLabel}</span>
+        <ChevronDown
+          className={`ml-2 h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute left-0 top-full z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-gray-700 bg-[#171A26] py-1 shadow-xl"
+        >
+          {[{ id: "all", name: allLabel }, ...options].map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              role="menuitemradio"
+              aria-checked={value === option.id}
+              onClick={() => {
+                onChange(option.id)
+                setOpen(false)
+              }}
+              className="w-full px-3 py-2 text-left text-sm text-white hover:bg-white/10 focus:bg-white/10 focus:outline-none"
+            >
+              {option.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 const EMPTY_PARTICIPANT: ParticipantForm = {
   participant_name: "",
@@ -398,35 +468,21 @@ export default function DemoAvailabilityPublicView() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="space-y-1">
             <Label className="text-gray-300">Branch</Label>
-            <Select value={branchId} onValueChange={setBranchId}>
-              <SelectTrigger className={fieldClass}>
-                <SelectValue placeholder="All branches" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All branches</SelectItem>
-                {branches.map((b) => (
-                  <SelectItem key={b.id} value={b.id}>
-                    {b.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <DemoFilterDropdown
+              label="Branch"
+              value={branchId}
+              options={branches}
+              onChange={setBranchId}
+            />
           </div>
           <div className="space-y-1">
             <Label className="text-gray-300">Course</Label>
-            <Select value={courseId} onValueChange={setCourseId}>
-              <SelectTrigger className={fieldClass}>
-                <SelectValue placeholder="All courses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All courses</SelectItem>
-                {courses.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <DemoFilterDropdown
+              label="Course"
+              value={courseId}
+              options={courses}
+              onChange={setCourseId}
+            />
           </div>
           <div className="space-y-1">
             <Label className="text-gray-300">From</Label>
@@ -435,7 +491,7 @@ export default function DemoAvailabilityPublicView() {
               value={fromDate}
               min={todayISO()}
               onChange={(e) => setFromDate(e.target.value)}
-              className={fieldClass}
+              className={`${fieldClass} demo-session-date`}
             />
           </div>
           <div className="space-y-1">
@@ -445,7 +501,7 @@ export default function DemoAvailabilityPublicView() {
               value={toDate}
               min={fromDate || todayISO()}
               onChange={(e) => setToDate(e.target.value)}
-              className={fieldClass}
+              className={`${fieldClass} demo-session-date`}
             />
           </div>
         </div>
@@ -473,7 +529,7 @@ export default function DemoAvailabilityPublicView() {
             </div>
           ) : slots.length === 0 ? (
             <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center text-gray-400 space-y-2">
-              <CalendarDays className="w-10 h-10 text-gray-500 mx-auto" />
+              <CalendarDays className="w-10 h-10 text-white mx-auto" />
               <p>No demo slots found for the selected filters.</p>
               <p className="text-xs text-gray-500">
                 Try expanding your dates or clearing branch / course filters.

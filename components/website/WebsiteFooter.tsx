@@ -60,7 +60,7 @@ export function WebsiteFooter() {
     <footer className="bg-black text-gray-300 pt-12 pb-0">
       <div className="container mx-auto px-4 pt-8 max-w-7xl">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8 text-left">
-          <div className="lg:col-span-3">
+          <div className="md:col-span-2 lg:col-span-3">
             <img
               src={footerLogo}
               alt="Rock Martial Arts Academy"
@@ -71,7 +71,7 @@ export function WebsiteFooter() {
             <p className="text-sm leading-relaxed">{footerText}</p>
           </div>
 
-          <div className="lg:col-span-3">
+          <div className="min-w-0 lg:col-span-2">
             <h6 className="text-[#FFB70F] font-semibold uppercase tracking-wide mb-4">Quick Links</h6>
             <ul className="list-none space-y-2">
               {quickLinks.map((link) => (
@@ -84,9 +84,11 @@ export function WebsiteFooter() {
             </ul>
           </div>
 
-          <div className="lg:col-span-3">
-            <h6 className="text-[#FFB70F] font-semibold uppercase tracking-wide mb-4">Our Service</h6>
-            <ul className="grid grid-cols-2 gap-x-4 gap-y-2 list-none">
+          <div className="min-w-0 lg:col-span-4">
+            <ul className="mx-auto grid w-fit grid-cols-[max-content_max-content] gap-x-4 gap-y-2 list-none">
+              <li className="col-span-2 text-center">
+                <h6 className="text-[#FFB70F] font-semibold uppercase tracking-wide mb-3">Our Service</h6>
+              </li>
               {courses.length > 0
                 ? courses.map((c) => (
                     <li key={c.id}>
@@ -100,7 +102,7 @@ export function WebsiteFooter() {
             </ul>
           </div>
 
-          <div className="lg:col-span-3">
+          <div className="min-w-0 lg:col-span-3">
             <h6 className="text-[#FFB70F] font-semibold uppercase tracking-wide mb-4">Contact</h6>
             <p className="text-sm mb-2">{address}</p>
             <p className="flex items-center gap-2 mb-1 text-sm">
