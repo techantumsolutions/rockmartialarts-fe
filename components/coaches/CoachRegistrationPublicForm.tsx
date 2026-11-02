@@ -88,6 +88,7 @@ export default function CoachRegistrationPublicForm() {
   const [designations, setDesignations] = useState<CoachRegisterOption[]>([])
   const [countries, setCountries] = useState<CoachRegisterOption[]>([])
   const [coachFee, setCoachFee] = useState<number>(0)
+  const [coachFeeNote, setCoachFeeNote] = useState<string>("")
   const [submitting, setSubmitting] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -127,9 +128,12 @@ export default function CoachRegistrationPublicForm() {
       .then((data) => {
         const fee = Number(data.coachRegistrationFee ?? data.coach_registration_fee ?? 0)
         setCoachFee(Number.isFinite(fee) && fee > 0 ? fee : 0)
+        const note = (data.coachRegistrationFeeNote ?? data.coach_registration_fee_note ?? "").trim()
+        setCoachFeeNote(note)
       })
       .catch(() => {
         setCoachFee(0)
+        setCoachFeeNote("")
       })
   }, [])
 
@@ -802,9 +806,11 @@ export default function CoachRegistrationPublicForm() {
               <span className="font-semibold text-white text-sm">Coach Registration Fee:</span>
               <span className="text-base font-bold text-[#FFB70F]">₹{coachFee.toLocaleString("en-IN")}</span>
             </div>
-            <p className="text-xs text-gray-400 mt-0.5">
-              One-time non-refundable fee required to process your application via Razorpay.
-            </p>
+            {coachFeeNote ? (
+              <p className="text-xs text-gray-400 mt-0.5">
+                {coachFeeNote}
+              </p>
+            ) : null}
           </div>
         </div>
       )}

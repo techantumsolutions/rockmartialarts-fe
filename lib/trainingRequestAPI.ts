@@ -137,7 +137,7 @@ export type ResidentialTrainingDetails = {
   gender?: string | null
   emergency_contact_name?: string | null
   emergency_contact_phone?: string | null
-  package_id: string
+  package_id?: string
   package_name?: string | null
   duration_days?: number | null
   duration_label?: string | null
@@ -215,6 +215,9 @@ export type HomeTrainingCreatePayload = {
   source?: string
   notes?: string
   details: HomeTrainingDetails
+  razorpay_order_id?: string
+  razorpay_payment_id?: string
+  razorpay_signature?: string
 }
 
 export type SchoolTrainingCreatePayload = {
@@ -226,6 +229,9 @@ export type SchoolTrainingCreatePayload = {
   source?: string
   notes?: string
   details: SchoolTrainingDetails
+  razorpay_order_id?: string
+  razorpay_payment_id?: string
+  razorpay_signature?: string
 }
 
 export type CollegeTrainingCreatePayload = {
@@ -237,6 +243,9 @@ export type CollegeTrainingCreatePayload = {
   source?: string
   notes?: string
   details: CollegeTrainingDetails
+  razorpay_order_id?: string
+  razorpay_payment_id?: string
+  razorpay_signature?: string
 }
 
 export type CorporateTrainingCreatePayload = {
@@ -248,6 +257,9 @@ export type CorporateTrainingCreatePayload = {
   source?: string
   notes?: string
   details: CorporateTrainingDetails
+  razorpay_order_id?: string
+  razorpay_payment_id?: string
+  razorpay_signature?: string
 }
 
 export type ResidentialTrainingCreatePayload = {
@@ -260,6 +272,9 @@ export type ResidentialTrainingCreatePayload = {
   notes?: string
   pay_now?: boolean
   details: ResidentialTrainingDetails
+  razorpay_order_id?: string
+  razorpay_payment_id?: string
+  razorpay_signature?: string
 }
 
 export const TRAINING_REQUEST_TYPES: { value: TrainingRequestType; label: string }[] = [
@@ -322,6 +337,28 @@ export function statusLabel(status?: string | null) {
 }
 
 class TrainingRequestAPI {
+  async createOrder(payload: {
+    type: TrainingRequestType
+    contact_name?: string
+    contact_email?: string
+    contact_phone?: string
+  }) {
+    const res = await fetch(getBackendApiUrl("training-requests/create-order"), {
+      method: "POST",
+      headers: authHeaders(true, true),
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{
+      fee_required: boolean
+      order_id?: string
+      amount_paise?: number
+      amount_inr?: number
+      currency?: string
+      key_id?: string
+    }>
+  }
+
   async submitHome(payload: HomeTrainingCreatePayload) {
     const res = await fetch(getBackendApiUrl("training-requests/home"), {
       method: "POST",
