@@ -236,7 +236,7 @@ export default function TrainingRequestsAdminPage() {
 
   const onUpdateStatus = async () => {
     if (!detail || !nextStatus) return
-    setSaving(true)
+    setSavingStatus(true)
     try {
       await trainingRequestAPI.updateStatus(
         detail.id,
@@ -255,13 +255,13 @@ export default function TrainingRequestsAdminPage() {
         variant: "destructive",
       })
     } finally {
-      setSaving(false)
+      setSavingStatus(false)
     }
   }
 
   const onAssignCoach = async () => {
     if (!detail || !coachId) return
-    setSaving(true)
+    setSavingCoach(true)
     try {
       await trainingRequestAPI.assignCoach(
         detail.id,
@@ -279,7 +279,7 @@ export default function TrainingRequestsAdminPage() {
         variant: "destructive",
       })
     } finally {
-      setSaving(false)
+      setSavingCoach(false)
     }
   }
 
@@ -287,6 +287,7 @@ export default function TrainingRequestsAdminPage() {
   const terminal = ["completed", "rejected", "cancelled"].includes(
     String(detail?.status || "")
   )
+  const dialogBusy = savingStatus || savingCoach
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 lg:px-8">
@@ -600,9 +601,9 @@ export default function TrainingRequestsAdminPage() {
         <div
           className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
           onClick={() => {
-            if (!saving) setDetail(null)
-          }}
             if (!dialogBusy) setDetail(null)
+          }}
+        >
           <div
             className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-auto p-6 space-y-5"
             onClick={(e) => e.stopPropagation()}
@@ -635,9 +636,9 @@ export default function TrainingRequestsAdminPage() {
                       </Badge>
                     </div>
                   </div>
-                  <Button variant="outline" onClick={() => setDetail(null)} disabled={saving}>
-                    Close
                   <Button variant="outline" onClick={() => setDetail(null)} disabled={dialogBusy}>
+                    Close
+                  </Button>
                 </div>
 
                 {detail.type === "residential" ? (
@@ -794,13 +795,13 @@ export default function TrainingRequestsAdminPage() {
                       </div>
                       <Button
                         type="button"
-                        disabled={saving || !nextStatus}
-                        className="bg-yellow-400 hover:bg-yellow-500 text-white"
                         disabled={savingStatus || !nextStatus}
                         className="bg-yellow-400 hover:bg-yellow-500 text-white"
                         onClick={onUpdateStatus}
                       >
                         {savingStatus ? "Saving…" : "Update status"}
+                      </Button>
+                    </div>
                   )}
                 </Section>
 
@@ -884,13 +885,13 @@ export default function TrainingRequestsAdminPage() {
                       </div>
                       <Button
                         type="button"
-                        disabled={saving || !coachId}
-                        className="bg-yellow-400 hover:bg-yellow-500 text-white"
                         disabled={savingCoach || !coachId}
                         className="bg-yellow-400 hover:bg-yellow-500 text-white"
                         onClick={onAssignCoach}
                       >
                         {savingCoach ? "Saving…" : "Assign coach"}
+                      </Button>
+                    </div>
                   )}
                 </Section>
 

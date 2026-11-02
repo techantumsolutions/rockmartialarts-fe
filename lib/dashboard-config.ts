@@ -107,6 +107,16 @@ function partnerSuperAdminMenu(basePath: string = PARTNER_ADMIN_BASE): NavItem[]
     }
   }
 
+  // Biometric Devices / Mapping are Rock-only — hide from partner nav
+  const attendanceItem = menu.find((i) => i.label === "Attendance")
+  if (attendanceItem?.children?.length) {
+    attendanceItem.children = attendanceItem.children.filter(
+      (c) =>
+        !c.path.endsWith("/attendance/devices") &&
+        !c.path.endsWith("/attendance/biometric-mapping")
+    )
+  }
+
   return menu
 }
 

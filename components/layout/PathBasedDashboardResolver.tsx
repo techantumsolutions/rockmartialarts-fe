@@ -28,9 +28,27 @@ const BRANCH_ADMIN_BLOCKED_PREFIXES = [
   "/branch-admin/dashboard/payments",
 ]
 
+/** Rock-only biometric surfaces — not for white-label partner admins */
+const PARTNER_ADMIN_BLOCKED_SUFFIXES = [
+  "/attendance/devices",
+  "/attendance/biometric-mapping",
+]
+
 function isBlockedBranchAdminPath(pathname: string) {
   return BRANCH_ADMIN_BLOCKED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  )
+}
+
+function isBlockedPartnerAdminPath(pathname: string) {
+  const normalized = pathname || ""
+  const onPartnerDashboard =
+    normalized.startsWith("/partner-admin/dashboard") ||
+    /^\/partners\/[^/]+\/dashboard/.test(normalized)
+  if (!onPartnerDashboard) return false
+  return PARTNER_ADMIN_BLOCKED_SUFFIXES.some(
+    (suffix) =>
+      normalized.endsWith(suffix) || normalized.includes(`${suffix}/`)
   )
 }
 
@@ -81,6 +99,14 @@ export default function PathBasedDashboardResolver({
 
     if (isPartnerAdminPath) {
       if (isPartnerAdmin) {
+        if (pathname && isBlockedPartnerAdminPath(pathname)) {
+          const slug =
+            (typeof window !== "undefined" && localStorage.getItem("partner_slug")) || ""
+          router.replace(
+            slug ? `/partners/${slug}/dashboard/attendance` : "/partner-admin/dashboard/attendance"
+          )
+          return
+        }
         setRole("partner_super_admin")
         return
       }
@@ -141,8 +167,10 @@ export default function PathBasedDashboardResolver({
 
   const blockedForBranchAdmin =
     role === "branch_admin" && !!pathname && isBlockedBranchAdminPath(pathname)
+  const blockedForPartnerAdmin =
+    role === "partner_super_admin" && !!pathname && isBlockedPartnerAdminPath(pathname)
 
-  if (role === null || blockedForBranchAdmin) {
+  if (role === null || blockedForBranchAdmin || blockedForPartnerAdmin) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#E1BB33]" />
