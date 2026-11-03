@@ -51,10 +51,12 @@ export function RouteScrollToTop() {
     const isPop = isPopStateRef.current
     isPopStateRef.current = false
 
-    // Save scroll of previous page before switching
+    // Save scroll of previous page before switching (only if scrolled down to avoid overwriting)
     if (lastPathnameRef.current && lastPathnameRef.current !== pathname) {
       try {
-        sessionStorage.setItem(`rma_scroll_${lastPathnameRef.current}`, String(window.scrollY))
+        if (window.scrollY > 0) {
+          sessionStorage.setItem(`rma_scroll_${lastPathnameRef.current}`, String(window.scrollY))
+        }
       } catch {
         /* ignore */
       }
@@ -83,7 +85,9 @@ export function RouteScrollToTop() {
     if (isPop) {
       let savedY = 0
       try {
-        const stored = sessionStorage.getItem(`rma_scroll_${pathname}`)
+        const stored =
+          sessionStorage.getItem(`rma_scroll_${pathname}`) ||
+          (pathname === "/courses" ? sessionStorage.getItem("rma_courses_scroll_y") : null)
         if (stored !== null) {
           const parsed = parseInt(stored, 10)
           if (!isNaN(parsed) && parsed > 0) {

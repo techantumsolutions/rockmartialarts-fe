@@ -459,3 +459,12 @@ body[data-scroll-locked] {
 .demo-session-date {
   color-scheme: dark;
 }
+
+/* Scrollbar hiding utility */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
