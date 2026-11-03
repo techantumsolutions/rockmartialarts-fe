@@ -750,49 +750,6 @@ export default function CreateBranchManagerPage() {
             </CardContent>
           </Card>
 
-          {/* Assignment Details */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <span className="text-[#4F5077]">Assignment Details</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-[#7D8592]">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="branch">Assign to Branch</Label>
-                  {isLoadingBranches ? (
-                    <div className="flex items-center justify-center py-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600"></div>
-                      <span className="ml-2 text-sm text-gray-600">Loading branches...</span>
-                    </div>
-                  ) : (
-                    <Select
-                      value={formData.branch}
-                      onValueChange={(value) => setFormData({ ...formData, branch: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select branch" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {branches.length === 0 ? (
-                          <div className="p-4 text-center text-gray-500">
-                            <p>No branches available</p>
-                          </div>
-                        ) : (
-                          branches.map((branch) => (
-                            <SelectItem key={branch.id} value={branch.id}>
-                              {branch.branch.name} ({branch.branch.code})
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
           {/* Emergency Contact */}
           <Card>
