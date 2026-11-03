@@ -45,7 +45,6 @@ export default function AdminCoachAvailabilityPage() {
           }))
           .sort((a: CoachOpt, b: CoachOpt) => a.name.localeCompare(b.name))
         setCoaches(opts)
-        if (opts[0]) setCoachId(opts[0].id)
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load coaches"))
       .finally(() => setLoading(false))
@@ -74,7 +73,7 @@ export default function AdminCoachAvailabilityPage() {
             ) : (
               <Select value={coachId} onValueChange={setCoachId}>
                 <SelectTrigger className="max-w-md mt-1">
-                  <SelectValue placeholder="Choose a coach" />
+                  <SelectValue placeholder="Select a coach" />
                 </SelectTrigger>
                 <SelectContent>
                   {coaches.map((c) => (
