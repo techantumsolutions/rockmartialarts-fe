@@ -98,12 +98,18 @@ function formatPrice(course: PartnerOrgBranchCourse): string {
   return stripUuidFromPriceDisplay(formatCoursePriceLabel(course.pricing as never))
 }
 
+function branchPathKey(b: PartnerOrgBranchCard): string {
+  return String(b.slug || b.id || b.code || "")
+}
+
 type Props = {
   branches: PartnerOrgBranchCard[]
   achievements: PartnerOrgAchievementItem[]
   /** Admin preview uses light cards; public uses dark Rock website look */
   variant?: "public" | "admin"
   loading?: boolean
+  /** When set on public pages, branch cards navigate to a dedicated courses page */
+  orgSlug?: string
 }
 
 export function PartnerOrgSiteSections({
@@ -111,6 +117,7 @@ export function PartnerOrgSiteSections({
   achievements,
   variant = "public",
   loading = false,
+  orgSlug,
 }: Props) {
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null)
   const [modalCourse, setModalCourse] = useState<CourseInfoModalCourse | null>(null)
@@ -125,6 +132,7 @@ export function PartnerOrgSiteSections({
   )
 
   const isPublic = variant === "public"
+  const navigateBranches = isPublic && !!orgSlug
   const sectionBg = isPublic ? "bg-[#171A26] text-white" : "bg-white text-[#1a2332]"
   const cardClass = isPublic
     ? "rounded-xl border border-gray-800 bg-gray-900/40 hover:border-[#FFB70F]/50 transition-colors"
@@ -169,7 +177,9 @@ export function PartnerOrgSiteSections({
             {isPublic ? <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" /> : null}
             <h2 className={titleClass}>Our Branches</h2>
             <p className={`mt-2 text-sm ${muted}`}>
-              Select a branch to view courses available there
+              {navigateBranches
+                ? "Open a branch to view courses available there"
+                : "Select a branch to view courses available there"}
             </p>
           </div>
 
@@ -179,15 +189,10 @@ export function PartnerOrgSiteSections({
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {branches.map((b) => {
                 const addr = b.branch?.address || b.address
-                const active = selectedBranchId === b.id
+                const active = !navigateBranches && selectedBranchId === b.id
                 const courseCount = Array.isArray(b.courses) ? b.courses.length : 0
-                return (
-                  <button
-                    key={b.id}
-                    type="button"
-                    onClick={() => toggleBranch(b.id)}
-                    className={`${cardClass} text-left p-5 ${active ? (isPublic ? "border-[#FFB70F]" : "border-amber-400 ring-1 ring-amber-200") : ""}`}
-                  >
+                const inner = (
+                  <>
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <Building2
@@ -197,9 +202,11 @@ export function PartnerOrgSiteSections({
                           {getBranchName(b)}
                         </h3>
                       </div>
-                      <ChevronDown
-                        className={`w-4 h-4 transition-transform ${active ? "rotate-180" : ""} ${muted}`}
-                      />
+                      {!navigateBranches ? (
+                        <ChevronDown
+                          className={`w-4 h-4 transition-transform ${active ? "rotate-180" : ""} ${muted}`}
+                        />
+                      ) : null}
                     </div>
                     {formatLocation(addr) ? (
                       <p className={`mt-2 text-sm flex items-center gap-1.5 ${muted}`}>
@@ -227,6 +234,30 @@ export function PartnerOrgSiteSections({
                     <p className={`mt-3 text-xs font-medium ${isPublic ? "text-[#FFB70F]" : "text-amber-800"}`}>
                       {courseCount} course{courseCount === 1 ? "" : "s"}
                     </p>
+                  </>
+                )
+
+                if (navigateBranches) {
+                  const key = branchPathKey(b)
+                  return (
+                    <Link
+                      key={b.id}
+                      href={`/partner-orgs/${encodeURIComponent(orgSlug!)}/branches/${encodeURIComponent(key)}`}
+                      className={`${cardClass} block p-5`}
+                    >
+                      {inner}
+                    </Link>
+                  )
+                }
+
+                return (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => toggleBranch(b.id)}
+                    className={`${cardClass} text-left p-5 ${active ? (isPublic ? "border-[#FFB70F]" : "border-amber-400 ring-1 ring-amber-200") : ""}`}
+                  >
+                    {inner}
                   </button>
                 )
               })}
@@ -235,8 +266,8 @@ export function PartnerOrgSiteSections({
         </div>
       </section>
 
-      {/* Courses for selected branch */}
-      {selectedBranch ? (
+      {/* Courses for selected branch (admin / inline preview only) */}
+      {!navigateBranches && selectedBranch ? (
         <section className={isPublic ? "bg-[#171A26] text-white pb-12" : ""}>
           <div className={isPublic ? "container mx-auto max-w-7xl px-4" : ""}>
             <CourseInfoModal

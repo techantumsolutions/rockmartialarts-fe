@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Building2, Loader2, MapPin, Search } from "lucide-react"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import type { PartnerOrgDirectoryItem } from "@/lib/partnerOrgAPI"
+import { filterDummyPartnerDirectory } from "@/lib/dummyPartnerOrgs"
 
 export default function PartnerOrgsDirectoryPage() {
   const [searchInput, setSearchInput] = useState("")
@@ -18,36 +19,13 @@ export default function PartnerOrgsDirectoryPage() {
     return () => clearTimeout(t)
   }, [searchInput])
 
+  // TEMP: show hardcoded dummy partners only (no live directory API).
   useEffect(() => {
-    let cancelled = false
-    const params = new URLSearchParams()
-    if (q) params.set("q", q)
-    params.set("limit", "50")
     setLoading(true)
-    fetch(
-      `/api/backend/partner-organizations/public/directory?${params.toString()}`,
-      { cache: "no-store", headers: { Accept: "application/json" } }
-    )
-      .then((res) =>
-        res.ok ? res.json() : Promise.resolve({ partners: [], total: 0 })
-      )
-      .then((data) => {
-        if (cancelled) return
-        setPartners(Array.isArray(data.partners) ? data.partners : [])
-        setTotal(typeof data.total === "number" ? data.total : 0)
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setPartners([])
-          setTotal(0)
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
+    const list = filterDummyPartnerDirectory(q)
+    setPartners(list)
+    setTotal(list.length)
+    setLoading(false)
   }, [q])
 
   return (
