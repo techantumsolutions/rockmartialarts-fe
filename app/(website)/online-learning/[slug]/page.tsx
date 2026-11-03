@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
+  CreditCard,
   Globe,
   Loader2,
   Layers,
@@ -30,6 +31,7 @@ import {
 } from "@/lib/learningSubscriptionAPI"
 import { openRazorpayCheckout } from "@/lib/razorpay"
 import { TokenManager } from "@/lib/tokenManager"
+import OnlineCourseEnrollmentForm from "@/components/online-learning/OnlineCourseEnrollmentForm"
 
 function CurriculumOutline({
   curriculum,
@@ -282,8 +284,20 @@ export default function OnlineLearningDetailPage() {
           {loading ? (
             <Loader2 className="w-8 h-8 animate-spin text-[#FFB70F]" />
           ) : course ? (
-            <div className="max-w-3xl">
-              <h1 className="text-3xl md:text-5xl font-bold text-white uppercase mb-3">
+            <div className="max-w-3xl space-y-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-[#FFB70F] text-black">
+                  {course.price != null && course.price > 0
+                    ? `Course Fee: ${formatInr(course.price)}`
+                    : "Free Course"}
+                </span>
+                {course.difficulty && (
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-800 text-gray-200">
+                    {course.difficulty}
+                  </span>
+                )}
+              </div>
+              <h1 className="text-3xl md:text-5xl font-bold text-white uppercase">
                 {course.title}
               </h1>
               {course.short_description ? (
@@ -306,7 +320,7 @@ export default function OnlineLearningDetailPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-              <div className="lg:col-span-2 space-y-6">
+              <div className="lg:col-span-2 space-y-8">
                 <div className="aspect-video rounded-xl overflow-hidden border border-gray-800 bg-gray-900">
                   {course.trailer_url ? (
                     <iframe
@@ -324,6 +338,7 @@ export default function OnlineLearningDetailPage() {
                     />
                   )}
                 </div>
+
                 <div>
                   <h2 className="text-xl font-bold text-white mb-3">About this course</h2>
                   <p className="text-gray-300 whitespace-pre-wrap leading-relaxed">
@@ -332,6 +347,7 @@ export default function OnlineLearningDetailPage() {
                       "Course details will be added soon."}
                   </p>
                 </div>
+
                 <div className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
                   <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
                     <Layers className="w-4 h-4 text-[#FFB70F]" />
@@ -343,34 +359,57 @@ export default function OnlineLearningDetailPage() {
                     entitled={entitled}
                   />
                 </div>
+
+                {/* Enrollment Form section matching school training format */}
+                <div id="enroll-form" className="pt-2">
+                  <OnlineCourseEnrollmentForm course={course} />
+                </div>
               </div>
 
               <aside className="space-y-4">
-                <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5 space-y-3">
-                  {course.difficulty ? (
-                    <p className="text-sm text-gray-300">
-                      <span className="text-gray-500">Level: </span>
-                      {course.difficulty}
-                    </p>
-                  ) : null}
-                  {course.language ? (
-                    <p className="text-sm text-gray-300 flex items-center gap-2">
-                      <Globe className="w-4 h-4 text-gray-500" />
-                      {course.language}
-                    </p>
-                  ) : null}
-                  {course.estimated_hours != null ? (
-                    <p className="text-sm text-gray-300 flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-gray-500" />
-                      ~{course.estimated_hours} hours
-                    </p>
-                  ) : null}
-                  {course.levels_count || course.lessons_count ? (
-                    <p className="text-sm text-gray-400">
-                      {course.levels_count || 0} levels · {course.lessons_count || 0}{" "}
-                      lessons
-                    </p>
-                  ) : null}
+                <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5 space-y-4">
+                  {/* Price Banner Card */}
+                  <div className="rounded-lg border border-[#FFB70F]/30 bg-[#FFB70F]/10 p-3.5 flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-gray-400 uppercase tracking-wide">Course Price</p>
+                      <p className="text-xl font-bold text-[#FFB70F]">
+                        {course.price != null && course.price > 0 ? formatInr(course.price) : "Free"}
+                      </p>
+                    </div>
+                    <a
+                      href="#enroll-form"
+                      className="text-xs font-semibold px-3 py-1.5 rounded bg-[#FFB70F] hover:bg-[#e0a00d] text-black transition-colors"
+                    >
+                      Enroll Now
+                    </a>
+                  </div>
+
+                  <div className="space-y-2.5 pt-1">
+                    {course.difficulty ? (
+                      <p className="text-sm text-gray-300">
+                        <span className="text-gray-500">Level: </span>
+                        {course.difficulty}
+                      </p>
+                    ) : null}
+                    {course.language ? (
+                      <p className="text-sm text-gray-300 flex items-center gap-2">
+                        <Globe className="w-4 h-4 text-gray-500" />
+                        {course.language}
+                      </p>
+                    ) : null}
+                    {course.estimated_hours != null ? (
+                      <p className="text-sm text-gray-300 flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-gray-500" />
+                        ~{course.estimated_hours} hours
+                      </p>
+                    ) : null}
+                    {course.levels_count || course.lessons_count ? (
+                      <p className="text-sm text-gray-400">
+                        {course.levels_count || 0} levels · {course.lessons_count || 0}{" "}
+                        lessons
+                      </p>
+                    ) : null}
+                  </div>
 
                   {entitled ? (
                     <div className="rounded-lg border border-green-800/60 bg-green-950/40 px-3 py-3 space-y-3">
@@ -395,12 +434,19 @@ export default function OnlineLearningDetailPage() {
                       </Button>
                     </div>
                   ) : plans.length === 0 ? (
-                    <p className="text-xs text-gray-500 text-center">
-                      Subscription plans will appear here when published by admin.
-                    </p>
+                    <div className="pt-2 border-t border-gray-800">
+                      <Button
+                        asChild
+                        className="w-full bg-[#FFB70F] hover:bg-[#e0a00d] text-black font-semibold"
+                      >
+                        <a href="#enroll-form">
+                          {course.price && course.price > 0 ? "Enroll with Fee" : "Enroll for Free"}
+                        </a>
+                      </Button>
+                    </div>
                   ) : (
-                    <div className="space-y-3 pt-1">
-                      <p className="text-sm font-medium text-white">Choose a plan</p>
+                    <div className="space-y-3 pt-1 border-t border-gray-800">
+                      <p className="text-sm font-medium text-white">Subscription plans</p>
                       {plans.map((p) => (
                         <div
                           key={p.id}

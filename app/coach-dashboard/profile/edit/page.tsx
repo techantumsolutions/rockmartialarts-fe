@@ -1,7 +1,8 @@
 "use client"
 
 import { getBackendApiUrl } from "@/lib/config"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
+import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -24,7 +25,10 @@ import {
   Save,
   X,
   ArrowLeft,
-  Loader2
+  Loader2,
+  Camera,
+  Trash2,
+  Upload
 } from "lucide-react"
 import CoachDashboardHeader from "@/components/coach-dashboard-header"
 import { checkCoachAuth } from "@/lib/coachAuth"
@@ -32,6 +36,7 @@ import { checkCoachAuth } from "@/lib/coachAuth"
 interface CoachProfile {
   id: string
   full_name: string
+  profile_image_url?: string | null
   personal_info?: {
     first_name: string
     last_name: string
@@ -77,6 +82,83 @@ export default function CoachProfileEditPage() {
   const [error, setError] = useState<string | null>(null)
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+  const [profileImageUrl, setProfileImageUrl] = useState<string>("")
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload an image file (JPG, PNG, or WEBP)",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Image size must be less than 10MB",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setUploadingImage(true)
+    try {
+      const coachToken = localStorage.getItem("access_token") ||
+                        localStorage.getItem("token") ||
+                        localStorage.getItem("coachToken")
+
+      const formDataUpload = new FormData()
+      formDataUpload.append("file", file)
+
+      let uploadedUrl = ""
+      const uploadRes = await fetch(getBackendApiUrl("uploads"), {
+        method: "POST",
+        headers: coachToken ? { Authorization: `Bearer ${coachToken}` } : {},
+        body: formDataUpload,
+      })
+
+      if (uploadRes.ok) {
+        const data = await uploadRes.json()
+        uploadedUrl = data.file_url || data.url || data.image_url || ""
+      } else {
+        const fallbackRes = await fetch(getBackendApiUrl("coaches/register/photo"), {
+          method: "POST",
+          body: formDataUpload,
+        })
+        if (fallbackRes.ok) {
+          const fallbackData = await fallbackRes.json()
+          uploadedUrl = fallbackData.file_url || fallbackData.url || ""
+        } else {
+          throw new Error("Failed to upload profile picture")
+        }
+      }
+
+      if (uploadedUrl) {
+        setProfileImageUrl(uploadedUrl)
+      } else {
+        throw new Error("No URL returned from upload server")
+      }
+    } catch (err: any) {
+      console.error("Error uploading image:", err)
+      toast({
+        title: "Upload Failed",
+        description: err.message || "Failed to upload image. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setUploadingImage(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
+    }
+  }
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -204,6 +286,7 @@ export default function CoachProfileEditPage() {
 
   const populateFormData = (profileData: CoachProfile) => {
     console.log("Populating form with profile data:", profileData)
+    setProfileImageUrl(profileData.profile_image_url || (profileData as any).profile_photo || (profileData as any).photo || "")
 
     setFormData({
       firstName: profileData.personal_info?.first_name || "",
@@ -322,7 +405,8 @@ export default function CoachProfileEditPage() {
           education_qualification: formData.qualifications || "Not provided",
           certifications: formData.certifications ? formData.certifications.split(',').map(cert => cert.trim()).filter(cert => cert) : []
         },
-        areas_of_expertise: formData.areasOfExpertise
+        areas_of_expertise: formData.areasOfExpertise,
+        profile_image_url: profileImageUrl || null
       }
 
       console.log("Updating coach profile with data:", updateData)
@@ -379,14 +463,7 @@ export default function CoachProfileEditPage() {
         console.error("Error updating coach in localStorage:", err)
       }
 
-      // Show success toast
-      toast({
-        title: "Success!",
-        description: "Your profile has been updated successfully.",
-        variant: "default",
-      })
-
-      // Show success popup instead of immediate redirect
+      // Show success popup instead of immediate redirect (bottom toast removed as requested)
       setShowSuccessPopup(true)
 
     } catch (error) {
@@ -519,6 +596,75 @@ export default function CoachProfileEditPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 sm:space-y-6">
+                {/* Profile Photo Upload */}
+                <div className="flex flex-col sm:flex-row items-center gap-5 p-4 rounded-xl bg-gray-50/70 border border-gray-200/80">
+                  <div className="relative group">
+                    <Avatar className="h-24 w-24 sm:h-28 sm:w-28 border-2 border-yellow-400/60 shadow-sm">
+                      <AvatarImage
+                        src={profileImageUrl ? resolvePublicAssetUrl(profileImageUrl) : ""}
+                        alt={formData.firstName || "Coach Profile"}
+                        className="object-cover"
+                      />
+                      <AvatarFallback className="text-xl sm:text-2xl bg-yellow-100 text-yellow-800 font-bold">
+                        {formData.firstName || formData.lastName
+                          ? `${formData.firstName?.[0] || ""}${formData.lastName?.[0] || ""}`.toUpperCase()
+                          : "CO"}
+                      </AvatarFallback>
+                    </Avatar>
+                    {uploadingImage && (
+                      <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center">
+                        <Loader2 className="w-6 h-6 text-white animate-spin" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 text-center sm:text-left flex-1">
+                    <div>
+                      <Label className="text-sm sm:text-base font-semibold text-gray-900 block">
+                        Profile Photo
+                      </Label>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Upload a clear photo of yourself (JPG, PNG, or WEBP, max 10MB)
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        className="hidden"
+                        onChange={handleImageFileChange}
+                        disabled={uploadingImage || saving}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={uploadingImage || saving}
+                        onClick={() => fileInputRef.current?.click()}
+                        className="h-9 px-3.5 border-gray-300 hover:bg-white text-gray-700 shadow-xs flex items-center gap-1.5"
+                      >
+                        <Camera className="w-4 h-4 text-gray-500" />
+                        <span>{profileImageUrl ? "Change Photo" : "Upload Photo"}</span>
+                      </Button>
+
+                      {profileImageUrl && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={uploadingImage || saving}
+                          onClick={() => setProfileImageUrl("")}
+                          className="h-9 px-3 text-red-600 hover:bg-red-50 hover:text-red-700"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 mr-1" />
+                          <span>Remove</span>
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div className="space-y-2">
                     <Label htmlFor="firstName" className="text-sm font-medium">First Name *</Label>
