@@ -58,19 +58,32 @@ export default function CoursesPage() {
   const saveCurrentScroll = useCallback(() => {
     if (typeof window !== "undefined") {
       try {
-        sessionStorage.setItem(STORAGE_SCROLL_KEY, String(window.scrollY))
+        const y = String(window.scrollY)
+        sessionStorage.setItem(STORAGE_SCROLL_KEY, y)
+        sessionStorage.setItem("rma_scroll_/courses", y)
       } catch {
         /* ignore */
       }
     }
   }, [])
 
-  // Restore scroll position immediately when courses are ready
+  // Restore cached courses and scroll position immediately before browser paint
   useLayoutEffect(() => {
-    if (typeof window === "undefined" || courses.length === 0 || restoredScrollRef.current) return
+    if (typeof window === "undefined") return
+
+    // Immediately restore cached courses so page renders at full height with no delay
+    if (courses.length === 0) {
+      const cached = getInitialCourses()
+      if (cached.length > 0) {
+        setCourses(cached)
+        setLoading(false)
+      }
+    }
+
+    if (restoredScrollRef.current) return
 
     try {
-      const savedY = sessionStorage.getItem(STORAGE_SCROLL_KEY)
+      const savedY = sessionStorage.getItem(STORAGE_SCROLL_KEY) || sessionStorage.getItem("rma_scroll_/courses")
       if (savedY !== null) {
         const y = parseInt(savedY, 10)
         if (!isNaN(y) && y > 0) {
@@ -94,12 +107,14 @@ export default function CoursesPage() {
       timeoutId = setTimeout(() => {
         if (window.scrollY > 0) {
           try {
-            sessionStorage.setItem(STORAGE_SCROLL_KEY, String(window.scrollY))
+            const y = String(window.scrollY)
+            sessionStorage.setItem(STORAGE_SCROLL_KEY, y)
+            sessionStorage.setItem("rma_scroll_/courses", y)
           } catch {
             /* ignore */
           }
         }
-      }, 100)
+      }, 50)
     }
 
     window.addEventListener("scroll", handleScroll, { passive: true })
