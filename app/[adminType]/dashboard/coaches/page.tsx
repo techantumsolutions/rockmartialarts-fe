@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Search, Edit, ToggleLeft, ToggleRight, Eye, Mail, Loader2 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useRouter } from "next/navigation"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
@@ -285,7 +286,7 @@ const paginatedCoaches = filteredCoaches.slice(
                     <th className="text-left py-4 px-4 font-medium text-[#6B7A99] text-sm">Designation</th>
                     <th className="text-left py-4 px-4 font-medium text-[#6B7A99] text-sm">Phone Number</th>
                     <th className="text-left py-4 px-4 font-medium text-[#6B7A99] text-sm">Approval</th>
-                    <th className="text-left py-4 px-4 font-medium text-[#6B7A99] text-sm">Action</th>
+                    <th className="text-center py-4 px-4 font-medium text-[#6B7A99] text-sm">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -330,48 +331,69 @@ const paginatedCoaches = filteredCoaches.slice(
                           </Badge>
                         </td>
                         <td className="py-4 px-6">
-                          <div className="flex items-center space-x-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleViewClick(coach.id)}
-                              className="p-1 h-8 w-8"
-                              title="View Details"
-                            >
-                              <Eye className="w-4 h-4 text-blue-600" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEditClick(coach.id)}
-                              className="p-1 h-8 w-8"
-                              title="Edit Coach"
-                            >
-                              <Edit className="w-4 h-4 text-gray-600" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleSendCredentialsClick(coach)}
-                              className="p-1 h-8 w-8"
-                              title="Send Credentials via Email"
-                            >
-                              <Mail className="w-4 h-4 text-green-600" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => toggleCoachStatus(coach.id)}
-                              className="p-1 h-8 w-8"
-                              title={coach.is_active ? "Deactivate Coach" : "Activate Coach"}
-                              aria-label={coach.is_active ? "Deactivate Coach" : "Activate Coach"}
-                            >
-                              {coach.is_active ? (
-                                <ToggleRight className="w-4 h-4 text-green-600" />
-                              ) : (
-                                <ToggleLeft className="w-4 h-4 text-gray-400" />
-                              )}
-                            </Button>
+                          <div className="flex items-center justify-center space-x-2">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleViewClick(coach.id)}
+                                  className="p-1 h-8 w-8"
+                                  aria-label="View Details"
+                                >
+                                  <Eye className="w-4 h-4 text-blue-600" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>View Details</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditClick(coach.id)}
+                                  className="p-1 h-8 w-8"
+                                  aria-label="Edit Coach"
+                                >
+                                  <Edit className="w-4 h-4 text-gray-600" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Edit Coach</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleSendCredentialsClick(coach)}
+                                  className="p-1 h-8 w-8"
+                                  aria-label="Send Credentials via Email"
+                                >
+                                  <Mail className="w-4 h-4 text-green-600" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Send Credentials via Email</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => toggleCoachStatus(coach.id)}
+                                  className="p-1 h-8 w-8"
+                                  aria-label={coach.is_active ? "Deactivate Coach" : "Activate Coach"}
+                                >
+                                  {coach.is_active ? (
+                                    <ToggleRight className="w-4 h-4 text-green-600" />
+                                  ) : (
+                                    <ToggleLeft className="w-4 h-4 text-gray-400" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {coach.is_active ? "Deactivate Coach" : "Activate Coach"}
+                              </TooltipContent>
+                            </Tooltip>
                           </div>
                         </td>
                       </tr>

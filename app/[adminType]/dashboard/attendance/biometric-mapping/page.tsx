@@ -432,7 +432,7 @@ export default function BiometricMappingPage() {
               Student: <span className="font-medium text-slate-900">{selected?.full_name}</span>
             </p>
             <div>
-              <Label>Vendor ID *</Label>
+              <Label className="mb-2 block">Vendor ID *</Label>
               <Select
                 value={selectedDeviceId || undefined}
                 onValueChange={(v) => {
@@ -462,7 +462,7 @@ export default function BiometricMappingPage() {
               </p>
             </div>
             <div>
-              <Label>Biometric user ID on device *</Label>
+              <Label className="mb-2 block">Biometric user ID on device *</Label>
               <Input
                 value={biometricId}
                 onChange={(e) => {
