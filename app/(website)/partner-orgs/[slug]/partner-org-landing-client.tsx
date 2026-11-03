@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import type { PartnerOrgLanding } from "@/lib/partnerOrgAPI"
+import { getDummyPartnerLanding } from "@/lib/dummyPartnerOrgs"
 import { PartnerOrgSiteSections } from "@/components/partner-org/PartnerOrgSiteSections"
 
 function SectionHeading({
@@ -60,37 +61,15 @@ export default function PartnerOrgLandingClient() {
     })
   }, [])
 
+  // TEMP: serve hardcoded dummy landings only (no live landing API).
   useEffect(() => {
     if (!slug) return
-    let cancelled = false
     setLoading(true)
     setError(null)
-    fetch(
-      `/api/backend/partner-organizations/public/${encodeURIComponent(slug)}/landing`,
-      { cache: "no-store", headers: { Accept: "application/json" } }
-    )
-      .then(async (res) => {
-        if (res.status === 404) return null
-        if (!res.ok) throw new Error("Failed to load partner")
-        return res.json()
-      })
-      .then((payload) => {
-        if (cancelled) return
-        setData(payload)
-        if (!payload) setError("Partner not found")
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setError("Failed to load partner")
-          setData(null)
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
+    const payload = getDummyPartnerLanding(slug)
+    setData(payload)
+    setError(payload ? null : "Partner not found")
+    setLoading(false)
   }, [slug])
 
   useEffect(() => {
@@ -111,35 +90,40 @@ export default function PartnerOrgLandingClient() {
     setFormError(null)
     setFormSubmitting(true)
     try {
-      const res = await fetch(
-        `/api/backend/partner-organizations/public/${encodeURIComponent(data.slug)}/leads`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({
-            name: formName.trim(),
-            phone: formPhone.trim(),
-            email: formEmail.trim() || undefined,
-            message: formMessage.trim() || undefined,
-            interest: formInterest.trim() || undefined,
-          }),
-        }
-      )
-      const payload = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        const detail =
-          typeof payload?.detail === "string"
-            ? payload.detail
-            : Array.isArray(payload?.detail)
+      // TEMP: dummy partners skip the real leads API.
+      if (getDummyPartnerLanding(data.slug)) {
+        await new Promise((r) => setTimeout(r, 400))
+      } else {
+        const res = await fetch(
+          `/api/backend/partner-organizations/public/${encodeURIComponent(data.slug)}/leads`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({
+              name: formName.trim(),
+              phone: formPhone.trim(),
+              email: formEmail.trim() || undefined,
+              message: formMessage.trim() || undefined,
+              interest: formInterest.trim() || undefined,
+            }),
+          }
+        )
+        const payload = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          const detail =
+            typeof payload?.detail === "string"
               ? payload.detail
-                  .map((d: { msg?: string }) => d.msg)
-                  .filter(Boolean)
-                  .join(", ")
-              : "Could not send your enquiry. Please try again."
-        throw new Error(detail || "Could not send your enquiry.")
+              : Array.isArray(payload?.detail)
+                ? payload.detail
+                    .map((d: { msg?: string }) => d.msg)
+                    .filter(Boolean)
+                    .join(", ")
+                : "Could not send your enquiry. Please try again."
+          throw new Error(detail || "Could not send your enquiry.")
+        }
       }
       setFormDone(true)
       setFormName("")
@@ -340,6 +324,7 @@ export default function PartnerOrgLandingClient() {
 
       <PartnerOrgSiteSections
         variant="public"
+        orgSlug={data.slug || slug}
         branches={(data.branches || []) as never}
         achievements={data.achievements || []}
       />

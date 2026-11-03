@@ -45,7 +45,7 @@ export default function PartnerOrgBrandingPage() {
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [uploading, setUploading] = useState<"logo" | "banner" | null>(null)
+  const [uploading, setUploading] = useState<"logo" | "banner" | "footerLogo" | null>(null)
   const [hasBranding, setHasBranding] = useState(false)
   const [orgName, setOrgName] = useState("")
   const [orgSlug, setOrgSlug] = useState("")
@@ -70,6 +70,17 @@ export default function PartnerOrgBrandingPage() {
   const [parkingInfo, setParkingInfo] = useState("")
   const [highlightsText, setHighlightsText] = useState("")
   const [mapEmbedUrl, setMapEmbedUrl] = useState("")
+
+  const [contactHeadline, setContactHeadline] = useState("")
+  const [contactIntro, setContactIntro] = useState("")
+  const [contactAddress, setContactAddress] = useState("")
+  const [contactPhone, setContactPhone] = useState("")
+  const [contactEmail, setContactEmail] = useState("")
+  const [contactMapUrl, setContactMapUrl] = useState("")
+
+  const [footerLogoUrl, setFooterLogoUrl] = useState("")
+  const [footerLogoAlt, setFooterLogoAlt] = useState("")
+  const [footerDescription, setFooterDescription] = useState("")
 
   const [social, setSocial] = useState({
     website: "",
@@ -124,6 +135,17 @@ export default function PartnerOrgBrandingPage() {
         twitter: str(s.twitter),
         whatsapp: str(s.whatsapp),
       })
+      const cp = data.contact_page || {}
+      setContactHeadline(str(cp.headline))
+      setContactIntro(str(cp.intro))
+      setContactAddress(str(cp.address) || str(data.org_snapshot?.address))
+      setContactPhone(str(cp.phone) || str(data.org_snapshot?.phone))
+      setContactEmail(str(cp.email) || str(data.org_snapshot?.email))
+      setContactMapUrl(str(cp.map_embed_url))
+      const ft = data.footer || {}
+      setFooterLogoUrl(str(ft.logo_url))
+      setFooterLogoAlt(str(ft.logo_alt))
+      setFooterDescription(str(ft.description))
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Could not load branding"
       toast({ title: "Error", description: msg, variant: "destructive" })
@@ -140,16 +162,22 @@ export default function PartnerOrgBrandingPage() {
     loadBranding()
   }, [role, router, loadBranding])
 
-  async function handleUpload(kind: "logo" | "banner", file: File | undefined) {
+  async function handleUpload(kind: "logo" | "banner" | "footerLogo", file: File | undefined) {
     if (!file) return
     try {
       setUploading(kind)
       const result = await uploadFile(file)
       if (kind === "logo") setLogoUrl(result.file_url)
-      else setBannerUrl(result.file_url)
+      else if (kind === "banner") setBannerUrl(result.file_url)
+      else setFooterLogoUrl(result.file_url)
       toast({
         title: "Uploaded",
-        description: `${kind === "logo" ? "Logo" : "Banner"} uploaded.`,
+        description:
+          kind === "logo"
+            ? "Navbar logo uploaded."
+            : kind === "banner"
+              ? "Banner uploaded."
+              : "Footer logo uploaded.",
       })
     } catch (e: unknown) {
       toast({
@@ -196,6 +224,19 @@ export default function PartnerOrgBrandingPage() {
           linkedin: social.linkedin || null,
           twitter: social.twitter || null,
           whatsapp: social.whatsapp || null,
+        },
+        contact_page: {
+          headline: contactHeadline || null,
+          intro: contactIntro || null,
+          address: contactAddress || null,
+          phone: contactPhone || null,
+          email: contactEmail || null,
+          map_embed_url: contactMapUrl || null,
+        },
+        footer: {
+          logo_url: footerLogoUrl || null,
+          logo_alt: footerLogoAlt || null,
+          description: footerDescription || null,
         },
       })
       setHasBranding(true)
@@ -276,11 +317,14 @@ export default function PartnerOrgBrandingPage() {
         <>
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Logo & cover banner</CardTitle>
+              <CardTitle className="text-base">Navbar logo & cover banner</CardTitle>
+              <p className="text-sm text-gray-500">
+                Navbar logo appears on your partner site header (Courses / Branches / Contact).
+              </p>
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-3">
-                <Label>Logo</Label>
+                <Label>Navbar logo</Label>
                 {logoUrl ? (
                   <div className="relative rounded-md border bg-gray-50 p-3 flex items-center justify-center min-h-[120px]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -445,6 +489,137 @@ export default function PartnerOrgBrandingPage() {
                   value={mapEmbedUrl}
                   onChange={(e) => setMapEmbedUrl(e.target.value)}
                   placeholder="https://maps.google.com/..."
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Contact page</CardTitle>
+              <p className="text-sm text-gray-500">
+                Shown on your public Contact page and used in the partner footer. Enquiry form
+                submissions appear only in your Leads inbox.
+              </p>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2 md:col-span-2">
+                <Label>Headline</Label>
+                <Input
+                  value={contactHeadline}
+                  onChange={(e) => setContactHeadline(e.target.value)}
+                  placeholder="Contact us"
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label>Intro text</Label>
+                <Textarea
+                  rows={2}
+                  value={contactIntro}
+                  onChange={(e) => setContactIntro(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label>Address</Label>
+                <Textarea
+                  rows={2}
+                  value={contactAddress}
+                  onChange={(e) => setContactAddress(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Phone</Label>
+                <Input
+                  value={contactPhone}
+                  onChange={(e) => setContactPhone(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label>Map link / embed URL</Label>
+                <Input
+                  value={contactMapUrl}
+                  onChange={(e) => setContactMapUrl(e.target.value)}
+                  placeholder="https://maps.google.com/..."
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Footer</CardTitle>
+              <p className="text-sm text-gray-500">
+                Quick links default to Courses, Branches, Contact. Contact details and socials
+                come from the Contact page and Social links sections.
+              </p>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <Label>Footer logo</Label>
+                {footerLogoUrl ? (
+                  <div className="relative rounded-md border bg-gray-50 p-3 flex items-center justify-center min-h-[100px]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={resolvePublicAssetUrl(footerLogoUrl)}
+                      alt={footerLogoAlt || "Footer logo"}
+                      className="max-h-20 object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-dashed bg-gray-50 p-6 text-center text-xs text-gray-500">
+                    Falls back to navbar logo if empty
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <label className="inline-flex">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleUpload("footerLogo", e.target.files?.[0])}
+                    />
+                    <Button type="button" variant="outline" size="sm" asChild disabled={!!uploading}>
+                      <span>
+                        {uploading === "footerLogo" ? (
+                          <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                        ) : (
+                          <Upload className="w-3.5 h-3.5 mr-1.5" />
+                        )}
+                        Upload footer logo
+                      </span>
+                    </Button>
+                  </label>
+                  {footerLogoUrl ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setFooterLogoUrl("")}
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Clear
+                    </Button>
+                  ) : null}
+                </div>
+                <Input
+                  placeholder="Footer logo alt text"
+                  value={footerLogoAlt}
+                  onChange={(e) => setFooterLogoAlt(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Footer description</Label>
+                <Textarea
+                  rows={5}
+                  value={footerDescription}
+                  onChange={(e) => setFooterDescription(e.target.value)}
+                  placeholder="Short description under the footer logo"
                 />
               </div>
             </CardContent>

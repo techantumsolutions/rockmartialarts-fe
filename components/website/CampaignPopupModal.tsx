@@ -1,7 +1,9 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { usePathname } from "next/navigation"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
+import { isPartnerOrgSitePath } from "@/lib/partnerOrgSitePath"
 import { Button } from "@/components/ui/button"
 import { MapPin, Calendar } from "lucide-react"
 import { useCMS } from "@/contexts/CMSContext"
@@ -33,8 +35,10 @@ function formatDateRange(start?: string, end?: string): string {
 }
 
 export function CampaignPopupModal() {
+  const pathname = usePathname()
   const { cms, loading: cmsLoading } = useCMS()
   const lead = resolvePopupForm(cms?.homepage?.popup_form)
+  const hideForPartnerSite = isPartnerOrgSitePath(pathname)
 
   const [popup, setPopup] = useState<CampaignPopup | null>(null)
   const [open, setOpen] = useState(false)
@@ -43,6 +47,10 @@ export function CampaignPopupModal() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
+    if (hideForPartnerSite) {
+      setOpen(false)
+      return
+    }
     if (cmsLoading) return
     if (startedRef.current) return
 
@@ -105,7 +113,9 @@ export function CampaignPopupModal() {
     }, 1000)
 
     return () => clearTimers()
-  }, [cmsLoading, lead.enabled])
+  }, [cmsLoading, lead.enabled, hideForPartnerSite])
+
+  if (hideForPartnerSite) return null
 
   const handleClose = (next: boolean) => {
     if (next) {

@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { getBackendProxyBaseUrl } from "@/lib/serverBackendUrl"
+import { getDummyPartnerLanding } from "@/lib/dummyPartnerOrgs"
 import PartnerOrgLandingClient from "./partner-org-landing-client"
 
 export const dynamic = "force-dynamic"
@@ -40,18 +40,9 @@ function resolveAbsoluteAssetUrl(path: string | null | undefined): string | unde
   return origin ? `${origin}${pathOnly}` : pathOnly
 }
 
+// TEMP: metadata from dummy partners only.
 async function fetchLanding(slug: string): Promise<LandingPayload | null> {
-  const base = getBackendProxyBaseUrl().replace(/\/$/, "")
-  try {
-    const res = await fetch(
-      `${base}/api/partner-organizations/public/${encodeURIComponent(slug)}/landing`,
-      { cache: "no-store", headers: { Accept: "application/json" } }
-    )
-    if (!res.ok) return null
-    return (await res.json()) as LandingPayload
-  } catch {
-    return null
-  }
+  return getDummyPartnerLanding(slug)
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {

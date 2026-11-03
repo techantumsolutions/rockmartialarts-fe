@@ -272,6 +272,19 @@ export type PartnerOrgBranding = {
     map_embed_url?: string | null
   }
   social_links?: Record<string, string | null | undefined>
+  contact_page?: {
+    headline?: string | null
+    intro?: string | null
+    address?: string | null
+    phone?: string | null
+    email?: string | null
+    map_embed_url?: string | null
+  }
+  footer?: {
+    logo_url?: string | null
+    logo_alt?: string | null
+    description?: string | null
+  }
   org_snapshot?: {
     id?: string
     name?: string
@@ -291,6 +304,8 @@ export type PartnerOrgBrandingUpsert = {
   content?: PartnerOrgBranding["content"]
   facilities?: PartnerOrgBranding["facilities"]
   social_links?: PartnerOrgBranding["social_links"]
+  contact_page?: PartnerOrgBranding["contact_page"]
+  footer?: PartnerOrgBranding["footer"]
 }
 
 export type PartnerOrgDirectoryItem = {
@@ -330,6 +345,19 @@ export type PartnerOrgLanding = {
     phone?: string | null
     email?: string | null
     address?: string | null
+  }
+  contact_page?: {
+    headline?: string | null
+    intro?: string | null
+    address?: string | null
+    phone?: string | null
+    email?: string | null
+    map_embed_url?: string | null
+  }
+  footer?: {
+    logo_url?: string | null
+    logo_alt?: string | null
+    description?: string | null
   }
   facilities?: {
     facilities?: string[]

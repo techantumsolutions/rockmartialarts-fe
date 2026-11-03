@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -47,9 +47,13 @@ interface Payment {
   course_name?: string | null
   branch_name?: string | null
   branch_id?: string | null
+  partner_org_id?: string | null
+  partner_org_name?: string | null
   created_at?: string | null
   enrollment_id?: string | null
 }
+
+type PartnerOption = { id: string; name: string }
 
 interface PaymentStats {
   total_collected: number
@@ -86,6 +90,10 @@ export default function PaymentTrackingPage() {
   const [branchesLoading, setBranchesLoading] = useState(true)
   const [branchOptions, setBranchOptions] = useState<BranchOption[]>([])
   const [branchFilter, setBranchFilter] = useState<string>("all")
+  /** Rock SA: all | rock | partners | specific partner org id */
+  const [partnerFilter, setPartnerFilter] = useState<string>("all")
+  const [partnerOptions, setPartnerOptions] = useState<PartnerOption[]>([])
+  const [partnersLoading, setPartnersLoading] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [cancellingId, setCancellingId] = useState<string | null>(null)
   const [recoveringId, setRecoveringId] = useState<string | null>(null)
@@ -108,8 +116,9 @@ export default function PaymentTrackingPage() {
   const [debouncedStudentSearch, setDebouncedStudentSearch] = useState<string>("")
   const filtersReadyRef = useRef(true)
 
-  const adminType = String(params?.adminType || "super-admin")
-  const isSuperAdmin = adminType.toLowerCase() === "super-admin"
+  const adminType = String(params?.adminType || "super-admin").toLowerCase()
+  const isSuperAdmin = adminType === "super-admin"
+  const isPartnerAdmin = adminType === "partner-admin" || adminType === "partners"
   const branchManager = BranchManagerAuth.getCurrentUser()
   const headerBranchId =
     getActiveBranchId() ||
@@ -117,6 +126,12 @@ export default function PaymentTrackingPage() {
     branchManager?.managed_branches?.[0] ||
     ""
   const effectiveBranchFilter = isSuperAdmin ? branchFilter : headerBranchId || branchFilter
+  const partnerQuery = useMemo(() => {
+    if (!isSuperAdmin || partnerFilter === "all") return {} as { partner_org_id?: string; partner_scope?: string }
+    if (partnerFilter === "rock") return { partner_scope: "rock" }
+    if (partnerFilter === "partners") return { partner_scope: "partners" }
+    return { partner_org_id: partnerFilter }
+  }, [isSuperAdmin, partnerFilter])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -137,6 +152,7 @@ export default function PaymentTrackingPage() {
           ...(periodEnd ? { end_date: periodEnd } : {}),
           ...(debouncedStudentSearch ? { search: debouncedStudentSearch } : {}),
           ...(effectiveBranchFilter !== "all" ? { branch_id: effectiveBranchFilter } : {}),
+          ...partnerQuery,
         },
         token
       )
@@ -203,7 +219,7 @@ export default function PaymentTrackingPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, periodStart, periodEnd, debouncedStudentSearch, effectiveBranchFilter, isSuperAdmin])
+  }, [page, pageSize, periodStart, periodEnd, debouncedStudentSearch, effectiveBranchFilter, isSuperAdmin, partnerQuery])
 
   const fetchStats = useCallback(async () => {
     try {
@@ -212,6 +228,8 @@ export default function PaymentTrackingPage() {
       if (periodStart) qsScoped.set("start_date", periodStart)
       if (periodEnd) qsScoped.set("end_date", periodEnd)
       if (effectiveBranchFilter !== "all") qsScoped.set("branch_id", effectiveBranchFilter)
+      if (partnerQuery.partner_org_id) qsScoped.set("partner_org_id", partnerQuery.partner_org_id)
+      if (partnerQuery.partner_scope) qsScoped.set("partner_scope", partnerQuery.partner_scope)
       qsScoped.set("_ts", String(Date.now()))
 
       const headers: HeadersInit = {
@@ -224,12 +242,15 @@ export default function PaymentTrackingPage() {
       const gQs = new URLSearchParams()
       gQs.set("_ts", String(Date.now()))
 
+      // When Rock SA filters by partner, use scoped totals so they see that partner's amount.
+      const useGlobalTotal = isSuperAdmin && partnerFilter === "all"
+
       const [scopedRes, globalRes] = await Promise.all([
         fetch(getBackendApiUrl(`payments/stats?${qsScoped.toString()}`), {
           cache: "no-store",
           headers,
         }),
-        isSuperAdmin
+        useGlobalTotal
           ? fetch(getBackendApiUrl(`payments/stats?${gQs.toString()}`), {
               cache: "no-store",
               headers,
@@ -255,7 +276,7 @@ export default function PaymentTrackingPage() {
     } catch (error) {
       console.error("Error fetching payment stats:", error)
     }
-  }, [periodStart, periodEnd, effectiveBranchFilter, isSuperAdmin])
+  }, [periodStart, periodEnd, effectiveBranchFilter, isSuperAdmin, partnerFilter, partnerQuery])
 
   const fetchAnalytics = useCallback(async () => {
     try {
@@ -273,6 +294,8 @@ export default function PaymentTrackingPage() {
       if (periodStart) periodQs.set("start_date", periodStart)
       if (periodEnd) periodQs.set("end_date", periodEnd)
       if (effectiveBranchFilter !== "all") periodQs.set("branch_id", effectiveBranchFilter)
+      if (partnerQuery.partner_org_id) periodQs.set("partner_org_id", partnerQuery.partner_org_id)
+      if (partnerQuery.partner_scope) periodQs.set("partner_scope", partnerQuery.partner_scope)
       periodQs.set("_ts", String(Date.now()))
 
       const [statsRes, revRes] = await Promise.all([
@@ -282,10 +305,13 @@ export default function PaymentTrackingPage() {
               headers: analyticsHeaders,
             })
           : Promise.resolve(null),
-        fetch(getBackendApiUrl(`payments/revenue/by-branch?${periodQs.toString()}`), {
-          cache: "no-store",
-          headers: analyticsHeaders,
-        }),
+        // Branch revenue endpoint is Rock-wide; skip when focusing a single partner filter.
+        partnerFilter === "all"
+          ? fetch(getBackendApiUrl(`payments/revenue/by-branch?${periodQs.toString()}`), {
+              cache: "no-store",
+              headers: analyticsHeaders,
+            })
+          : Promise.resolve({ ok: false } as Response),
       ])
 
       if (statsRes) {
@@ -314,7 +340,7 @@ export default function PaymentTrackingPage() {
     } finally {
       setAnalyticsLoading(false)
     }
-  }, [periodStart, periodEnd, effectiveBranchFilter])
+  }, [periodStart, periodEnd, effectiveBranchFilter, partnerFilter, partnerQuery])
 
   useEffect(() => {
     const loadBranches = async () => {
@@ -348,14 +374,51 @@ export default function PaymentTrackingPage() {
   }, [])
 
   useEffect(() => {
+    if (!isSuperAdmin) return
+    const loadPartners = async () => {
+      try {
+        setPartnersLoading(true)
+        const token = TokenManager.getToken()
+        const res = await fetch(
+          getBackendApiUrl(`partner-organizations?skip=0&limit=200&_ts=${Date.now()}`),
+          {
+            cache: "no-store",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+          }
+        )
+        if (!res.ok) return
+        const data = await res.json()
+        const raw = Array.isArray(data.partners) ? data.partners : Array.isArray(data) ? data : []
+        setPartnerOptions(
+          raw
+            .map((p: { id?: string; partner_org_id?: string; name?: string }) => ({
+              id: String(p.id || p.partner_org_id || ""),
+              name: String(p.name || "Partner"),
+            }))
+            .filter((p: PartnerOption) => !!p.id)
+        )
+      } catch (e) {
+        console.error("Error fetching partners:", e)
+      } finally {
+        setPartnersLoading(false)
+      }
+    }
+    void loadPartners()
+  }, [isSuperAdmin])
+
+  useEffect(() => {
     if (!filtersReadyRef.current) return
     void Promise.all([fetchPayments(), fetchStats(), fetchAnalytics()])
-  }, [page, effectiveBranchFilter, periodStart, periodEnd, debouncedStudentSearch, fetchPayments, fetchStats, fetchAnalytics])
+  }, [page, effectiveBranchFilter, partnerFilter, periodStart, periodEnd, debouncedStudentSearch, fetchPayments, fetchStats, fetchAnalytics])
 
   useEffect(() => {
     if (!filtersReadyRef.current) return
     setPage(1)
-  }, [effectiveBranchFilter, periodStart, periodEnd, debouncedStudentSearch])
+  }, [effectiveBranchFilter, partnerFilter, periodStart, periodEnd, debouncedStudentSearch])
 
   const formatCurrency = (amount: number) => {
     const v = Number(amount)
@@ -527,21 +590,80 @@ export default function PaymentTrackingPage() {
     }
   }
 
+  const showPartnerColumn = isSuperAdmin || isPartnerAdmin
+  const tableColSpan = (isSuperAdmin ? 5 : 4) + (showPartnerColumn ? 1 : 0)
+  const selectedPartnerLabel =
+    partnerFilter === "all"
+      ? null
+      : partnerFilter === "rock"
+        ? "Rock (non-partner)"
+        : partnerFilter === "partners"
+          ? "All partners"
+          : partnerOptions.find((p) => p.id === partnerFilter)?.name || "Partner"
+
   return (
     <div className="min-h-screen bg-gray-50">
       <main className="w-full p-4 lg:px-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Payment Tracking</h1>
+
+        {isPartnerAdmin ? (
+          <div className="mb-6 space-y-4">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+              Student course payments are collected on Rock’s payment gateway. This list shows
+              every transaction for your organization (student, branch, course, amount) so you can
+              reconcile settlement with Rock Super Admin offline.
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader className="py-4">
+                  <CardTitle className="text-sm font-medium text-gray-700">
+                    Your org — collected (all time)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-semibold text-gray-900">
+                    {formatCurrency(stats.total_collected)}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">Paid / completed for your branches</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="py-4">
+                  <CardTitle className="text-sm font-medium text-gray-700">
+                    Selected period
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-semibold text-gray-900">
+                    {formatCurrency(Number(stats.this_month_collection) || 0)}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Uses the date filters below when set
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        ) : null}
 
         {/* Live revenue cards (Super Admin only) */}
         {isSuperAdmin && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 items-stretch">
             <Card className="h-full flex flex-col">
               <CardHeader className="py-4">
-                <CardTitle className="text-sm font-medium text-gray-700">Total Revenue (All time)</CardTitle>
+                <CardTitle className="text-sm font-medium text-gray-700">
+                  {selectedPartnerLabel
+                    ? `Revenue — ${selectedPartnerLabel}`
+                    : "Total Revenue (All time)"}
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-semibold text-gray-900">{formatCurrency(stats.total_collected)}</div>
-                <div className="text-xs text-gray-500 mt-1">Paid / completed payments</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {selectedPartnerLabel
+                    ? "Paid / completed for this partner filter"
+                    : "Paid / completed payments"}
+                </div>
               </CardContent>
             </Card>
 
@@ -665,6 +787,31 @@ export default function PaymentTrackingPage() {
             )}
           </div>
 
+          {isSuperAdmin ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-medium text-gray-700">Partner:</span>
+              <Select
+                value={partnerFilter}
+                onValueChange={setPartnerFilter}
+                disabled={partnersLoading}
+              >
+                <SelectTrigger className="w-56 bg-gray-100 text-gray-600 border-0">
+                  <SelectValue placeholder={partnersLoading ? "Loading…" : "All sources"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All (Rock + partners)</SelectItem>
+                  <SelectItem value="rock">Rock only</SelectItem>
+                  <SelectItem value="partners">All partners</SelectItem>
+                  {partnerOptions.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-medium text-gray-700">Filter by:</span>
             <Input
@@ -714,6 +861,11 @@ export default function PaymentTrackingPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-[#000] uppercase tracking-wider">
                   Course enrolled
                 </th>
+                {showPartnerColumn ? (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-[#000] uppercase tracking-wider">
+                    Partner / Branch
+                  </th>
+                ) : null}
                 <th className="px-6 py-3 text-left text-xs font-medium text-[#000] uppercase tracking-wider">
                   Payment details
                 </th>
@@ -730,7 +882,7 @@ export default function PaymentTrackingPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan={isSuperAdmin ? 5 : 4} className="px-6 py-8 text-center">
+                  <td colSpan={tableColSpan} className="px-6 py-8 text-center">
                     <div className="flex items-center justify-center">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
                       <span className="ml-2 text-gray-500">Loading payments...</span>
@@ -739,7 +891,7 @@ export default function PaymentTrackingPage() {
                 </tr>
               ) : pagedPayments.length === 0 ? (
                 <tr>
-                  <td colSpan={isSuperAdmin ? 5 : 4} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={tableColSpan} className="px-6 py-8 text-center text-gray-500">
                     No payments found
                   </td>
                 </tr>
@@ -762,10 +914,20 @@ export default function PaymentTrackingPage() {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">
                       <div className="font-medium">{payment.course_name || "N/A"}</div>
-                      {payment.branch_name && (
+                      {payment.branch_name && !showPartnerColumn ? (
                         <div className="text-xs text-gray-500 mt-0.5">{payment.branch_name}</div>
-                      )}
+                      ) : null}
                     </td>
+                    {showPartnerColumn ? (
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        <div className="font-medium">
+                          {payment.partner_org_name || (payment.partner_org_id ? "Partner" : "Rock")}
+                        </div>
+                        {payment.branch_name ? (
+                          <div className="text-xs text-gray-500 mt-0.5">{payment.branch_name}</div>
+                        ) : null}
+                      </td>
+                    ) : null}
                     <td className="px-6 py-4 text-sm text-gray-900">
                       <div className="font-semibold text-base">
                         {formatCurrency(Number(payment.amount) || 0)}
