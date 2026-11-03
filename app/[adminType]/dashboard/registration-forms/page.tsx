@@ -89,6 +89,7 @@ export default function RegistrationFormsPage() {
   const params = useParams()
   const adminType = ((params?.adminType as string) || "super-admin").toLowerCase().replace(/_/g, "-")
   const isSuperAdmin = adminType === "super-admin"
+  const isPartnerAdmin = adminType === "partner-admin" || adminType === "partners"
   const isBranchAdmin = adminType === "branch-admin"
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
@@ -103,9 +104,13 @@ export default function RegistrationFormsPage() {
 
   const bmManaged = BranchManagerAuth.getCurrentUser()?.managed_branches || []
   const selectedManagerBranch = getActiveBranchId() || bmManaged[0] || ""
-  const branchOptions = isSuperAdmin
-    ? branches
-    : branches.filter((b) => bmManaged.includes(b.id))
+  // Rock SA + Partner SA: API already returns their branch set. Branch managers: managed only.
+  const branchOptions =
+    isSuperAdmin || isPartnerAdmin
+      ? branches
+      : branches.filter((b) => bmManaged.includes(b.id))
+  const canUseGlobal = isSuperAdmin
+  const canUseCourseOnly = isSuperAdmin || isPartnerAdmin
 
   const load = useCallback(async () => {
     const token = TokenManager.getToken()
@@ -173,9 +178,9 @@ export default function RegistrationFormsPage() {
     setEditingId(null)
     setForm({
       ...emptyForm,
-      availability_type: isSuperAdmin ? "global" : "branch",
-      branch_ids: !isSuperAdmin && selectedManagerBranch ? [selectedManagerBranch] : [],
-      branch_course_pairs: !isSuperAdmin && selectedManagerBranch
+      availability_type: canUseGlobal ? "global" : "branch",
+      branch_ids: isBranchAdmin && selectedManagerBranch ? [selectedManagerBranch] : [],
+      branch_course_pairs: isBranchAdmin && selectedManagerBranch
         ? [{ branch_id: selectedManagerBranch, course_id: "" }]
         : [{ branch_id: "", course_id: "" }],
     })
@@ -191,7 +196,7 @@ export default function RegistrationFormsPage() {
       status: r.status === "active" ? "active" : "inactive",
       display_order: r.display_order ?? 0,
       availability_type: r.availability_type,
-      branch_ids: !isSuperAdmin && selectedManagerBranch
+      branch_ids: isBranchAdmin && selectedManagerBranch
         ? [selectedManagerBranch]
         : [...(r.branch_ids || [])],
       course_ids: [...(r.course_ids || [])],
@@ -199,7 +204,7 @@ export default function RegistrationFormsPage() {
         r.branch_course_pairs?.length > 0
           ? r.branch_course_pairs.map((p) => ({
               ...p,
-              branch_id: !isSuperAdmin && selectedManagerBranch ? selectedManagerBranch : p.branch_id,
+              branch_id: isBranchAdmin && selectedManagerBranch ? selectedManagerBranch : p.branch_id,
             }))
           : [{ branch_id: "", course_id: "" }],
     })
@@ -237,7 +242,7 @@ export default function RegistrationFormsPage() {
       ...f,
       branch_course_pairs: [
         ...f.branch_course_pairs,
-        { branch_id: !isSuperAdmin && selectedManagerBranch ? selectedManagerBranch : "", course_id: "" },
+        { branch_id: isBranchAdmin && selectedManagerBranch ? selectedManagerBranch : "", course_id: "" },
       ],
     }))
   }
@@ -286,7 +291,7 @@ export default function RegistrationFormsPage() {
       .filter((p) => p.branch_id && p.course_id)
       .map((pair) => ({
         ...pair,
-        branch_id: !isSuperAdmin && selectedManagerBranch ? selectedManagerBranch : pair.branch_id,
+        branch_id: isBranchAdmin && selectedManagerBranch ? selectedManagerBranch : pair.branch_id,
       }))
 
     setSaving(true)
@@ -297,15 +302,20 @@ export default function RegistrationFormsPage() {
         file_url: form.file_url.trim() || null,
         status: form.status,
         display_order: Number(form.display_order) || 0,
-        availability_type: isSuperAdmin ? form.availability_type : form.availability_type === "global" ? "branch" : form.availability_type,
+        availability_type: canUseGlobal
+          ? form.availability_type
+          : form.availability_type === "global"
+            ? "branch"
+            : form.availability_type,
         branch_ids: form.availability_type === "branch" ? form.branch_ids : [],
         course_ids: form.availability_type === "course" ? form.course_ids : [],
         branch_course_pairs: form.availability_type === "branch_course" ? pairs : [],
       }
 
-      if (!isSuperAdmin) {
-        body.availability_type = form.availability_type === "global" ? "branch" : form.availability_type
-        if (body.availability_type === "branch") {
+      if (!canUseGlobal) {
+        body.availability_type =
+          form.availability_type === "global" ? "branch" : form.availability_type
+        if (isBranchAdmin && body.availability_type === "branch") {
           body.branch_ids = form.branch_ids.filter((id) => bmManaged.includes(id))
         }
       }
@@ -487,9 +497,9 @@ export default function RegistrationFormsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {isSuperAdmin ? <SelectItem value="global">Global (all students)</SelectItem> : null}
+                  {canUseGlobal ? <SelectItem value="global">Global (all students)</SelectItem> : null}
                   <SelectItem value="branch">Branch-wise</SelectItem>
-                  {isSuperAdmin ? <SelectItem value="course">Course-wise</SelectItem> : null}
+                  {canUseCourseOnly ? <SelectItem value="course">Course-wise</SelectItem> : null}
                   <SelectItem value="branch_course">Branch + course combination</SelectItem>
                 </SelectContent>
               </Select>
