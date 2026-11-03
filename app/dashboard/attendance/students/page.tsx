@@ -57,12 +57,21 @@ import { getActiveBranch, getActiveBranchId } from "@/lib/activeBranch"
 import { formatTimeIST } from "@/lib/formatRegisteredDate"
 import { useToast } from "@/hooks/use-toast"
 
+function isPartnerDashboardPath(path: string): boolean {
+  return (
+    path.startsWith("/partner-admin/") ||
+    /^\/partners\/[^/]+\/dashboard/.test(path)
+  )
+}
+
 function getAttendanceAuthHeaders(): Record<string, string> | null {
   if (typeof window === "undefined") return null
   const path = window.location.pathname || ""
   const onBranchAdmin =
     path.startsWith("/branch-admin/") || path.startsWith("/branch-manager-dashboard/")
+  const onPartnerAdmin = isPartnerDashboardPath(path)
   const bmUser = BranchManagerAuth.getCurrentUser()
+  const partnerUser = TokenManager.getUser()
   const activeBranchId = getActiveBranchId()
   // Branch-admin must use BM token so the API scopes to managed branches only.
   if (onBranchAdmin || bmUser?.role === "branch_manager") {
@@ -76,6 +85,18 @@ function getAttendanceAuthHeaders(): Record<string, string> | null {
         headers["X-Active-Branch-Id"] = activeBranchId
       }
       return headers
+    }
+  }
+  // Partner SA: always use partner token (never fall through to Rock SuperAdminAuth).
+  if (
+    onPartnerAdmin ||
+    String(partnerUser?.role || "").toLowerCase() === "partner_super_admin"
+  ) {
+    const token = TokenManager.getToken()
+    if (!token) return null
+    return {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
     }
   }
   if (SuperAdminAuth.isAuthenticated()) {
@@ -224,15 +245,22 @@ export default function SuperAdminStudentAttendancePage() {
     !!pathname &&
     (pathname.startsWith("/super-admin/dashboard") ||
       pathname.startsWith("/branch-admin/dashboard") ||
-      pathname.startsWith("/branch-manager-dashboard/"))
+      pathname.startsWith("/branch-manager-dashboard/") ||
+      pathname.startsWith("/partner-admin/dashboard") ||
+      /^\/partners\/[^/]+\/dashboard/.test(pathname))
 
   const isBranchAdminRoute =
     !!pathname &&
     (pathname.startsWith("/branch-admin/") ||
       pathname.startsWith("/branch-manager-dashboard/"))
 
-  /** Deep-link `?branch=` from Branch-wise Overview — super-admin only */
-  const isSuperAdminRoute = !!pathname && pathname.startsWith("/super-admin/")
+  const isPartnerAdminRoute =
+    !!pathname && isPartnerDashboardPath(pathname)
+
+  /** Deep-link `?branch=` from Branch-wise Overview — Rock SA / Partner SA */
+  const isSuperAdminRoute =
+    !!pathname &&
+    (pathname.startsWith("/super-admin/") || isPartnerAdminRoute)
   const superAdminBranchFromUrl = isSuperAdminRoute
     ? (searchParams.get("branch") || "").trim()
     : ""
@@ -248,15 +276,21 @@ export default function SuperAdminStudentAttendancePage() {
     return bm.branch_id ? [String(bm.branch_id)] : []
   }
 
+  const isPartnerUser =
+    typeof window !== "undefined" &&
+    String(TokenManager.getUser()?.role || "").toLowerCase() === "partner_super_admin"
+
   const canEditCheckInTime =
     typeof window !== "undefined" &&
-    (SuperAdminAuth.isAuthenticated() ||
+    (isPartnerUser ||
+      SuperAdminAuth.isAuthenticated() ||
       BranchManagerAuth.getCurrentUser()?.role === "branch_manager" ||
       TokenManager.getUser()?.role === "branch_manager")
 
   const canChangeAttendanceStatus =
     typeof window !== "undefined" &&
-    (SuperAdminAuth.isAuthenticated() ||
+    (isPartnerUser ||
+      SuperAdminAuth.isAuthenticated() ||
       BranchManagerAuth.getCurrentUser()?.role === "branch_manager")
 
   // Enhanced state management
@@ -1271,7 +1305,9 @@ export default function SuperAdminStudentAttendancePage() {
             <p className="text-gray-600">
               {isBranchAdminRoute
                 ? "Manage attendance for your branch students"
-                : "Manage attendance across all branches and courses"}
+                : isPartnerAdminRoute
+                  ? "Manage attendance for your organization branches and courses"
+                  : "Manage attendance across all branches and courses"}
             </p>
           </div>
 

@@ -64,7 +64,8 @@ interface StudentOption {
 }
 
 function authHeaders(): HeadersInit {
-  const token = BranchManagerAuth.getToken() || TokenManager.getToken()
+  // Prefer partner/BM token from TokenManager/BranchManagerAuth (never Rock SA fallback here).
+  const token = TokenManager.getToken() || BranchManagerAuth.getToken()
   return {
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
@@ -93,6 +94,8 @@ export default function AttendanceReportsPage() {
   const searchParams = useSearchParams()
   const basePath = useDashboardBasePath()
   const isBranchAdmin = basePath.includes("branch-admin")
+  const isPartnerAdmin =
+    basePath.includes("partner-admin") || /^\/partners\/[^/]+\/dashboard/.test(basePath)
 
   const initialStudentId = searchParams.get("student_id") || "all"
 
@@ -116,14 +119,14 @@ export default function AttendanceReportsPage() {
   const [startOpen, setStartOpen] = useState(false)
   const [endOpen, setEndOpen] = useState(false)
 
-  const getToken = () => BranchManagerAuth.getToken() || TokenManager.getToken()
+  const getToken = () => TokenManager.getToken() || BranchManagerAuth.getToken()
 
   const loadLookups = useCallback(async () => {
     const token = getToken()
     if (!token) return
     try {
       const [studentsRes, branchesRes] = await Promise.all([
-        fetch(getBackendApiUrl("students/search?limit=200"), {
+        fetch(getBackendApiUrl("search/students?limit=200"), {
           headers: authHeaders(),
           cache: "no-store",
         }),
@@ -170,7 +173,14 @@ export default function AttendanceReportsPage() {
   const fetchReports = useCallback(async () => {
     const token = getToken()
     if (!token) {
-      router.push(isBranchAdmin ? "/branch-manager/login" : "/superadmin/login")
+      if (isBranchAdmin) router.push("/branch-manager/login")
+      else if (isPartnerAdmin) {
+        const slug =
+          typeof window !== "undefined"
+            ? localStorage.getItem("partner_slug") || ""
+            : ""
+        router.push(slug ? `/partners/${slug}/login` : "/superadmin/login")
+      } else router.push("/superadmin/login")
       return
     }
     try {
@@ -196,7 +206,7 @@ export default function AttendanceReportsPage() {
     } finally {
       setLoading(false)
     }
-  }, [buildQuery, isBranchAdmin, router])
+  }, [buildQuery, isBranchAdmin, isPartnerAdmin, router])
 
   useEffect(() => {
     loadLookups()

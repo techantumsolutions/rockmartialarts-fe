@@ -36,7 +36,8 @@ interface AttendanceRow {
 }
 
 function authHeaders(): HeadersInit {
-  const token = BranchManagerAuth.getToken() || TokenManager.getToken()
+  // Partner/SA session first; BM token only as fallback.
+  const token = TokenManager.getToken() || BranchManagerAuth.getToken()
   return {
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
@@ -72,7 +73,7 @@ export default function StudentAttendanceDetailPage() {
 
   const load = useCallback(async () => {
     if (!studentId) return
-    const token = BranchManagerAuth.getToken() || TokenManager.getToken()
+    const token = TokenManager.getToken() || BranchManagerAuth.getToken()
     if (!token) {
       router.push("/login")
       return

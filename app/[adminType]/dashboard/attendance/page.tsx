@@ -104,7 +104,7 @@ export default function AttendanceOverviewPage() {
     }
   }, [error])
 
-  // Get auth token from either TokenManager or BranchManagerAuth
+  // Partner/SA TokenManager first; BM token only as fallback (never mix Rock SA into partner session).
   const getAuthToken = () => {
     return TokenManager.getToken() || BranchManagerAuth.getToken() || null
   }
