@@ -35,10 +35,10 @@ interface Course {
   category_id?: string
   instructor_id?: string
   student_requirements?: {
-    max_students: number
-    min_age: number
-    max_age: number
-    prerequisites: string[]
+    max_students?: number
+    min_age?: number
+    max_age?: number
+    prerequisites?: string[]
   }
   course_content?: {
     syllabus: string
@@ -313,14 +313,6 @@ export default function AssignedCoursesPage() {
                               {course.is_instructor ? "Instructor" : "Assigned"}
                             </span>
                           </div>
-
-                          {/* Student Requirements */}
-                          {course.student_requirements && (
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-gray-500">Max Students:</span>
-                              <span className="font-medium">{course.student_requirements.max_students}</span>
-                            </div>
-                          )}
 
                           {/* Student Stats */}
                           <div className="flex items-center space-x-4 text-sm pt-2 border-t">

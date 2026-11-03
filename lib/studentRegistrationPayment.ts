@@ -9,6 +9,9 @@ export interface RegistrationBatch {
   end_time: string
   days: string[]
   coach_id?: string
+  max_students?: number | null
+  enrolled_students?: number | null
+  is_full?: boolean
 }
 
 export interface RegistrationPricing {
@@ -107,6 +110,11 @@ export async function fetchBranchCourseBatches(
     return rawBatches.map((b: any, index: number) => {
       const bid = b.batch_id || b.batchId || b.id || b._id || `batch-${index + 1}`
       const bname = b.batch_name || b.batchName || b.name || b.title || `Batch ${index + 1}`
+      const rawMax = b.max_students ?? b.maxStudents
+      const rawEnrolled = b.enrolled_students ?? b.enrolledStudents
+      const maxStudents = rawMax != null && String(rawMax).trim() !== "" ? parseInt(String(rawMax), 10) : null
+      const enrolledStudents = rawEnrolled != null && String(rawEnrolled).trim() !== "" ? parseInt(String(rawEnrolled), 10) : 0
+      const isFull = b.is_full ?? (maxStudents != null && maxStudents > 0 && enrolledStudents >= maxStudents)
       return {
         id: String(bid),
         batch_id: String(bid),
@@ -115,6 +123,9 @@ export async function fetchBranchCourseBatches(
         end_time: b.end_time || b.endTime || "",
         days: Array.isArray(b.days) ? b.days : [],
         coach_id: b.coach_id || b.coachId || "",
+        max_students: maxStudents,
+        enrolled_students: enrolledStudents,
+        is_full: !!isFull,
       }
     })
   } catch (err) {

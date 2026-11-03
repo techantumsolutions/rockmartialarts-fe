@@ -275,8 +275,10 @@ export default function CreateStudent() {
         setAvailableBatches(batches)
         if (batches.length > 0) {
           setFormData((prev) => {
-            const currentValid = batches.some((b) => b.batch_id === prev.slot || b.id === prev.slot)
-            return currentValid ? prev : { ...prev, slot: batches[0].batch_id || batches[0].id }
+            const currentValid = batches.find((b) => (b.batch_id === prev.slot || b.id === prev.slot) && !b.is_full)
+            if (currentValid) return prev
+            const firstAvailable = batches.find((b) => !b.is_full)
+            return { ...prev, slot: firstAvailable ? (firstAvailable.batch_id || firstAvailable.id) : "" }
           })
         } else {
           setFormData((prev) => ({ ...prev, slot: "" }))
@@ -369,7 +371,16 @@ export default function CreateStudent() {
     if (!formData.gender) newErrors.gender = "Gender is required"
     if (!formData.dob) newErrors.dob = "Date of birth is required"
     if (!formData.course) newErrors.course = "Please select a course"
-    if (availableBatches.length > 0 && !formData.slot) newErrors.slot = "Please select a batch"
+    if (availableBatches.length > 0) {
+      if (!formData.slot) {
+        newErrors.slot = "Please select a batch"
+      } else {
+        const chosen = availableBatches.find((b) => b.batch_id === formData.slot || b.id === formData.slot)
+        if (chosen?.is_full) {
+          newErrors.slot = "Selected batch is full. Please choose another batch."
+        }
+      }
+    }
 
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Please enter a valid email address"
@@ -943,10 +954,26 @@ export default function CreateStudent() {
                                 <SelectItem
                                   key={batch.batch_id || batch.id}
                                   value={batch.batch_id || batch.id}
-                                  className="!py-3 !pl-3 pr-8 text-base hover:bg-gray-50 rounded-lg cursor-pointer"
+                                  disabled={batch.is_full}
+                                  className={`!py-3 !pl-3 pr-8 text-base rounded-lg ${
+                                    batch.is_full
+                                      ? "opacity-50 cursor-not-allowed bg-gray-50"
+                                      : "hover:bg-gray-50 cursor-pointer"
+                                  }`}
                                 >
                                   <div className="flex flex-col">
-                                    <span className="font-medium text-gray-900">{batch.batch_name}</span>
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="font-medium text-gray-900">{batch.batch_name}</span>
+                                      {batch.is_full ? (
+                                        <span className="text-[10px] font-bold uppercase tracking-wide text-red-700 bg-red-100 px-1.5 py-0.5 rounded">
+                                          Full {batch.enrolled_students != null && batch.max_students ? `(${batch.enrolled_students}/${batch.max_students})` : ""}
+                                        </span>
+                                      ) : batch.max_students ? (
+                                        <span className="text-[10px] font-medium text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">
+                                          {batch.enrolled_students ?? 0}/{batch.max_students} spots
+                                        </span>
+                                      ) : null}
+                                    </div>
                                     <span className="text-xs text-gray-500">
                                       {batch.start_time && batch.end_time ? `${batch.start_time} - ${batch.end_time}` : ""}
                                       {batch.days && batch.days.length > 0 ? ` • ${batch.days.join(", ")}` : ""}

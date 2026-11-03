@@ -23,6 +23,9 @@ interface BranchBatchOption {
   start_time?: string
   end_time?: string
   trainer_name?: string | null
+  max_students?: number | null
+  enrolled_students?: number | null
+  is_full?: boolean
 }
 
 function sortBatchesByStartTime(batches: BranchBatchOption[]): BranchBatchOption[] {
@@ -340,10 +343,12 @@ export default function SelectCoursePage() {
     if (!selectedCourse?.id) return
     if (!branchBatches?.length) return
     if (branchBatches.length === 1) {
-      const only = branchBatches[0].batch_ref
-      setFormData((prev) =>
-        prev.batch_ref === only ? prev : { ...prev, batch_ref: only }
-      )
+      const only = branchBatches[0]
+      if (!only.is_full) {
+        setFormData((prev) =>
+          prev.batch_ref === only.batch_ref ? prev : { ...prev, batch_ref: only.batch_ref }
+        )
+      }
     }
   }, [selectedCourse?.id, branchBatches])
 
@@ -360,8 +365,21 @@ export default function SelectCoursePage() {
     if (!formData.duration) {
       newErrors.duration = "Please select a tenure"
     }
-    if (branchBatches.length > 0 && !formData.batch_ref.trim()) {
-      newErrors.batch_ref = "Please select a batch"
+    if (branchBatches.length > 0) {
+      if (!formData.batch_ref.trim()) {
+        newErrors.batch_ref = "Please select a batch"
+      } else {
+        const chosen = branchBatches.find((b) => b.batch_ref === formData.batch_ref)
+        if (chosen?.is_full) {
+          newErrors.batch_ref = "The selected batch is full. Please choose another batch."
+          toast({
+            title: "Batch Full",
+            description: "The selected batch is full. Please choose another batch.",
+            variant: "destructive",
+          })
+          return
+        }
+      }
     }
     if (Object.keys(newErrors).length > 0) {
       setFieldErrors(newErrors)
@@ -635,8 +653,9 @@ export default function SelectCoursePage() {
                       <button
                         key={b.batch_ref}
                         type="button"
-                        disabled={!formData.course_id}
+                        disabled={!formData.course_id || b.is_full}
                         onClick={() => {
+                          if (b.is_full) return
                           if (fieldErrors.batch_ref) {
                             setFieldErrors((prev) => {
                               const next = { ...prev }
@@ -647,14 +666,24 @@ export default function SelectCoursePage() {
                           setFormData((prev) => ({ ...prev, batch_ref: b.batch_ref }))
                         }}
                         className={`text-left rounded-xl border p-4 transition-all shadow-sm ${
-                          selected
+                          b.is_full
+                            ? "border-gray-200 bg-gray-100/90 opacity-60 cursor-not-allowed"
+                            : selected
                             ? "border-amber-500 bg-amber-50/90 ring-2 ring-amber-400/40"
                             : "border-gray-200 bg-[#F9F8FF] hover:border-gray-300"
-                        } ${!formData.course_id ? "opacity-50 cursor-not-allowed" : ""}`}
+                        } ${!formData.course_id && !b.is_full ? "opacity-50 cursor-not-allowed" : ""}`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <span className="font-semibold text-gray-900">{title}</span>
-                          {popular ? (
+                          {b.is_full ? (
+                            <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-red-700 bg-red-100 px-2 py-0.5 rounded-full">
+                              Full {b.enrolled_students != null && b.max_students ? `(${b.enrolled_students}/${b.max_students})` : ""}
+                            </span>
+                          ) : b.max_students ? (
+                            <span className="shrink-0 text-[10px] font-medium text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
+                              {b.enrolled_students ?? 0}/{b.max_students} spots
+                            </span>
+                          ) : popular ? (
                             <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
                               Popular
                             </span>
@@ -670,8 +699,10 @@ export default function SelectCoursePage() {
                             <span className="text-gray-400">Trainer TBA</span>
                           )}
                         </p>
-                        <span className="mt-3 inline-block text-xs font-semibold text-amber-700">
-                          {selected ? "Selected" : "Select"}
+                        <span className={`mt-3 inline-block text-xs font-semibold ${
+                          b.is_full ? "text-red-500" : selected ? "text-amber-700" : "text-amber-700"
+                        }`}>
+                          {b.is_full ? "Batch Full" : selected ? "Selected" : "Select"}
                         </span>
                       </button>
                     )
@@ -740,7 +771,7 @@ export default function SelectCoursePage() {
                 !formData.category_id ||
                 !formData.course_id ||
                 !formData.duration ||
-                (branchBatches.length > 0 && !formData.batch_ref.trim()) ||
+                (branchBatches.length > 0 && (!formData.batch_ref.trim() || branchBatches.find(b => b.batch_ref === formData.batch_ref)?.is_full)) ||
                 isSubmitting
               }
             >

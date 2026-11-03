@@ -311,7 +311,6 @@ export default function CreateCoursePage() {
         martial_art_style_id: 'style-default', // Will be configurable later
         instructor_id: user?.id && user.id.includes('instructor-') ? user.id : 'instructor-default',
         student_requirements: {
-          max_students: parseInt(formData.maxStudents) || 20,
           min_age: parseInt(formData.minAge) || 6,
           max_age: parseInt(formData.maxAge) || 99,
           prerequisites: prerequisites
@@ -651,20 +650,7 @@ export default function CreateCoursePage() {
                       <span className="text-[#4F5077]">Student Requirements</span>
                     </h3>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-[#7D8592]">
-                      <div className="space-y-2">
-                        <Label htmlFor="maxStudents">Maximum Students</Label>
-                        <Input
-                          id="maxStudents"
-                          type="number"
-                          value={formData.maxStudents}
-                          onChange={(e) => setFormData({ ...formData, maxStudents: e.target.value })}
-                          placeholder="20"
-                          min="1"
-                          max="100"
-                        />
-                      </div>
-
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[#7D8592]">
                       <div className="space-y-2">
                         <Label htmlFor="minAge">Minimum Age</Label>
                         <Input
@@ -1056,10 +1042,6 @@ export default function CreateCoursePage() {
               <div className="text-sm">
                 <span className="text-gray-600 block">Duration</span>
                 <span className="font-medium">{courseDurations.find(d => d.value === formData.duration)?.label || '—'}</span>
-              </div>
-              <div className="text-sm">
-                <span className="text-gray-600 block">Max Students</span>
-                <span className="font-medium">{formData.maxStudents || '—'}</span>
               </div>
               <div className="text-sm">
                 <span className="text-gray-600 block">Age Range</span>
