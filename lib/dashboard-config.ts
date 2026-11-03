@@ -117,7 +117,28 @@ function partnerSuperAdminMenu(basePath: string = PARTNER_ADMIN_BASE): NavItem[]
     )
   }
 
-  return menu
+  // Rock-only items — hide from Partner SA nav (Rock SA menu unchanged)
+  const rockOnlyTopLabels = new Set(["Camp Registrations"])
+  const rockOnlyChildPathSuffixes = [
+    "/camp-registrations",
+    "/callbacks",
+    "/demo-schedules",
+    "/demo-bookings",
+    "/training-requests",
+    "/coach-approvals",
+  ]
+  const filtered = menu
+    .filter((i) => !rockOnlyTopLabels.has(i.label))
+    .map((i) => {
+      if (!i.children?.length) return i
+      const children = i.children.filter(
+        (c) => !rockOnlyChildPathSuffixes.some((s) => c.path.endsWith(s))
+      )
+      return { ...i, children }
+    })
+    .filter((i) => !i.children || i.children.length > 0)
+
+  return filtered
 }
 
 export interface NavChild {

@@ -251,26 +251,26 @@ export default function StudentDashboardHeader({
 
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-gray-200/80 backdrop-blur-sm">
+    <header className="student-dash-header fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-gray-200/80 backdrop-blur-sm">
       <div className="w-full px-4 lg:px-6 py-2">
-        <div className="flex justify-between items-center h-auto roboto gap-2 lg:gap-3 xl:gap-4">
+        <div className="flex justify-between items-center gap-3 h-auto roboto gap-2 lg:gap-3 xl:gap-4">
           {/* Logo and Mobile Menu */}
-          <div className="flex items-center space-x-2 flex-shrink-0 z-10 mr-2 sm:mr-3 lg:mr-4 xl:mr-6">
+          <div className="student-dash-header-brand flex items-center space-x-2 flex-shrink-0 z-10 mr-2 sm:mr-3 lg:mr-4 xl:mr-6 relative z-10">
             <div className="flex-shrink-0">
               <img
                 src={navbarLogo}
                 alt="Logo"
-                className="w-[68px] sm:w-[75px] xl:w-[85px] 2xl:w-[95px] h-auto object-contain flex-shrink-0"
+                className="w-[68px] sm:w-[75px] xl:w-[85px] 2student-dash-header-logo xl:w-[95px] h-auto object-contain flex-shrink-0"
               />
             </div>
 
-            {/* Mobile Menu Button */}
+            {/* Mobile Menu Button (+ tablet landscape via CSS) */}
             <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
               <SheetTrigger asChild>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="lg:hidden hover:bg-gray-100/80 transition-colors duration-200 rounded-lg"
+                  className="student-dash-header-menu-btn lg:hidden hover:bg-gray-100/80 transition-colors duration-200 rounded-lg"
                 >
                   <Menu className="w-5 h-5 text-gray-700" />
                 </Button>
@@ -319,8 +319,8 @@ export default function StudentDashboardHeader({
           </div>
 
           {/* Right-aligned: Nav items + Notifications + User Profile */}
-          <div className="flex items-center justify-end gap-1.5 sm:gap-2.5 xl:gap-3 2xl:gap-4 min-w-0 flex-1">
-            <nav className="hidden lg:flex items-center gap-1 lg:gap-1.5 xl:gap-2 2xl:gap-3.5 min-w-0 flex-shrink overflow-x-auto scrollbar-none py-1">
+          <div className="student-dash-header-right flex items-center justify-end gap-1.5 sm:gap-2.5 xl:gap-3 2xl:gap-4 min-w-0 flex-1 overflow-hidden">
+            <nav className="student-dash-header-inline-nav hidden lg:flex items-center gap-1 lg:gap-1.5 xl:gap-2 2xl:gap-3.5 min-w-0 flex-shrink overflow-x-auto scrollbar-none py-1 min-w-0">
               {navigationItems.map((item) => {
                 const isActive = item.exact
                   ? pathname === item.path
@@ -333,7 +333,7 @@ export default function StudentDashboardHeader({
                     key={item.path}
                     onClick={() => handleNavigation(item.path)}
                     disabled={isNavigating}
-                    className={`pb-1.5 pt-1 px-1.5 lg:px-2 xl:px-2.5 text-xs lg:text-[13px] xl:text-sm font-semibold whitespace-nowrap cursor-pointer border-b-2 transition-all duration-200 hover:scale-105 flex items-center flex-shrink-0 ${
+                    className={`pb-1.5 pt-1 px-1.5 lg:px-2 xl:px-2.5 text-xs lg:text-[13px] xl:text-sm font-semibold whitespace-nowrap cursor-pointer border-b-2 transition-all duration-200 hover:scale-105 flex items-center flex-shrink-0 shrink-0 ${
                       isActive
                         ? "text-gray-900 border-yellow-400 shadow-sm"
                         : isRegistrationForm
@@ -343,7 +343,7 @@ export default function StudentDashboardHeader({
                     aria-current={isActive ? "page" : undefined}
                     title={item.description}
                   >
-                    {Icon && <Icon className="w-3.5 h-3.5 mr-1 hidden 2xl:inline-block flex-shrink-0" />}
+                    {Icon && <Icon className="w-3.5 h-3.5 mr-1 hidden 2xl:inline-block flex-shrink-0 shrink-0" />}
                     {item.name}
                   </button>
                 )
@@ -351,7 +351,8 @@ export default function StudentDashboardHeader({
             </nav>
 
             <div className="flex items-center gap-1.5 sm:gap-2 xl:gap-2.5 flex-shrink-0">
-              <NotificationDropdown />
+              <div className="student-dash-header-actions flex items-center gap-2 lg:gap-3 shrink-0">
+            <NotificationDropdown />
               <LinkedStudentSwitcher />
 
               <div className="relative z-[1000]">
@@ -367,7 +368,7 @@ export default function StudentDashboardHeader({
                           {studentName.charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="text-xs font-semibold text-gray-800 hidden xl:inline max-w-[85px] 2xl:max-w-[140px] truncate" title={studentName}>
+                      <span className="student-dash-header-user-name text-xs font-semibold text-gray-800 hidden xl:inline max-w-[85px] 2xl:max-w-[140px] truncate" title={studentName}>
                         {studentName}
                       </span>
                       <ChevronDown className="w-3 h-3 text-gray-600 transition-transform duration-200 group-hover:rotate-180" />
@@ -403,7 +404,7 @@ export default function StudentDashboardHeader({
                 </DropdownMenuPortal>
               </DropdownMenu>
             </div>
-          </div>
+            </div>          </div>
           </div>
         </div>
       </div>

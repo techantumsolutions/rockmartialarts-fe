@@ -6,6 +6,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import {
   extractIndianMobileDigits,
   isValidIndianMobileNational,
@@ -369,8 +370,7 @@ export default function ForgotPasswordPage() {
 
           {step === 3 && (
             <form onSubmit={handleResetSubmit} className="space-y-4">
-              <Input
-                type="password"
+              <PasswordInput
                 autoComplete="new-password"
                 placeholder={`New password (min ${PASSWORD_MIN} characters)`}
                 value={password}
@@ -380,8 +380,7 @@ export default function ForgotPasswordPage() {
                 }}
                 className="h-14 pl-5 bg-[#F9F8FF] border-0 rounded-xl"
               />
-              <Input
-                type="password"
+              <PasswordInput
                 autoComplete="new-password"
                 placeholder="Confirm new password"
                 value={confirmPassword}
