@@ -363,8 +363,12 @@ export default function EditStudentProfilePage() {
           </Alert>
         )}
 
-              </CardHeader>
-              <CardContent className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Personal Information</CardTitle>
+            <CardDescription>Update your personal details</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="firstName">First Name</Label>
@@ -614,12 +618,6 @@ export default function EditStudentProfilePage() {
               onClick={() => router.push("/student-dashboard/profile")}
               disabled={saving}
             >
-          <div className="flex justify-end space-x-4">
-            <Button
-              variant="outline"
-              onClick={() => router.push("/student-dashboard/profile")}
-              disabled={saving}
-            >
               Cancel
             </Button>
             <Button
@@ -639,3 +637,8 @@ export default function EditStudentProfilePage() {
                 </>
               )}
             </Button>
+          </div>
+        </div>
+      </StudentDashboardLayout>
+    )
+}
