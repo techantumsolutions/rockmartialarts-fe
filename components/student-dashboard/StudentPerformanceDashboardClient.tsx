@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Loader2, Save, Settings2 } from "lucide-react"
-import { toast, Toaster as SonnerToaster } from "sonner"
+
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 
@@ -218,10 +218,6 @@ export function StudentPerformanceDashboardClient({
         competitions_participated: Number(medals.comps) || 0,
         certificates_earned: Number(medals.certs) || 0,
       })
-      // Admin layout has no Sonner host by default — mount one below and use both toast systems
-      toast.success("Achievements saved", {
-        description: "Student achievements were updated successfully.",
-      })
       appToast({
         title: "Achievements saved",
         description: "Student achievements were updated successfully.",
@@ -231,7 +227,7 @@ export function StudentPerformanceDashboardClient({
       void load()
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Save failed"
-      toast.error(msg)
+
       appToast({
         title: "Save failed",
         description: msg,
@@ -250,7 +246,7 @@ export function StudentPerformanceDashboardClient({
         flexibility: skills.flex === "" ? null : Number(skills.flex),
         technique: skills.tech === "" ? null : Number(skills.tech),
       })
-      toast.success("Skills saved")
+
       appToast({
         title: "Success",
         description: "Skills updated successfully.",
@@ -258,7 +254,7 @@ export function StudentPerformanceDashboardClient({
       void load()
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Save failed"
-      toast.error(msg)
+
       appToast({
         title: "Save failed",
         description: msg,
@@ -275,7 +271,7 @@ export function StudentPerformanceDashboardClient({
         target_belt: goal.belt || null,
         progress_percentage: goal.pct === "" ? null : Number(goal.pct),
       })
-      toast.success("Goal saved")
+
       appToast({
         title: "Success",
         description: "Goals updated successfully.",
@@ -283,7 +279,7 @@ export function StudentPerformanceDashboardClient({
       void load()
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Save failed"
-      toast.error(msg)
+
       appToast({
         title: "Save failed",
         description: msg,
@@ -296,7 +292,7 @@ export function StudentPerformanceDashboardClient({
     if (!sid) return
     try {
       await putJson(`student/feedback/${encodeURIComponent(sid)}`, { feedback: fb })
-      toast.success("Feedback saved")
+
       appToast({
         title: "Success",
         description: "Coach feedback updated successfully.",
@@ -304,7 +300,7 @@ export function StudentPerformanceDashboardClient({
       void load()
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Save failed"
-      toast.error(msg)
+
       appToast({
         title: "Save failed",
         description: msg,
@@ -321,7 +317,7 @@ export function StudentPerformanceDashboardClient({
         rank: war.rank || null,
         next_level_progress: war.next === "" ? null : Number(war.next),
       })
-      toast.success("Warrior stats saved")
+
       appToast({
         title: "Success",
         description: "Warrior stats updated successfully.",
@@ -329,7 +325,7 @@ export function StudentPerformanceDashboardClient({
       void load()
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Save failed"
-      toast.error(msg)
+
       appToast({
         title: "Save failed",
         description: msg,
@@ -350,9 +346,6 @@ export function StudentPerformanceDashboardClient({
         title: "Success",
         description: "Level / belt updated successfully.",
       })
-      toast.success("Level / belt saved", {
-        description: "Level / belt updated successfully.",
-      })
       setProfileSaveMsg("Level / belt saved successfully.")
       window.setTimeout(() => setProfileSaveMsg(null), 4000)
       void load()
@@ -363,7 +356,7 @@ export function StudentPerformanceDashboardClient({
         description: msg,
         variant: "destructive",
       })
-      toast.error(msg)
+
       setProfileSaveMsg(null)
     } finally {
       setIsSavingProfile(false)
@@ -550,7 +543,7 @@ export function StudentPerformanceDashboardClient({
 
   return (
     <div className="space-y-6">
-      <SonnerToaster richColors position="top-center" closeButton />
+
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">{title}</h1>

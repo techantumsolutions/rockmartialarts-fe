@@ -1249,7 +1249,7 @@ export default function CoachAttendancePage() {
                           {getStatusBadge(record.status)}
                         </div>
                         
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-2">
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
@@ -1261,9 +1261,9 @@ export default function CoachAttendancePage() {
                                 aria-label="Mark Present"
                               >
                                 {saveStatus[record.id] === 'saving' && record.status === "present" ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  <Loader2 className="h-4 w-4 animate-spin" />
                                 ) : (
-                                  <CheckCircle className="h-3 w-3" />
+                                  <CheckCircle className="h-4 w-4" />
                                 )}
                               </Button>
                             </TooltipTrigger>
@@ -1282,9 +1282,9 @@ export default function CoachAttendancePage() {
                                 aria-label="Mark Absent"
                               >
                                 {saveStatus[record.id] === 'saving' && record.status === "absent" ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  <Loader2 className="h-4 w-4 animate-spin" />
                                 ) : (
-                                  <XCircle className="h-3 w-3" />
+                                  <XCircle className="h-4 w-4" />
                                 )}
                               </Button>
                             </TooltipTrigger>
@@ -1292,35 +1292,35 @@ export default function CoachAttendancePage() {
                               <p>Mark Absent</p>
                             </TooltipContent>
                           </Tooltip>
-                        </div>
 
-                        {/* Save Status Indicator */}
-                        {saveStatus[record.id] && (
-                          <div className="flex items-center ml-2">
-                            {saveStatus[record.id] === 'success' && (
-                              <CheckCircle className="w-4 h-4 text-green-600" />
-                            )}
-                            {saveStatus[record.id] === 'error' && (
-                              <XCircle className="w-4 h-4 text-red-600" />
-                            )}
-                          </div>
-                        )}
-                        
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => router.push(`/coach-dashboard/students/${record.student_id}`)}
-                              aria-label="View Student Details"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>View Student Details</p>
-                          </TooltipContent>
-                        </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => router.push(`/coach-dashboard/students/${record.student_id}`)}
+                                aria-label="View Student Details"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>View Student Details</p>
+                            </TooltipContent>
+                          </Tooltip>
+
+                          {/* Save Status Indicator */}
+                          {saveStatus[record.id] && (
+                            <div className="flex items-center">
+                              {saveStatus[record.id] === 'success' && (
+                                <CheckCircle className="w-4 h-4 text-green-600" />
+                              )}
+                              {saveStatus[record.id] === 'error' && (
+                                <XCircle className="w-4 h-4 text-red-600" />
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))
