@@ -122,8 +122,9 @@ export default function StudentAttendancePage() {
       console.log("🔄 Fetching student attendance data...")
 
       const qs = new URLSearchParams()
-      const s = overrideStart ?? startDate
-      const e = overrideEnd ?? endDate
+      // Only accept real YYYY-MM-DD strings (onClick can pass a MouseEvent if miswired)
+      const s = typeof overrideStart === "string" && overrideStart ? overrideStart : startDate
+      const e = typeof overrideEnd === "string" && overrideEnd ? overrideEnd : endDate
       if (s) qs.set("start_date", s)
       if (e) qs.set("end_date", e)
 
@@ -265,30 +266,45 @@ export default function StudentAttendancePage() {
       )}
 
       <Card className="rounded-xl border bg-white shadow-sm mb-6">
-        <CardContent className="p-4 flex flex-col sm:flex-row sm:items-end gap-3">
-          <div className="space-y-1 flex-1">
+        <CardContent className="student-attendance-date-filters p-4 flex flex-col sm:flex-row sm:items-end gap-3">
+          <div className="student-attendance-date-field space-y-1 flex-1 min-w-0">
             <label className="text-xs font-medium text-slate-600">From</label>
-            <Input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
+            <div className="student-attendance-date-wrap relative">
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="student-attendance-date-input w-full min-w-0"
+              />
+              <Calendar
+                aria-hidden
+                className="student-attendance-date-icon pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
+              />
+            </div>
           </div>
-          <div className="space-y-1 flex-1">
+          <div className="student-attendance-date-field space-y-1 flex-1 min-w-0">
             <label className="text-xs font-medium text-slate-600">To</label>
-            <Input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
+            <div className="student-attendance-date-wrap relative">
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="student-attendance-date-input w-full min-w-0"
+              />
+              <Calendar
+                aria-hidden
+                className="student-attendance-date-icon pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
+              />
+            </div>
           </div>
           <Button
-            className="bg-blue-600 hover:bg-blue-700 text-white"
+            className="student-attendance-date-apply bg-blue-600 hover:bg-blue-700 text-white shrink-0"
             onClick={() => fetchAttendanceData()}
             disabled={loading}
           >
             <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} />
-            Apply dates
+            <span className="student-attendance-date-apply-full">Apply dates</span>
+            <span className="student-attendance-date-apply-short hidden">Apply</span>
           </Button>
         </CardContent>
       </Card>
@@ -364,7 +380,7 @@ export default function StudentAttendancePage() {
             <CardDescription>Your attendance history for the past classes</CardDescription>
           </div>
           <Button
-            onClick={fetchAttendanceData}
+            onClick={() => fetchAttendanceData()}
             variant="outline"
             size="sm"
             disabled={loading}

@@ -251,26 +251,26 @@ export default function StudentDashboardHeader({
 
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-gray-200/80 backdrop-blur-sm">
+    <header className="student-dash-header fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-gray-200/80 backdrop-blur-sm">
       <div className="w-full px-4 lg:px-6 py-2">
-        <div className="flex justify-between items-center h-auto roboto">
+        <div className="flex justify-between items-center gap-3 h-auto roboto">
           {/* Logo and Mobile Menu */}
-          <div className="flex items-center space-x-2 min-w-0 flex-shrink-0">
+          <div className="student-dash-header-brand flex items-center space-x-2 min-w-0 flex-shrink-0 relative z-10">
             <div className="flex-shrink-0">
               <img
                 src={navbarLogo}
                 alt="Logo"
-                className="xl:w-[95px] w-[80px] h-auto"
+                className="student-dash-header-logo xl:w-[95px] w-[80px] h-auto"
               />
             </div>
 
-            {/* Mobile Menu Button */}
+            {/* Mobile Menu Button (+ tablet landscape via CSS) */}
             <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
               <SheetTrigger asChild>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="lg:hidden hover:bg-gray-100/80 transition-colors duration-200 rounded-lg"
+                  className="student-dash-header-menu-btn lg:hidden hover:bg-gray-100/80 transition-colors duration-200 rounded-lg"
                 >
                   <Menu className="w-5 h-5 text-gray-700" />
                 </Button>
@@ -319,8 +319,8 @@ export default function StudentDashboardHeader({
           </div>
 
           {/* Right-aligned: Nav items + Notifications + User Profile */}
-          <div className="flex items-center justify-end space-x-4 lg:space-x-5 xl:space-x-6 min-w-0 flex-1">
-            <nav className="hidden lg:flex items-center space-x-5 xl:space-x-4">
+          <div className="student-dash-header-right flex items-center justify-end space-x-4 lg:space-x-5 xl:space-x-6 min-w-0 flex-1 overflow-hidden">
+            <nav className="student-dash-header-inline-nav hidden lg:flex items-center space-x-5 xl:space-x-4 min-w-0">
               {navigationItems.map((item) => {
                 const isActive = item.exact
                   ? pathname === item.path
@@ -333,7 +333,7 @@ export default function StudentDashboardHeader({
                     key={item.path}
                     onClick={() => handleNavigation(item.path)}
                     disabled={isNavigating}
-                    className={`pb-2 px-1 text-sm font-semibold whitespace-nowrap cursor-pointer border-b-2 transition-all duration-300 hover:scale-105 flex items-center ${
+                    className={`pb-2 px-1 text-sm font-semibold whitespace-nowrap cursor-pointer border-b-2 transition-all duration-300 hover:scale-105 flex items-center shrink-0 ${
                       isActive
                         ? "text-gray-900 border-yellow-400 shadow-sm"
                         : isRegistrationForm
@@ -343,12 +343,13 @@ export default function StudentDashboardHeader({
                     aria-current={isActive ? "page" : undefined}
                     title={item.description}
                   >
-                    {Icon && <Icon className="w-4 h-4 mr-1" />}
+                    {Icon && <Icon className="w-4 h-4 mr-1 shrink-0" />}
                     {item.name}
                   </button>
                 )
               })}
             </nav>
+            <div className="student-dash-header-actions flex items-center gap-2 lg:gap-3 shrink-0">
             <NotificationDropdown />
             <LinkedStudentSwitcher />
 
@@ -365,7 +366,7 @@ export default function StudentDashboardHeader({
                         {studentName.charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="text-xs font-semibold text-gray-800 hidden xl:inline">{studentName}</span>
+                    <span className="student-dash-header-user-name text-xs font-semibold text-gray-800 hidden xl:inline">{studentName}</span>
                     <ChevronDown className="w-3 h-3 text-gray-600 transition-transform duration-200 group-hover:rotate-180" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -399,7 +400,7 @@ export default function StudentDashboardHeader({
                 </DropdownMenuPortal>
               </DropdownMenu>
             </div>
-
+            </div>
 
           </div>
         </div>
