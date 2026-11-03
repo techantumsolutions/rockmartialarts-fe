@@ -260,6 +260,118 @@ body[data-scroll-locked] {
   }
 }
 
+/*
+ * Student dashboard header — tablet landscape only (≈iPad landscape ≤1400px).
+ * Desktop (≥1401px, any orientation) and portrait keep Tailwind lg/xl behavior.
+ */
+@media (orientation: landscape) and (max-width: 1400px) {
+  .student-dash-header-inline-nav {
+    display: none !important;
+  }
+
+  .student-dash-header-menu-btn {
+    display: inline-flex !important;
+  }
+
+  .student-dash-header-logo {
+    width: 72px !important;
+  }
+
+  .student-dash-header-user-name,
+  .student-dash-header-switcher-label {
+    display: none !important;
+  }
+
+  .student-dash-header-right {
+    gap: 0.5rem;
+  }
+
+  .student-dash-header-actions {
+    gap: 0.5rem !important;
+  }
+
+  /* Student attendance date filters — single row, no overflow on tablet landscape */
+  .student-attendance-date-filters {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto !important;
+    align-items: end !important;
+    gap: 0.5rem !important;
+  }
+
+  .student-attendance-date-field {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden;
+  }
+
+  .student-attendance-date-wrap {
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .student-attendance-date-apply {
+    flex: none !important;
+    width: auto !important;
+    white-space: nowrap;
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+
+  .student-attendance-date-apply-full {
+    display: none !important;
+  }
+
+  .student-attendance-date-apply-short {
+    display: inline !important;
+  }
+
+  .student-attendance-date-input,
+  .student-attendance-date-field input[type="date"] {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    padding-right: 2.25rem !important;
+    font-size: 13px !important;
+    color-scheme: light;
+  }
+
+  /*
+   * iPad Safari often hides/clips the native calendar glyph in landscape.
+   * Keep the native control clickable (invisible) and show our Lucide icon underneath.
+   */
+  .student-attendance-date-icon {
+    display: block !important;
+    z-index: 1;
+    color: #475569 !important;
+  }
+
+  .student-attendance-date-field input[type="date"]::-webkit-calendar-picker-indicator {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 2.5rem;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    opacity: 0.01 !important; /* nearly invisible but still receives taps */
+    cursor: pointer;
+    z-index: 2;
+    background: transparent !important;
+    color: transparent !important;
+  }
+
+  .student-attendance-date-wrap {
+    position: relative;
+  }
+}
+
+/* Desktop/portrait: hide the decorative Lucide calendar (native indicator is enough) */
+.student-attendance-date-icon {
+  display: none;
+}
+
 .registration-form-nav-highlight {
   color: #b45309 !important;
   background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 55%, #fde68a 100%);
