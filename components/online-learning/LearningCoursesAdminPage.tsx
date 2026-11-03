@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
-import { Loader2, Plus, RefreshCw, Save } from "lucide-react"
+import { Loader2, Plus, RefreshCw, Save, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -28,6 +28,7 @@ import {
 const EMPTY_FORM = {
   title: "",
   slug: "",
+  price: "0",
   short_description: "",
   description: "",
   thumbnail_url: "",
@@ -90,6 +91,7 @@ export default function LearningCoursesAdminPage() {
     setForm({
       title: c.title || "",
       slug: c.slug || "",
+      price: c.price != null ? String(c.price) : "0",
       short_description: c.short_description || "",
       description: c.description || "",
       thumbnail_url: c.thumbnail_url || "",
@@ -117,6 +119,7 @@ export default function LearningCoursesAdminPage() {
       const payload = {
         title: form.title.trim(),
         slug: form.slug.trim() || undefined,
+        price: form.price ? parseFloat(form.price) : 0,
         short_description: form.short_description.trim() || undefined,
         description: form.description.trim() || undefined,
         thumbnail_url: form.thumbnail_url.trim() || undefined,
@@ -176,7 +179,7 @@ export default function LearningCoursesAdminPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Online learning courses</h1>
             <p className="text-sm text-gray-600">
-              Catalogue for online courses (separate from branch academy classes).
+              Manage courses, pricing, curriculums, and view enrolled student submissions by course.
             </p>
           </div>
           <div className="flex gap-2">
@@ -186,7 +189,7 @@ export default function LearningCoursesAdminPage() {
             </Button>
             <Button
               type="button"
-              className="bg-yellow-400 hover:bg-yellow-500 text-white"
+              className="bg-yellow-400 hover:bg-yellow-500 text-white font-medium"
               onClick={startCreate}
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -211,13 +214,26 @@ export default function LearningCoursesAdminPage() {
                   placeholder="e.g. Karate Fundamentals Online"
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label>Slug</Label>
-                <Input
-                  value={form.slug}
-                  onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
-                  placeholder="auto from title if empty"
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label>Slug</Label>
+                  <Input
+                    value={form.slug}
+                    onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
+                    placeholder="auto from title"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Price (₹) *</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="any"
+                    value={form.price}
+                    onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+                    placeholder="0 for free"
+                  />
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label>Short description</Label>
@@ -329,7 +345,7 @@ export default function LearningCoursesAdminPage() {
               </div>
               <Button
                 type="button"
-                className="w-full bg-yellow-400 hover:bg-yellow-500 text-white"
+                className="w-full bg-yellow-400 hover:bg-yellow-500 text-white font-medium"
                 disabled={saving}
                 onClick={() => void save()}
               >
@@ -348,7 +364,7 @@ export default function LearningCoursesAdminPage() {
               <CardTitle className="text-lg">Courses</CardTitle>
               <div className="flex flex-col sm:flex-row gap-2">
                 <Input
-                  placeholder="Search…"
+                  placeholder="Search courses…"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="flex-1"
@@ -380,6 +396,7 @@ export default function LearningCoursesAdminPage() {
                     <thead className="bg-gray-100 text-gray-700">
                       <tr>
                         <th className="px-3 py-2 font-semibold">Title</th>
+                        <th className="px-3 py-2 font-semibold">Price</th>
                         <th className="px-3 py-2 font-semibold">Status</th>
                         <th className="px-3 py-2 font-semibold">Order</th>
                         <th className="px-3 py-2 font-semibold">Actions</th>
@@ -395,6 +412,15 @@ export default function LearningCoursesAdminPage() {
                               <div className="text-xs text-gray-400">{c.difficulty}</div>
                             ) : null}
                           </td>
+                          <td className="px-3 py-2 font-semibold text-gray-900">
+                            {c.price && c.price > 0 ? (
+                              <span className="text-emerald-700 font-bold">
+                                ₹{c.price.toLocaleString("en-IN")}
+                              </span>
+                            ) : (
+                              <span className="text-gray-500 font-normal">Free</span>
+                            )}
+                          </td>
                           <td className="px-3 py-2">
                             <Badge
                               variant="outline"
@@ -405,7 +431,7 @@ export default function LearningCoursesAdminPage() {
                           </td>
                           <td className="px-3 py-2">{c.sort_order ?? "—"}</td>
                           <td className="px-3 py-2">
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap gap-1.5">
                               <Button
                                 type="button"
                                 size="sm"
@@ -413,6 +439,20 @@ export default function LearningCoursesAdminPage() {
                                 onClick={() => startEdit(c)}
                               >
                                 Edit
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="border-blue-200 text-blue-700 hover:bg-blue-50"
+                                asChild
+                              >
+                                <Link
+                                  href={`/${adminType}/dashboard/online-learning/courses/${c.id}/submissions`}
+                                >
+                                  <Users className="w-3.5 h-3.5 mr-1" />
+                                  Submissions
+                                </Link>
                               </Button>
                               <Button type="button" size="sm" variant="outline" asChild>
                                 <Link
