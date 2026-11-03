@@ -280,22 +280,24 @@ export default function CoachDashboardHeader({
           {/* Right: Navigation Items + Quick Actions + User Pill + Mobile/Tablet Menu */}
           <div className="flex items-center justify-end space-x-2 sm:space-x-3 xl:space-x-4 min-w-0">
             {/* Desktop Navigation Items aligned to the right */}
-            <nav className="hidden xl:flex items-center space-x-2.5 2xl:space-x-4">
+            <nav className="hidden xl:flex items-center space-x-2 2xl:space-x-3.5">
               {navigationItems.map((item) => {
+                const Icon = item.icon
                 const isActive = isActivePath(item.path, item.exact)
 
                 return (
                   <button
                     key={item.path}
                     onClick={() => handleDesktopNavigation(item.path)}
-                    className={`px-2 py-1 text-sm 2xl:text-[15px] font-semibold whitespace-nowrap cursor-pointer transition-colors duration-200 ${
+                    className={`px-1.5 2xl:px-2 py-1 text-sm 2xl:text-[15px] font-semibold whitespace-nowrap cursor-pointer transition-colors duration-200 flex items-center gap-1.5 ${
                       isActive
                         ? "text-[#FFB70F]"
                         : "text-gray-600 hover:text-[#FFB70F]"
                     }`}
                     title={item.description}
                   >
-                    {item.name}
+                    {Icon && <Icon className="w-4 h-4 flex-shrink-0" />}
+                    <span>{item.name}</span>
                   </button>
                 )
               })}
