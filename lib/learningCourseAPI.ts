@@ -37,6 +37,7 @@ export type LearningCourse = {
   id: string
   title: string
   slug: string
+  price?: number | null
   short_description?: string | null
   description?: string | null
   thumbnail_url?: string | null
@@ -59,6 +60,7 @@ export type LearningCourse = {
 export type LearningCoursePayload = {
   title: string
   slug?: string
+  price?: number | null
   short_description?: string
   description?: string
   thumbnail_url?: string
@@ -70,6 +72,33 @@ export type LearningCoursePayload = {
   sort_order?: number
   seo_title?: string
   seo_description?: string
+}
+
+export type LearningCourseEnrollment = {
+  id: string
+  course_id: string
+  course_title: string
+  course_slug?: string
+  student_name: string
+  email: string
+  phone: string
+  city?: string | null
+  state?: string | null
+  address?: string | null
+  pincode?: string | null
+  skill_level?: string | null
+  learning_goals?: string | null
+  notes?: string | null
+  amount_paid: number
+  amount_paise?: number
+  currency: string
+  payment_status: string
+  razorpay_order_id?: string | null
+  razorpay_payment_id?: string | null
+  razorpay_signature?: string | null
+  paid_at?: string | null
+  created_at?: string
+  updated_at?: string
 }
 
 function authHeaders(json = false): HeadersInit {
@@ -173,6 +202,76 @@ class LearningCourseAPI {
     )
     if (!res.ok) throw new Error(await parseError(res))
     return res.json()
+  }
+
+  // ----- Enrollments -----
+
+  async createEnrollmentOrder(payload: {
+    course_id: string
+    student_name?: string
+    email?: string
+    phone?: string
+  }) {
+    const res = await fetch(getBackendApiUrl("learning-courses/enrollment/create-order"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{
+      fee_required: boolean
+      order_id?: string
+      amount_paise?: number
+      amount_inr?: number
+      currency?: string
+      key_id?: string
+    }>
+  }
+
+  async submitEnrollment(payload: {
+    course_id: string
+    student_name: string
+    email: string
+    phone: string
+    city?: string
+    state?: string
+    address?: string
+    pincode?: string
+    skill_level?: string
+    learning_goals?: string
+    notes?: string
+    razorpay_order_id?: string
+    razorpay_payment_id?: string
+    razorpay_signature?: string
+  }) {
+    const res = await fetch(getBackendApiUrl("learning-courses/enrollment"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{ message: string; enrollment: LearningCourseEnrollment }>
+  }
+
+  async listEnrollments(
+    courseId?: string,
+    params: { search?: string; skip?: number; limit?: number } = {}
+  ) {
+    const qs = new URLSearchParams()
+    if (courseId && courseId !== "all") qs.set("course_id", courseId)
+    if (params.search?.trim()) qs.set("search", params.search.trim())
+    qs.set("skip", String(params.skip ?? 0))
+    qs.set("limit", String(params.limit ?? 50))
+    const endpoint =
+      courseId && courseId !== "all"
+        ? `learning-courses/${encodeURIComponent(courseId)}/enrollments?${qs.toString()}`
+        : `learning-courses/enrollments?${qs.toString()}`
+    const res = await fetch(getBackendApiUrl(endpoint), {
+      headers: authHeaders(),
+      cache: "no-store",
+    })
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{ enrollments: LearningCourseEnrollment[]; total: number }>
   }
 
   // ----- M16-S02 hierarchy -----
