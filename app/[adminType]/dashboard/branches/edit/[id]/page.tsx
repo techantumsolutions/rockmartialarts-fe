@@ -196,13 +196,13 @@ export default function EditBranch() {
   const [isLoadingCourses, setIsLoadingCourses] = useState(true)
   const [categories, setCategories] = useState<Category[]>([])
   const [isLoadingCategories, setIsLoadingCategories] = useState(true)
-  const [coaches, setCoaches] = useState<{ id: string; name: string }[]>([])
+  const [branchManagers, setBranchManagers] = useState<{ id: string; name: string }[]>([])
   const [trainers, setTrainers] = useState<{ id: string; name: string }[]>([])
   const [externalBatches, setExternalBatches] = useState<AssignmentBatch[]>([])
   const [availabilityByCoach, setAvailabilityByCoach] = useState<Record<string, AvailabilityWindow[] | undefined>>({})
   const [masterDurations, setMasterDurations] = useState<MasterDuration[]>([])
   const pricingHydratedRef = useRef(false)
-  const [isLoadingCoaches, setIsLoadingCoaches] = useState(true)
+  const [isLoadingBranchManagers, setIsLoadingBranchManagers] = useState(true)
   const [formLocationId, setFormLocationId] = useState("")
   const geography = useGeographyDropdowns({ initialCityId: formLocationId })
   const [countries, setCountries] = useState<DropdownOption[]>([])
@@ -280,7 +280,7 @@ export default function EditBranch() {
   useEffect(() => {
     const loadBranchManagers = async () => {
       try {
-        setIsLoadingCoaches(true)
+        setIsLoadingBranchManagers(true)
         let token = TokenManager.getToken()
 
         if (!token) {
@@ -337,7 +337,7 @@ export default function EditBranch() {
             email: manager.email || manager.contact_info?.email || ''
           }))
 
-          setCoaches(branchManagerOptions)
+          setBranchManagers(branchManagerOptions)
           const trainerRows: { id: string; name: string }[] = []
           let skip = 0
           while (skip < 1000) {
@@ -412,7 +412,7 @@ export default function EditBranch() {
       } catch (error) {
         console.error('Error loading branch managers:', error)
       } finally {
-        setIsLoadingCoaches(false)
+        setIsLoadingBranchManagers(false)
       }
     }
 
@@ -1337,15 +1337,15 @@ export default function EditBranch() {
                 <Select
                   value={formData.manager_id}
                   onValueChange={(value) => setFormData({ ...formData, manager_id: value })}
-                  disabled={isLoadingCoaches}
+                  disabled={isLoadingBranchManagers}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={isLoadingCoaches ? "Loading..." : "Select manager"} />
+                    <SelectValue placeholder={isLoadingBranchManagers ? "Loading..." : "Select manager"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {coaches.map((coach) => (
-                      <SelectItem key={coach.id} value={coach.id}>
-                        {coach.name}
+                    {branchManagers.map((manager) => (
+                      <SelectItem key={manager.id} value={manager.id}>
+                        {manager.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1664,7 +1664,7 @@ export default function EditBranch() {
                                         {(batch.coach_id || "").trim() &&
                                           !trainers.some((trainer) => trainer.id === batch.coach_id) && (
                                             <SelectItem value={batch.coach_id}>
-                                              {coaches.find((coach) => coach.id === batch.coach_id)?.name ||
+                                              {trainers.find((trainer) => trainer.id === batch.coach_id)?.name ||
                                                 "Current assignment"}
                                             </SelectItem>
                                           )}
