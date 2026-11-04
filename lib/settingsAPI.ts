@@ -34,6 +34,8 @@ export interface SystemSettings {
   registration_fee: number
   coach_registration_fee: number
   coach_registration_fee_note?: string
+  /** White-label partner onboarding / registration fee (INR) */
+  partner_registration_fee?: number
   home_training_fee?: number
   school_training_fee?: number
   college_training_fee?: number
@@ -67,6 +69,7 @@ export interface SettingsResponse {
   registration_fee: number
   coach_registration_fee: number
   coach_registration_fee_note?: string
+  partner_registration_fee?: number
   home_training_fee?: number
   school_training_fee?: number
   college_training_fee?: number
