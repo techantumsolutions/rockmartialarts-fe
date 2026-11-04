@@ -1418,29 +1418,27 @@ export default function CMSPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-2">
                   <Label>Address</Label>
                   <Textarea value={footer.address || ""} onChange={(e) => setFooter({ ...footer, address: e.target.value })} placeholder="Enter address" rows={2} />
                 </div>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Phone</Label>
-                    <Input value={footer.phone || ""} onChange={(e) => setFooter({ ...footer, phone: e.target.value })} placeholder="Enter phone number" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Email</Label>
-                    <Input value={footer.email || ""} onChange={(e) => setFooter({ ...footer, email: e.target.value })} placeholder="Enter email address" type="email" />
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <Label>WhatsApp number (floating button on website)</Label>
-                    <Input
-                      value={footer.whatsapp_number || ""}
-                      onChange={(e) => setFooter({ ...footer, whatsapp_number: e.target.value })}
-                      placeholder="e.g. +91 9876543210 — leave blank to hide the button"
-                      type="tel"
-                    />
-                    <p className="text-xs text-muted-foreground">Digits only or with country code; saves to CMS and updates the green chat button after save.</p>
-                  </div>
+                <div className="space-y-2">
+                  <Label>Phone</Label>
+                  <Input value={footer.phone || ""} onChange={(e) => setFooter({ ...footer, phone: e.target.value })} placeholder="Enter phone number" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input value={footer.email || ""} onChange={(e) => setFooter({ ...footer, email: e.target.value })} placeholder="Enter email address" type="email" />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>WhatsApp number (floating button on website)</Label>
+                  <Input
+                    value={footer.whatsapp_number || ""}
+                    onChange={(e) => setFooter({ ...footer, whatsapp_number: e.target.value })}
+                    placeholder="e.g. +91 9876543210 — leave blank to hide the button"
+                    type="tel"
+                  />
+                  <p className="text-xs text-muted-foreground">Digits only or with country code; saves to CMS and updates the green chat button after save.</p>
                 </div>
               </div>
             </CardContent>
