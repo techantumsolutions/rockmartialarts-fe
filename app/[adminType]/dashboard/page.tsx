@@ -457,7 +457,7 @@ export default function SuperAdminDashboard() {
       <Header title="Dashboard" role={role}>
         {/* Time Period Filter — inline beside header action buttons */}
         <Select value={timePeriod} onValueChange={setTimePeriod}>
-          <SelectTrigger className="w-36 bg-white border border-gray-200 text-sm">
+          <SelectTrigger className="w-36 bg-white border border-gray-300 text-sm font-medium text-[var(--brand-dark)]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

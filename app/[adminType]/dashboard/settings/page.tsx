@@ -29,6 +29,28 @@ import { useToast } from "@/hooks/use-toast"
 import { TokenManager } from "@/lib/tokenManager"
 import { settingsAPI, SystemSettings, SettingsResponse } from "@/lib/settingsAPI"
 
+function isAllowedSettingsRole(role: string | undefined | null) {
+  const normalized = String(role || "").toLowerCase()
+  return (
+    normalized === "superadmin" ||
+    normalized === "super_admin" ||
+    normalized === "partner_super_admin"
+  )
+}
+
+function settingsLoginPath() {
+  const user = TokenManager.getUser()
+  const role = String(user?.role || "").toLowerCase()
+  const partnerSlug =
+    (typeof window !== "undefined" && localStorage.getItem("partner_slug")) ||
+    user?.partner_slug ||
+    ""
+  if (role === "partner_super_admin" || partnerSlug) {
+    return partnerSlug ? `/partners/${partnerSlug}/login` : "/superadmin/login"
+  }
+  return "/superadmin/login"
+}
+
 // Use the SystemSettings interface from the API
 
 interface FormErrors {
@@ -85,14 +107,14 @@ export default function SuperAdminSettingsPage() {
   useEffect(() => {
     // Check authentication
     if (!TokenManager.isAuthenticated()) {
-      router.push("/superadmin/login")
+      router.push(settingsLoginPath())
       return
     }
 
-    // Check if user is superadmin
+    // Rock super admin or partner super admin may open Settings
     const user = TokenManager.getUser()
-    if (!user || user.role !== "superadmin") {
-      router.push("/superadmin/login")
+    if (!user || !isAllowedSettingsRole(user.role)) {
+      router.push(settingsLoginPath())
       return
     }
     
@@ -104,7 +126,7 @@ export default function SuperAdminSettingsPage() {
     try {
       const token = TokenManager.getToken()
       if (!token) {
-        router.push("/superadmin/login")
+        router.push(settingsLoginPath())
         return
       }
 
@@ -198,7 +220,7 @@ export default function SuperAdminSettingsPage() {
     try {
       const token = TokenManager.getToken()
       if (!token) {
-        router.push("/superadmin/login")
+        router.push(settingsLoginPath())
         return
       }
 
@@ -226,7 +248,7 @@ export default function SuperAdminSettingsPage() {
     try {
       const token = TokenManager.getToken()
       if (!token) {
-        router.push("/superadmin/login")
+        router.push(settingsLoginPath())
         return
       }
 
