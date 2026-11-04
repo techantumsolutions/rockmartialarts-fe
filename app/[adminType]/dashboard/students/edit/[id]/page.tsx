@@ -694,7 +694,6 @@ export default function EditStudent() {
     if (!formData.firstName.trim()) newErrors.firstName = "First name is required"
     if (!formData.lastName.trim()) newErrors.lastName = "Last name is required"
     if (!formData.email.trim()) newErrors.email = "Email is required"
-    if (!formData.contactNumber.trim()) newErrors.contactNumber = "Contact number is required"
     if (!formData.gender) newErrors.gender = "Gender is required"
     if (!formData.dob) newErrors.dob = "Date of birth is required"
     if (!formData.location) newErrors.location = "Location is required"
@@ -707,8 +706,12 @@ export default function EditStudent() {
       newErrors.password = "Password must be at least 6 characters long"
     }
     {
-      const mobile = normalizeIndianMobileDigits(formData.contactNumber, formData.countryCode)
-      if (formData.contactNumber.trim() && !/^[6-9]\d{9}$/.test(mobile)) {
+      const mobileDigits = (formData.contactNumber || "").replace(/\D/g, "")
+      if (!mobileDigits) {
+        newErrors.contactNumber = "Mobile number is required"
+      } else if (mobileDigits.length !== 10) {
+        newErrors.contactNumber = "Mobile number must be exactly 10 digits"
+      } else if (!/^[6-9]\d{9}$/.test(mobileDigits)) {
         newErrors.contactNumber = "Please enter a valid 10-digit phone number"
       }
     }
@@ -748,7 +751,13 @@ export default function EditStudent() {
       const token = TokenManager.getToken()
       if (!token) throw new Error("Authentication token not found.")
 
-      const mobileDigits = normalizeIndianMobileDigits(formData.contactNumber, formData.countryCode)
+      const mobileDigits = (formData.contactNumber || "").replace(/\D/g, "")
+      if (mobileDigits.length !== 10) {
+        setErrors((prev) => ({ ...prev, contactNumber: "Mobile number must be exactly 10 digits" }))
+        setPendingScrollField("contactNumber")
+        setIsSubmitting(false)
+        return
+      }
       const submittedBranchId = isBranchAdmin
         ? headerBranchId || formData.branch
         : formData.branch
@@ -905,9 +914,29 @@ export default function EditStudent() {
                       <div className="relative">
                         <PhoneIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                         <Input
-                          placeholder="Enter mobile number"
+                          type="tel"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={10}
+                          placeholder="Enter 10-digit mobile number"
                           value={formData.contactNumber}
-                          onChange={(e) => handleInputChange("contactNumber", e.target.value)}
+                          onChange={(e) => {
+                            let val = e.target.value.replace(/\D/g, "")
+                            if (val.length > 10 && val.startsWith("91")) {
+                              val = val.slice(2)
+                            }
+                            handleInputChange("contactNumber", val.slice(0, 10))
+                          }}
+                          onKeyDown={(e) => {
+                            if (
+                              !/^\d$/.test(e.key) &&
+                              !["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab", "Enter"].includes(e.key) &&
+                              !e.ctrlKey &&
+                              !e.metaKey
+                            ) {
+                              e.preventDefault()
+                            }
+                          }}
                           className={cn("pl-12 py-4 text-base bg-gray-50 border-gray-200 rounded-xl h-14", errors.contactNumber && "border-red-500 bg-red-50")}
                         />
                         {errors.contactNumber && <p className="text-red-500 text-sm mt-1">{errors.contactNumber}</p>}
