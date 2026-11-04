@@ -118,6 +118,7 @@ interface CourseBatch {
   fee_per_duration?: Record<string, string>
   pricing_type_per_duration?: Record<string, string>
   enabled_per_duration?: Record<string, boolean>
+  max_students?: string | number
 }
 
 interface SelectedCourse {
@@ -666,6 +667,7 @@ export default function EditBranch() {
                 days: [],
                 batch_name: "",
                 batch_fee: "",
+                max_students: "",
               }]
             }
           ]
@@ -694,6 +696,7 @@ export default function EditBranch() {
                     days: [],
                     batch_name: "",
                     batch_fee: "",
+                    max_students: "",
                   }
                 ]
               }
@@ -949,6 +952,15 @@ export default function EditBranch() {
       const courseTitle = courseDef?.title || courseDef?.code || "Assigned course"
       for (const batch of courseAssignment.batches) {
         const batchLabel = (batch.batch_name || "").trim() || "Untitled batch"
+        const maxStudentsNum = parseInt(String(batch.max_students ?? "").trim(), 10)
+        if (!Number.isFinite(maxStudentsNum) || maxStudentsNum <= 0) {
+          toast({
+            title: "Batch capacity required",
+            description: `"${courseTitle}" → ${batchLabel}: please enter maximum student capacity (min 1).`,
+            variant: "destructive",
+          })
+          return
+        }
         const fpd = batch.fee_per_duration || {}
         const epd = batch.enabled_per_duration || {}
         if (masterDurations.length > 0) {
@@ -1567,17 +1579,35 @@ export default function EditBranch() {
                                       : ""}
                                   </p>
                                 )}
-                                <div className="space-y-1">
-                                  <Label className="text-xs text-gray-600">Batch name (optional)</Label>
-                                  <Input
-                                    type="text"
-                                    placeholder="e.g. Morning batch"
-                                    value={batch.batch_name ?? ""}
-                                    onChange={(e) =>
-                                      updateBatch(course.id, batch.id, "batch_name", e.target.value)
-                                    }
-                                    className="h-9"
-                                  />
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  <div className="space-y-1">
+                                    <Label className="text-xs text-gray-600">Batch name (optional)</Label>
+                                    <Input
+                                      type="text"
+                                      placeholder="e.g. Morning batch"
+                                      value={batch.batch_name ?? ""}
+                                      onChange={(e) =>
+                                        updateBatch(course.id, batch.id, "batch_name", e.target.value)
+                                      }
+                                      className="h-9"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-xs text-gray-600">
+                                      Max Students <span className="text-red-500">*</span>
+                                    </Label>
+                                    <Input
+                                      type="number"
+                                      min="1"
+                                      placeholder="e.g. 20"
+                                      value={batch.max_students ?? ""}
+                                      onChange={(e) =>
+                                        updateBatch(course.id, batch.id, "max_students", e.target.value)
+                                      }
+                                      className="h-9"
+                                      required
+                                    />
+                                  </div>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
                                   <div className="space-y-1">

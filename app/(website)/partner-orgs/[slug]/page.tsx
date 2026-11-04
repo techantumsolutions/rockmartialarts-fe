@@ -1,5 +1,4 @@
 import type { Metadata } from "next"
-import { getBackendProxyBaseUrl } from "@/lib/serverBackendUrl"
 import PartnerOrgLandingClient from "./partner-org-landing-client"
 
 export const dynamic = "force-dynamic"
@@ -41,12 +40,18 @@ function resolveAbsoluteAssetUrl(path: string | null | undefined): string | unde
 }
 
 async function fetchLanding(slug: string): Promise<LandingPayload | null> {
-  const base = getBackendProxyBaseUrl().replace(/\/$/, "")
   try {
-    const res = await fetch(
-      `${base}/api/partner-organizations/public/${encodeURIComponent(slug)}/landing`,
-      { cache: "no-store", headers: { Accept: "application/json" } }
-    )
+    const base =
+      process.env.NEXT_PUBLIC_API_BASE_URL ||
+      process.env.API_BASE_URL ||
+      ""
+    const url = base
+      ? `${base.replace(/\/$/, "")}/api/partner-organizations/public/${encodeURIComponent(slug)}/landing`
+      : `/api/backend/partner-organizations/public/${encodeURIComponent(slug)}/landing`
+    const res = await fetch(url, {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    })
     if (!res.ok) return null
     return (await res.json()) as LandingPayload
   } catch {

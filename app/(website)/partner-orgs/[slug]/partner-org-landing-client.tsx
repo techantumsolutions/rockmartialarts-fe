@@ -70,20 +70,18 @@ export default function PartnerOrgLandingClient() {
       { cache: "no-store", headers: { Accept: "application/json" } }
     )
       .then(async (res) => {
-        if (res.status === 404) return null
-        if (!res.ok) throw new Error("Failed to load partner")
+        if (!res.ok) throw new Error("Partner not found")
         return res.json()
       })
       .then((payload) => {
         if (cancelled) return
         setData(payload)
-        if (!payload) setError("Partner not found")
+        setError(null)
       })
       .catch(() => {
-        if (!cancelled) {
-          setError("Failed to load partner")
-          setData(null)
-        }
+        if (cancelled) return
+        setData(null)
+        setError("Partner not found")
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -340,6 +338,7 @@ export default function PartnerOrgLandingClient() {
 
       <PartnerOrgSiteSections
         variant="public"
+        orgSlug={data.slug || slug}
         branches={(data.branches || []) as never}
         achievements={data.achievements || []}
       />

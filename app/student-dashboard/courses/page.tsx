@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import {
   BookOpen,
   Calendar,
@@ -41,8 +42,10 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
-  ArrowRight
+  ArrowRight,
+  Search
 } from "lucide-react"
+import { normalizeWeekday, timeToMinutes } from "@/lib/coachBatchConflict"
 import { studentProfileAPI } from "@/lib/studentProfileAPI"
 import { courseAPI } from "@/lib/courseAPI"
 import { branchAPI } from "@/lib/branchAPI"
@@ -237,6 +240,7 @@ interface AvailableCourse {
   branch_id?: string
   branch_name?: string
   available_durations?: CourseDurationRef[]
+  batches?: any[]
   pricing: {
     amount: number
     currency: string
@@ -266,6 +270,58 @@ interface BranchBatchOption {
   label: string
   enabled_per_duration?: Record<string, boolean>
   fee_per_duration?: Record<string, string | number | null>
+  max_students?: number | null
+  enrolled_students?: number | null
+  is_full?: boolean
+  days?: string[]
+  start_time?: string
+  end_time?: string
+}
+
+interface ActiveScheduleInfo {
+  enrollment_id: string
+  course_id: string
+  course_name: string
+  branch_id: string
+  batch_ref?: string
+  batch_name?: string
+  days: string[]
+  start_time: string
+  end_time: string
+}
+
+function findScheduleConflict(
+  batch: { days?: string[]; start_time?: string; end_time?: string; batch_ref?: string },
+  activeSchedules: ActiveScheduleInfo[],
+  targetCourseId?: string
+): ActiveScheduleInfo | null {
+  const bStart = timeToMinutes(batch.start_time)
+  const bEnd = timeToMinutes(batch.end_time)
+  if (bStart === null || bEnd === null || bEnd <= bStart) {
+    return null
+  }
+  const batchDays = (batch.days || []).map(normalizeWeekday).filter(Boolean)
+  if (batchDays.length === 0) return null
+
+  for (const active of activeSchedules) {
+    if (targetCourseId && String(active.course_id) === String(targetCourseId)) {
+      continue
+    }
+    const aStart = timeToMinutes(active.start_time)
+    const aEnd = timeToMinutes(active.end_time)
+    if (aStart === null || aEnd === null || aEnd <= aStart) {
+      continue
+    }
+    const activeDays = (active.days || []).map(normalizeWeekday).filter(Boolean)
+    const hasCommonDay = batchDays.some((d) => activeDays.includes(d))
+    if (!hasCommonDay) {
+      continue
+    }
+    if (bStart < aEnd && aStart < bEnd) {
+      return active
+    }
+  }
+  return null
 }
 
 interface AdminDurationOption {
@@ -403,6 +459,9 @@ export default function StudentCoursesPage() {
   const [enrolledCourses, setEnrolledCourses] = useState<EnrolledCourse[]>([])
   const [availableCourses, setAvailableCourses] = useState<AvailableCourse[]>([])
   const [branches, setBranches] = useState<Branch[]>([])
+  const [activeSchedules, setActiveSchedules] = useState<ActiveScheduleInfo[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedBranchFilter, setSelectedBranchFilter] = useState("ALL")
   
   // Enrollment dialog state
   const [showEnrollDialog, setShowEnrollDialog] = useState(false)
@@ -461,13 +520,14 @@ export default function StudentCoursesPage() {
       setError(null)
 
       // Load all branches first
+      let transformedBranches: any[] = []
       try {
         const branchesResponse = await branchAPI.getBranches(token)
         console.log("🔍 Branch API Response:", branchesResponse)
         const allBranches = branchesResponse.branches || []
         
         // Transform branches to flatten nested structure
-        const transformedBranches = allBranches.map((b: any) => ({
+        transformedBranches = allBranches.map((b: any) => ({
           id: b.id,
           name: b.branch?.name || b.name || 'Unknown Branch',
           code: b.branch?.code || b.code,
@@ -522,7 +582,45 @@ export default function StudentCoursesPage() {
       const assignedBranch = profileBranchId || enrollmentBranchId
       setLockedBranchId(assignedBranch ? String(assignedBranch) : null)
 
-      // Get student's branch IDs
+      // Extract active enrollment schedules for conflict checks
+      const activeSchedList: ActiveScheduleInfo[] = []
+      const nowTs = Date.now()
+      for (const enr of enrollments) {
+        if (enr.is_active === false) continue
+        if (enr.payment_status === "failed" || enr.payment_status === "cancelled") continue
+        if (enr.end_date && new Date(enr.end_date).getTime() < nowTs) continue
+
+        const enrBranchId = String(enr.branch_id || "")
+        const enrCourseId = String(enr.course_id || "")
+        const enrBatchRef = String(enr.batch_ref || enr.batch_id || enr.slot_id || "")
+
+        const branchObj = transformedBranches.find((b: any) => String(b.id) === enrBranchId)
+        const schedRows = branchObj?.assignments?.course_schedule || []
+        const courseRow = schedRows.find((s: any) => String(s?.course_id || s?.courseId || "") === enrCourseId)
+        const branchBatches = courseRow?.batches || []
+        const matchedBatch = branchBatches.find((b: any) => {
+          const bid = String(b.batch_id || b.id || "")
+          const bname = String(b.batch_name || b.name || "")
+          return (bid && bid === enrBatchRef) || (bname && bname === enrBatchRef)
+        })
+
+        if (matchedBatch) {
+          activeSchedList.push({
+            enrollment_id: String(enr.id || ""),
+            course_id: enrCourseId,
+            course_name: String(enr.course_name || "Enrolled Course"),
+            branch_id: enrBranchId,
+            batch_ref: enrBatchRef,
+            batch_name: matchedBatch.batch_name || matchedBatch.name || "",
+            days: Array.isArray(matchedBatch.days) ? matchedBatch.days : [],
+            start_time: String(matchedBatch.start_time || matchedBatch.startTime || ""),
+            end_time: String(matchedBatch.end_time || matchedBatch.endTime || ""),
+          })
+        }
+      }
+      setActiveSchedules(activeSchedList)
+
+      // Get student's branch IDs and all active branch IDs
       const studentBranchIds = Array.from(
         new Set(
           enrolledData.map((e) => e.branch_id).filter(Boolean).concat(
@@ -530,15 +628,15 @@ export default function StudentCoursesPage() {
           )
         )
       )
-      console.log("📍 Student branches:", studentBranchIds)
+      const allActiveBranchIds = transformedBranches.map((b: any) => String(b.id)).filter(Boolean)
+      const branchIdsToLoad = allActiveBranchIds.length > 0 ? allActiveBranchIds : studentBranchIds
 
-      // Load available courses
+      // Load available courses across all active branches
       try {
         let availableCoursesList: any[] = []
 
-        if (studentBranchIds.length > 0) {
-          // Load courses for each of student's branches
-          for (const branchId of studentBranchIds) {
+        if (branchIdsToLoad.length > 0) {
+          for (const branchId of branchIdsToLoad) {
             try {
               const branchCoursesResponse = await fetch(
                 getBackendApiUrl(`courses/public/by-branch/${encodeURIComponent(branchId)}`),
@@ -548,7 +646,8 @@ export default function StudentCoursesPage() {
               if (branchCoursesResponse.ok) {
                 const branchData = await branchCoursesResponse.json()
                 const branchCourses = branchData.courses || []
-                console.log(`✅ Loaded ${branchCourses.length} courses for branch ${branchId}`)
+                const bObj = transformedBranches.find((b: any) => String(b.id) === String(branchId))
+                const branchName = bObj?.name || enrolledData.find((e) => e.branch_id === branchId)?.branch_name || "Branch"
                 
                 // Add branch info and normalize fields for each course
                 const coursesWithBranch = branchCourses.map((c: any) => ({
@@ -558,8 +657,9 @@ export default function StudentCoursesPage() {
                   difficulty_level: c.difficulty_level || c.level || "Beginner",
                   category_id: c.category_id || "",
                   branch_id: branchId,
-                  branch_name: enrolledData.find((e) => e.branch_id === branchId)?.branch_name,
+                  branch_name: branchName,
                   available_durations: c.available_durations || [],
+                  batches: c.batches || c.branch_batches || [],
                   pricing: {
                     amount: 0,
                     currency: c.pricing?.currency || "INR",
@@ -652,7 +752,7 @@ export default function StudentCoursesPage() {
 
   const handleEnrollClick = (course: AvailableCourse) => {
     const branchId =
-      lockedBranchId || course.branch_id || branches[0]?.id || ""
+      course.branch_id || (course.is_enrolled ? lockedBranchId : "") || branches[0]?.id || ""
     if (course.is_enrolled) {
       if (
         !isEnrollmentExpiredByDate({
@@ -745,54 +845,81 @@ export default function StudentCoursesPage() {
         let branchCourse: any = selectedCourse
         let batchesRaw: any[] = []
 
-        // Source of truth for admin batch-duration enable flags: branch assignments course_schedule.
+        // 1. Check branch assignments course_schedule
         const branchFromState = branches.find((b) => String(b.id) === String(selectedBranch))
         const scheduleRows = branchFromState?.assignments?.course_schedule
         if (Array.isArray(scheduleRows)) {
           const row = scheduleRows.find(
-            (s) => String(s?.course_id || "") === String(selectedCourse.id)
+            (s: any) => String(s?.course_id || s?.courseId || "") === String(selectedCourse.id)
           )
-          if (Array.isArray(row?.batches)) {
+          if (Array.isArray(row?.batches) && row.batches.length > 0) {
             batchesRaw = row.batches
           }
         }
 
+        // 2. Check if selectedCourse already carries batches
         if (batchesRaw.length === 0) {
           batchesRaw = pickCourseBatches(branchCourse)
         }
 
-        // Fallback to authenticated branch-courses API (same source used on this page),
-        // not the public by-branch API, so admin batch enable flags are preserved.
-        if (batchesRaw.length === 0 && token) {
-          const authRes = await fetch(getBackendApiUrl(`branches/${selectedBranch}/courses`), {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          })
-          const authData = await authRes.json().catch(() => ({}))
-          const courses: any[] = Array.isArray(authData?.courses) ? authData.courses : []
-          const found = courses.find((c) => String(c?.id || "") === String(selectedCourse.id))
-          if (found) {
-            branchCourse = found
-            batchesRaw = pickCourseBatches(found)
+        // 3. Fallback to public by-branch course API
+        if (batchesRaw.length === 0) {
+          const pubRes = await fetch(
+            getBackendApiUrl(`courses/public/by-branch/${encodeURIComponent(selectedBranch)}`),
+            fetchOpts(token)
+          )
+          if (pubRes.ok) {
+            const pubData = await pubRes.json().catch(() => ({}))
+            const courses: any[] = Array.isArray(pubData?.courses) ? pubData.courses : []
+            const found = courses.find((c: any) => String(c?.id || "") === String(selectedCourse.id))
+            if (found) {
+              branchCourse = found
+              batchesRaw = pickCourseBatches(found)
+              if (Array.isArray(found.available_durations) && found.available_durations.length > 0) {
+                durationsRaw = found.available_durations
+              }
+            }
           }
         }
 
         const batches = batchesRaw
-          .map((b: any) => ({
-            batch_ref: String(b.batch_ref || b.batch_id || b.id || "").trim(),
-            name: typeof b.name === "string" ? b.name : null,
-            label: String(
-              (typeof b.label === "string" && b.label.trim()) ||
-              (typeof b.batch_name === "string" && b.batch_name.trim()) ||
-              (typeof b.name === "string" && b.name.trim()) ||
-              (b.start_time && b.end_time ? `${b.start_time} - ${b.end_time}` : "") ||
-              ""
-            ),
-            enabled_per_duration: normalizeEnabledMap(b.enabled_per_duration ?? b.enabledPerDuration),
-            fee_per_duration: normalizeFeeMap(b.fee_per_duration ?? b.feePerDuration),
-          }))
+          .map((b: any) => {
+            const maxStudents =
+              b.max_students !== undefined && b.max_students !== null && b.max_students !== ""
+                ? Number(b.max_students)
+                : null
+            const enrolledStudents =
+              b.enrolled_students !== undefined && b.enrolled_students !== null
+                ? Number(b.enrolled_students)
+                : 0
+            const isFull =
+              b.is_full === true ||
+              (maxStudents !== null && !isNaN(maxStudents) && maxStudents > 0 && enrolledStudents >= maxStudents)
+
+            const rawDays = Array.isArray(b.days) ? b.days : []
+            const startTime = String(b.start_time || b.startTime || "").trim()
+            const endTime = String(b.end_time || b.endTime || "").trim()
+
+            return {
+              batch_ref: String(b.batch_ref || b.batch_id || b.id || "").trim(),
+              name: typeof b.name === "string" ? b.name : null,
+              label: String(
+                (typeof b.label === "string" && b.label.trim()) ||
+                (typeof b.batch_name === "string" && b.batch_name.trim()) ||
+                (typeof b.name === "string" && b.name.trim()) ||
+                (b.start_time && b.end_time ? `${b.start_time} - ${b.end_time}` : "") ||
+                ""
+              ),
+              enabled_per_duration: normalizeEnabledMap(b.enabled_per_duration ?? b.enabledPerDuration),
+              fee_per_duration: normalizeFeeMap(b.fee_per_duration ?? b.feePerDuration),
+              max_students: maxStudents,
+              enrolled_students: enrolledStudents,
+              is_full: isFull,
+              days: rawDays,
+              start_time: startTime,
+              end_time: endTime,
+            }
+          })
           .filter((b: BranchBatchOption) => b.batch_ref && b.label)
 
         let durationsRaw: any[] = Array.isArray(branchCourse?.available_durations)
@@ -829,9 +956,14 @@ export default function StudentCoursesPage() {
         if (!cancelled) {
           setBatchOptions(batches)
           setSelectedBatchRef((prev) => {
-            const currentBatchStillValid = batches.some((b) => b.batch_ref === prev)
+            const currentBatchStillValid = batches.some(
+              (b) => b.batch_ref === prev && !b.is_full && !findScheduleConflict(b, activeSchedules, selectedCourse?.id)
+            )
             if (currentBatchStillValid) return prev
-            return batches.length === 1 ? batches[0].batch_ref : ""
+            const availableBatches = batches.filter(
+              (b) => !b.is_full && !findScheduleConflict(b, activeSchedules, selectedCourse?.id)
+            )
+            return availableBatches.length === 1 ? availableBatches[0].batch_ref : ""
           })
 
           setAdminDurationOptions(durations)
@@ -987,12 +1119,26 @@ export default function StudentCoursesPage() {
       alert("Please select course, branch, and duration")
       return
     }
-    if (lockedBranchId && selectedBranch !== lockedBranchId) {
-      alert("You must enroll at your assigned branch. Contact admin to change branch.")
+    if (isRenewalDialog && lockedBranchId && selectedBranch !== lockedBranchId) {
+      alert("When renewing this course, you must renew at your enrolled branch. Contact admin to change branch.")
       return
     }
     if (batchOptions.length > 0 && !selectedBatchRef.trim()) {
       alert("Please select a batch before choosing duration")
+      return
+    }
+    const chosenBatch = batchOptions.find((b) => b.batch_ref === selectedBatchRef)
+    if (chosenBatch?.is_full) {
+      alert("This batch is already full. Please select another batch.")
+      return
+    }
+    const conflict = chosenBatch ? findScheduleConflict(chosenBatch, activeSchedules, selectedCourse.id) : null
+    if (conflict) {
+      alert(
+        `Schedule conflict: This batch time overlaps with your active course "${conflict.course_name}"` +
+        (conflict.batch_name ? ` (${conflict.batch_name})` : "") +
+        ` on ${conflict.days.join(", ")} (${conflict.start_time} - ${conflict.end_time}). Please choose another batch.`
+      )
       return
     }
     if (enrollAmount == null || enrollAmount <= 0) {
@@ -1170,9 +1316,21 @@ export default function StudentCoursesPage() {
     })
   }
 
-  const enrollDialogCourses = lockedBranchId
-    ? availableCourses.filter((c) => (c.branch_id || "") === lockedBranchId)
-    : availableCourses
+  const enrollDialogCourses = (() => {
+    let list = availableCourses
+    if (isRenewalDialog && lockedBranchId) {
+      list = availableCourses.filter((c) => (c.branch_id || "") === lockedBranchId)
+    } else if (selectedBranch) {
+      const branchCourses = availableCourses.filter((c) => (c.branch_id || "") === selectedBranch)
+      if (branchCourses.length > 0) {
+        list = branchCourses
+      }
+    }
+    if (selectedCourse && !list.some((c) => courseRowKey(c) === courseRowKey(selectedCourse))) {
+      list = [selectedCourse, ...list]
+    }
+    return list
+  })()
 
   const getStatusBadge = (isActive: boolean, paymentStatus: string, endDate: string) => {
     if (isEnrollmentExpiredByDate({ paymentStatus, endDate })) {
@@ -1437,70 +1595,125 @@ export default function StudentCoursesPage() {
         {availableCourses.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Available Courses at Your Branch{enrolledCourses.length > 0 ? '(es)' : ''}</CardTitle>
+              <CardTitle>Available Courses</CardTitle>
               <CardDescription>
-                {enrolledCourses.length > 0
-                  ? "Courses at your branches. Already enrolled courses show Renew; new courses show Enroll."
-                  : "Browse and enroll in available courses."}
+                Browse and enroll in available courses across all branches. Already enrolled courses show Renew; new courses show Enroll.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {availableCourses.map((course) => (
-                  <Card
-                    key={course.branch_id ? `${course.id}-${course.branch_id}` : course.id}
-                    className={`border-2 ${course.is_enrolled ? "border-emerald-200/80 bg-emerald-50/40" : ""}`}
-                  >
-                    <CardHeader>
-                      <div className="flex items-start justify-between gap-2">
-                        <CardTitle className="text-lg">{course.title}</CardTitle>
-                        {course.is_enrolled && (
-                          <Badge className="shrink-0 bg-emerald-100 text-emerald-900 border-emerald-200">
-                            Already enrolled
-                          </Badge>
-                        )}
-                      </div>
-                      <CardDescription className="line-clamp-2">
-                        {course.description}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        {course.branch_name && (
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <MapPin className="h-3 w-3" />
-                            <span>{course.branch_name}</span>
-                          </div>
-                        )}
-                        {course.is_enrolled && course.enrollment?.end_date && (
-                          <p className="text-xs text-muted-foreground">
-                            Current period ends {formatDate(course.enrollment.end_date)}
-                          </p>
-                        )}
-                        {course.is_enrolled ? (
-                          <Button
-                            className="w-full bg-emerald-700 hover:bg-emerald-800"
-                            disabled={
-                              !isEnrollmentExpiredByDate({
-                                endDate: course.enrollment?.end_date,
-                                paymentStatus: course.enrollment?.payment_status,
-                              })
-                            }
-                            onClick={() => handleEnrollClick(course)}
-                          >
-                            <RefreshCw className="h-4 w-4 mr-2" />
-                            Renew
-                          </Button>
-                        ) : (
-                          <Button className="w-full" onClick={() => handleEnrollClick(course)}>
-                            Enroll Now
-                          </Button>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+              {/* Search and Branch Filter Controls */}
+              <div className="flex flex-col sm:flex-row gap-3 mb-6">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search courses by name, category, or branch..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <Select value={selectedBranchFilter} onValueChange={setSelectedBranchFilter}>
+                  <SelectTrigger className="w-full sm:w-[220px]">
+                    <SelectValue placeholder="All Branches" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All Branches</SelectItem>
+                    {branches.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+
+              {(() => {
+                const displayedCourses = availableCourses.filter((course) => {
+                  if (selectedBranchFilter !== "ALL" && String(course.branch_id) !== String(selectedBranchFilter)) {
+                    return false
+                  }
+                  if (searchQuery.trim()) {
+                    const q = searchQuery.toLowerCase().trim()
+                    const matchTitle = (course.title || "").toLowerCase().includes(q)
+                    const matchDesc = (course.description || "").toLowerCase().includes(q)
+                    const matchBranch = (course.branch_name || "").toLowerCase().includes(q)
+                    const matchDiff = (course.difficulty_level || "").toLowerCase().includes(q)
+                    const matchCategory = (course.category_id || "").toLowerCase().includes(q)
+                    if (!matchTitle && !matchDesc && !matchBranch && !matchDiff && !matchCategory) {
+                      return false
+                    }
+                  }
+                  return true
+                })
+
+                if (displayedCourses.length === 0) {
+                  return (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <p className="text-base font-medium">No courses match your filter criteria.</p>
+                      <p className="text-sm mt-1">Try adjusting your search query or selecting another branch.</p>
+                    </div>
+                  )
+                }
+
+                return (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {displayedCourses.map((course) => (
+                      <Card
+                        key={course.branch_id ? `${course.id}-${course.branch_id}` : course.id}
+                        className={`border-2 ${course.is_enrolled ? "border-emerald-200/80 bg-emerald-50/40" : ""}`}
+                      >
+                        <CardHeader>
+                          <div className="flex items-start justify-between gap-2">
+                            <CardTitle className="text-lg">{course.title}</CardTitle>
+                            {course.is_enrolled && (
+                              <Badge className="shrink-0 bg-emerald-100 text-emerald-900 border-emerald-200">
+                                Already enrolled
+                              </Badge>
+                            )}
+                          </div>
+                          <CardDescription className="line-clamp-2">
+                            {course.description}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            {course.branch_name && (
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <MapPin className="h-3 w-3" />
+                                <span>{course.branch_name}</span>
+                              </div>
+                            )}
+                            {course.is_enrolled && course.enrollment?.end_date && (
+                              <p className="text-xs text-muted-foreground">
+                                Current period ends {formatDate(course.enrollment.end_date)}
+                              </p>
+                            )}
+                            {course.is_enrolled ? (
+                              <Button
+                                className="w-full bg-emerald-700 hover:bg-emerald-800"
+                                disabled={
+                                  !isEnrollmentExpiredByDate({
+                                    endDate: course.enrollment?.end_date,
+                                    paymentStatus: course.enrollment?.payment_status,
+                                  })
+                                }
+                                onClick={() => handleEnrollClick(course)}
+                              >
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                Renew
+                              </Button>
+                            ) : (
+                              <Button className="w-full" onClick={() => handleEnrollClick(course)}>
+                                Enroll Now
+                              </Button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )
+              })()}
             </CardContent>
           </Card>
         )}
@@ -1545,7 +1758,11 @@ export default function StudentCoursesPage() {
                   )
                   if (c) {
                     setSelectedCourse(c)
-                    setSelectedBranch(lockedBranchId || c.branch_id || branches[0]?.id || "")
+                    if (c.branch_id) {
+                      setSelectedBranch(c.branch_id)
+                    } else if (lockedBranchId) {
+                      setSelectedBranch(lockedBranchId)
+                    }
                     setBatchOptions([])
                     setSelectedBatchRef("")
                     setAdminDurationOptions([])
@@ -1574,14 +1791,14 @@ export default function StudentCoursesPage() {
             <div className="space-y-2">
               <Label htmlFor="branch">
                 Select Branch{" "}
-                {lockedBranchId && (
-                  <span className="text-xs text-muted-foreground">(your assigned branch)</span>
+                {isRenewalDialog && lockedBranchId && (
+                  <span className="text-xs text-muted-foreground">(your enrolled branch)</span>
                 )}
               </Label>
               <Select
                 value={selectedBranch}
                 onValueChange={(v) => {
-                  if (lockedBranchId) return
+                  if (isRenewalDialog && lockedBranchId) return
                   setSelectedBranch(v)
                   setBatchOptions([])
                   setSelectedBatchRef("")
@@ -1589,7 +1806,7 @@ export default function StudentCoursesPage() {
                   setDurationOptions([])
                   setSelectedDurationKey("")
                 }}
-                disabled={!!lockedBranchId}
+                disabled={isRenewalDialog && !!lockedBranchId}
               >
                 <SelectTrigger className="text-gray-900 dark:text-gray-100">
                   <SelectValue placeholder={branches.length === 0 ? "Loading branches..." : "Choose a branch"} />
@@ -1598,7 +1815,7 @@ export default function StudentCoursesPage() {
                   {branches.length === 0 ? (
                     <SelectItem value="none" disabled>No branches available</SelectItem>
                   ) : (
-                    (lockedBranchId
+                    (isRenewalDialog && lockedBranchId
                       ? branches.filter((b) => b.id === lockedBranchId)
                       : branches
                     ).map((branch) => (
@@ -1623,18 +1840,81 @@ export default function StudentCoursesPage() {
                   No batch selection required for this course.
                 </p>
               ) : (
-                <Select value={selectedBatchRef} onValueChange={setSelectedBatchRef}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a batch" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {batchOptions.map((b) => (
-                      <SelectItem key={b.batch_ref} value={b.batch_ref}>
-                        {(b.name && b.name.trim()) || b.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <>
+                  {(() => {
+                    const currentSelectedBatch = batchOptions.find((b) => b.batch_ref === selectedBatchRef)
+                    const activeConflict = currentSelectedBatch
+                      ? findScheduleConflict(currentSelectedBatch, activeSchedules, selectedCourse?.id)
+                      : null
+
+                    return (
+                      <>
+                        <Select value={selectedBatchRef} onValueChange={setSelectedBatchRef}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Choose a batch" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {batchOptions.map((b) => {
+                              const title = (b.name && b.name.trim()) || b.label
+                              const conflict = findScheduleConflict(b, activeSchedules, selectedCourse?.id)
+                              const capacityText =
+                                b.max_students != null && b.max_students > 0
+                                ? b.is_full
+                                  ? ` [Full (${b.enrolled_students || 0}/${b.max_students})]`
+                                  : ` (${b.enrolled_students || 0}/${b.max_students} spots)`
+                                : ""
+                              const isBlocked = Boolean(b.is_full || conflict)
+                              return (
+                                <SelectItem
+                                  key={b.batch_ref}
+                                  value={b.batch_ref}
+                                  disabled={isBlocked}
+                                  className={isBlocked ? "opacity-60 cursor-not-allowed" : ""}
+                                >
+                                  <span>
+                                    {title}
+                                    {capacityText && (
+                                      <span
+                                        className={
+                                          b.is_full
+                                            ? "text-red-500 font-medium ml-1"
+                                            : "text-muted-foreground text-xs ml-1"
+                                        }
+                                      >
+                                        {capacityText}
+                                      </span>
+                                    )}
+                                    {conflict && !b.is_full && (
+                                      <span className="text-amber-600 font-medium ml-1">
+                                        [Schedule Conflict]
+                                      </span>
+                                    )}
+                                  </span>
+                                </SelectItem>
+                              )
+                            })}
+                          </SelectContent>
+                        </Select>
+                        {activeConflict && (
+                          <Alert className="border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200 py-2">
+                            <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                            <AlertDescription className="text-xs">
+                              <strong>Schedule Conflict:</strong> This batch time overlaps with your active course{" "}
+                              <strong>{activeConflict.course_name}</strong>
+                              {activeConflict.batch_name ? ` (${activeConflict.batch_name})` : ""} on{" "}
+                              {activeConflict.days.join(", ")} ({activeConflict.start_time} - {activeConflict.end_time}). Please choose another batch.
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                      </>
+                    )
+                  })()}
+                  {batchOptions.length > 0 && batchOptions.every((b) => b.is_full) && (
+                    <p className="text-xs text-red-500 font-medium">
+                      All batches for this course at this branch are currently full.
+                    </p>
+                  )}
+                </>
               )}
             </div>
 
@@ -1691,7 +1971,16 @@ export default function StudentCoursesPage() {
                 !selectedCourse ||
                 !selectedBranch ||
                 branches.length === 0 ||
-                (batchOptions.length > 0 && !selectedBatchRef.trim()) ||
+                (batchOptions.length > 0 &&
+                  (!selectedBatchRef.trim() ||
+                    Boolean(batchOptions.find((b) => b.batch_ref === selectedBatchRef)?.is_full) ||
+                    Boolean(
+                      findScheduleConflict(
+                        batchOptions.find((b) => b.batch_ref === selectedBatchRef) || {},
+                        activeSchedules,
+                        selectedCourse?.id
+                      )
+                    ))) ||
                 enrollPricingLoading ||
                 enrollAmount == null ||
                 enrollAmount <= 0 ||

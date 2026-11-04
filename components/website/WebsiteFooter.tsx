@@ -2,9 +2,11 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
+import { usePathname } from "next/navigation"
 import { toCourseSlug } from "@/lib/course-slug"
 import { useCMS } from "@/contexts/CMSContext"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
+import { isPartnerOrgSitePath } from "@/lib/partnerOrgSitePath"
 
 const quickLinks = [
   { label: "Courses", href: "/courses" },
@@ -20,13 +22,16 @@ const quickLinks = [
 type CourseItem = { id: string; title: string; name?: string }
 
 export function WebsiteFooter() {
+  const pathname = usePathname()
   const [courses, setCourses] = useState<CourseItem[]>([])
   const { cms } = useCMS()
 
   const footer = cms?.footer
   const branding = cms?.branding
+  const hideForPartnerSite = isPartnerOrgSitePath(pathname)
 
   useEffect(() => {
+    if (hideForPartnerSite) return
     let cancelled = false
     fetch("/api/backend/courses/public/all", { headers: { "Content-Type": "application/json" } })
       .then((res) => (res.ok ? res.json() : Promise.resolve({ courses: [] })))
@@ -39,7 +44,9 @@ export function WebsiteFooter() {
         if (!cancelled) setCourses([])
       })
     return () => { cancelled = true }
-  }, [])
+  }, [hideForPartnerSite])
+
+  if (hideForPartnerSite) return null
 
   // Build social links from CMS or fallback to defaults
   const socialLinks = [

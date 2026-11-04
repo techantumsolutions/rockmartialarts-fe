@@ -221,6 +221,8 @@ export interface NormalizedCourseAssignment {
     pricing_type_per_duration?: Record<string, string>
     /** Per-duration availability: { duration_id: boolean } */
     enabled_per_duration?: Record<string, boolean>
+    /** Maximum student capacity for this batch */
+    max_students?: string | number
   }[]
 }
 
@@ -258,6 +260,9 @@ export function normalizeAssignmentsCourses(
               const nm = b.batch_name ?? (b as { name?: unknown }).name
               const batch_name =
                 nm != null && String(nm).trim() !== "" ? String(nm).trim() : undefined
+              const rawMax = b.max_students ?? (b as { maxStudents?: unknown }).maxStudents
+              const max_students =
+                rawMax != null && String(rawMax).trim() !== "" ? String(rawMax).trim() : undefined
               // Parse per-duration fees
               const rawFpd = b.fee_per_duration ?? (b as { feePerDuration?: unknown }).feePerDuration
               let fee_per_duration: Record<string, string> | undefined
@@ -305,6 +310,7 @@ export function normalizeAssignmentsCourses(
                 fee_per_duration,
                 pricing_type_per_duration,
                 enabled_per_duration,
+                max_students,
               }
             }
           ),
@@ -380,6 +386,7 @@ export function buildCourseSchedulePayload(
     fee_per_duration?: Record<string, number>
     pricing_type_per_duration?: Record<string, string>
     enabled_per_duration?: Record<string, boolean>
+    max_students?: number
   }[]
 }[] {
   return courses.map((c) => ({
@@ -398,6 +405,7 @@ export function buildCourseSchedulePayload(
         fee_per_duration?: Record<string, number>
         pricing_type_per_duration?: Record<string, string>
         enabled_per_duration?: Record<string, boolean>
+        max_students?: number
       } = {
         batch_id: b.id,
         start_time: b.start_time,
@@ -408,6 +416,10 @@ export function buildCourseSchedulePayload(
       if (fee !== undefined) row.batch_fee = fee
       const bn = (b.batch_name || "").trim()
       if (bn) row.batch_name = bn
+      const maxNum = parseInt(String(b.max_students ?? "").trim(), 10)
+      if (Number.isFinite(maxNum) && maxNum > 0) {
+        row.max_students = maxNum
+      }
       // Per-duration fees
       if (b.fee_per_duration && Object.keys(b.fee_per_duration).length > 0) {
         const fpd: Record<string, number> = {}

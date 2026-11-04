@@ -272,6 +272,19 @@ export type PartnerOrgBranding = {
     map_embed_url?: string | null
   }
   social_links?: Record<string, string | null | undefined>
+  contact_page?: {
+    headline?: string | null
+    intro?: string | null
+    address?: string | null
+    phone?: string | null
+    email?: string | null
+    map_embed_url?: string | null
+  }
+  footer?: {
+    logo_url?: string | null
+    logo_alt?: string | null
+    description?: string | null
+  }
   org_snapshot?: {
     id?: string
     name?: string
@@ -291,6 +304,8 @@ export type PartnerOrgBrandingUpsert = {
   content?: PartnerOrgBranding["content"]
   facilities?: PartnerOrgBranding["facilities"]
   social_links?: PartnerOrgBranding["social_links"]
+  contact_page?: PartnerOrgBranding["contact_page"]
+  footer?: PartnerOrgBranding["footer"]
 }
 
 export type PartnerOrgDirectoryItem = {
@@ -331,6 +346,19 @@ export type PartnerOrgLanding = {
     email?: string | null
     address?: string | null
   }
+  contact_page?: {
+    headline?: string | null
+    intro?: string | null
+    address?: string | null
+    phone?: string | null
+    email?: string | null
+    map_embed_url?: string | null
+  }
+  footer?: {
+    logo_url?: string | null
+    logo_alt?: string | null
+    description?: string | null
+  }
   facilities?: {
     facilities?: string[]
     parking_info?: string | null
@@ -346,3 +374,47 @@ export type PartnerOrgLanding = {
 }
 
 export const partnerOrgAPI = new PartnerOrgAPI()
+
+function normKey(v: unknown): string {
+  return String(v || "")
+    .trim()
+    .toLowerCase()
+}
+
+/** Match a branch on a public landing by slug, id, or code. */
+export function findPartnerLandingBranch(
+  landing: PartnerOrgLanding | null | undefined,
+  branchKey: string
+): PartnerOrgSiteBranch | null {
+  if (!landing?.branches?.length) return null
+  const key = normKey(branchKey)
+  return (
+    landing.branches.find(
+      (b) =>
+        normKey(b.slug) === key ||
+        normKey(b.id) === key ||
+        normKey(b.code) === key ||
+        normKey(b.name) === key
+    ) || null
+  )
+}
+
+/** Match a course on a branch by slug, id, or code. */
+export function findPartnerBranchCourse(
+  branch: PartnerOrgSiteBranch | null | undefined,
+  courseKey: string
+): (Record<string, unknown> & { id: string }) | null {
+  const courses = branch?.courses || []
+  if (!courses.length) return null
+  const key = normKey(courseKey)
+  return (
+    courses.find(
+      (c) =>
+        normKey(c.slug) === key ||
+        normKey(c.id) === key ||
+        normKey((c as { code?: string }).code) === key ||
+        normKey((c as { title?: string }).title) === key ||
+        normKey((c as { name?: string }).name) === key
+    ) || null
+  )
+}

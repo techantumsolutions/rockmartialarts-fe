@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Building2, Loader2, MapPin, Search } from "lucide-react"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
-import type { PartnerOrgDirectoryItem } from "@/lib/partnerOrgAPI"
+import { partnerOrgAPI, type PartnerOrgDirectoryItem } from "@/lib/partnerOrgAPI"
 
 export default function PartnerOrgsDirectoryPage() {
   const [searchInput, setSearchInput] = useState("")
@@ -20,27 +20,18 @@ export default function PartnerOrgsDirectoryPage() {
 
   useEffect(() => {
     let cancelled = false
-    const params = new URLSearchParams()
-    if (q) params.set("q", q)
-    params.set("limit", "50")
     setLoading(true)
-    fetch(
-      `/api/backend/partner-organizations/public/directory?${params.toString()}`,
-      { cache: "no-store", headers: { Accept: "application/json" } }
-    )
-      .then((res) =>
-        res.ok ? res.json() : Promise.resolve({ partners: [], total: 0 })
-      )
+    partnerOrgAPI
+      .publicDirectory({ q: q || undefined, limit: 100 })
       .then((data) => {
         if (cancelled) return
         setPartners(Array.isArray(data.partners) ? data.partners : [])
-        setTotal(typeof data.total === "number" ? data.total : 0)
+        setTotal(Number(data.total) || 0)
       })
       .catch(() => {
-        if (!cancelled) {
-          setPartners([])
-          setTotal(0)
-        }
+        if (cancelled) return
+        setPartners([])
+        setTotal(0)
       })
       .finally(() => {
         if (!cancelled) setLoading(false)

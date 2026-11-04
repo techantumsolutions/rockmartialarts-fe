@@ -47,13 +47,24 @@ export default function PartnerProfilesPage() {
   async function toggleActive(p: PartnerOrg, next: boolean) {
     setTogglingId(p.id)
     try {
-      await partnerOrgAPI.setActive(p.id, next)
+      const res = await partnerOrgAPI.setActive(p.id, next)
+      const updated = res?.partner
       setPartners((prev) =>
-        prev.map((row) =>
-          row.id === p.id
-            ? { ...row, is_active: next, status: next ? row.status : "disabled" }
-            : row
-        )
+        prev.map((row) => {
+          if (row.id !== p.id) return row
+          if (updated) {
+            return {
+              ...row,
+              is_active: updated.is_active !== false,
+              status: updated.status ?? (next ? "active" : "disabled"),
+            }
+          }
+          return {
+            ...row,
+            is_active: next,
+            status: next ? (row.status === "disabled" ? "active" : row.status) : "disabled",
+          }
+        })
       )
       toast({
         title: next ? "Partner enabled" : "Partner disabled",

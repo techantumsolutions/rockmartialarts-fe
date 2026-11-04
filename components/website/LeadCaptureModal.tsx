@@ -1,7 +1,9 @@
 "use client"
 
 import { useEffect, useState, type FormEvent } from "react"
+import { usePathname } from "next/navigation"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { isPartnerOrgSitePath } from "@/lib/partnerOrgSitePath"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -24,9 +26,11 @@ interface BranchOption {
 const STORAGE_KEY = "rock_lead_captured"
 
 export function LeadCaptureModal() {
+  const pathname = usePathname()
   const { toast } = useToast()
   const { cms, loading: cmsLoading } = useCMS()
   const popup = resolvePopupForm(cms?.homepage?.popup_form)
+  const hideForPartnerSite = isPartnerOrgSitePath(pathname)
 
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
@@ -43,6 +47,10 @@ export function LeadCaptureModal() {
 
   useEffect(() => {
     if (typeof window === "undefined") return
+    if (hideForPartnerSite) {
+      setOpen(false)
+      return
+    }
     if (cmsLoading) return
     if (!popup.enabled) {
       setOpen(false)
@@ -53,7 +61,7 @@ export function LeadCaptureModal() {
       setOpen(true)
       if (popup.branch_enabled) fetchBranches()
     }
-  }, [cmsLoading, popup.enabled, popup.branch_enabled])
+  }, [cmsLoading, popup.enabled, popup.branch_enabled, hideForPartnerSite])
 
   async function fetchBranches() {
     try {

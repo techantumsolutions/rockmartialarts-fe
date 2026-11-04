@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation"
 import { useCMS } from "@/contexts/CMSContext"
+import { isPartnerOrgSitePath } from "@/lib/partnerOrgSitePath"
 
 function digitsForWhatsApp(input: string): string | null {
   const d = input.replace(/\D/g, "")
@@ -24,6 +25,7 @@ function shouldHideWhatsApp(pathname: string | null): boolean {
   if (pathname.startsWith("/coach/")) return true
   /* e.g. /super-admin/dashboard, /coach-admin/dashboard */
   if (/^\/[\w-]+\/dashboard(\/|$)/.test(pathname)) return true
+  if (isPartnerOrgSitePath(pathname)) return true
   return false
 }
 

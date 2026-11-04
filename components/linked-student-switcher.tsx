@@ -94,7 +94,7 @@ export default function LinkedStudentSwitcher() {
           aria-label="Switch linked student"
         >
           <Users className="w-4 h-4 text-gray-700 shrink-0" />
-          <span className="text-xs font-semibold text-gray-800 truncate hidden sm:inline">
+          <span className="student-dash-header-switcher-label text-xs font-semibold text-gray-800 truncate hidden sm:inline">
             {label}
           </span>
         </Button>

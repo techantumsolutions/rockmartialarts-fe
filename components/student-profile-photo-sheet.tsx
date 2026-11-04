@@ -11,25 +11,58 @@ import { cn } from "@/lib/utils"
 const MAX_BYTES = 2 * 1024 * 1024
 
 function validateImageFile(file: File): string | null {
-  const okType = file.type === "image/jpeg" || file.type === "image/png"
+  const t = (file.type || "").toLowerCase()
+  const okType =
+    t === "image/jpeg" ||
+    t === "image/jpg" ||
+    t === "image/png" ||
+    t === "" || // iOS camera capture sometimes omits MIME
+    t === "image/heic" ||
+    t === "image/heif" ||
+    t.startsWith("image/")
   if (!okType) return "Please choose a JPG or PNG image."
   if (file.size > MAX_BYTES) return "Image must be 2 MB or smaller."
   return null
 }
 
-function cameraErrorMessage(err: unknown): string {
-  if (err instanceof DOMException) {
-    if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-      return "Camera access is required to take a photo."
-    }
-    if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
-      return "No camera was found on this device."
-    }
-    if (err.name === "NotReadableError" || err.name === "TrackStartError") {
-      return "The camera is already in use by another app."
-    }
+function normalizeImageFile(file: File): File {
+  const t = (file.type || "").toLowerCase()
+  if (t === "image/jpeg" || t === "image/jpg" || t === "image/png") return file
+  const name = (file.name || "profile-photo.jpg").replace(/\.(heic|heif)$/i, ".jpg")
+  return new File([file], name.endsWith(".png") ? name : name.replace(/\.\w+$/, ".jpg") || "profile-photo.jpg", {
+    type: "image/jpeg",
+  })
+}
+
+/** Resolve getUserMedia across browsers (iPad Chrome / WebKit quirks). */
+function resolveGetUserMedia():
+  | ((constraints: MediaStreamConstraints) => Promise<MediaStream>)
+  | null {
+  if (typeof navigator === "undefined") return null
+  const md = navigator.mediaDevices
+  if (md && typeof md.getUserMedia === "function") {
+    return (constraints) => md.getUserMedia(constraints)
   }
-  return "Could not start the camera. Please try again."
+  const legacy =
+    (navigator as Navigator & { getUserMedia?: typeof navigator.mediaDevices.getUserMedia })
+      .getUserMedia ||
+    (navigator as Navigator & { webkitGetUserMedia?: Function }).webkitGetUserMedia ||
+    (navigator as Navigator & { mozGetUserMedia?: Function }).mozGetUserMedia
+  if (typeof legacy === "function") {
+    return (constraints) =>
+      new Promise<MediaStream>((resolve, reject) => {
+        legacy.call(navigator, constraints, resolve, reject)
+      })
+  }
+  return null
+}
+
+function prefersNativeCameraCapture(): boolean {
+  if (typeof navigator === "undefined") return false
+  // iPad/iPhone Chrome/Safari: native camera capture is more reliable than getUserMedia
+  const ua = navigator.userAgent || ""
+  const iOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  return iOS
 }
 
 function canvasToJpegFile(canvas: HTMLCanvasElement): Promise<File | null> {
@@ -60,6 +93,7 @@ export function StudentProfilePhotoSheet(props: {
 }) {
   const { open, onOpenChange, currentImageSrc, fallbackLetter, token, onSaved } = props
   const galleryInputRef = useRef<HTMLInputElement>(null)
+  const cameraCaptureInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -85,6 +119,7 @@ export function StudentProfilePhotoSheet(props: {
     setPendingFile(null)
     setError(null)
     if (galleryInputRef.current) galleryInputRef.current.value = ""
+    if (cameraCaptureInputRef.current) cameraCaptureInputRef.current.value = ""
   }, [stopCamera])
 
   useEffect(() => {
@@ -107,8 +142,13 @@ export function StudentProfilePhotoSheet(props: {
       setError(msg)
       return
     }
-    setPendingFile(file)
-    setPreviewUrl(URL.createObjectURL(file))
+    const normalized = normalizeImageFile(file)
+    setPendingFile(normalized)
+    setPreviewUrl(URL.createObjectURL(normalized))
+  }
+
+  const openNativeCameraCapture = () => {
+    cameraCaptureInputRef.current?.click()
   }
 
   const handleOpenChange = (next: boolean) => {
@@ -119,22 +159,39 @@ export function StudentProfilePhotoSheet(props: {
   const startCamera = async () => {
     if (uploading) return
     setError(null)
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setError("Camera is not supported in this browser.")
+
+    // iPad/iPhone (incl. Chrome): use native camera capture — getUserMedia is often unavailable
+    if (prefersNativeCameraCapture()) {
+      stopCamera()
+      openNativeCameraCapture()
+      return
+    }
+
+    const getUserMedia = resolveGetUserMedia()
+    if (!getUserMedia) {
+      // Desktop browsers without GUM — still try native capture as last resort
+      openNativeCameraCapture()
       return
     }
     setStartingCamera(true)
     try {
       stopCamera()
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user" },
-        audio: false,
-      })
+      let stream: MediaStream
+      try {
+        stream = await getUserMedia({
+          video: { facingMode: { ideal: "user" } },
+          audio: false,
+        })
+      } catch {
+        // Fallback constraints for older WebKit
+        stream = await getUserMedia({ video: true, audio: false })
+      }
       streamRef.current = stream
       setCameraLive(true)
-    } catch (err) {
+    } catch {
       stopCamera()
-      setError(cameraErrorMessage(err))
+      // If live stream fails, fall back to native camera file capture
+      openNativeCameraCapture()
     } finally {
       setStartingCamera(false)
     }
@@ -192,7 +249,19 @@ export function StudentProfilePhotoSheet(props: {
       <input
         ref={galleryInputRef}
         type="file"
-        accept="image/jpeg,image/png"
+        accept="image/jpeg,image/png,image/*"
+        className="hidden"
+        onChange={(e) => {
+          stopCamera()
+          handleFileChosen(e.target.files?.[0] ?? null)
+        }}
+      />
+      {/* Native camera for iPad/iPhone Chrome/Safari where getUserMedia is blocked/missing */}
+      <input
+        ref={cameraCaptureInputRef}
+        type="file"
+        accept="image/*"
+        capture="user"
         className="hidden"
         onChange={(e) => {
           stopCamera()

@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useEffect, useLayoutEffect, useState } from "react"
 import { Building2, Loader2, Mail, MapPin, Phone, Search } from "lucide-react"
 import { branchNameToSlug } from "@/lib/branch-slug"
 import { useGeographyDropdowns } from "@/hooks/use-geography-dropdowns"
@@ -104,6 +104,18 @@ export default function BranchesDiscoveryPage() {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
 
+  // Immediately restore cached branches before paint
+  useLayoutEffect(() => {
+    if (branches.length === 0 && !geography.selectedStateId && !geography.selectedCityId && !q) {
+      const cached = getInitialBranches()
+      if (cached.branches && cached.branches.length > 0) {
+        setBranches(cached.branches)
+        setTotal(cached.total)
+        setLoading(false)
+      }
+    }
+  }, [])
+
   useEffect(() => {
     const t = setTimeout(() => setQ(searchInput.trim()), 300)
     return () => clearTimeout(t)
@@ -133,8 +145,18 @@ export default function BranchesDiscoveryPage() {
       .then((data) => {
         if (cancelled) return
         const list = data.branches ?? []
+        const count = typeof data.total === "number" ? data.total : list.length
         setBranches(Array.isArray(list) ? list : [])
-        setTotal(typeof data.total === "number" ? data.total : list.length)
+        setTotal(count)
+        if (!geography.selectedStateId && !geography.selectedCityId && !q && Array.isArray(list) && list.length > 0) {
+          memoryBranchesCache = list
+          memoryBranchesTotal = count
+          try {
+            sessionStorage.setItem("rma_branches_list_cache", JSON.stringify({ branches: list, total: count }))
+          } catch {
+            /* ignore */
+          }
+        }
       })
       .catch(() => {
         if (!cancelled) {

@@ -59,6 +59,10 @@ export interface PaymentFilters {
   start_date?: string
   end_date?: string
   branch_id?: string
+  /** Rock SA: filter to one partner organization */
+  partner_org_id?: string
+  /** Rock SA: all | rock | partners */
+  partner_scope?: string
 }
 
 class PaymentAPI extends BaseAPI {
@@ -77,7 +81,7 @@ class PaymentAPI extends BaseAPI {
   /**
    * Get payment statistics for dashboard
    */
-  async getPaymentStats(token?: string, params?: { start_date?: string; end_date?: string; period?: string; branch_id?: string }): Promise<PaymentStats> {
+  async getPaymentStats(token?: string, params?: { start_date?: string; end_date?: string; period?: string; branch_id?: string; partner_org_id?: string; partner_scope?: string }): Promise<PaymentStats> {
     const authToken = token || TokenManager.getToken()
 
     const searchParams = new URLSearchParams()
@@ -85,6 +89,8 @@ class PaymentAPI extends BaseAPI {
     if (params?.end_date) searchParams.append('end_date', params.end_date)
     if (params?.period) searchParams.append('period', params.period)
     if (params?.branch_id) searchParams.append('branch_id', params.branch_id)
+    if (params?.partner_org_id) searchParams.append('partner_org_id', params.partner_org_id)
+    if (params?.partner_scope) searchParams.append('partner_scope', params.partner_scope)
 
     let endpoint = '/api/payments/stats'
     const qs = searchParams.toString()
