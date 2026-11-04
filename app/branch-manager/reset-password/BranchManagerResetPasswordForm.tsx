@@ -1,44 +1,48 @@
-'use client'
+"use client"
 
-import { getBackendApiUrl } from "@/lib/config"
-import { useState, useEffect } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useEffect, useState } from "react"
+import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { PasswordInput } from "@/components/ui/password-input"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
+import { PasswordInput } from "@/components/ui/password-input"
 import { useToast } from "@/hooks/use-toast"
-import { Building2, Lock } from "lucide-react"
-import Link from 'next/link'
 
-function BranchManagerResetPasswordForm() {
+export default function BranchManagerResetPasswordForm() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { toast } = useToast()
   const [token, setToken] = useState<string | null>(null)
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
   useEffect(() => {
-    const tokenFromUrl = searchParams.get('token')
+    const tokenFromUrl = searchParams.get("token")
     if (tokenFromUrl) {
       setToken(tokenFromUrl)
     } else {
-      setError("No reset token found in the URL. Please verify your email link.")
-      toast({
-        title: "Missing Token",
-        description: "No reset token found in the URL.",
-        variant: "destructive"
-      })
+      setError("No reset token found. Please check your reset link.")
     }
-  }, [searchParams, toast])
+  }, [searchParams])
 
-  const validatePassword = (pwd: string) => {
-    if (pwd.length < 8) {
-      return "Password must be at least 8 characters long"
+  const validatePassword = (value: string) => {
+    if (value.length < 8) return "Password must be at least 8 characters long"
+    if (!/[A-Z]/.test(value)) return "Password must contain at least one uppercase letter"
+    if (!/[a-z]/.test(value)) return "Password must contain at least one lowercase letter"
+    if (!/\d/.test(value)) return "Password must contain at least one number"
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(value)) {
+      return "Password must contain at least one special character"
     }
     return null
   }
@@ -48,94 +52,70 @@ function BranchManagerResetPasswordForm() {
     setError(null)
     setSuccess(null)
 
-    const pwdError = validatePassword(password)
-    if (pwdError) {
-      setError(pwdError)
-      toast({
-        title: "Invalid Password",
-        description: pwdError,
-        variant: "destructive"
-      })
+    const passwordError = validatePassword(password)
+    if (passwordError) {
+      setError(passwordError)
       return
     }
-
     if (password !== confirmPassword) {
       setError("Passwords do not match.")
-      toast({
-        title: "Error",
-        description: "Passwords do not match.",
-        variant: "destructive"
-      })
       return
     }
-
     if (!token) {
       setError("Reset token is missing.")
-      toast({
-        title: "Error",
-        description: "Reset token is missing.",
-        variant: "destructive"
-      })
       return
     }
 
     setIsLoading(true)
-
     try {
-      const response = await fetch(getBackendApiUrl('branch-managers/reset-password'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          token: token,
-          new_password: password,
-        }),
-      })
-
-      const data = await response.json()
-
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branch-managers/reset-password`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token, new_password: password }),
+        }
+      )
+      const data = await response.json().catch(() => ({}))
       if (!response.ok) {
-        throw new Error(data.detail || 'Failed to set up password.')
+        throw new Error(data.detail || "Failed to reset password.")
       }
-
-      setSuccess(data.message || 'Password has been set successfully.')
+      setSuccess(data.message || "Password has been set successfully.")
       toast({
         title: "Success",
-        description: "Password has been set successfully! You can now log in to the branch manager portal.",
+        description: "Password set successfully. You can now log in.",
       })
-
-      // Redirect to branch manager login after 2 seconds
       setTimeout(() => {
-        router.push('/branch-manager/login')
+        const partnerSlug =
+          typeof window !== "undefined" ? localStorage.getItem("partner_slug") : null
+        router.push(
+          partnerSlug
+            ? `/partners/${partnerSlug}/branch-manager/login`
+            : "/branch-manager/login"
+        )
       }, 2000)
-
-    } catch (err: any) {
-      setError(err.message)
-      toast({
-        title: "Error",
-        description: err.message,
-        variant: "destructive"
-      })
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to reset password."
+      setError(message)
+      toast({ title: "Error", description: message, variant: "destructive" })
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50 px-4 py-12">
-      <Card className="w-full max-w-md shadow-lg border-gray-200 rounded-2xl bg-white">
-        <CardHeader className="text-center pb-2">
-          <div className="mx-auto mb-4 w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shadow-sm border border-blue-100">
-            <Building2 className="w-8 h-8" />
-          </div>
-          <CardTitle className="text-2xl font-bold text-gray-900">Set Up Your Password</CardTitle>
-          <CardDescription className="text-gray-600 text-sm mt-1">
-            Create a secure password for your Rock Martial Arts Academy branch manager account
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl font-bold text-gray-900">
+            Set Your Branch Manager Password
+          </CardTitle>
+          <CardDescription className="text-gray-600">
+            Create a secure password for your branch manager account
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4 pt-4">
+          <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="password">New Password</Label>
               <PasswordInput
@@ -144,11 +124,7 @@ function BranchManagerResetPasswordForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 placeholder="••••••••"
-                className="w-full h-12 rounded-xl bg-gray-50 border-gray-200"
               />
-              <p className="text-xs text-gray-500">
-                Password must be at least 8 characters long
-              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirm-password">Confirm New Password</Label>
@@ -158,31 +134,30 @@ function BranchManagerResetPasswordForm() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 placeholder="••••••••"
-                className="w-full h-12 rounded-xl bg-gray-50 border-gray-200"
               />
             </div>
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
+            {error ? (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-md">
                 <p className="text-red-600 text-sm">{error}</p>
               </div>
-            )}
-            {success && (
-              <div className="p-3 bg-green-50 border border-green-200 rounded-xl">
-                <p className="text-green-600 text-sm font-medium">{success}</p>
+            ) : null}
+            {success ? (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+                <p className="text-green-600 text-sm">{success}</p>
                 <p className="text-green-600 text-xs mt-1">Redirecting to login...</p>
               </div>
-            )}
+            ) : null}
           </CardContent>
-          <CardFooter className="flex flex-col space-y-3 pt-2">
+          <CardFooter className="flex flex-col space-y-3">
             <Button
               type="submit"
-              className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium text-base shadow-sm"
-              disabled={isLoading || !token || Boolean(success)}
+              className="w-full bg-yellow-500 hover:bg-yellow-600 text-white"
+              disabled={isLoading || !token || !!success}
             >
-              {isLoading ? 'Setting Password...' : success ? 'Password Set Successfully' : 'Set Password'}
+              {isLoading ? "Setting Password..." : success ? "Password Set Successfully" : "Set Password"}
             </Button>
-            <div className="text-center pt-2">
-              <Link href="/branch-manager/login" className="text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors">
+            <div className="text-center">
+              <Link href="/branch-manager/login" className="text-sm text-gray-600 hover:text-yellow-700">
                 Back to Branch Manager Login
               </Link>
             </div>
@@ -192,6 +167,3 @@ function BranchManagerResetPasswordForm() {
     </div>
   )
 }
-
-export default BranchManagerResetPasswordForm
-

@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, MapPin, Pencil, Plus, Search } from "lucide-react"
-import DashboardHeader from "@/components/dashboard-header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -253,9 +252,7 @@ export default function GeographySettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <DashboardHeader currentPage="Geography" />
-      <main className="w-full p-4 lg:px-8">
+    <div className="w-full p-4 lg:px-8">
         <div className="mx-auto space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="flex items-center space-x-4">
@@ -270,7 +267,7 @@ export default function GeographySettingsPage() {
               <div className="w-px h-6 bg-gray-300"></div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                  <MapPin className="w-6 h-6" />
+                  <MapPin className="w-6 h-6 shrink-0" />
                   State & City
                 </h1>
                 <p className="text-gray-600 mt-1">
@@ -488,7 +485,6 @@ export default function GeographySettingsPage() {
             </TabsContent>
           </Tabs>
         </div>
-      </main>
     </div>
   )
 }

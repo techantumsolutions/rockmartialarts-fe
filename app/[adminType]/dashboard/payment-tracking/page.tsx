@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Calendar } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
@@ -673,41 +674,51 @@ export default function PaymentTrackingPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap items-end gap-2">
-                  <div className="flex-1 min-w-[140px]">
+                  <div className="flex-1 min-w-[130px] max-w-[180px]">
                     <div className="text-xs text-gray-500 mb-1">Start</div>
-                    <Input
-                      type="date"
-                      min="1000-01-01"
-                      max="9999-12-31"
-                      value={periodStart}
-                      onChange={(e) => {
-                        const raw = e.target.value || ""
-                        const match = /^(\d+)-(\d{2})-(\d{2})$/.exec(raw)
-                        if (!match) {
-                          setPeriodStart(raw.slice(0, 10))
-                          return
-                        }
-                        setPeriodStart(`${match[1].slice(0, 4)}-${match[2]}-${match[3]}`)
-                      }}
-                    />
+                    <div className="relative">
+                      <Input
+                        type="date"
+                        min="1000-01-01"
+                        max="9999-12-31"
+                        value={periodStart}
+                        className="w-full pl-3 pr-9 py-1.5 h-9 text-xs sm:text-sm bg-white border-gray-200 rounded-md cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:top-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-datetime-edit]:p-0"
+                        onClick={(e) => e.currentTarget.showPicker?.()}
+                        onChange={(e) => {
+                          const raw = e.target.value || ""
+                          const match = /^(\d+)-(\d{2})-(\d{2})$/.exec(raw)
+                          if (!match) {
+                            setPeriodStart(raw.slice(0, 10))
+                            return
+                          }
+                          setPeriodStart(`${match[1].slice(0, 4)}-${match[2]}-${match[3]}`)
+                        }}
+                      />
+                      <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-[140px]">
+                  <div className="flex-1 min-w-[130px] max-w-[180px]">
                     <div className="text-xs text-gray-500 mb-1">End</div>
-                    <Input
-                      type="date"
-                      min="1000-01-01"
-                      max="9999-12-31"
-                      value={periodEnd}
-                      onChange={(e) => {
-                        const raw = e.target.value || ""
-                        const match = /^(\d+)-(\d{2})-(\d{2})$/.exec(raw)
-                        if (!match) {
-                          setPeriodEnd(raw.slice(0, 10))
-                          return
-                        }
-                        setPeriodEnd(`${match[1].slice(0, 4)}-${match[2]}-${match[3]}`)
-                      }}
-                    />
+                    <div className="relative">
+                      <Input
+                        type="date"
+                        min="1000-01-01"
+                        max="9999-12-31"
+                        value={periodEnd}
+                        className="w-full pl-3 pr-9 py-1.5 h-9 text-xs sm:text-sm bg-white border-gray-200 rounded-md cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:top-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-datetime-edit]:p-0"
+                        onClick={(e) => e.currentTarget.showPicker?.()}
+                        onChange={(e) => {
+                          const raw = e.target.value || ""
+                          const match = /^(\d+)-(\d{2})-(\d{2})$/.exec(raw)
+                          if (!match) {
+                            setPeriodEnd(raw.slice(0, 10))
+                            return
+                          }
+                          setPeriodEnd(`${match[1].slice(0, 4)}-${match[2]}-${match[3]}`)
+                        }}
+                      />
+                      <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+                    </div>
                   </div>
                   {(periodStart || periodEnd) ? (
                     <Button

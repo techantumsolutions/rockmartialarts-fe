@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Building, MapPin, Users, Clock, CreditCard, AlertCircle, Loader2, X } from "lucide-react"
+import { ArrowLeft, Building, MapPin, Users, Clock, CreditCard, AlertCircle, Loader2, X, Calendar } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import Header from "@/components/layout/Header"
@@ -842,19 +842,23 @@ export default function EditBranch() {
                   <div className="space-y-2">
                     <Label>Holidays</Label>
                     <div className="flex space-x-2">
-                      <Input
-                        type="date"
-                        id="holidayDate"
-                        className="text-sm"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault()
-                            const input = e.target as HTMLInputElement
-                            addHoliday(input.value)
-                            input.value = ''
-                          }
-                        }}
-                      />
+                      <div className="relative w-full max-w-sm">
+                        <Input
+                          type="date"
+                          id="holidayDate"
+                          className="w-full pl-3 pr-9 py-1.5 h-9 text-xs sm:text-sm bg-white border-gray-200 rounded-md cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:top-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-datetime-edit]:p-0"
+                          onClick={(e) => e.currentTarget.showPicker?.()}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              const input = e.target as HTMLInputElement
+                              addHoliday(input.value)
+                              input.value = ''
+                            }
+                          }}
+                        />
+                        <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+                      </div>
                       <Button
                         type="button"
                         variant="outline"

@@ -276,7 +276,7 @@ export default function CourseListPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b bg-gray-50">
-                    <th className="text-left py-4 px-6 font-semibold text-[#6B7A99] text-base">Course Name:</th>
+                    <th className="text-left py-4 px-6 font-semibold text-[#6B7A99] text-base">Course Name</th>
                     <th className="text-left py-4 px-6 font-semibold text-[#6B7A99] text-base">Course Available in branches</th>
                     <th className="text-left py-4 px-6 font-semibold text-[#6B7A99] text-base">No of coachs assigned</th>
                     <th className="text-left py-4 px-6 font-semibold text-[#6B7A99] text-base">No. of Student choose</th>
