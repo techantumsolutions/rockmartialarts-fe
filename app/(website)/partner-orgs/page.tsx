@@ -4,8 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Building2, Loader2, MapPin, Search } from "lucide-react"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
-import type { PartnerOrgDirectoryItem } from "@/lib/partnerOrgAPI"
-import { filterDummyPartnerDirectory } from "@/lib/dummyPartnerOrgs"
+import { partnerOrgAPI, type PartnerOrgDirectoryItem } from "@/lib/partnerOrgAPI"
 
 export default function PartnerOrgsDirectoryPage() {
   const [searchInput, setSearchInput] = useState("")
@@ -19,13 +18,27 @@ export default function PartnerOrgsDirectoryPage() {
     return () => clearTimeout(t)
   }, [searchInput])
 
-  // TEMP: show hardcoded dummy partners only (no live directory API).
   useEffect(() => {
+    let cancelled = false
     setLoading(true)
-    const list = filterDummyPartnerDirectory(q)
-    setPartners(list)
-    setTotal(list.length)
-    setLoading(false)
+    partnerOrgAPI
+      .publicDirectory({ q: q || undefined, limit: 100 })
+      .then((data) => {
+        if (cancelled) return
+        setPartners(Array.isArray(data.partners) ? data.partners : [])
+        setTotal(Number(data.total) || 0)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setPartners([])
+        setTotal(0)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [q])
 
   return (

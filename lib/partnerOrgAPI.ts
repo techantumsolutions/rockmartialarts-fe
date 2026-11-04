@@ -374,3 +374,47 @@ export type PartnerOrgLanding = {
 }
 
 export const partnerOrgAPI = new PartnerOrgAPI()
+
+function normKey(v: unknown): string {
+  return String(v || "")
+    .trim()
+    .toLowerCase()
+}
+
+/** Match a branch on a public landing by slug, id, or code. */
+export function findPartnerLandingBranch(
+  landing: PartnerOrgLanding | null | undefined,
+  branchKey: string
+): PartnerOrgSiteBranch | null {
+  if (!landing?.branches?.length) return null
+  const key = normKey(branchKey)
+  return (
+    landing.branches.find(
+      (b) =>
+        normKey(b.slug) === key ||
+        normKey(b.id) === key ||
+        normKey(b.code) === key ||
+        normKey(b.name) === key
+    ) || null
+  )
+}
+
+/** Match a course on a branch by slug, id, or code. */
+export function findPartnerBranchCourse(
+  branch: PartnerOrgSiteBranch | null | undefined,
+  courseKey: string
+): (Record<string, unknown> & { id: string }) | null {
+  const courses = branch?.courses || []
+  if (!courses.length) return null
+  const key = normKey(courseKey)
+  return (
+    courses.find(
+      (c) =>
+        normKey(c.slug) === key ||
+        normKey(c.id) === key ||
+        normKey((c as { code?: string }).code) === key ||
+        normKey((c as { title?: string }).title) === key ||
+        normKey((c as { name?: string }).name) === key
+    ) || null
+  )
+}
