@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -49,6 +49,7 @@ export default function CallbacksAdminPage() {
   const [priorityFilter, setPriorityFilter] = useState("all")
   const [highlightOnly, setHighlightOnly] = useState(false)
   const [savingId, setSavingId] = useState<string | null>(null)
+  const loadRequestId = useRef(0)
   const [summary, setSummary] = useState({
     total: 0,
     highlighted: 0,
@@ -73,6 +74,7 @@ export default function CallbacksAdminPage() {
   }, [])
 
   const load = useCallback(async () => {
+    const requestId = ++loadRequestId.current
     if (!hasAuth()) {
       setError("Not authenticated")
       setLoading(false)
@@ -89,15 +91,25 @@ export default function CallbacksAdminPage() {
         skip,
         limit,
       })
+      if (requestId !== loadRequestId.current) return
       setRows(Array.isArray(data.callbacks) ? data.callbacks : [])
       setTotal(typeof data.total === "number" ? data.total : 0)
     } catch (e) {
+      if (requestId !== loadRequestId.current) return
       setError(e instanceof Error ? e.message : "Failed to load callbacks")
       setRows([])
     } finally {
-      setLoading(false)
+      if (requestId === loadRequestId.current) setLoading(false)
     }
   }, [skip, search, statusFilter, priorityFilter, highlightOnly])
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setSearch(searchInput)
+    }, 300)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [searchInput])
 
   useEffect(() => {
     load()
@@ -264,7 +276,10 @@ export default function CallbacksAdminPage() {
                 <Input
                   placeholder="Search name, phone, branch…"
                   value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
+                  onChange={(e) => {
+                    setSearchInput(e.target.value)
+                    setSkip(0)
+                  }}
                   className="pl-9"
                 />
               </div>
@@ -320,9 +335,6 @@ export default function CallbacksAdminPage() {
                 }}
               >
                 Highlighted only
-              </Button>
-              <Button type="submit" className="bg-yellow-400 hover:bg-yellow-500 text-white">
-                Search
               </Button>
             </form>
 
