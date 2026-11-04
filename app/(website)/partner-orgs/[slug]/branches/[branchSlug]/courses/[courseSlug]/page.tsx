@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useParams } from "next/navigation"
@@ -8,22 +9,71 @@ import {
   CheckCircle2,
   Clock,
   IndianRupee,
+  Loader2,
   MapPin,
   Users,
 } from "lucide-react"
-import { getDummyCourseDetail } from "@/lib/dummyPartnerOrgs"
+import {
+  findPartnerBranchCourse,
+  findPartnerLandingBranch,
+  type PartnerOrgLanding,
+  type PartnerOrgSiteBranch,
+} from "@/lib/partnerOrgAPI"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import { stripUuidFromPriceDisplay } from "@/lib/priceDisplay"
 import { formatCoursePriceLabel } from "@/lib/registrationPricing"
+
+type CourseRow = Record<string, unknown> & { id: string }
 
 export default function PartnerOrgCourseDetailPage() {
   const params = useParams()
   const orgSlug = String(params.slug || "")
   const branchSlug = String(params.branchSlug || "")
   const courseSlug = String(params.courseSlug || "")
-  const found = getDummyCourseDetail(orgSlug, branchSlug, courseSlug)
+  const [landing, setLanding] = useState<PartnerOrgLanding | null>(null)
+  const [branch, setBranch] = useState<PartnerOrgSiteBranch | null>(null)
+  const [course, setCourse] = useState<CourseRow | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  if (!found) {
+  useEffect(() => {
+    if (!orgSlug) return
+    let cancelled = false
+    setLoading(true)
+    fetch(
+      `/api/backend/partner-organizations/public/${encodeURIComponent(orgSlug)}/landing`,
+      { cache: "no-store", headers: { Accept: "application/json" } }
+    )
+      .then(async (res) => (res.ok ? res.json() : null))
+      .then((payload: PartnerOrgLanding | null) => {
+        if (cancelled) return
+        setLanding(payload)
+        const b = findPartnerLandingBranch(payload, branchSlug)
+        setBranch(b)
+        setCourse(findPartnerBranchCourse(b, courseSlug))
+      })
+      .catch(() => {
+        if (cancelled) return
+        setLanding(null)
+        setBranch(null)
+        setCourse(null)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [orgSlug, branchSlug, courseSlug])
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-[#171A26] flex items-center justify-center text-gray-400">
+        <Loader2 className="w-8 h-8 animate-spin text-[#FFB70F]" />
+      </main>
+    )
+  }
+
+  if (!landing || !branch || !course) {
     return (
       <main className="min-h-screen bg-[#171A26] flex items-center justify-center px-4 text-white">
         <div className="text-center">
@@ -39,20 +89,36 @@ export default function PartnerOrgCourseDetailPage() {
     )
   }
 
-  const { org, branch, course } = found
-  const orgName = org.hero?.name || "Partner"
+  const orgName = landing.hero?.name || "Partner"
   const branchName = branch.name || branch.code || "Branch"
-  const title = course.title || course.name || "Course"
+  const title =
+    (course.title as string | undefined) ||
+    (course.name as string | undefined) ||
+    "Course"
+  const media = course.media_resources as { course_image_url?: string } | undefined
   const cover =
-    resolvePublicAssetUrl(course.media_resources?.course_image_url || "") ||
-    "/assets/img/banner.jpg"
-  const price = stripUuidFromPriceDisplay(formatCoursePriceLabel(course.pricing as never))
-  const orgPath = encodeURIComponent(org.slug || orgSlug)
-  const branchPath = encodeURIComponent(String(branch.slug || branchSlug))
+    resolvePublicAssetUrl(media?.course_image_url || "") || "/assets/img/banner.jpg"
+  const price = stripUuidFromPriceDisplay(
+    formatCoursePriceLabel(course.pricing as never)
+  )
+  const orgPath = encodeURIComponent(landing.slug || orgSlug)
+  const branchPath = encodeURIComponent(String(branch.slug || branch.id || branchSlug))
   const addr = branch.address
   const location = addr
     ? [addr.area || addr.line1, addr.city].filter(Boolean).join(", ")
     : branchName
+
+  const description = course.description as string | undefined
+  const longDescription = course.long_description as string | undefined
+  const whoIsItFor = course.who_is_it_for as string | undefined
+  const whatYouLearn = course.what_you_learn as string[] | undefined
+  const benefits = course.benefits as string[] | undefined
+  const gallery = course.gallery as string[] | undefined
+  const availableDurations = course.available_durations as
+    | Array<{ id?: string; code?: string; name?: string; duration_months?: number }>
+    | undefined
+  const scheduleNote = course.schedule_note as string | undefined
+  const difficulty = course.difficulty_level as string | undefined
 
   return (
     <main className="min-h-screen bg-[#171A26] text-white">
@@ -73,8 +139,8 @@ export default function PartnerOrgCourseDetailPage() {
             {orgName} · {branchName}
           </p>
           <h1 className="text-3xl md:text-5xl font-bold text-white mb-4">{title}</h1>
-          {course.description ? (
-            <p className="text-gray-200 max-w-2xl text-lg">{course.description}</p>
+          {description ? (
+            <p className="text-gray-200 max-w-2xl text-lg">{description}</p>
           ) : null}
         </div>
       </section>
@@ -93,7 +159,7 @@ export default function PartnerOrgCourseDetailPage() {
               <Users className="w-5 h-5 text-[#FFB70F]" />
               <div>
                 <p className="text-xs text-gray-400">Level</p>
-                <p className="font-semibold">{course.difficulty_level || "All levels"}</p>
+                <p className="font-semibold">{difficulty || "All levels"}</p>
               </div>
             </div>
             <div className="rounded-xl border border-gray-800 bg-gray-900/80 p-4 flex items-center gap-3">
@@ -110,28 +176,28 @@ export default function PartnerOrgCourseDetailPage() {
       <section className="py-14 px-4">
         <div className="container mx-auto max-w-7xl grid lg:grid-cols-3 gap-10">
           <div className="lg:col-span-2 space-y-10">
-            {course.long_description ? (
+            {longDescription ? (
               <div>
                 <div className="w-12 h-1 bg-[#FFB70F] mb-4" />
                 <h2 className="text-2xl font-bold text-[#FFB70F] mb-3">About this course</h2>
                 <p className="text-gray-300 leading-relaxed whitespace-pre-wrap">
-                  {course.long_description}
+                  {longDescription}
                 </p>
               </div>
             ) : null}
 
-            {course.who_is_it_for ? (
+            {whoIsItFor ? (
               <div>
                 <h2 className="text-xl font-bold text-[#FFB70F] mb-2">Who is it for</h2>
-                <p className="text-gray-300">{course.who_is_it_for}</p>
+                <p className="text-gray-300">{whoIsItFor}</p>
               </div>
             ) : null}
 
-            {course.what_you_learn?.length ? (
+            {whatYouLearn?.length ? (
               <div>
                 <h2 className="text-xl font-bold text-[#FFB70F] mb-3">What you will learn</h2>
                 <ul className="space-y-2">
-                  {course.what_you_learn.map((item) => (
+                  {whatYouLearn.map((item) => (
                     <li key={item} className="flex gap-2 text-gray-300">
                       <CheckCircle2 className="w-5 h-5 text-[#FFB70F] shrink-0 mt-0.5" />
                       <span>{item}</span>
@@ -141,11 +207,11 @@ export default function PartnerOrgCourseDetailPage() {
               </div>
             ) : null}
 
-            {course.benefits?.length ? (
+            {benefits?.length ? (
               <div>
                 <h2 className="text-xl font-bold text-[#FFB70F] mb-3">Benefits</h2>
                 <div className="grid sm:grid-cols-2 gap-3">
-                  {course.benefits.map((b) => (
+                  {benefits.map((b) => (
                     <div
                       key={b}
                       className="rounded-lg border border-gray-800 bg-gray-900/40 px-4 py-3 text-sm text-gray-300"
@@ -157,11 +223,11 @@ export default function PartnerOrgCourseDetailPage() {
               </div>
             ) : null}
 
-            {course.gallery?.length ? (
+            {gallery?.length ? (
               <div>
                 <h2 className="text-xl font-bold text-[#FFB70F] mb-4">Gallery</h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {course.gallery.map((src) => (
+                  {gallery.map((src) => (
                     <div
                       key={src}
                       className="relative aspect-[4/3] rounded-lg overflow-hidden border border-gray-800"
@@ -183,9 +249,9 @@ export default function PartnerOrgCourseDetailPage() {
           <aside className="space-y-5">
             <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-6 sticky top-24">
               <h3 className="text-lg font-semibold text-[#FFB70F] mb-4">Course plans</h3>
-              {course.available_durations?.length ? (
+              {availableDurations?.length ? (
                 <ul className="space-y-2 mb-5">
-                  {course.available_durations.map((d) => (
+                  {availableDurations.map((d) => (
                     <li
                       key={d.id || d.code || d.name}
                       className="flex items-center justify-between text-sm border border-gray-800 rounded-lg px-3 py-2"
@@ -201,10 +267,10 @@ export default function PartnerOrgCourseDetailPage() {
                 <p className="text-sm text-gray-400 mb-5">Contact the branch for plan options.</p>
               )}
 
-              {course.schedule_note ? (
+              {scheduleNote ? (
                 <p className="text-sm text-gray-400 flex gap-2 mb-5">
                   <Clock className="w-4 h-4 text-[#FFB70F] shrink-0 mt-0.5" />
-                  <span>{course.schedule_note}</span>
+                  <span>{scheduleNote}</span>
                 </p>
               ) : null}
 

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
-import { getDummyPartnerLanding } from "@/lib/dummyPartnerOrgs"
 import type { PartnerOrgLanding } from "@/lib/partnerOrgAPI"
 import { PartnerOrgHeader } from "./PartnerOrgHeader"
 import { PartnerOrgFooter } from "./PartnerOrgFooter"
@@ -14,11 +13,6 @@ export function PartnerOrgSiteChrome({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     if (!slug) return
-    const dummy = getDummyPartnerLanding(slug)
-    if (dummy) {
-      setData(dummy)
-      return
-    }
     let cancelled = false
     fetch(
       `/api/backend/partner-organizations/public/${encodeURIComponent(slug)}/landing`,

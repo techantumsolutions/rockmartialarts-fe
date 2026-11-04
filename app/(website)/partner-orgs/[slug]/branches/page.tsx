@@ -4,7 +4,6 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import { Building2, Loader2, MapPin } from "lucide-react"
-import { getDummyPartnerLanding } from "@/lib/dummyPartnerOrgs"
 import type { PartnerOrgLanding } from "@/lib/partnerOrgAPI"
 
 export default function PartnerOrgBranchesPage() {
@@ -15,12 +14,6 @@ export default function PartnerOrgBranchesPage() {
 
   useEffect(() => {
     if (!slug) return
-    const dummy = getDummyPartnerLanding(slug)
-    if (dummy) {
-      setData(dummy)
-      setLoading(false)
-      return
-    }
     let cancelled = false
     fetch(
       `/api/backend/partner-organizations/public/${encodeURIComponent(slug)}/landing`,

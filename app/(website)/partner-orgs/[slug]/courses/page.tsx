@@ -5,7 +5,6 @@ import Link from "next/link"
 import Image from "next/image"
 import { useParams } from "next/navigation"
 import { BookOpen, IndianRupee, Loader2 } from "lucide-react"
-import { getDummyPartnerLanding } from "@/lib/dummyPartnerOrgs"
 import type { PartnerOrgLanding } from "@/lib/partnerOrgAPI"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import { stripUuidFromPriceDisplay } from "@/lib/priceDisplay"
@@ -19,12 +18,6 @@ export default function PartnerOrgCoursesPage() {
 
   useEffect(() => {
     if (!slug) return
-    const dummy = getDummyPartnerLanding(slug)
-    if (dummy) {
-      setData(dummy)
-      setLoading(false)
-      return
-    }
     let cancelled = false
     fetch(
       `/api/backend/partner-organizations/public/${encodeURIComponent(slug)}/landing`,
