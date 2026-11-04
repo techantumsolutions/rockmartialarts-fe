@@ -3,7 +3,6 @@
 import { useEffect, useState, type FormEvent } from "react"
 import { useParams } from "next/navigation"
 import { Loader2, Mail, MapPin, Phone } from "lucide-react"
-import { getDummyPartnerLanding } from "@/lib/dummyPartnerOrgs"
 import type { PartnerOrgLanding } from "@/lib/partnerOrgAPI"
 
 export default function PartnerOrgContactPage() {
@@ -23,12 +22,6 @@ export default function PartnerOrgContactPage() {
 
   useEffect(() => {
     if (!slug) return
-    const dummy = getDummyPartnerLanding(slug)
-    if (dummy) {
-      setData(dummy)
-      setLoading(false)
-      return
-    }
     let cancelled = false
     fetch(
       `/api/backend/partner-organizations/public/${encodeURIComponent(slug)}/landing`,
@@ -55,34 +48,30 @@ export default function PartnerOrgContactPage() {
     setFormError(null)
     setFormSubmitting(true)
     try {
-      if (getDummyPartnerLanding(data.slug)) {
-        await new Promise((r) => setTimeout(r, 400))
-      } else {
-        const res = await fetch(
-          `/api/backend/partner-organizations/public/${encodeURIComponent(data.slug)}/leads`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-            body: JSON.stringify({
-              name: formName.trim(),
-              phone: formPhone.trim(),
-              email: formEmail.trim() || undefined,
-              message: formMessage.trim() || undefined,
-              interest: formInterest.trim() || undefined,
-            }),
-          }
-        )
-        const payload = await res.json().catch(() => ({}))
-        if (!res.ok) {
-          const detail =
-            typeof payload?.detail === "string"
-              ? payload.detail
-              : "Could not send your enquiry. Please try again."
-          throw new Error(detail)
+      const res = await fetch(
+        `/api/backend/partner-organizations/public/${encodeURIComponent(data.slug)}/leads`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            name: formName.trim(),
+            phone: formPhone.trim(),
+            email: formEmail.trim() || undefined,
+            message: formMessage.trim() || undefined,
+            interest: formInterest.trim() || undefined,
+          }),
         }
+      )
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        const detail =
+          typeof payload?.detail === "string"
+            ? payload.detail
+            : "Could not send your enquiry. Please try again."
+        throw new Error(detail)
       }
       setFormDone(true)
       setFormName("")

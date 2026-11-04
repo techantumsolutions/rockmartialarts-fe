@@ -1,10 +1,15 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useParams } from "next/navigation"
-import { ArrowLeft, BookOpen, IndianRupee, MapPin, Phone } from "lucide-react"
-import { getDummyBranch } from "@/lib/dummyPartnerOrgs"
+import { ArrowLeft, BookOpen, IndianRupee, Loader2, MapPin, Phone } from "lucide-react"
+import {
+  findPartnerLandingBranch,
+  type PartnerOrgLanding,
+  type PartnerOrgSiteBranch,
+} from "@/lib/partnerOrgAPI"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import { stripUuidFromPriceDisplay } from "@/lib/priceDisplay"
 import { formatCoursePriceLabel } from "@/lib/registrationPricing"
@@ -13,9 +18,46 @@ export default function PartnerOrgBranchCoursesPage() {
   const params = useParams()
   const orgSlug = String(params.slug || "")
   const branchSlug = String(params.branchSlug || "")
-  const found = getDummyBranch(orgSlug, branchSlug)
+  const [landing, setLanding] = useState<PartnerOrgLanding | null>(null)
+  const [branch, setBranch] = useState<PartnerOrgSiteBranch | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  if (!found) {
+  useEffect(() => {
+    if (!orgSlug) return
+    let cancelled = false
+    setLoading(true)
+    fetch(
+      `/api/backend/partner-organizations/public/${encodeURIComponent(orgSlug)}/landing`,
+      { cache: "no-store", headers: { Accept: "application/json" } }
+    )
+      .then(async (res) => (res.ok ? res.json() : null))
+      .then((payload: PartnerOrgLanding | null) => {
+        if (cancelled) return
+        setLanding(payload)
+        setBranch(findPartnerLandingBranch(payload, branchSlug))
+      })
+      .catch(() => {
+        if (cancelled) return
+        setLanding(null)
+        setBranch(null)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [orgSlug, branchSlug])
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-[#171A26] flex items-center justify-center text-gray-400">
+        <Loader2 className="w-8 h-8 animate-spin text-[#FFB70F]" />
+      </main>
+    )
+  }
+
+  if (!landing || !branch) {
     return (
       <main className="min-h-screen bg-[#171A26] flex items-center justify-center px-4 text-white">
         <div className="text-center">
@@ -28,16 +70,15 @@ export default function PartnerOrgBranchCoursesPage() {
     )
   }
 
-  const { org, branch } = found
-  const orgName = org.hero?.name || "Partner"
+  const orgName = landing.hero?.name || "Partner"
   const branchName = branch.name || branch.code || "Branch"
   const addr = branch.address
   const addressLine = addr
     ? [addr.line1, addr.area, addr.city, addr.state, addr.pincode].filter(Boolean).join(", ")
     : ""
   const courses = branch.courses || []
-  const orgPath = encodeURIComponent(org.slug || orgSlug)
-  const branchPath = encodeURIComponent(String(branch.slug || branchSlug))
+  const orgPath = encodeURIComponent(landing.slug || orgSlug)
+  const branchPath = encodeURIComponent(String(branch.slug || branch.id || branchSlug))
 
   return (
     <main className="min-h-screen bg-[#171A26] text-white">
@@ -100,33 +141,26 @@ export default function PartnerOrgBranchCoursesPage() {
                       {img ? (
                         <Image
                           src={img}
-                          alt={title}
+                          alt=""
                           fill
                           className="object-cover group-hover:scale-105 transition-transform duration-500"
-                          sizes="(max-width:640px) 100vw, (max-width:1024px) 50vw, 33vw"
+                          sizes="(max-width:768px) 100vw, 33vw"
                         />
                       ) : (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <BookOpen className="w-12 h-12 text-gray-600" />
+                        <div className="w-full h-full flex items-center justify-center text-gray-600">
+                          <BookOpen className="w-10 h-10" />
                         </div>
                       )}
                     </div>
-                    <div className="p-5 flex flex-col flex-1">
-                      <h2 className="text-lg font-bold text-white mb-2 line-clamp-2 group-hover:text-[#FFB70F]">
-                        {title}
-                      </h2>
+                    <div className="p-5 flex-1 flex flex-col">
+                      <h2 className="text-lg font-semibold text-[#FFB70F] mb-2">{title}</h2>
                       {description ? (
-                        <p className="text-sm text-gray-400 mb-4 line-clamp-3 flex-1">
-                          {description}
-                        </p>
+                        <p className="text-sm text-gray-400 line-clamp-3 mb-4">{description}</p>
                       ) : null}
-                      <div className="flex items-center gap-2 text-sm text-gray-300 mb-4">
-                        <IndianRupee className="w-4 h-4 text-[#FFB70F]" />
-                        <span>{price}</span>
-                      </div>
-                      <span className="inline-flex items-center justify-center rounded-lg bg-[#FFB70F] px-4 py-2 text-sm font-semibold text-[#171A26]">
-                        View course details
-                      </span>
+                      <p className="mt-auto text-sm text-gray-300 flex items-center gap-1">
+                        <IndianRupee className="w-3.5 h-3.5 text-[#FFB70F]" />
+                        {price}
+                      </p>
                     </div>
                   </Link>
                 )

@@ -14,7 +14,6 @@ import {
 } from "lucide-react"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import type { PartnerOrgLanding } from "@/lib/partnerOrgAPI"
-import { getDummyPartnerLanding } from "@/lib/dummyPartnerOrgs"
 import { PartnerOrgSiteSections } from "@/components/partner-org/PartnerOrgSiteSections"
 
 function SectionHeading({
@@ -61,15 +60,35 @@ export default function PartnerOrgLandingClient() {
     })
   }, [])
 
-  // TEMP: serve hardcoded dummy landings only (no live landing API).
   useEffect(() => {
     if (!slug) return
+    let cancelled = false
     setLoading(true)
     setError(null)
-    const payload = getDummyPartnerLanding(slug)
-    setData(payload)
-    setError(payload ? null : "Partner not found")
-    setLoading(false)
+    fetch(
+      `/api/backend/partner-organizations/public/${encodeURIComponent(slug)}/landing`,
+      { cache: "no-store", headers: { Accept: "application/json" } }
+    )
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Partner not found")
+        return res.json()
+      })
+      .then((payload) => {
+        if (cancelled) return
+        setData(payload)
+        setError(null)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setData(null)
+        setError("Partner not found")
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [slug])
 
   useEffect(() => {
@@ -90,40 +109,35 @@ export default function PartnerOrgLandingClient() {
     setFormError(null)
     setFormSubmitting(true)
     try {
-      // TEMP: dummy partners skip the real leads API.
-      if (getDummyPartnerLanding(data.slug)) {
-        await new Promise((r) => setTimeout(r, 400))
-      } else {
-        const res = await fetch(
-          `/api/backend/partner-organizations/public/${encodeURIComponent(data.slug)}/leads`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-            body: JSON.stringify({
-              name: formName.trim(),
-              phone: formPhone.trim(),
-              email: formEmail.trim() || undefined,
-              message: formMessage.trim() || undefined,
-              interest: formInterest.trim() || undefined,
-            }),
-          }
-        )
-        const payload = await res.json().catch(() => ({}))
-        if (!res.ok) {
-          const detail =
-            typeof payload?.detail === "string"
-              ? payload.detail
-              : Array.isArray(payload?.detail)
-                ? payload.detail
-                    .map((d: { msg?: string }) => d.msg)
-                    .filter(Boolean)
-                    .join(", ")
-                : "Could not send your enquiry. Please try again."
-          throw new Error(detail || "Could not send your enquiry.")
+      const res = await fetch(
+        `/api/backend/partner-organizations/public/${encodeURIComponent(data.slug)}/leads`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            name: formName.trim(),
+            phone: formPhone.trim(),
+            email: formEmail.trim() || undefined,
+            message: formMessage.trim() || undefined,
+            interest: formInterest.trim() || undefined,
+          }),
         }
+      )
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        const detail =
+          typeof payload?.detail === "string"
+            ? payload.detail
+            : Array.isArray(payload?.detail)
+              ? payload.detail
+                  .map((d: { msg?: string }) => d.msg)
+                  .filter(Boolean)
+                  .join(", ")
+              : "Could not send your enquiry. Please try again."
+        throw new Error(detail || "Could not send your enquiry.")
       }
       setFormDone(true)
       setFormName("")
