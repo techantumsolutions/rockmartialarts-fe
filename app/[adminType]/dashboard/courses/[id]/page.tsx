@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Progress } from "@/components/ui/progress"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { 
   ArrowLeft, 
   BookOpen, 
@@ -112,6 +113,21 @@ export default function CourseDetailPage() {
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [enrollmentStudentFilter, setEnrollmentStudentFilter] = useState("all")
+
+  const uniqueEnrollmentStudents = useMemo(() => {
+    const names = new Set<string>()
+    for (const row of enrolledStudents) {
+      const name = (row.student_name || "").trim()
+      if (name) names.add(name)
+    }
+    return Array.from(names).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
+  }, [enrolledStudents])
+
+  const filteredEnrollments = useMemo(() => {
+    if (!enrollmentStudentFilter || enrollmentStudentFilter === "all") return enrolledStudents
+    return enrolledStudents.filter((s) => s.student_name === enrollmentStudentFilter)
+  }, [enrolledStudents, enrollmentStudentFilter])
 
   useEffect(() => {
     fetchCourseDetails()
@@ -698,23 +714,49 @@ export default function CourseDetailPage() {
               </CardContent>
             </Card>
 
-            {/* Enrolled Students */}
+            {/* Total Enrollments */}
             <Card>
-              <CardHeader>
+              <CardHeader className="space-y-3">
                 <CardTitle className="flex items-center">
-                
-                  <span className="text-[#4f5077]">Enrolled Students ({enrolledStudents.length})</span>
+                  <span className="text-[#4f5077]">
+                    Total Enrollments ({enrolledStudents.length})
+                  </span>
                 </CardTitle>
+                {enrolledStudents.length > 0 ? (
+                  <div className="max-w-sm">
+                    <Select
+                      value={enrollmentStudentFilter}
+                      onValueChange={setEnrollmentStudentFilter}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Filter by student" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All students</SelectItem>
+                        {uniqueEnrollmentStudents.map((name) => (
+                          <SelectItem key={name} value={name}>
+                            {name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null}
               </CardHeader>
               <CardContent>
                 {enrolledStudents.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                    <p className="text-[#7D8592]">No students enrolled yet</p>
+                    <p className="text-[#7D8592]">No enrollments yet</p>
+                  </div>
+                ) : filteredEnrollments.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p className="text-[#7D8592]">No enrollments match this student filter</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {enrolledStudents.slice(0, 10).map((student) => (
+                    {filteredEnrollments.slice(0, 10).map((student) => (
                       <div key={student.id} className="p-4 bg-gray-50 rounded-lg">
                         <div className="flex items-center justify-between mb-2">
                           <h4 className="font-medium text-[#7D8592]">{student.student_name}</h4>
@@ -758,9 +800,9 @@ export default function CourseDetailPage() {
                         </div>
                       </div>
                     ))}
-                    {enrolledStudents.length > 10 && (
+                    {filteredEnrollments.length > 10 && (
                       <p className="text-sm text-[#7D8592] text-center pt-2">
-                        ... and {enrolledStudents.length - 10} more students
+                        ... and {filteredEnrollments.length - 10} more enrollments
                       </p>
                     )}
                   </div>
@@ -768,46 +810,6 @@ export default function CourseDetailPage() {
               </CardContent>
             </Card>
 
-            {/* Course Reviews */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  
-                  <span className="text-[#4f5077]"> Student Reviews ({courseReviews.length})</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {courseReviews.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <Star className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                    <p>No reviews yet</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {courseReviews.map((review) => (
-                      <div key={review.id} className="p-4 bg-gray-50 rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium text-[#7D8592]">{review.student_name}</h4>
-                          <div className="flex items-center space-x-1">
-                            {renderStars(review.rating)}
-                          </div>
-                        </div>
-
-                        <p className="text-sm text-[#7D8592] mb-2">{review.comment}</p>
-
-                        <p className="text-xs text-[#7D8592]">
-                          {new Date(review.date).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                          })}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
           </div>
 
           {/* Sidebar */}
@@ -823,7 +825,7 @@ export default function CourseDetailPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <Users className="w-4 h-4 mr-2 text-[#7D8592]" />
-                    <span className="text-sm text-[#7D8592]">Total Enrolled</span>
+                    <span className="text-sm text-[#7D8592]">Total Students Enrolled</span>
                   </div>
                   <span className="font-semibold text-[#7D8592]">
                     {courseStats?.total_enrolled ??

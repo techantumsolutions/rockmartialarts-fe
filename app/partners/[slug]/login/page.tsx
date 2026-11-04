@@ -1,12 +1,16 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
+import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { PasswordInput } from "@/components/ui/password-input"
+import { PartnerAuthLinks } from "@/components/partner/PartnerAuthLinks"
+import { usePartnerPublicMeta } from "@/hooks/usePartnerPublicMeta"
 import { partnerOrgAPI } from "@/lib/partnerOrgAPI"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
@@ -16,41 +20,11 @@ export default function PartnerWhiteLabelLoginPage() {
   const router = useRouter()
   const { toast } = useToast()
   const slug = String(params?.slug || "").toLowerCase()
+  const { partnerName, loadingMeta, disabled, notFound } = usePartnerPublicMeta(slug)
 
-  const [partnerName, setPartnerName] = useState("")
-  const [loadingMeta, setLoadingMeta] = useState(true)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [submitting, setSubmitting] = useState(false)
-  const [disabled, setDisabled] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      if (!slug) return
-      setLoadingMeta(true)
-      try {
-        const meta = await partnerOrgAPI.publicBySlug(slug)
-        if (cancelled) return
-        setPartnerName(meta.name || slug)
-        setDisabled(meta.is_active === false || meta.status === "disabled")
-      } catch {
-        if (!cancelled) {
-          setPartnerName("")
-          toast({
-            title: "Partner not found",
-            description: "Check the login link and try again.",
-            variant: "destructive",
-          })
-        }
-      } finally {
-        if (!cancelled) setLoadingMeta(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [slug, toast])
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -110,7 +84,7 @@ export default function PartnerWhiteLabelLoginPage() {
             <p className="text-sm text-red-600 py-4">
               This partner account is disabled. Please contact the administrator.
             </p>
-          ) : !partnerName ? (
+          ) : notFound || !partnerName ? (
             <p className="text-sm text-gray-600 py-4">Partner not found.</p>
           ) : (
             <form className="space-y-4" onSubmit={onSubmit}>
@@ -126,10 +100,17 @@ export default function PartnerWhiteLabelLoginPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Password</Label>
+                  <Link
+                    href={`/partners/${slug}/forgot-password`}
+                    className="text-xs font-medium text-amber-700 hover:text-amber-900"
+                  >
+                    Forgot Password?
+                  </Link>
+                </div>
+                <PasswordInput
                   id="password"
-                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -150,6 +131,7 @@ export default function PartnerWhiteLabelLoginPage() {
                   "Sign in"
                 )}
               </Button>
+              <PartnerAuthLinks slug={slug} current="admin" />
             </form>
           )}
         </CardContent>

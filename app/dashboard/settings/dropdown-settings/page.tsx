@@ -3,8 +3,8 @@
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Database, Clock, Plus, Trash2, Pencil } from "lucide-react"
-import DashboardHeader from "@/components/dashboard-header"
 import { DropdownSettingsManager } from "@/components/dropdown-settings-manager"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,6 +17,7 @@ type DurationItem = { id: string; name: string; code: string; duration_months: n
 
 export default function DropdownSettingsPage() {
   const router = useRouter()
+  const basePath = useDashboardBasePath()
   const { toast } = useToast()
   const [durations, setDurations] = useState<DurationItem[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -177,15 +178,13 @@ export default function DropdownSettingsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader currentPage="Master Data" />
-      
-      <main className="w-full p-4 lg:px-8">
+      <div className="w-full p-4 lg:px-8">
         <div className="mx-auto space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="flex items-center space-x-4">
               <Button
                 variant="ghost"
-                onClick={() => router.push("/dashboard/settings")}
+                onClick={() => router.push(`${basePath}/settings`)}
                 className="flex items-center space-x-2 hover:bg-gray-100"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -194,7 +193,7 @@ export default function DropdownSettingsPage() {
               <div className="w-px h-6 bg-gray-300"></div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                  <Database className="w-6 h-6" />
+                  <Database className="w-6 h-6 shrink-0" />
                   Master Data
                 </h1>
                 <p className="text-gray-600 mt-1">
@@ -430,7 +429,7 @@ export default function DropdownSettingsPage() {
             />
           </div>
         </div>
-      </main>
+      </div>
     </div>
   )
 }

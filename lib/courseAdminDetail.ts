@@ -22,7 +22,10 @@ function enrollmentStatus(isActive: boolean): AdminEnrolledStudent["status"] {
   return isActive ? "active" : "completed"
 }
 
-/** Load enrollments for a course (requires auth token). */
+/**
+ * Load enrollments for a course (requires auth token).
+ * Returns all enrollment rows (including re-enrolls of the same student).
+ */
 export async function loadCourseEnrollmentsForAdmin(
   courseId: string,
   token: string
@@ -50,9 +53,11 @@ export async function loadCourseEnrollmentsForAdmin(
             : start != null && typeof (start as { toString?: () => string }).toString === "function"
               ? String(start)
               : new Date().toISOString()
-        const sid = String(e.student_id ?? e.id ?? i)
+        const enrollmentId = String(e.id ?? "").trim()
+        const sid = String(e.student_id ?? "").trim()
         return {
-          id: sid,
+          // Prefer enrollment id so duplicate students don't collide in lists
+          id: enrollmentId || (sid ? `${sid}-${i}` : `enrollment-${i}`),
           student_name: String(e.student_name ?? "Student"),
           enrollment_date: startStr,
           progress: typeof e.progress_percent === "number" ? (e.progress_percent as number) : 0,

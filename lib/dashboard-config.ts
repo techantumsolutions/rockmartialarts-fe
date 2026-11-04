@@ -30,10 +30,7 @@ import {
   Handshake,
   ImageIcon,
   Award,
-  Images,
-  MessageSquareQuote,
   UserCog,
-  Search,
   Tags,
   type LucideIcon,
 } from "lucide-react"
@@ -183,12 +180,6 @@ const SUPER_ADMIN_MENU: NavItem[] = [
     permissionId: "partners",
     children: [
       { label: "Partner Profiles", path: `${SUPER_ADMIN_BASE}/partner-profiles`, icon: Handshake, permissionId: "partners" },
-      { label: "Partner Branding", path: `${SUPER_ADMIN_BASE}/partner-branding`, icon: ImageIcon, permissionId: "partners" },
-      { label: "Partner Masters", path: `${SUPER_ADMIN_BASE}/partner-masters`, icon: Award, permissionId: "partners" },
-      { label: "Partner Gallery", path: `${SUPER_ADMIN_BASE}/partner-gallery`, icon: Images, permissionId: "partners" },
-      { label: "Partner Testimonials", path: `${SUPER_ADMIN_BASE}/partner-testimonials`, icon: MessageSquareQuote, permissionId: "partners" },
-      { label: "Partner Team", path: `${SUPER_ADMIN_BASE}/partner-team`, icon: UserCog, permissionId: "partners" },
-      { label: "Partner SEO", path: `${SUPER_ADMIN_BASE}/partner-seo`, icon: Search, permissionId: "partners" },
     ],
   },
   { label: "Coaches", path: `${SUPER_ADMIN_BASE}/coaches`, icon: Users, permissionId: "coaches" },
@@ -451,6 +442,20 @@ export function getRoleLabel(role: DashboardRole): string {
     case "student":
       return "Student"
     case "partner_super_admin":
+      if (typeof window !== "undefined") {
+        const fromStorage = (localStorage.getItem("partner_name") || "").trim()
+        if (fromStorage) return fromStorage
+        try {
+          const raw = localStorage.getItem("user")
+          if (raw) {
+            const user = JSON.parse(raw) as { partner_name?: string; full_name?: string }
+            const fromUser = (user.partner_name || user.full_name || "").trim()
+            if (fromUser) return fromUser
+          }
+        } catch {
+          /* ignore */
+        }
+      }
       return "Partner admin"
     default:
       return "User"
