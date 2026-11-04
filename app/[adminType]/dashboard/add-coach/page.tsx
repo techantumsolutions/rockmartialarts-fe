@@ -31,6 +31,7 @@ import {
   type AvailabilityWindow,
 } from "@/lib/batchCoachAssignment"
 import { SafeImage } from "@/components/ui/safe-image"
+import { YearPicker } from "@/components/ui/year-picker"
 import { extractUploadUrl, uploadFile } from "@/lib/upload"
 import { useToast } from "@/hooks/use-toast"
 import { WEEKDAY_CHECKLIST_ORDER } from "@/lib/formatWeekdayRanges"
@@ -214,7 +215,6 @@ export default function AddCoachPage() {
   const [subCategories, setSubCategories] = useState<any[]>([])
   const [designations, setDesignations] = useState<string[]>([])
   const [qualifications, setQualifications] = useState<string[]>([])
-  const [passingYears, setPassingYears] = useState<string[]>([])
   const [genders, setGenders] = useState<string[]>([])
   const [countries, setCountries] = useState<string[]>([])
   const [experienceRanges, setExperienceRanges] = useState<string[]>([])
@@ -484,31 +484,6 @@ export default function AddCoachPage() {
     }
   }
 
-  // Load passing years from dropdown settings
-  const loadPassingYears = async () => {
-    try {
-      const token = TokenManager.getToken()
-      const response = await fetch(getBackendApiUrl('dropdown-settings/passing_years'), {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setPassingYears(data.filter((opt: any) => opt.is_active).map((opt: any) => opt.value))
-      } else {
-        const currentYear = new Date().getFullYear()
-        const years = []
-        for (let i = 0; i < 51; i++) years.push(String(currentYear - i))
-        setPassingYears(years)
-      }
-    } catch (error) {
-      console.error('Error loading passing years:', error)
-      const currentYear = new Date().getFullYear()
-      const years = []
-      for (let i = 0; i < 51; i++) years.push(String(currentYear - i))
-      setPassingYears(years)
-    }
-  }
-
   // Load categories
   const loadCategories = async () => {
     try {
@@ -556,7 +531,6 @@ export default function AddCoachPage() {
     loadExperienceRanges()
     loadRelations()
     loadQualifications()
-    loadPassingYears()
     loadCategories()
 
     const loadBranches = async () => {
@@ -1746,19 +1720,10 @@ export default function AddCoachPage() {
                         </Select>
                       </div>
                       <div className="w-32">
-                        <Select
+                        <YearPicker
                           value={qual.year}
-                          onValueChange={(value) => updateQualification(index, 'year', value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Year" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {passingYears.map((y) => (
-                              <SelectItem key={y} value={y}>{y}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          onChange={(value) => updateQualification(index, 'year', value)}
+                        />
                       </div>
                       <Button
                         type="button"

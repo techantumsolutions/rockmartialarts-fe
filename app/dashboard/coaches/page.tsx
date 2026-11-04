@@ -312,6 +312,9 @@ const itemsPerPage = 15
 
     // Calculate total pages
 const totalPages = Math.ceil(filteredCoaches.length / itemsPerPage)
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, Math.max(totalPages, 1)))
+  }, [totalPages])
   // Slice coaches for current page
 const paginatedCoaches = filteredCoaches.slice(
   (currentPage - 1) * itemsPerPage,
@@ -454,15 +457,17 @@ const paginatedCoaches = filteredCoaches.slice(
 
            {/* Pagination */}
 <div className="flex justify-center items-center space-x-2 py-4 border-t">
-  <Button
-    variant="outline"
-    size="sm"
-    className="bg-gray-200"
-    disabled={currentPage === 1}
-    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-  >
-    Previous
-  </Button>
+  {totalPages > 1 && (
+    <Button
+      variant="outline"
+      size="sm"
+      className="bg-gray-200"
+      disabled={currentPage <= 1}
+      onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+    >
+      Previous
+    </Button>
+  )}
 
   {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
     <Button
@@ -480,15 +485,17 @@ const paginatedCoaches = filteredCoaches.slice(
     </Button>
   ))}
 
-  <Button
-    variant="outline"
-    size="sm"
-    className="bg-gray-200"
-    disabled={currentPage === totalPages}
-    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-  >
-    Next
-  </Button>
+  {totalPages > 1 && (
+    <Button
+      variant="outline"
+      size="sm"
+      className="bg-gray-200"
+      disabled={currentPage >= totalPages}
+      onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+    >
+      Next
+    </Button>
+  )}
 </div>
 
           </CardContent>

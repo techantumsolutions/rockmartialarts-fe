@@ -252,7 +252,9 @@ export default function GeographySettingsPage() {
   }
 
   return (
-    <div className="w-full p-4 lg:px-8">
+    <div className="min-h-screen bg-gray-50 pt-6">
+      <DashboardHeader currentPage="Geography" />
+      <main className="w-full p-4 lg:px-8">
         <div className="mx-auto space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="flex items-center space-x-4">

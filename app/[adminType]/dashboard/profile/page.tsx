@@ -15,7 +15,6 @@ import { useToast } from "@/hooks/use-toast"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { SuperAdminAuth } from "@/lib/auth"
 import { TokenManager } from "@/lib/tokenManager"
-import { TokenManager } from "@/lib/tokenManager"
 import { fetchAssignedBranches } from "@/lib/activeBranch"
 
 function partnerLoginPath() {
@@ -73,15 +72,10 @@ export default function BranchManagerProfilePage() {
     const isSuperAdmin = onSuperAdminRoute
       ? SuperAdminAuth.isAuthenticated()
       : !onPartnerRoute &&
-      SuperAdminAuth.isAuthenticated() &&
-      !BranchManagerAuth.isAuthenticated()
-    const partnerUser = TokenManager.getUser()
-    const isPartnerAdmin =
-      onPartnerAdminRoute &&
-      TokenManager.isAuthenticated() &&
-      String(partnerUser?.role || "").toLowerCase() === "partner_super_admin"
+        SuperAdminAuth.isAuthenticated() &&
+        !BranchManagerAuth.isAuthenticated()
     const isBranchManager =
-      !isSuperAdmin && !isPartnerAdmin && !onPartnerRoute && BranchManagerAuth.isAuthenticated()
+      !isSuperAdmin && !onPartnerRoute && BranchManagerAuth.isAuthenticated()
 
     if (onPartnerRoute) {
       if (!isPartnerAdmin) {
@@ -89,16 +83,13 @@ export default function BranchManagerProfilePage() {
         return
       }
       setIsSuperAdminProfile(false)
-    } else if (!isBranchManager && !isSuperAdmin && !isPartnerAdmin) {
-      if (onPartnerAdminRoute) {
-        const slug = typeof window !== "undefined" ? localStorage.getItem("partner_slug") : null
-        router.push(slug ? `/partners/${slug}/login` : "/superadmin/login")
-      } else {
-        router.push(onSuperAdminRoute ? "/superadmin/login" : "/branch-manager/login")
-      }
+      setIsPartnerProfile(true)
+    } else if (!isBranchManager && !isSuperAdmin) {
+      router.push(onSuperAdminRoute ? "/superadmin/login" : "/branch-manager/login")
       return
     } else {
       setIsSuperAdminProfile(isSuperAdmin)
+      setIsPartnerProfile(false)
     }
 
     // Load profile data
@@ -155,20 +146,13 @@ export default function BranchManagerProfilePage() {
 
         const token = isSuperAdmin ? SuperAdminAuth.getToken() : BranchManagerAuth.getToken()
         if (!token) {
-          if (isPartnerAdmin) {
-            const slug = typeof window !== "undefined" ? localStorage.getItem("partner_slug") : null
-            router.push(slug ? `/partners/${slug}/login` : "/superadmin/login")
-          } else {
-            router.push(isSuperAdmin ? "/superadmin/login" : "/branch-manager/login")
-          }
+          router.push(isSuperAdmin ? "/superadmin/login" : "/branch-manager/login")
           return
         }
 
-        const endpoint = isPartnerAdmin
-          ? getBackendApiUrl("partner-organizations/me")
-          : isSuperAdmin
-            ? getBackendApiUrl("superadmin/me")
-            : getBackendApiUrl("branch-managers/me")
+        const endpoint = isSuperAdmin
+          ? getBackendApiUrl("superadmin/me")
+          : getBackendApiUrl("branch-managers/me")
 
         const response = await fetch(endpoint, {
           method: 'GET',
@@ -201,7 +185,7 @@ export default function BranchManagerProfilePage() {
             }
             const profileData: BranchManagerProfile = {
               id: data.id,
-              full_name: data.full_name || data.partner_name || "User",
+              full_name: data.full_name || "User",
               email: data.email || "",
               phone: data.phone || "",
               branch_names: branchNames,
@@ -210,11 +194,7 @@ export default function BranchManagerProfilePage() {
               is_active: data.is_active !== undefined ? data.is_active : true,
               created_at: data.created_at || new Date().toISOString(),
               updated_at: data.updated_at || new Date().toISOString(),
-              role_label: isPartnerAdmin
-                ? (data.role_label || "Partner Admin")
-                : isSuperAdmin
-                  ? "Super Admin"
-                  : "Branch Manager",
+              role_label: isSuperAdmin ? "Super Admin" : "Branch Manager",
             }
 
             setProfile(profileData)
@@ -225,12 +205,7 @@ export default function BranchManagerProfilePage() {
             })
           }
         } else if (response.status === 401) {
-          if (isPartnerAdmin) {
-            const slug = typeof window !== "undefined" ? localStorage.getItem("partner_slug") : null
-            router.push(slug ? `/partners/${slug}/login` : "/superadmin/login")
-          } else {
-            router.push(isSuperAdmin ? "/superadmin/login" : "/branch-manager/login")
-          }
+          router.push(isSuperAdmin ? "/superadmin/login" : "/branch-manager/login")
         } else {
           throw new Error("Failed to load profile")
         }
