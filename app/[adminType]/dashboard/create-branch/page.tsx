@@ -99,6 +99,7 @@ interface CourseBatch {
   batch_name?: string
   batch_fee?: string
   fee_per_duration?: Record<string, string>
+  pricing_type_per_duration?: Record<string, string>
   max_students?: string | number
 }
 
@@ -215,9 +216,8 @@ function OperatingTimePicker({ label, value, onChange }: OperatingTimePickerProp
                 type="button"
                 aria-pressed={option === hour}
                 onClick={() => onChange(`${option}:${minute}`)}
-                className={`flex h-9 w-full items-center justify-center rounded-sm text-sm ${
-                  option === hour ? "bg-blue-600 font-medium text-white" : "hover:bg-accent"
-                }`}
+                className={`flex h-9 w-full items-center justify-center rounded-sm text-sm ${option === hour ? "bg-blue-600 font-medium text-white" : "hover:bg-accent"
+                  }`}
               >
                 {option}
               </button>
@@ -232,9 +232,8 @@ function OperatingTimePicker({ label, value, onChange }: OperatingTimePickerProp
                 type="button"
                 aria-pressed={option === minute}
                 onClick={() => onChange(`${hour}:${option}`)}
-                className={`flex h-9 w-full items-center justify-center rounded-sm text-sm ${
-                  option === minute ? "bg-blue-600 font-medium text-white" : "hover:bg-accent"
-                }`}
+                className={`flex h-9 w-full items-center justify-center rounded-sm text-sm ${option === minute ? "bg-blue-600 font-medium text-white" : "hover:bg-accent"
+                  }`}
               >
                 {option}
               </button>
@@ -316,18 +315,20 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
     is_collaboration_partner: false,
   })
 
-  // Auto-generate branch code
-  const generateBranchCode = () => {
-    const branchName = formData.branch.name.trim()
-    if (branchName.length >= 2) {
-      const firstTwoLetters = branchName.substring(0, 2).toUpperCase()
+  // Auto-generate branch code without wiping other form fields (courses/fees).
+  const generateBranchCode = (branchName?: string, force = false) => {
+    setFormData((prev) => {
+      const trimmed = (branchName ?? prev.branch.name).trim()
+      if (trimmed.length < 2) return prev
+      if (prev.branch.code && !force) return prev
+      const firstTwoLetters = trimmed.substring(0, 2).toUpperCase()
       const randomNumbers = Math.floor(Math.random() * 90 + 10)
       const code = `${firstTwoLetters}${randomNumbers}`
-      setFormData({
-        ...formData,
-        branch: { ...formData.branch, code }
-      })
-    }
+      return {
+        ...prev,
+        branch: { ...prev.branch, code },
+      }
+    })
   }
 
   // Branch admin cannot create branches — redirect to dashboard
@@ -340,9 +341,9 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
   // Auto-generate code when branch name changes
   useEffect(() => {
     if (formData.branch.name && !formData.branch.code) {
-      generateBranchCode()
+      generateBranchCode(formData.branch.name)
     }
-  }, [formData.branch.name])
+  }, [formData.branch.name, formData.branch.code])
 
   // Load data from APIs
   useEffect(() => {
@@ -522,7 +523,7 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
           id: d.id, name: d.name, code: d.code, duration_months: d.duration_months
         })))
       })
-      .catch(() => {})
+      .catch(() => { })
   }, [])
 
   const loadCountries = async () => {
@@ -556,84 +557,111 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
     setFilteredCourses(filterCoursesForParentCategory(courses, categoryId, categories))
   }
 
+  /** Patch one batch from latest state so fee/pricing updates are not wiped by other fields. */
+  const patchBatch = (
+    courseId: string,
+    batchId: string,
+    patch: Partial<CourseBatch> | ((batch: CourseBatch) => CourseBatch)
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      assignments: {
+        ...prev.assignments,
+        courses: prev.assignments.courses.map((c) =>
+          c.course_id !== courseId
+            ? c
+            : {
+              ...c,
+              batches: c.batches.map((b) => {
+                if (b.id !== batchId) return b
+                return typeof patch === "function" ? patch(b) : { ...b, ...patch }
+              }),
+            }
+        ),
+      },
+    }))
+  }
+
   // Handle course selection
   const handleCourseToggle = (courseId: string) => {
-    const existingCourse = formData.assignments.courses.find(c => c.course_id === courseId)
-    
-    if (existingCourse) {
-      // Remove course
-      setFormData({
-        ...formData,
-        assignments: {
-          ...formData.assignments,
-          courses: formData.assignments.courses.filter(c => c.course_id !== courseId)
+    setFormData((prev) => {
+      const existingCourse = prev.assignments.courses.find((c) => c.course_id === courseId)
+      if (existingCourse) {
+        return {
+          ...prev,
+          assignments: {
+            ...prev.assignments,
+            courses: prev.assignments.courses.filter((c) => c.course_id !== courseId),
+          },
         }
-      })
-    } else {
-      // Add course with one empty batch
-      setFormData({
-        ...formData,
+      }
+      return {
+        ...prev,
         assignments: {
-          ...formData.assignments,
+          ...prev.assignments,
           courses: [
-            ...formData.assignments.courses,
+            ...prev.assignments.courses,
             {
               course_id: courseId,
               is_available: true,
-              batches: [{
-                id: `batch-${Date.now()}`,
-                start_time: "",
-                end_time: "",
-                coach_id: "",
-                days: [],
-                batch_name: "",
-                batch_fee: "",
-                fee_per_duration: {},
-                max_students: "",
-              }]
-            }
-          ]
-        }
-      })
-    }
-  }
-
-  // Add batch to a course
-  const addBatchToCourse = (courseId: string) => {
-    setFormData({
-      ...formData,
-      assignments: {
-        ...formData.assignments,
-        courses: formData.assignments.courses.map(c => 
-          c.course_id === courseId
-            ? {
-                ...c,
-                batches: [
-                  ...c.batches,
-                  {
-                    id: `batch-${Date.now()}`,
-                    start_time: "",
-                    end_time: "",
-                    coach_id: "",
-                    days: [],
-                    batch_name: "",
-                    batch_fee: "",
-                    fee_per_duration: {},
-                    max_students: "",
-                  }
-                ]
-              }
-            : c
-        )
+              batches: [
+                {
+                  id: `batch-${Date.now()}`,
+                  start_time: "",
+                  end_time: "",
+                  coach_id: "",
+                  days: [],
+                  batch_name: "",
+                  batch_fee: "",
+                  fee_per_duration: {},
+                  pricing_type_per_duration: {},
+                  max_students: "",
+                },
+              ],
+            },
+          ],
+        },
       }
     })
   }
 
+  // Add batch to a course
+  const addBatchToCourse = (courseId: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      assignments: {
+        ...prev.assignments,
+        courses: prev.assignments.courses.map((c) =>
+          c.course_id === courseId
+            ? {
+              ...c,
+              batches: [
+                ...c.batches,
+                {
+                  id: `batch-${Date.now()}`,
+                  start_time: "",
+                  end_time: "",
+                  coach_id: "",
+                  days: [],
+                  batch_name: "",
+                  batch_fee: "",
+                  fee_per_duration: {},
+                  pricing_type_per_duration: {},
+                  max_students: "",
+                },
+              ],
+            }
+            : c
+        ),
+      },
+    }))
+  }
+
   // Remove batch from a course
   const removeBatchFromCourse = (courseId: string, batchId: string) => {
-    const targetCourse = formData.assignments.courses.find(c => c.course_id === courseId)
+    const targetCourse = formData.assignments.courses.find((c) => c.course_id === courseId)
     if (targetCourse && targetCourse.batches.length <= 1) {
-      const courseDef = courses.find(c => c.id === courseId)
+      const courseDef = courses.find((c) => c.id === courseId)
       const courseName = courseDef?.title || courseDef?.code || "This course"
       toast({
         title: "Batch Required",
@@ -643,64 +671,35 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
       return
     }
 
-    setFormData({
-      ...formData,
+    setFormData((prev) => ({
+      ...prev,
       assignments: {
-        ...formData.assignments,
-        courses: formData.assignments.courses.map(c => 
+        ...prev.assignments,
+        courses: prev.assignments.courses.map((c) =>
           c.course_id === courseId
             ? {
-                ...c,
-                batches: c.batches.filter(b => b.id !== batchId)
-              }
+              ...c,
+              batches: c.batches.filter((b) => b.id !== batchId),
+            }
             : c
-        )
-      }
-    })
+        ),
+      },
+    }))
   }
 
   // Update batch details
   const updateBatch = (courseId: string, batchId: string, field: string, value: string) => {
-    setFormData({
-      ...formData,
-      assignments: {
-        ...formData.assignments,
-        courses: formData.assignments.courses.map(c => 
-          c.course_id === courseId
-            ? {
-                ...c,
-                batches: c.batches.map(b => 
-                  b.id === batchId ? { ...b, [field]: value } : b
-                )
-              }
-            : c
-        )
-      }
-    })
+    patchBatch(courseId, batchId, { [field]: value } as Partial<CourseBatch>)
   }
 
   const toggleBatchDay = (courseId: string, batchId: string, day: string) => {
-    setFormData({
-      ...formData,
-      assignments: {
-        ...formData.assignments,
-        courses: formData.assignments.courses.map((c) =>
-          c.course_id === courseId
-            ? {
-                ...c,
-                batches: c.batches.map((b) => {
-                  if (b.id !== batchId) return b
-                  const current = b.days || []
-                  const has = current.includes(day)
-                  return {
-                    ...b,
-                    days: has ? current.filter((d) => d !== day) : [...current, day],
-                  }
-                }),
-              }
-            : c
-        ),
-      },
+    patchBatch(courseId, batchId, (b) => {
+      const current = b.days || []
+      const has = current.includes(day)
+      return {
+        ...b,
+        days: has ? current.filter((d) => d !== day) : [...current, day],
+      }
     })
   }
 
@@ -839,12 +838,16 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
           return
         }
         const fpd = batch.fee_per_duration || {}
+        const parseFee = (v: unknown) => {
+          const n = parseFloat(String(v ?? "").replace(/,/g, "").trim())
+          return Number.isFinite(n) ? n : NaN
+        }
         const hasFee = Object.values(fpd).some((v) => {
-          const n = parseFloat(String(v ?? "").trim())
-          return Number.isFinite(n) && n > 0
+          const n = parseFee(v)
+          return n > 0
         })
-        const batchFee = parseFloat(String(batch.batch_fee ?? "").trim())
-        if (!hasFee && !(Number.isFinite(batchFee) && batchFee > 0)) {
+        const batchFee = parseFee(batch.batch_fee)
+        if (!hasFee && !(batchFee > 0)) {
           showSubmitError(
             "Batch pricing required",
             `"${courseTitle}" → ${batchLabel}: enter at least one duration fee greater than 0.`
@@ -855,8 +858,8 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
           const missing = masterDurations.filter((dur) => {
             const raw = fpd[dur.id] ?? (dur.code ? fpd[dur.code] : undefined)
             if (raw === undefined || String(raw).trim() === "") return false
-            const n = parseFloat(String(raw).trim())
-            return !(Number.isFinite(n) && n > 0)
+            const n = parseFee(raw)
+            return !(n > 0)
           })
           // If they typed any fee for a duration, it must be > 0 (already covered by hasFee check for empty).
           // Require every listed duration that has a value to be valid — and overall at least one fee (hasFee).
@@ -887,7 +890,7 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
           const course = courses.find(course => course.id === c.course_id)
           return course?.title || course?.code || c.course_id
         })
-      
+
       const submitData: any = {
         branch: formData.branch,
         location_id: formData.location_id,
@@ -909,7 +912,7 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
         is_collaboration_partner: !!asPartner,
         allows_collaboration: !!asPartner,
       }
-      
+
       console.log("Submitting branch data:", JSON.stringify(submitData, null, 2))
 
       const response = await fetch(getBackendApiUrl('branches'), {
@@ -929,7 +932,7 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
       } else {
         const errorData = await response.json()
         console.error("Branch creation failed:", errorData)
-        
+
         // Handle error message properly (could be string, object, or array)
         let errorMessage = asPartner
           ? "Failed to create partner."
@@ -943,7 +946,7 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
         } else if (typeof errorData.detail === 'object') {
           errorMessage = JSON.stringify(errorData.detail)
         }
-        
+
         showSubmitError("Error", errorMessage)
       }
     } catch (error) {
@@ -1018,7 +1021,12 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
                       placeholder="Auto-generated"
                       className="min-w-0 flex-1"
                     />
-                    <Button size="sm" onClick={generateBranchCode} className="w-full md:w-auto shrink-0">
+                    <Button
+                      size="sm"
+                      type="button"
+                      onClick={() => generateBranchCode(undefined, true)}
+                      className="w-full md:w-auto shrink-0"
+                    >
                       Regenerate
                     </Button>
                   </div>
@@ -1290,10 +1298,24 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
                 </Select>
               </div>
 
-              {/* Course List */}
+              {/* Course List — include already-selected courses even if category filter hides them */}
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {filteredCourses.length > 0 ? (
-                  filteredCourses.map((course) => {
+                {(() => {
+                  const filteredIds = new Set(filteredCourses.map((c) => c.id))
+                  const selectedOutsideFilter = courses.filter(
+                    (c) =>
+                      formData.assignments.courses.some((sc) => sc.course_id === c.id) &&
+                      !filteredIds.has(c.id)
+                  )
+                  const visibleCourses = [...selectedOutsideFilter, ...filteredCourses]
+                  if (visibleCourses.length === 0) {
+                    return (
+                      <p className="text-sm text-gray-500 text-center py-4">
+                        {selectedCategoryId ? "No courses found for this category" : "Please select a category to view courses"}
+                      </p>
+                    )
+                  }
+                  return visibleCourses.map((course) => {
                     const selectedCourse = formData.assignments.courses.find(c => c.course_id === course.id)
                     const isSelected = !!selectedCourse
 
@@ -1473,22 +1495,6 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
                                         const fpd = batch.fee_per_duration || {}
                                         const ptd = batch.pricing_type_per_duration || {}
                                         const pricingType = ptd[dur.id] || "monthly"
-                                        const updateBatchField = (field: string, value: any) => {
-                                          const newCourses = formData.assignments.courses.map((c: any) => {
-                                            if (c.course_id !== course.id) return c
-                                            return {
-                                              ...c,
-                                              batches: c.batches.map((b: any) => {
-                                                if (b.id !== batch.id) return b
-                                                return { ...b, [field]: value }
-                                              })
-                                            }
-                                          })
-                                          setFormData((prev: any) => ({
-                                            ...prev,
-                                            assignments: { ...prev.assignments, courses: newCourses }
-                                          }))
-                                        }
                                         return (
                                           <div key={dur.id} className="flex flex-col gap-2 py-2 border-b border-gray-100 last:border-0 md:flex-row md:items-center md:gap-2 md:py-1">
                                             <span className="text-xs text-gray-700 md:w-24 shrink-0 font-medium">{dur.name}</span>
@@ -1499,10 +1505,14 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
                                                 placeholder={pricingType === "flat" ? "Flat price" : "Monthly fee"}
                                                 value={fpd[dur.id] ?? ""}
                                                 onChange={(e) => {
-                                                  updateBatchField("fee_per_duration", {
-                                                    ...(batch.fee_per_duration || {}),
-                                                    [dur.id]: e.target.value
-                                                  })
+                                                  const nextFee = e.target.value
+                                                  patchBatch(course.id, batch.id, (b) => ({
+                                                    ...b,
+                                                    fee_per_duration: {
+                                                      ...(b.fee_per_duration || {}),
+                                                      [dur.id]: nextFee,
+                                                    },
+                                                  }))
                                                 }}
                                                 className="h-7 w-full max-w-[11rem] md:w-28 text-sm"
                                               />
@@ -1511,10 +1521,13 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
                                                   type="button"
                                                   className={`px-2 py-0.5 text-xs rounded-l border ${pricingType === "monthly" ? "bg-blue-100 text-blue-800 border-blue-300" : "bg-gray-50 text-gray-500 border-gray-200"}`}
                                                   onClick={() => {
-                                                    updateBatchField("pricing_type_per_duration", {
-                                                      ...(batch.pricing_type_per_duration || {}),
-                                                      [dur.id]: "monthly"
-                                                    })
+                                                    patchBatch(course.id, batch.id, (b) => ({
+                                                      ...b,
+                                                      pricing_type_per_duration: {
+                                                        ...(b.pricing_type_per_duration || {}),
+                                                        [dur.id]: "monthly",
+                                                      },
+                                                    }))
                                                   }}
                                                 >
                                                   Monthly
@@ -1523,10 +1536,13 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
                                                   type="button"
                                                   className={`px-2 py-0.5 text-xs rounded-r border ${pricingType === "flat" ? "bg-green-100 text-green-800 border-green-300" : "bg-gray-50 text-gray-500 border-gray-200"}`}
                                                   onClick={() => {
-                                                    updateBatchField("pricing_type_per_duration", {
-                                                      ...(batch.pricing_type_per_duration || {}),
-                                                      [dur.id]: "flat"
-                                                    })
+                                                    patchBatch(course.id, batch.id, (b) => ({
+                                                      ...b,
+                                                      pricing_type_per_duration: {
+                                                        ...(b.pricing_type_per_duration || {}),
+                                                        [dur.id]: "flat",
+                                                      },
+                                                    }))
                                                   }}
                                                 >
                                                   Flat
@@ -1577,204 +1593,200 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
                       </div>
                     )
                   })
-                ) : (
-                  <p className="text-sm text-gray-500 text-center py-4">
-                    {selectedCategoryId ? "No courses found for this category" : "Please select a category to view courses"}
-                  </p>
-                )}
+                })()}
               </div>
             </CardContent>
           </Card>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Operational Details — 50% on large screens */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Clock className="h-5 w-5 text-[#FA6669]" />
-                <span className="text-[#4F5077]">Operational Details</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Timings */}
-              <div className="space-y-2">
-                <Label>Operating Hours</Label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  <div className="col-span-2 md:col-span-1 min-w-0">
-                    <Select
-                      value={newTiming.day}
-                      onValueChange={(value) => setNewTiming({ ...newTiming, day: value })}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Day" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {daysOfWeek.map((day) => (
-                          <SelectItem key={day} value={day}>{day}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+            {/* Operational Details — 50% on large screens */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Clock className="h-5 w-5 text-[#FA6669]" />
+                  <span className="text-[#4F5077]">Operational Details</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Timings */}
+                <div className="space-y-2">
+                  <Label>Operating Hours</Label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <div className="col-span-2 md:col-span-1 min-w-0">
+                      <Select
+                        value={newTiming.day}
+                        onValueChange={(value) => setNewTiming({ ...newTiming, day: value })}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Day" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {daysOfWeek.map((day) => (
+                            <SelectItem key={day} value={day}>{day}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <OperatingTimePicker
+                      label="Opening time"
+                      value={newTiming.open}
+                      onChange={(open) => setNewTiming({ ...newTiming, open })}
+                    />
+
+                    <OperatingTimePicker
+                      label="Closing time"
+                      value={newTiming.close}
+                      onChange={(close) => setNewTiming({ ...newTiming, close })}
+                    />
+
+                    <Button onClick={addTiming} size="sm" className="col-span-2 md:col-span-1 w-full">
+                      <Plus className="h-4 w-4" />
+                    </Button>
                   </div>
 
-                  <OperatingTimePicker
-                    label="Opening time"
-                    value={newTiming.open}
-                    onChange={(open) => setNewTiming({ ...newTiming, open })}
-                  />
-
-                  <OperatingTimePicker
-                    label="Closing time"
-                    value={newTiming.close}
-                    onChange={(close) => setNewTiming({ ...newTiming, close })}
-                  />
-
-                  <Button onClick={addTiming} size="sm" className="col-span-2 md:col-span-1 w-full">
-                    <Plus className="h-4 w-4" />
-                  </Button>
+                  {formData.operational_details.timings.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {formData.operational_details.timings.map((timing) => (
+                        <Badge key={timing.day} variant="secondary" className="flex items-center gap-1">
+                          {timing.day}: {timing.open} - {timing.close}
+                          <X
+                            className="h-3 w-3 cursor-pointer"
+                            onClick={() => removeTiming(timing.day)}
+                          />
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                {formData.operational_details.timings.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {formData.operational_details.timings.map((timing) => (
-                      <Badge key={timing.day} variant="secondary" className="flex items-center gap-1">
-                        {timing.day}: {timing.open} - {timing.close}
-                        <X
-                          className="h-3 w-3 cursor-pointer"
-                          onClick={() => removeTiming(timing.day)}
-                        />
-                      </Badge>
-                    ))}
+                {/* Holidays */}
+                <div className="space-y-2">
+                  <Label>Holidays</Label>
+                  <div className="relative w-full max-w-sm">
+                    <Input
+                      type="date"
+                      id="holidayDate"
+                      className="w-full pl-3 pr-9 py-1.5 h-9 text-xs sm:text-sm bg-white border-gray-200 rounded-md cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:top-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-datetime-edit]:p-0"
+                      onClick={(e) => e.currentTarget.showPicker?.()}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          addHoliday(e.target.value)
+                          e.target.value = ""
+                        }
+                      }}
+                    />
+                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
                   </div>
-                )}
-              </div>
 
-              {/* Holidays */}
-              <div className="space-y-2">
-                <Label>Holidays</Label>
-                <div className="relative w-full max-w-sm">
-                  <Input
-                    type="date"
-                    id="holidayDate"
-                    className="w-full pl-3 pr-9 py-1.5 h-9 text-xs sm:text-sm bg-white border-gray-200 rounded-md cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:top-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-datetime-edit]:p-0"
-                    onClick={(e) => e.currentTarget.showPicker?.()}
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        addHoliday(e.target.value)
-                        e.target.value = ""
+                  {formData.operational_details.holidays.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {formData.operational_details.holidays.map((holiday) => (
+                        <Badge key={holiday} variant="secondary" className="flex items-center gap-1">
+                          {new Date(holiday).toLocaleDateString()}
+                          <button
+                            type="button"
+                            aria-label="Remove holiday"
+                            className="inline-flex items-center justify-center rounded-sm text-red-500 hover:text-red-600"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              removeHoliday(holiday)
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Accessories */}
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="accessories"
+                    checked={formData.assignments.accessories_available}
+                    onCheckedChange={(checked) => setFormData({
+                      ...formData,
+                      assignments: {
+                        ...formData.assignments,
+                        accessories_available: checked as boolean
                       }
-                    }}
+                    })}
                   />
-                  <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+                  <Label htmlFor="accessories" className="cursor-pointer">
+                    Accessories Available
+                  </Label>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Bank Details — 50% on large screens */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <CreditCard className="h-5 w-5 text-[#FA6669]" />
+                  <span className="text-[#4F5077]">Bank Details</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="bankName">Bank Name</Label>
+                  <Select
+                    value={formData.bank_details.bank_name}
+                    onValueChange={(value) => setFormData({
+                      ...formData,
+                      bank_details: { ...formData.bank_details, bank_name: value }
+                    })}
+                    disabled={isLoadingBanks}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={isLoadingBanks ? "Loading banks..." : "Select bank"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {banks.map((bank) => (
+                        <SelectItem key={bank.value} value={bank.value}>
+                          {bank.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                {formData.operational_details.holidays.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {formData.operational_details.holidays.map((holiday) => (
-                      <Badge key={holiday} variant="secondary" className="flex items-center gap-1">
-                        {new Date(holiday).toLocaleDateString()}
-                        <button
-                          type="button"
-                          aria-label="Remove holiday"
-                          className="inline-flex items-center justify-center rounded-sm text-red-500 hover:text-red-600"
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            removeHoliday(holiday)
-                          }}
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    ))}
+                <div className="space-y-2">
+                  <Label htmlFor="accountNumber">Account Number</Label>
+                  <Input
+                    id="accountNumber"
+                    value={formData.bank_details.account_number}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      bank_details: { ...formData.bank_details, account_number: e.target.value }
+                    })}
+                    placeholder="Enter account number"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="upiId">UPI ID</Label>
+                  <Input
+                    id="upiId"
+                    value={formData.bank_details.upi_id}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      bank_details: { ...formData.bank_details, upi_id: e.target.value }
+                    })}
+                    placeholder="Enter UPI ID (e.g., name@ybl)"
+                  />
+                </div>
+
+                <div className="pt-4 border-t">
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <p><span className="font-medium">Note:</span> Bank details are optional.</p>
                   </div>
-                )}
-              </div>
-
-              {/* Accessories */}
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="accessories"
-                  checked={formData.assignments.accessories_available}
-                  onCheckedChange={(checked) => setFormData({
-                    ...formData,
-                    assignments: {
-                      ...formData.assignments,
-                      accessories_available: checked as boolean
-                    }
-                  })}
-                />
-                <Label htmlFor="accessories" className="cursor-pointer">
-                  Accessories Available
-                </Label>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Bank Details — 50% on large screens */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <CreditCard className="h-5 w-5 text-[#FA6669]" />
-                <span className="text-[#4F5077]">Bank Details</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="bankName">Bank Name</Label>
-                <Select
-                  value={formData.bank_details.bank_name}
-                  onValueChange={(value) => setFormData({
-                    ...formData,
-                    bank_details: { ...formData.bank_details, bank_name: value }
-                  })}
-                  disabled={isLoadingBanks}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={isLoadingBanks ? "Loading banks..." : "Select bank"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {banks.map((bank) => (
-                      <SelectItem key={bank.value} value={bank.value}>
-                        {bank.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="accountNumber">Account Number</Label>
-                <Input
-                  id="accountNumber"
-                  value={formData.bank_details.account_number}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    bank_details: { ...formData.bank_details, account_number: e.target.value }
-                  })}
-                  placeholder="Enter account number"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="upiId">UPI ID</Label>
-                <Input
-                  id="upiId"
-                  value={formData.bank_details.upi_id}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    bank_details: { ...formData.bank_details, upi_id: e.target.value }
-                  })}
-                  placeholder="Enter UPI ID (e.g., name@ybl)"
-                />
-              </div>
-
-              <div className="pt-4 border-t">
-                <div className="text-sm text-gray-600 space-y-1">
-                  <p><span className="font-medium">Note:</span> Bank details are optional.</p>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
           </div>
         </div>
 

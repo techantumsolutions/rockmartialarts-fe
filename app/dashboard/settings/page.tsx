@@ -75,6 +75,7 @@ export default function SuperAdminSettingsPage() {
     registration_fee: 500,
     coach_registration_fee: 0,
     coach_registration_fee_note: "",
+    partner_registration_fee: 999,
     home_training_fee: 0,
     school_training_fee: 0,
     college_training_fee: 0,
@@ -123,6 +124,11 @@ export default function SuperAdminSettingsPage() {
           typeof settingsData.coach_registration_fee_note === "string"
             ? settingsData.coach_registration_fee_note
             : "",
+        partner_registration_fee:
+          typeof settingsData.partner_registration_fee === "number" &&
+          !Number.isNaN(settingsData.partner_registration_fee)
+            ? settingsData.partner_registration_fee
+            : 999,
       })
       setLoading(false)
     } catch (error) {
@@ -168,6 +174,14 @@ export default function SuperAdminSettingsPage() {
 
     if (typeof settings.coach_registration_fee !== "number" || settings.coach_registration_fee < 0 || Number.isNaN(settings.coach_registration_fee)) {
       newErrors.coach_registration_fee = "Coach registration fee must be a number ≥ 0"
+    }
+
+    if (
+      typeof settings.partner_registration_fee !== "number" ||
+      settings.partner_registration_fee < 0 ||
+      Number.isNaN(settings.partner_registration_fee)
+    ) {
+      newErrors.partner_registration_fee = "Partner registration fee must be a number ≥ 0"
     }
 
     if (typeof settings.home_training_fee !== "number" || settings.home_training_fee < 0 || Number.isNaN(settings.home_training_fee)) {
@@ -450,6 +464,29 @@ export default function SuperAdminSettingsPage() {
                   />
                   <p className="mt-1 text-xs text-gray-500">
                     Custom subtext displayed in the fee card on the coach registration page. Leave empty to hide.
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="partner_registration_fee" className="text-sm font-medium text-gray-700">
+                    Partner registration fee (INR)
+                  </Label>
+                  <Input
+                    id="partner_registration_fee"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={settings.partner_registration_fee}
+                    onChange={(e) =>
+                      handleInputChange("partner_registration_fee", parseFloat(e.target.value) || 0)
+                    }
+                    className={errors.partner_registration_fee ? "border-red-500" : ""}
+                  />
+                  {errors.partner_registration_fee && (
+                    <p className="mt-1 text-sm text-red-600">{errors.partner_registration_fee}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Fee charged via Razorpay when creating a white-label partner with online payment (must be at least ₹1 for online checkout).
                   </p>
                 </div>
 

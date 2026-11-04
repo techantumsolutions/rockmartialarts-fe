@@ -17,6 +17,12 @@ import { SuperAdminAuth } from "@/lib/auth"
 import { TokenManager } from "@/lib/tokenManager"
 import { fetchAssignedBranches } from "@/lib/activeBranch"
 
+function partnerLoginPath() {
+  if (typeof window === "undefined") return "/superadmin/login"
+  const slug = localStorage.getItem("partner_slug") || ""
+  return slug ? `/partners/${slug}/login` : "/superadmin/login"
+}
+
 interface BranchManagerProfile {
   id: string
   full_name: string
@@ -46,7 +52,7 @@ export default function BranchManagerProfilePage() {
   const [errors, setErrors] = useState<FormErrors>({})
   const [isSuperAdminProfile, setIsSuperAdminProfile] = useState(false)
   const [isPartnerProfile, setIsPartnerProfile] = useState(false)
-  
+
   const [formData, setFormData] = useState({
     full_name: "",
     email: "",
@@ -56,55 +62,97 @@ export default function BranchManagerProfilePage() {
   useEffect(() => {
     const adminType = String(params?.adminType || "")
     const onSuperAdminRoute = adminType === "super-admin"
-    const onPartnerAdminRoute = adminType === "partner-admin"
-    // Prefer route context so /super-admin/dashboard/profile always uses superadmin identity
-    // even if a branch-manager token also exists in storage.
-    const isSuperAdmin = onSuperAdminRoute
-      ? SuperAdminAuth.isAuthenticated()
-      : SuperAdminAuth.isAuthenticated() && !BranchManagerAuth.isAuthenticated()
+    const onPartnerRoute = adminType === "partner-admin"
     const partnerUser = TokenManager.getUser()
     const isPartnerAdmin =
-      onPartnerAdminRoute &&
       TokenManager.isAuthenticated() &&
       String(partnerUser?.role || "").toLowerCase() === "partner_super_admin"
-    const isBranchManager = !isSuperAdmin && !isPartnerAdmin && BranchManagerAuth.isAuthenticated()
-    if (!isBranchManager && !isSuperAdmin && !isPartnerAdmin) {
-      if (onPartnerAdminRoute) {
-        const slug = typeof window !== "undefined" ? localStorage.getItem("partner_slug") : null
-        router.push(slug ? `/partners/${slug}/login` : "/superadmin/login")
-      } else {
-        router.push(onSuperAdminRoute ? "/superadmin/login" : "/branch-manager/login")
+
+    // Prefer route context so each dashboard uses the matching identity.
+    const isSuperAdmin = onSuperAdminRoute
+      ? SuperAdminAuth.isAuthenticated()
+      : !onPartnerRoute &&
+        SuperAdminAuth.isAuthenticated() &&
+        !BranchManagerAuth.isAuthenticated()
+    const isBranchManager =
+      !isSuperAdmin && !onPartnerRoute && BranchManagerAuth.isAuthenticated()
+
+    if (onPartnerRoute) {
+      if (!isPartnerAdmin) {
+        router.push(partnerLoginPath())
+        return
       }
+      setIsSuperAdminProfile(false)
+      setIsPartnerProfile(true)
+    } else if (!isBranchManager && !isSuperAdmin) {
+      router.push(onSuperAdminRoute ? "/superadmin/login" : "/branch-manager/login")
       return
+    } else {
+      setIsSuperAdminProfile(isSuperAdmin)
+      setIsPartnerProfile(false)
     }
-    setIsSuperAdminProfile(isSuperAdmin)
-    setIsPartnerProfile(isPartnerAdmin)
 
     // Load profile data
     const loadProfile = async () => {
       try {
         setLoading(true)
 
-        const token = isPartnerAdmin
-          ? TokenManager.getToken()
-          : isSuperAdmin
-            ? SuperAdminAuth.getToken()
-            : BranchManagerAuth.getToken()
-        if (!token) {
-          if (isPartnerAdmin) {
-            const slug = typeof window !== "undefined" ? localStorage.getItem("partner_slug") : null
-            router.push(slug ? `/partners/${slug}/login` : "/superadmin/login")
-          } else {
-            router.push(isSuperAdmin ? "/superadmin/login" : "/branch-manager/login")
+        if (onPartnerRoute) {
+          const token = TokenManager.getToken()
+          if (!token) {
+            router.push(partnerLoginPath())
+            return
           }
+          const response = await fetch(getBackendApiUrl("partner-organizations/me/profile"), {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          })
+          if (response.status === 401) {
+            router.push(partnerLoginPath())
+            return
+          }
+          if (!response.ok) throw new Error("Failed to load profile")
+          const result = await response.json()
+          const data = result.data || result
+          const partnerName =
+            data.partner_name ||
+            partnerUser?.partner_name ||
+            (typeof window !== "undefined" ? localStorage.getItem("partner_name") : "") ||
+            ""
+          const profileData: BranchManagerProfile = {
+            id: data.id || partnerUser?.id || "",
+            full_name: data.full_name || partnerUser?.full_name || "Partner Admin",
+            email: data.email || partnerUser?.email || "",
+            phone: data.phone || partnerUser?.phone || "",
+            branch_names: partnerName ? [partnerName] : [],
+            branch_name: partnerName,
+            branch_id: data.partner_org_id || partnerUser?.partner_org_id || "",
+            is_active: data.is_active !== undefined ? data.is_active : true,
+            created_at: data.created_at || new Date().toISOString(),
+            updated_at: data.updated_at || new Date().toISOString(),
+            role_label: "Partner Admin",
+          }
+          setProfile(profileData)
+          setFormData({
+            full_name: profileData.full_name,
+            email: profileData.email,
+            phone: profileData.phone || "",
+          })
           return
         }
 
-        const endpoint = isPartnerAdmin
-          ? getBackendApiUrl("partner-organizations/me")
-          : isSuperAdmin
-            ? getBackendApiUrl("superadmin/me")
-            : getBackendApiUrl("branch-managers/me")
+        const token = isSuperAdmin ? SuperAdminAuth.getToken() : BranchManagerAuth.getToken()
+        if (!token) {
+          router.push(isSuperAdmin ? "/superadmin/login" : "/branch-manager/login")
+          return
+        }
+
+        const endpoint = isSuperAdmin
+          ? getBackendApiUrl("superadmin/me")
+          : getBackendApiUrl("branch-managers/me")
 
         const response = await fetch(endpoint, {
           method: 'GET',
@@ -137,7 +185,7 @@ export default function BranchManagerProfilePage() {
             }
             const profileData: BranchManagerProfile = {
               id: data.id,
-              full_name: data.full_name || data.partner_name || "User",
+              full_name: data.full_name || "User",
               email: data.email || "",
               phone: data.phone || "",
               branch_names: branchNames,
@@ -146,11 +194,7 @@ export default function BranchManagerProfilePage() {
               is_active: data.is_active !== undefined ? data.is_active : true,
               created_at: data.created_at || new Date().toISOString(),
               updated_at: data.updated_at || new Date().toISOString(),
-              role_label: isPartnerAdmin
-                ? (data.role_label || "Partner Admin")
-                : isSuperAdmin
-                  ? "Super Admin"
-                  : "Branch Manager",
+              role_label: isSuperAdmin ? "Super Admin" : "Branch Manager",
             }
 
             setProfile(profileData)
@@ -161,12 +205,7 @@ export default function BranchManagerProfilePage() {
             })
           }
         } else if (response.status === 401) {
-          if (isPartnerAdmin) {
-            const slug = typeof window !== "undefined" ? localStorage.getItem("partner_slug") : null
-            router.push(slug ? `/partners/${slug}/login` : "/superadmin/login")
-          } else {
-            router.push(isSuperAdmin ? "/superadmin/login" : "/branch-manager/login")
-          }
+          router.push(isSuperAdmin ? "/superadmin/login" : "/branch-manager/login")
         } else {
           throw new Error("Failed to load profile")
         }
@@ -221,28 +260,30 @@ export default function BranchManagerProfilePage() {
     setIsSubmitting(true)
 
     try {
-      const token = isPartnerProfile
+      const onPartnerRoute = String(params?.adminType || "") === "partner-admin"
+      const token = onPartnerRoute
         ? TokenManager.getToken()
         : isSuperAdminProfile
           ? SuperAdminAuth.getToken()
           : BranchManagerAuth.getToken()
       if (!token) {
-        if (isPartnerProfile) {
-          const slug = typeof window !== "undefined" ? localStorage.getItem("partner_slug") : null
-          router.push(slug ? `/partners/${slug}/login` : "/superadmin/login")
-        } else {
-          router.push(isSuperAdminProfile ? "/superadmin/login" : "/branch-manager/login")
-        }
+        router.push(
+          onPartnerRoute
+            ? partnerLoginPath()
+            : isSuperAdminProfile
+              ? "/superadmin/login"
+              : "/branch-manager/login"
+        )
         return
       }
 
-      const endpoint = isPartnerProfile
-        ? getBackendApiUrl("partner-organizations/me")
+      const endpoint = onPartnerRoute
+        ? "partner-organizations/me/profile"
         : isSuperAdminProfile
-          ? getBackendApiUrl("superadmin/me")
-          : getBackendApiUrl("branch-managers/me")
+          ? "superadmin/me"
+          : "branch-managers/me"
 
-      const response = await fetch(endpoint, {
+      const response = await fetch(getBackendApiUrl(endpoint), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -273,7 +314,7 @@ export default function BranchManagerProfilePage() {
             updated_at: updatedData.updated_at || new Date().toISOString(),
             role_label:
               profile?.role_label ||
-              (isPartnerProfile
+              (onPartnerRoute
                 ? "Partner Admin"
                 : isSuperAdminProfile
                   ? "Super Admin"
@@ -282,24 +323,28 @@ export default function BranchManagerProfilePage() {
 
           setProfile(profileData)
           setIsEditing(false)
-
-          // Keep stored partner user fields in sync after profile edit
-          if (isPartnerProfile && typeof window !== "undefined") {
-            try {
-              const user = TokenManager.getUser()
-              if (user) {
-                localStorage.setItem(
-                  "user",
-                  JSON.stringify({
-                    ...user,
-                    full_name: updatedData.full_name || user.full_name,
-                    email: updatedData.email || user.email,
-                    phone: updatedData.phone || user.phone,
-                  })
-                )
+          if (onPartnerRoute && typeof window !== "undefined") {
+            const existing = TokenManager.getUser()
+            if (existing) {
+              const nextUser = {
+                ...existing,
+                full_name: profileData.full_name,
+                email: profileData.email,
+                phone: profileData.phone,
               }
-            } catch {
-              /* ignore */
+              localStorage.setItem("user", JSON.stringify(nextUser))
+              const authRaw = localStorage.getItem("auth_data")
+              if (authRaw) {
+                try {
+                  const authData = JSON.parse(authRaw)
+                  localStorage.setItem(
+                    "auth_data",
+                    JSON.stringify({ ...authData, user: nextUser })
+                  )
+                } catch {
+                  /* ignore */
+                }
+              }
             }
           }
 
@@ -310,12 +355,13 @@ export default function BranchManagerProfilePage() {
           })
         }
       } else if (response.status === 401) {
-        if (isPartnerProfile) {
-          const slug = typeof window !== "undefined" ? localStorage.getItem("partner_slug") : null
-          router.push(slug ? `/partners/${slug}/login` : "/superadmin/login")
-        } else {
-          router.push(isSuperAdminProfile ? "/superadmin/login" : "/branch-manager/login")
-        }
+        router.push(
+          onPartnerRoute
+            ? partnerLoginPath()
+            : isSuperAdminProfile
+              ? "/superadmin/login"
+              : "/branch-manager/login"
+        )
       } else {
         const errorData = await response.json()
         toast({
@@ -400,45 +446,45 @@ export default function BranchManagerProfilePage() {
           <p className="text-sm text-gray-500 mt-1">Manage your account information and preferences</p>
         </div>
         <div className="flex flex-wrap gap-3 shrink-0">
-              {isEditing ? (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={handleCancel}
-                    disabled={isSubmitting}
-                  >
-                    <X className="w-4 h-4 mr-2" />
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleSave}
-                    disabled={isSubmitting}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4 mr-2" />
-                        Save Changes
-                      </>
-                    )}
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  onClick={() => setIsEditing(true)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit Profile
-                </Button>
-              )}
-            </div>
-          </div>
+          {isEditing ? (
+            <>
+              <Button
+                variant="outline"
+                onClick={handleCancel}
+                disabled={isSubmitting}
+              >
+                <X className="w-4 h-4 mr-2" />
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSave}
+                disabled={isSubmitting}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Save Changes
+                  </>
+                )}
+              </Button>
+            </>
+          ) : (
+            <Button
+              onClick={() => setIsEditing(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Edit className="w-4 h-4 mr-2" />
+              Edit Profile
+            </Button>
+          )}
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full min-w-0">
         {/* Profile Overview */}
@@ -457,176 +503,178 @@ export default function BranchManagerProfilePage() {
                 </Avatar>
                 <h3 className="font-semibold text-gray-900 break-words w-full">{profile.full_name}</h3>
                 <p className="text-sm text-gray-500 break-all w-full">{profile.email}</p>
-                    <Badge variant={profile.is_active ? "default" : "secondary"} className="mt-2">
-                      {profile.is_active ? "Active" : "Inactive"}
-                    </Badge>
+                <Badge variant={profile.is_active ? "default" : "secondary"} className="mt-2">
+                  {profile.is_active ? "Active" : "Inactive"}
+                </Badge>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-3 min-w-0">
+                <div className="flex items-start space-x-3 min-w-0">
+                  <Shield className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-gray-900">Role</p>
+                    <p className="text-xs text-gray-500 break-words">{profile.role_label}</p>
                   </div>
+                </div>
 
-                  <Separator />
-
-                  <div className="space-y-3 min-w-0">
-                    <div className="flex items-start space-x-3 min-w-0">
-                      <Shield className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-900">Role</p>
-                        <p className="text-xs text-gray-500 break-words">{profile.role_label}</p>
-                      </div>
-                    </div>
-
-                    {!isSuperAdminProfile && (profile.branch_names?.length || profile.branch_name) ? (
-                      <div className="flex items-start space-x-3 min-w-0">
-                        <User className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-900">Branch</p>
-                          <div className="text-xs text-gray-500 break-words">
-                            {(profile.branch_names?.length ? profile.branch_names : [profile.branch_name]).map((name, index) => (
-                              <p key={`${name}-${index}`} className="break-words">{name}</p>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    ) : null}
-
-                    <div className="flex items-start space-x-3 min-w-0">
-                      <Calendar className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-900">Member Since</p>
-                        <p className="text-xs text-gray-500 break-words">
-                          {formatDate(profile.created_at, isPartnerProfile)}
-                        </p>
+                {!isSuperAdminProfile && (profile.branch_names?.length || profile.branch_name) ? (
+                  <div className="flex items-start space-x-3 min-w-0">
+                    <User className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-900">
+                        {profile.role_label === "Partner Admin" ? "Organization" : "Branch"}
+                      </p>
+                      <div className="text-xs text-gray-500 break-words">
+                        {(profile.branch_names?.length ? profile.branch_names : [profile.branch_name]).map((name, index) => (
+                          <p key={`${name}-${index}`} className="break-words">{name}</p>
+                        ))}
                       </div>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+                ) : null}
 
-            {/* Profile Details */}
-            <div className="lg:col-span-2 min-w-0">
-              <Card className="min-w-0 overflow-hidden">
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold text-gray-900">Personal Information</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6 min-w-0 overflow-hidden">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 min-w-0">
-                    <div className="space-y-2 min-w-0">
-                      <Label htmlFor="full_name" className="text-sm font-medium text-gray-700">
-                        Full Name *
-                      </Label>
-                      {isEditing ? (
-                        <div>
-                          <Input
-                            id="full_name"
-                            value={formData.full_name}
-                            onChange={(e) => handleInputChange('full_name', e.target.value)}
-                            className={errors.full_name ? "border-red-500" : ""}
-                            placeholder="Enter your full name"
-                          />
-                          {errors.full_name && (
-                            <p className="text-xs text-red-600 mt-1">{errors.full_name}</p>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="flex items-start space-x-2 min-w-0">
-                          <User className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
-                          <span className="text-gray-900 break-words min-w-0">{profile.full_name}</span>
-                        </div>
+                <div className="flex items-start space-x-3 min-w-0">
+                  <Calendar className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-gray-900">Member Since</p>
+                    <p className="text-xs text-gray-500 break-words">
+                      {formatDate(profile.created_at, isPartnerProfile)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Profile Details */}
+        <div className="lg:col-span-2 min-w-0">
+          <Card className="min-w-0 overflow-hidden">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-gray-900">Personal Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6 min-w-0 overflow-hidden">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 min-w-0">
+                <div className="space-y-2 min-w-0">
+                  <Label htmlFor="full_name" className="text-sm font-medium text-gray-700">
+                    Full Name *
+                  </Label>
+                  {isEditing ? (
+                    <div>
+                      <Input
+                        id="full_name"
+                        value={formData.full_name}
+                        onChange={(e) => handleInputChange('full_name', e.target.value)}
+                        className={errors.full_name ? "border-red-500" : ""}
+                        placeholder="Enter your full name"
+                      />
+                      {errors.full_name && (
+                        <p className="text-xs text-red-600 mt-1">{errors.full_name}</p>
                       )}
                     </div>
+                  ) : (
+                    <div className="flex items-start space-x-2 min-w-0">
+                      <User className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+                      <span className="text-gray-900 break-words min-w-0">{profile.full_name}</span>
+                    </div>
+                  )}
+                </div>
 
-                    <div className="space-y-2 min-w-0">
-                      <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                        Email Address *
-                      </Label>
-                      {isEditing ? (
-                        <div>
-                          <Input
-                            id="email"
-                            type="email"
-                            value={formData.email}
-                            onChange={(e) => handleInputChange('email', e.target.value)}
-                            className={errors.email ? "border-red-500" : ""}
-                            placeholder="Enter your email address"
-                          />
-                          {errors.email && (
-                            <p className="text-xs text-red-600 mt-1">{errors.email}</p>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="flex items-start space-x-2 min-w-0">
-                          <Mail className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
-                          <span className="text-gray-900 break-all min-w-0">{profile.email}</span>
-                        </div>
+                <div className="space-y-2 min-w-0">
+                  <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+                    Email Address *
+                  </Label>
+                  {isEditing ? (
+                    <div>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => handleInputChange('email', e.target.value)}
+                        className={errors.email ? "border-red-500" : ""}
+                        placeholder="Enter your email address"
+                      />
+                      {errors.email && (
+                        <p className="text-xs text-red-600 mt-1">{errors.email}</p>
                       )}
                     </div>
+                  ) : (
+                    <div className="flex items-start space-x-2 min-w-0">
+                      <Mail className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+                      <span className="text-gray-900 break-all min-w-0">{profile.email}</span>
+                    </div>
+                  )}
+                </div>
 
-                    <div className="space-y-2 min-w-0">
-                      <Label htmlFor="phone" className="text-sm font-medium text-gray-700">
-                        Phone Number
-                      </Label>
-                      {isEditing ? (
-                        <div>
-                          <Input
-                            id="phone"
-                            value={formData.phone}
-                            onChange={(e) => handleInputChange('phone', e.target.value)}
-                            className={errors.phone ? "border-red-500" : ""}
-                            placeholder="Enter your phone number"
-                          />
-                          {errors.phone && (
-                            <p className="text-xs text-red-600 mt-1">{errors.phone}</p>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="flex items-start space-x-2 min-w-0">
-                          <Phone className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
-                          <span className="text-gray-900 break-words min-w-0">{profile.phone || "Not provided"}</span>
-                        </div>
+                <div className="space-y-2 min-w-0">
+                  <Label htmlFor="phone" className="text-sm font-medium text-gray-700">
+                    Phone Number
+                  </Label>
+                  {isEditing ? (
+                    <div>
+                      <Input
+                        id="phone"
+                        value={formData.phone}
+                        onChange={(e) => handleInputChange('phone', e.target.value)}
+                        className={errors.phone ? "border-red-500" : ""}
+                        placeholder="Enter your phone number"
+                      />
+                      {errors.phone && (
+                        <p className="text-xs text-red-600 mt-1">{errors.phone}</p>
                       )}
                     </div>
-
-                    {!isSuperAdminProfile && (
-                      <div className="space-y-2 min-w-0">
-                        <Label className="text-sm font-medium text-gray-700">
-                          Branch Assignment
-                        </Label>
-                        <div className="flex items-start space-x-2 min-w-0">
-                          <Shield className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
-                          <span className="text-gray-900 break-words min-w-0">
-                            {profile.branch_names?.length
-                              ? profile.branch_names.map((name, index) => (
-                                  <span key={`${name}-${index}`} className="block break-words">{name}</span>
-                                ))
-                              : profile.branch_name || "Not assigned"}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <Separator />
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 min-w-0">
-                    <div className="space-y-2 min-w-0">
-                      <Label className="text-sm font-medium text-gray-700">Account Created</Label>
-                      <div className="flex items-start space-x-2 min-w-0">
-                        <Calendar className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
-                        <span className="text-gray-900 break-words min-w-0">{formatDate(profile.created_at)}</span>
-                      </div>
+                  ) : (
+                    <div className="flex items-start space-x-2 min-w-0">
+                      <Phone className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+                      <span className="text-gray-900 break-words min-w-0">{profile.phone || "Not provided"}</span>
                     </div>
+                  )}
+                </div>
 
-                    <div className="space-y-2 min-w-0">
-                      <Label className="text-sm font-medium text-gray-700">Last Updated</Label>
-                      <div className="flex items-start space-x-2 min-w-0">
-                        <Calendar className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
-                        <span className="text-gray-900 break-words min-w-0">{formatDate(profile.updated_at)}</span>
-                      </div>
+                {!isSuperAdminProfile && (
+                  <div className="space-y-2 min-w-0">
+                    <Label className="text-sm font-medium text-gray-700">
+                      Branch Assignment
+                    </Label>
+                    <div className="flex items-start space-x-2 min-w-0">
+                      <Shield className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+                      <span className="text-gray-900 break-words min-w-0">
+                        {profile.branch_names?.length
+                          ? profile.branch_names.map((name, index) => (
+                            <span key={`${name}-${index}`} className="block break-words">{name}</span>
+                          ))
+                          : profile.branch_name || "Not assigned"}
+                      </span>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+                )}
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 min-w-0">
+                <div className="space-y-2 min-w-0">
+                  <Label className="text-sm font-medium text-gray-700">Account Created</Label>
+                  <div className="flex items-start space-x-2 min-w-0">
+                    <Calendar className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+                    <span className="text-gray-900 break-words min-w-0">{formatDate(profile.created_at)}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2 min-w-0">
+                  <Label className="text-sm font-medium text-gray-700">Last Updated</Label>
+                  <div className="flex items-start space-x-2 min-w-0">
+                    <Calendar className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+                    <span className="text-gray-900 break-words min-w-0">{formatDate(profile.updated_at)}</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   )
 }

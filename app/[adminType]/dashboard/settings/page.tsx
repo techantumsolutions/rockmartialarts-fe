@@ -29,6 +29,28 @@ import { useToast } from "@/hooks/use-toast"
 import { TokenManager } from "@/lib/tokenManager"
 import { settingsAPI, SystemSettings, SettingsResponse } from "@/lib/settingsAPI"
 
+function isAllowedSettingsRole(role: string | undefined | null) {
+  const normalized = String(role || "").toLowerCase()
+  return (
+    normalized === "superadmin" ||
+    normalized === "super_admin" ||
+    normalized === "partner_super_admin"
+  )
+}
+
+function settingsLoginPath() {
+  const user = TokenManager.getUser()
+  const role = String(user?.role || "").toLowerCase()
+  const partnerSlug =
+    (typeof window !== "undefined" && localStorage.getItem("partner_slug")) ||
+    user?.partner_slug ||
+    ""
+  if (role === "partner_super_admin" || partnerSlug) {
+    return partnerSlug ? `/partners/${partnerSlug}/login` : "/superadmin/login"
+  }
+  return "/superadmin/login"
+}
+
 // Use the SystemSettings interface from the API
 
 interface FormErrors {
@@ -75,6 +97,7 @@ export default function SuperAdminSettingsPage() {
     registration_fee: 500,
     coach_registration_fee: 0,
     coach_registration_fee_note: "",
+    partner_registration_fee: 999,
     home_training_fee: 0,
     school_training_fee: 0,
     college_training_fee: 0,
@@ -85,14 +108,14 @@ export default function SuperAdminSettingsPage() {
   useEffect(() => {
     // Check authentication
     if (!TokenManager.isAuthenticated()) {
-      router.push("/superadmin/login")
+      router.push(settingsLoginPath())
       return
     }
 
-    // Check if user is superadmin
+    // Rock super admin or partner super admin may open Settings
     const user = TokenManager.getUser()
-    if (!user || user.role !== "superadmin") {
-      router.push("/superadmin/login")
+    if (!user || !isAllowedSettingsRole(user.role)) {
+      router.push(settingsLoginPath())
       return
     }
     
@@ -104,7 +127,7 @@ export default function SuperAdminSettingsPage() {
     try {
       const token = TokenManager.getToken()
       if (!token) {
-        router.push("/superadmin/login")
+        router.push(settingsLoginPath())
         return
       }
 
@@ -123,6 +146,11 @@ export default function SuperAdminSettingsPage() {
           typeof settingsData.coach_registration_fee_note === "string"
             ? settingsData.coach_registration_fee_note
             : "",
+        partner_registration_fee:
+          typeof settingsData.partner_registration_fee === "number" &&
+          !Number.isNaN(settingsData.partner_registration_fee)
+            ? settingsData.partner_registration_fee
+            : 999,
       })
       setLoading(false)
     } catch (error) {
@@ -170,6 +198,14 @@ export default function SuperAdminSettingsPage() {
       newErrors.coach_registration_fee = "Coach registration fee must be a number ≥ 0"
     }
 
+    if (
+      typeof settings.partner_registration_fee !== "number" ||
+      settings.partner_registration_fee < 0 ||
+      Number.isNaN(settings.partner_registration_fee)
+    ) {
+      newErrors.partner_registration_fee = "Partner registration fee must be a number ≥ 0"
+    }
+
     if (typeof settings.home_training_fee !== "number" || settings.home_training_fee < 0 || Number.isNaN(settings.home_training_fee)) {
       newErrors.home_training_fee = "Home training fee must be a number ≥ 0"
     }
@@ -198,7 +234,7 @@ export default function SuperAdminSettingsPage() {
     try {
       const token = TokenManager.getToken()
       if (!token) {
-        router.push("/superadmin/login")
+        router.push(settingsLoginPath())
         return
       }
 
@@ -226,7 +262,7 @@ export default function SuperAdminSettingsPage() {
     try {
       const token = TokenManager.getToken()
       if (!token) {
-        router.push("/superadmin/login")
+        router.push(settingsLoginPath())
         return
       }
 
@@ -448,6 +484,29 @@ export default function SuperAdminSettingsPage() {
                   />
                   <p className="mt-1 text-xs text-gray-500">
                     Custom subtext displayed in the fee card on the coach registration page. Leave empty to hide.
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="partner_registration_fee" className="text-sm font-medium text-gray-700">
+                    Partner registration fee (INR)
+                  </Label>
+                  <Input
+                    id="partner_registration_fee"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={settings.partner_registration_fee}
+                    onChange={(e) =>
+                      handleInputChange("partner_registration_fee", parseFloat(e.target.value) || 0)
+                    }
+                    className={errors.partner_registration_fee ? "border-red-500" : ""}
+                  />
+                  {errors.partner_registration_fee && (
+                    <p className="mt-1 text-sm text-red-600">{errors.partner_registration_fee}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Fee charged via Razorpay when creating a white-label partner with online payment (must be at least ₹1 for online checkout).
                   </p>
                 </div>
 
