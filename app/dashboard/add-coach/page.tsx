@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation"
 import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
+import { YearPicker } from "@/components/ui/year-picker"
 
 // Interface definitions for API data
 interface Branch {
@@ -158,7 +159,6 @@ export default function AddCoachPage() {
   const [subCategories, setSubCategories] = useState<any[]>([])
   const [designations, setDesignations] = useState<string[]>([])
   const [qualifications, setQualifications] = useState<string[]>([])
-  const [passingYears, setPassingYears] = useState<string[]>([])
   const [genders, setGenders] = useState<string[]>([])
   const [countries, setCountries] = useState<string[]>([])
   const [experienceRanges, setExperienceRanges] = useState<string[]>([])
@@ -423,43 +423,32 @@ export default function AddCoachPage() {
     }
   }
 
-  // Load passing years from dropdown settings
-  const loadPassingYears = async () => {
-    try {
-      const token = TokenManager.getToken()
-      const response = await fetch(getBackendApiUrl('dropdown-settings/passing_years'), {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setPassingYears(data.filter((opt: any) => opt.is_active).map((opt: any) => opt.value))
-      } else {
-        const currentYear = new Date().getFullYear()
-        const years = []
-        for (let i = 0; i < 51; i++) years.push(String(currentYear - i))
-        setPassingYears(years)
-      }
-    } catch (error) {
-      console.error('Error loading passing years:', error)
-      const currentYear = new Date().getFullYear()
-      const years = []
-      for (let i = 0; i < 51; i++) years.push(String(currentYear - i))
-      setPassingYears(years)
-    }
-  }
-
   // Load categories
   const loadCategories = async () => {
     try {
       setIsLoadingCategories(true)
-      const response = await fetch(getBackendApiUrl('categories/public/all'))
-      
+      const token = TokenManager.getToken()
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+      const response = await fetch(
+        getBackendApiUrl('categories?active_only=true&limit=200'),
+        { headers }
+      )
+
       if (response.ok) {
         const data = await response.json()
-        setCategories(data.categories || [])
-        console.log('✅ Loaded categories:', data.categories?.length || 0)
+        const validCategories = (data.categories || []).filter((category: any) =>
+          category && category.id && category.name && category.name.trim() !== '' && !category.parent_category_id
+        )
+        setCategories(validCategories)
+        console.log('✅ Loaded categories:', validCategories.length)
       } else {
-        console.error('Failed to load categories')
+        console.error('Failed to load categories, status:', response.status)
+        setCategories([])
       }
     } catch (error) {
       console.error('Error loading categories:', error)
@@ -481,7 +470,6 @@ export default function AddCoachPage() {
     loadExperienceRanges()
     loadRelations()
     loadQualifications()
-    loadPassingYears()
     loadCategories()
     
     const loadBranches = async () => {
@@ -1229,19 +1217,10 @@ export default function AddCoachPage() {
                         </Select>
                       </div>
                       <div className="w-32">
-                        <Select
+                        <YearPicker
                           value={qual.year}
-                          onValueChange={(value) => updateQualification(index, 'year', value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Year" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {passingYears.map((y) => (
-                              <SelectItem key={y} value={y}>{y}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          onChange={(value) => updateQualification(index, 'year', value)}
+                        />
                       </div>
                       <Button
                         type="button"

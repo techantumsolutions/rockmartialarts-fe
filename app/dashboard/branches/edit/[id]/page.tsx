@@ -139,8 +139,10 @@ export default function EditBranch() {
   const [isLoadingCourses, setIsLoadingCourses] = useState(true)
   const [categories, setCategories] = useState<Category[]>([])
   const [isLoadingCategories, setIsLoadingCategories] = useState(true)
-  const [coaches, setCoaches] = useState<{ id: string; name: string }[]>([])
-  const [isLoadingCoaches, setIsLoadingCoaches] = useState(true)
+  const [branchManagers, setBranchManagers] = useState<{ id: string; name: string }[]>([])
+  const [isLoadingBranchManagers, setIsLoadingBranchManagers] = useState(true)
+  const [trainers, setTrainers] = useState<{ id: string; name: string }[]>([])
+  const [isLoadingTrainers, setIsLoadingTrainers] = useState(true)
   const [locations, setLocations] = useState<{ id: string; name: string; state: string }[]>([])
   const [isLoadingLocations, setIsLoadingLocations] = useState(true)
   const [countries, setCountries] = useState<DropdownOption[]>([])
@@ -219,7 +221,7 @@ export default function EditBranch() {
   useEffect(() => {
     const loadBranchManagers = async () => {
       try {
-        setIsLoadingCoaches(true)
+        setIsLoadingBranchManagers(true)
         let token = TokenManager.getToken()
 
         if (!token) {
@@ -276,7 +278,7 @@ export default function EditBranch() {
             email: manager.email || manager.contact_info?.email || ''
           }))
 
-          setCoaches(branchManagerOptions)
+          setBranchManagers(branchManagerOptions)
         } else {
           toast({
             title: "Error",
@@ -287,9 +289,48 @@ export default function EditBranch() {
       } catch (error) {
         console.error('Error loading branch managers:', error)
       } finally {
-        setIsLoadingCoaches(false)
+        setIsLoadingBranchManagers(false)
       }
     }
+
+    const loadTrainers = async () => {
+      try {
+        setIsLoadingTrainers(true)
+        const token = TokenManager.getToken()
+        const trainerRows: { id: string; name: string }[] = []
+        let skip = 0
+        while (skip < 1000) {
+          const coachResponse = await fetch(
+            getBackendApiUrl(`coaches?active_only=true&limit=100&skip=${skip}`),
+            {
+              headers: {
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                "Content-Type": "application/json",
+              },
+            }
+          )
+          if (!coachResponse.ok) break
+          const coachData = await coachResponse.json()
+          const page = Array.isArray(coachData.coaches) ? coachData.coaches : []
+          for (const coach of page) {
+            const name =
+              coach.full_name ||
+              `${coach.personal_info?.first_name || ""} ${coach.personal_info?.last_name || ""}`.trim() ||
+              coach.contact_info?.email ||
+              "Coach"
+            if (coach.id) trainerRows.push({ id: String(coach.id), name })
+          }
+          if (page.length < 100) break
+          skip += 100
+        }
+        setTrainers(trainerRows)
+      } catch (error) {
+        console.error("Error loading trainers:", error)
+      } finally {
+        setIsLoadingTrainers(false)
+      }
+    }
+
 
     const loadData = async () => {
       // Fetch existing branch data first
@@ -389,6 +430,7 @@ export default function EditBranch() {
       }
 
       await loadBranchManagers()
+      await loadTrainers()
       await loadLocations()
       await loadCountries()
       await loadBanks()
@@ -1002,15 +1044,15 @@ export default function EditBranch() {
                 <Select
                   value={formData.manager_id}
                   onValueChange={(value) => setFormData({ ...formData, manager_id: value })}
-                  disabled={isLoadingCoaches}
+                  disabled={isLoadingBranchManagers}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={isLoadingCoaches ? "Loading..." : "Select manager"} />
+                    <SelectValue placeholder={isLoadingBranchManagers ? "Loading..." : "Select manager"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {coaches.map((coach) => (
-                      <SelectItem key={coach.id} value={coach.id}>
-                        {coach.name}
+                    {branchManagers.map((manager) => (
+                      <SelectItem key={manager.id} value={manager.id}>
+                        {manager.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1427,17 +1469,23 @@ export default function EditBranch() {
                                       }
                                     >
                                       <SelectTrigger className="h-9">
-                                        <SelectValue placeholder="Trainer" />
+                                        <SelectValue placeholder={isLoadingTrainers ? "Loading..." : "Trainer"} />
                                       </SelectTrigger>
                                       <SelectContent>
                                         <SelectItem value={BATCH_COACH_UNASSIGNED}>
                                           No trainer assigned
                                         </SelectItem>
-                                        {coaches.map((coach) => (
-                                          <SelectItem key={coach.id} value={coach.id}>
-                                            {coach.name}
+                                        {trainers.map((trainer) => (
+                                          <SelectItem key={trainer.id} value={trainer.id}>
+                                            {trainer.name}
                                           </SelectItem>
                                         ))}
+                                        {(batch.coach_id || "").trim() &&
+                                          !trainers.some((trainer) => trainer.id === batch.coach_id) && (
+                                            <SelectItem value={batch.coach_id}>
+                                              Current assignment ({batch.coach_id})
+                                            </SelectItem>
+                                          )}
                                       </SelectContent>
                                     </Select>
                                   </div>
