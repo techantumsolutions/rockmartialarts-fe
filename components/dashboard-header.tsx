@@ -144,9 +144,9 @@ export default function DashboardHeader({ currentPage = "Dashboard" }: Dashboard
               <button onClick={() => router.push(`${basePath}/courses`)} className={`pb-2 px-1 text-sm font-semibold whitespace-nowrap cursor-pointer transition-all duration-300 hover:scale-105 ${isActivePath(`${basePath}/courses`) ? "text-[#E1BB33]" : "text-gray-600 hover:text-gray-900"}`}>Courses</button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className={`pb-2 px-1 text-sm font-semibold whitespace-nowrap flex items-center cursor-pointer transition-all duration-300 hover:scale-105 ${isActivePath(`${basePath}/attendance`) ? "text-[#E1BB33]" : "text-gray-600 hover:text-gray-900"}`}>
+                  <button className={`${isBranchAdmin ? "group " : ""}pb-2 px-1 text-sm font-semibold whitespace-nowrap flex items-center cursor-pointer transition-all duration-300 hover:scale-105 ${isActivePath(`${basePath}/attendance`) ? "text-[#E1BB33]" : "text-gray-600 hover:text-gray-900"}`}>
                     Attendance
-                    <ChevronDown className="w-3 h-3 ml-1 transition-transform duration-200" />
+                    <ChevronDown className={`w-3 h-3 ml-1 transition-transform duration-200 ${isBranchAdmin ? "group-data-[state=open]:rotate-180" : ""}`} />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuPortal>
@@ -179,7 +179,7 @@ export default function DashboardHeader({ currentPage = "Dashboard" }: Dashboard
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center space-x-3 bg-white rounded-full px-4 py-2 shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200">
+                <button className={`${isBranchAdmin ? "group " : ""}flex items-center space-x-3 bg-white rounded-full px-4 py-2 shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 cursor-pointer`}>
                   <Avatar className="w-10 h-10">
                     <AvatarImage src={profileImage} />
                     <AvatarFallback className="bg-gradient-to-br from-yellow-400 to-yellow-500 text-white font-semibold text-sm">{roleLabel.slice(0, 2).toUpperCase()}</AvatarFallback>
@@ -190,7 +190,7 @@ export default function DashboardHeader({ currentPage = "Dashboard" }: Dashboard
                       <span className="text-gray-500 font-normal ml-1">· {branchName}</span>
                     )}
                   </span>
-                  <ChevronDown className="w-4 h-4 text-gray-600 transition-transform duration-200" />
+                  <ChevronDown className={`w-4 h-4 text-gray-600 transition-transform duration-200 ${isBranchAdmin ? "group-data-[state=open]:rotate-180" : ""}`} />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuPortal>
