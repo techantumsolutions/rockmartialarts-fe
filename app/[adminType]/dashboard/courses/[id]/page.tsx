@@ -768,46 +768,6 @@ export default function CourseDetailPage() {
               </CardContent>
             </Card>
 
-            {/* Course Reviews */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  
-                  <span className="text-[#4f5077]"> Student Reviews ({courseReviews.length})</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {courseReviews.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <Star className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                    <p>No reviews yet</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {courseReviews.map((review) => (
-                      <div key={review.id} className="p-4 bg-gray-50 rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium text-[#7D8592]">{review.student_name}</h4>
-                          <div className="flex items-center space-x-1">
-                            {renderStars(review.rating)}
-                          </div>
-                        </div>
-
-                        <p className="text-sm text-[#7D8592] mb-2">{review.comment}</p>
-
-                        <p className="text-xs text-[#7D8592]">
-                          {new Date(review.date).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                          })}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
           </div>
 
           {/* Sidebar */}

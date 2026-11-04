@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Building, MapPin, Clock, Users, CreditCard, X, Plus, Trash2 } from "lucide-react"
+import { ArrowLeft, Building, MapPin, Clock, Users, CreditCard, X, Plus, Trash2, Calendar } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
 import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
@@ -1234,10 +1234,12 @@ export default function EditBranch() {
               {/* Holidays */}
               <div className="space-y-2">
                 <Label>Holidays</Label>
-                <div className="flex gap-2">
+                <div className="relative w-full max-w-sm">
                   <Input
                     type="date"
                     id="holidayDate"
+                    className="w-full pl-3 pr-9 py-1.5 h-9 text-xs sm:text-sm bg-white border-gray-200 rounded-md cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:top-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-datetime-edit]:p-0"
+                    onClick={(e) => e.currentTarget.showPicker?.()}
                     onChange={(e) => {
                       if (e.target.value) {
                         addHoliday(e.target.value)
@@ -1245,6 +1247,7 @@ export default function EditBranch() {
                       }
                     }}
                   />
+                  <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
                 </div>
 
                 {formData.operational_details.holidays.length > 0 && (
