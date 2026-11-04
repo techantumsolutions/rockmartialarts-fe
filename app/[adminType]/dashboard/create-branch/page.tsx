@@ -1,13 +1,14 @@
 "use client"
 
 import { getBackendApiUrl } from "@/lib/config"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { TimePicker24 } from "@/components/ui/time-picker-24"
 import { Label } from "@/components/ui/label"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
@@ -162,6 +163,87 @@ interface FormData {
 type CreateBranchPageProps = {
   /** When true, creates a collaboration partner branch and returns to Partner Profiles. */
   asPartner?: boolean
+}
+
+type OperatingTimePickerProps = {
+  label: string
+  value: string
+  onChange: (value: string) => void
+}
+
+function OperatingTimePicker({ label, value, onChange }: OperatingTimePickerProps) {
+  const [open, setOpen] = useState(false)
+  const selectedHourRef = useRef<HTMLButtonElement>(null)
+  const selectedMinuteRef = useRef<HTMLButtonElement>(null)
+  const [hour = "00", minute = "00"] = value.split(":")
+  const hours = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, "0"))
+  const minutes = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, "0"))
+
+  useEffect(() => {
+    if (open) {
+      selectedHourRef.current?.scrollIntoView({ block: "center" })
+      selectedMinuteRef.current?.scrollIntoView({ block: "center" })
+    }
+  }, [open])
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={`${label}: ${hour}:${minute}`}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          className="flex h-9 min-w-0 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-left text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        >
+          <span>{hour}:{minute}</span>
+          <Clock className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={2}
+        className="w-[9.5rem] p-1"
+        aria-label={`${label} time`}
+      >
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1">
+          <div className="max-h-52 overflow-y-auto overscroll-contain">
+            {hours.map((option) => (
+              <button
+                key={option}
+                ref={option === hour ? selectedHourRef : undefined}
+                type="button"
+                aria-pressed={option === hour}
+                onClick={() => onChange(`${option}:${minute}`)}
+                className={`flex h-9 w-full items-center justify-center rounded-sm text-sm ${
+                  option === hour ? "bg-blue-600 font-medium text-white" : "hover:bg-accent"
+                }`}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+          <span aria-hidden="true" className="text-muted-foreground">:</span>
+          <div className="max-h-52 overflow-y-auto overscroll-contain">
+            {minutes.map((option) => (
+              <button
+                key={option}
+                ref={option === minute ? selectedMinuteRef : undefined}
+                type="button"
+                aria-pressed={option === minute}
+                onClick={() => onChange(`${hour}:${option}`)}
+                className={`flex h-9 w-full items-center justify-center rounded-sm text-sm ${
+                  option === minute ? "bg-blue-600 font-medium text-white" : "hover:bg-accent"
+                }`}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
 }
 
 export default function CreateBranchPage({ asPartner = false }: CreateBranchPageProps) {
@@ -716,14 +798,15 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
     return Object.keys(newErrors).length === 0
   }
 
+  const showSubmitError = (title: string, description: string) => {
+    window.scrollTo({ top: 0, behavior: "smooth" })
+    toast({ title, description, variant: "destructive" })
+  }
+
   // Submit form
   const handleSubmit = async () => {
     if (!validateForm()) {
-      toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields.",
-        variant: "destructive",
-      })
+      showSubmitError("Validation Error", "Please fill in all required fields.")
       return
     }
 
@@ -732,11 +815,10 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
       if (!courseAssignment.batches || courseAssignment.batches.length === 0) {
         const courseDef = courses.find(c => c.id === courseAssignment.course_id)
         const courseTitle = courseDef?.title || courseDef?.code || "Assigned course"
-        toast({
-          title: "Batch Required",
-          description: `"${courseTitle}" must have at least one batch before it can be assigned to this branch. Please add a batch or uncheck the course.`,
-          variant: "destructive",
-        })
+        showSubmitError(
+          "Batch Required",
+          `"${courseTitle}" must have at least one batch before it can be assigned to this branch. Please add a batch or uncheck the course.`
+        )
         return
       }
     }
@@ -750,11 +832,10 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
         const batchLabel = (batch.batch_name || "").trim() || "Untitled batch"
         const maxStudentsNum = parseInt(String(batch.max_students ?? "").trim(), 10)
         if (!Number.isFinite(maxStudentsNum) || maxStudentsNum <= 0) {
-          toast({
-            title: "Batch capacity required",
-            description: `"${courseTitle}" → ${batchLabel}: please enter maximum student capacity (min 1).`,
-            variant: "destructive",
-          })
+          showSubmitError(
+            "Batch capacity required",
+            `"${courseTitle}" → ${batchLabel}: please enter maximum student capacity (min 1).`
+          )
           return
         }
         const fpd = batch.fee_per_duration || {}
@@ -764,11 +845,10 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
         })
         const batchFee = parseFloat(String(batch.batch_fee ?? "").trim())
         if (!hasFee && !(Number.isFinite(batchFee) && batchFee > 0)) {
-          toast({
-            title: "Batch pricing required",
-            description: `"${courseTitle}" → ${batchLabel}: enter at least one duration fee greater than 0.`,
-            variant: "destructive",
-          })
+          showSubmitError(
+            "Batch pricing required",
+            `"${courseTitle}" → ${batchLabel}: enter at least one duration fee greater than 0.`
+          )
           return
         }
         if (masterDurations.length > 0) {
@@ -781,11 +861,10 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
           // If they typed any fee for a duration, it must be > 0 (already covered by hasFee check for empty).
           // Require every listed duration that has a value to be valid — and overall at least one fee (hasFee).
           if (missing.length > 0) {
-            toast({
-              title: "Batch pricing required",
-              description: `"${courseTitle}" → ${batchLabel}: duration fees must be greater than 0.`,
-              variant: "destructive",
-            })
+            showSubmitError(
+              "Batch pricing required",
+              `"${courseTitle}" → ${batchLabel}: duration fees must be greater than 0.`
+            )
             return
           }
         }
@@ -797,11 +876,7 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
     try {
       const token = TokenManager.getToken()
       if (!token) {
-        toast({
-          title: "Authentication Error",
-          description: "Please login again.",
-          variant: "destructive",
-        })
+        showSubmitError("Authentication Error", "Please login again.")
         return
       }
 
@@ -869,19 +944,11 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
           errorMessage = JSON.stringify(errorData.detail)
         }
         
-        toast({
-          title: "Error",
-          description: errorMessage,
-          variant: "destructive",
-        })
+        showSubmitError("Error", errorMessage)
       }
     } catch (error) {
       console.error("Error creating branch:", error)
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred.",
-        variant: "destructive",
-      })
+      showSubmitError("Error", "An unexpected error occurred.")
     } finally {
       setIsSubmitting(false)
     }
@@ -1549,16 +1616,16 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
                     </Select>
                   </div>
 
-                  <TimePicker24
+                  <OperatingTimePicker
+                    label="Opening time"
                     value={newTiming.open}
                     onChange={(open) => setNewTiming({ ...newTiming, open })}
-                    className="min-w-0"
                   />
 
-                  <TimePicker24
+                  <OperatingTimePicker
+                    label="Closing time"
                     value={newTiming.close}
                     onChange={(close) => setNewTiming({ ...newTiming, close })}
-                    className="min-w-0"
                   />
 
                   <Button onClick={addTiming} size="sm" className="col-span-2 md:col-span-1 w-full">
