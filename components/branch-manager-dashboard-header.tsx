@@ -333,14 +333,14 @@ export default function BranchManagerDashboardHeader({ currentPage = "Dashboard"
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
-                    className={`pb-2 px-1 text-sm font-semibold whitespace-nowrap cursor-pointer border-b-2 transition-all duration-300 hover:scale-105 ${
+                    className={`group pb-2 px-1 text-sm font-semibold whitespace-nowrap cursor-pointer border-b-2 transition-all duration-300 hover:scale-105 ${
                       isActivePath("/branch-manager-dashboard/attendance")
                         ? "text-gray-900 border-blue-400 shadow-sm"
                         : "text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-300"
                     }`}
                   >
                     Attendance
-                    <ChevronDown className="w-3 h-3 ml-1" />
+                    <ChevronDown className="w-3 h-3 ml-1 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuPortal>
@@ -370,10 +370,10 @@ export default function BranchManagerDashboardHeader({ currentPage = "Dashboard"
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
-                    className="pb-2 px-1 text-sm font-semibold whitespace-nowrap cursor-pointer border-b-2 border-transparent hover:border-gray-300 text-gray-600 hover:text-gray-900 transition-all duration-300 hover:scale-105"
+                    className="group pb-2 px-1 text-sm font-semibold whitespace-nowrap cursor-pointer border-b-2 border-transparent hover:border-gray-300 text-gray-600 hover:text-gray-900 transition-all duration-300 hover:scale-105"
                   >
                     More
-                    <ChevronDown className="w-3 h-3 ml-1" />
+                    <ChevronDown className="w-3 h-3 ml-1 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuPortal>
@@ -433,14 +433,14 @@ export default function BranchManagerDashboardHeader({ currentPage = "Dashboard"
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
-                    className="flex border border-gray-200 items-center space-x-2 hover:bg-gray-100/80 rounded-lg px-2 py-2 transition-all duration-200 hover:shadow-sm"
+                    className="group flex border border-gray-200 items-center space-x-2 hover:bg-gray-100/80 rounded-lg px-2 py-2 transition-all duration-200 hover:shadow-sm"
                   >
                     <Avatar className="w-6 h-6 ring-2 ring-gray-200/50 hover:ring-blue-400/30 transition-all duration-200">
                       <AvatarImage src="" />
                       <AvatarFallback className="bg-gradient-to-br from-blue-400 to-blue-500 text-white font-semibold text-xs">BM</AvatarFallback>
                     </Avatar>
                     <span className="text-xs font-semibold text-gray-800 hidden xl:inline">Branch Manager</span>
-                    <ChevronDown className="w-3 h-3 text-gray-600 transition-transform duration-200 group-hover:rotate-180" />
+                    <ChevronDown className="w-3 h-3 text-gray-600 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuPortal>

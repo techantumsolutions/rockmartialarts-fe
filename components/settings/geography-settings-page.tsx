@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, MapPin, Pencil, Plus, Search } from "lucide-react"
+import DashboardHeader from "@/components/dashboard-header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -487,6 +488,7 @@ export default function GeographySettingsPage() {
             </TabsContent>
           </Tabs>
         </div>
+      </main>
     </div>
   )
 }

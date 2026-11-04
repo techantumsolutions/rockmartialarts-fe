@@ -189,7 +189,7 @@ export default function Navbar({ role }: NavbarProps) {
                   >
                     <DropdownMenuTrigger asChild>
                       <button
-                        className={navButtonClass(item) + " flex items-center"}
+                        className={`${navButtonClass(item)} flex items-center ${role === "branch_admin" ? "group" : ""}`}
                         onMouseEnter={() => openNavDropdown(item.path)}
                         onMouseLeave={() => scheduleNavDropdownClose(item.path, true)}
                       >
@@ -324,11 +324,11 @@ export default function Navbar({ role }: NavbarProps) {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className="flex items-center gap-1 max-w-[9.5rem] sm:max-w-[14rem] h-8 px-2 sm:px-3 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200 text-sm font-semibold text-gray-800"
+                    className="group flex items-center gap-1 max-w-[9.5rem] sm:max-w-[14rem] h-8 px-2 sm:px-3 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200 text-sm font-semibold text-gray-800"
                     title={activeBranch.name}
                   >
                     <span className="truncate">{activeBranch.name}</span>
-                    <ChevronDown className="w-3 h-3 flex-shrink-0 text-gray-600" />
+                    <ChevronDown className="w-3 h-3 flex-shrink-0 text-gray-600 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuPortal>
@@ -353,7 +353,7 @@ export default function Navbar({ role }: NavbarProps) {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 sm:gap-3 bg-white rounded-full pl-1 pr-2 sm:px-4 py-2 shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 min-h-[48px] min-w-[48px] sm:min-w-0">
+                <button className={`flex items-center gap-2 sm:gap-3 bg-white rounded-full pl-1 pr-2 sm:px-4 py-2 shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 min-h-[48px] min-w-[48px] sm:min-w-0 cursor-pointer ${role === "branch_admin" ? "group" : ""}`}>
                   <Avatar className="w-9 h-9 sm:w-10 sm:h-10 flex-shrink-0">
                     <AvatarImage src={profileImage} />
                     <AvatarFallback className="bg-gradient-to-br from-yellow-400 to-yellow-500 text-white font-semibold text-sm">
@@ -361,7 +361,7 @@ export default function Navbar({ role }: NavbarProps) {
                     </AvatarFallback>
                   </Avatar>
                   <span className="text-sm font-semibold text-gray-800 hidden lg:inline">{roleLabel}</span>
-                  <ChevronDown className="w-4 h-4 text-gray-600 transition-transform duration-200 hidden sm:block" />
+                  <ChevronDown className={`w-4 h-4 text-gray-600 transition-transform duration-200 hidden sm:block ${role === "branch_admin" ? "group-data-[state=open]:rotate-180" : ""}`} />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuPortal>
