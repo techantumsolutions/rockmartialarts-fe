@@ -14,7 +14,14 @@ import { User, Mail, Phone, Calendar, Shield, Edit, Save, X, Loader2 } from "luc
 import { useToast } from "@/hooks/use-toast"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { SuperAdminAuth } from "@/lib/auth"
+import { TokenManager } from "@/lib/tokenManager"
 import { fetchAssignedBranches } from "@/lib/activeBranch"
+
+function partnerLoginPath() {
+  if (typeof window === "undefined") return "/superadmin/login"
+  const slug = localStorage.getItem("partner_slug") || ""
+  return slug ? `/partners/${slug}/login` : "/superadmin/login"
+}
 
 interface BranchManagerProfile {
   id: string
@@ -52,23 +59,87 @@ export default function BranchManagerProfilePage() {
   })
 
   useEffect(() => {
-    const onSuperAdminRoute = String(params?.adminType || "") === "super-admin"
-    // Prefer route context so /super-admin/dashboard/profile always uses superadmin identity
-    // even if a branch-manager token also exists in storage.
+    const adminType = String(params?.adminType || "")
+    const onSuperAdminRoute = adminType === "super-admin"
+    const onPartnerRoute = adminType === "partner-admin"
+    const partnerUser = TokenManager.getUser()
+    const isPartnerAdmin =
+      TokenManager.isAuthenticated() &&
+      String(partnerUser?.role || "").toLowerCase() === "partner_super_admin"
+
+    // Prefer route context so each dashboard uses the matching identity.
     const isSuperAdmin = onSuperAdminRoute
       ? SuperAdminAuth.isAuthenticated()
-      : SuperAdminAuth.isAuthenticated() && !BranchManagerAuth.isAuthenticated()
-    const isBranchManager = !isSuperAdmin && BranchManagerAuth.isAuthenticated()
-    if (!isBranchManager && !isSuperAdmin) {
+      : !onPartnerRoute &&
+        SuperAdminAuth.isAuthenticated() &&
+        !BranchManagerAuth.isAuthenticated()
+    const isBranchManager =
+      !isSuperAdmin && !onPartnerRoute && BranchManagerAuth.isAuthenticated()
+
+    if (onPartnerRoute) {
+      if (!isPartnerAdmin) {
+        router.push(partnerLoginPath())
+        return
+      }
+      setIsSuperAdminProfile(false)
+    } else if (!isBranchManager && !isSuperAdmin) {
       router.push(onSuperAdminRoute ? "/superadmin/login" : "/branch-manager/login")
       return
+    } else {
+      setIsSuperAdminProfile(isSuperAdmin)
     }
-    setIsSuperAdminProfile(isSuperAdmin)
 
     // Load profile data
     const loadProfile = async () => {
       try {
         setLoading(true)
+
+        if (onPartnerRoute) {
+          const token = TokenManager.getToken()
+          if (!token) {
+            router.push(partnerLoginPath())
+            return
+          }
+          const response = await fetch(getBackendApiUrl("partner-organizations/me/profile"), {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          })
+          if (response.status === 401) {
+            router.push(partnerLoginPath())
+            return
+          }
+          if (!response.ok) throw new Error("Failed to load profile")
+          const result = await response.json()
+          const data = result.data || result
+          const partnerName =
+            data.partner_name ||
+            partnerUser?.partner_name ||
+            (typeof window !== "undefined" ? localStorage.getItem("partner_name") : "") ||
+            ""
+          const profileData: BranchManagerProfile = {
+            id: data.id || partnerUser?.id || "",
+            full_name: data.full_name || partnerUser?.full_name || "Partner Admin",
+            email: data.email || partnerUser?.email || "",
+            phone: data.phone || partnerUser?.phone || "",
+            branch_names: partnerName ? [partnerName] : [],
+            branch_name: partnerName,
+            branch_id: data.partner_org_id || partnerUser?.partner_org_id || "",
+            is_active: data.is_active !== undefined ? data.is_active : true,
+            created_at: data.created_at || new Date().toISOString(),
+            updated_at: data.updated_at || new Date().toISOString(),
+            role_label: "Partner Admin",
+          }
+          setProfile(profileData)
+          setFormData({
+            full_name: profileData.full_name,
+            email: profileData.email,
+            phone: profileData.phone || "",
+          })
+          return
+        }
 
         const token = isSuperAdmin ? SuperAdminAuth.getToken() : BranchManagerAuth.getToken()
         if (!token) {
@@ -182,15 +253,30 @@ export default function BranchManagerProfilePage() {
     setIsSubmitting(true)
 
     try {
-      const token = isSuperAdminProfile ? SuperAdminAuth.getToken() : BranchManagerAuth.getToken()
+      const onPartnerRoute = String(params?.adminType || "") === "partner-admin"
+      const token = onPartnerRoute
+        ? TokenManager.getToken()
+        : isSuperAdminProfile
+          ? SuperAdminAuth.getToken()
+          : BranchManagerAuth.getToken()
       if (!token) {
-        router.push(isSuperAdminProfile ? "/superadmin/login" : "/branch-manager/login")
+        router.push(
+          onPartnerRoute
+            ? partnerLoginPath()
+            : isSuperAdminProfile
+              ? "/superadmin/login"
+              : "/branch-manager/login"
+        )
         return
       }
 
-      const response = await fetch(
-        getBackendApiUrl(isSuperAdminProfile ? "superadmin/me" : "branch-managers/me"),
-        {
+      const endpoint = onPartnerRoute
+        ? "partner-organizations/me/profile"
+        : isSuperAdminProfile
+          ? "superadmin/me"
+          : "branch-managers/me"
+
+      const response = await fetch(getBackendApiUrl(endpoint), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -219,11 +305,41 @@ export default function BranchManagerProfilePage() {
             is_active: updatedData.is_active !== undefined ? updatedData.is_active : true,
             created_at: updatedData.created_at || profile?.created_at || new Date().toISOString(),
             updated_at: updatedData.updated_at || new Date().toISOString(),
-            role_label: profile?.role_label || (isSuperAdminProfile ? "Super Admin" : "Branch Manager"),
+            role_label:
+              profile?.role_label ||
+              (onPartnerRoute
+                ? "Partner Admin"
+                : isSuperAdminProfile
+                  ? "Super Admin"
+                  : "Branch Manager"),
           }
 
           setProfile(profileData)
           setIsEditing(false)
+          if (onPartnerRoute && typeof window !== "undefined") {
+            const existing = TokenManager.getUser()
+            if (existing) {
+              const nextUser = {
+                ...existing,
+                full_name: profileData.full_name,
+                email: profileData.email,
+                phone: profileData.phone,
+              }
+              localStorage.setItem("user", JSON.stringify(nextUser))
+              const authRaw = localStorage.getItem("auth_data")
+              if (authRaw) {
+                try {
+                  const authData = JSON.parse(authRaw)
+                  localStorage.setItem(
+                    "auth_data",
+                    JSON.stringify({ ...authData, user: nextUser })
+                  )
+                } catch {
+                  /* ignore */
+                }
+              }
+            }
+          }
 
           toast({
             title: "Success",
@@ -232,7 +348,13 @@ export default function BranchManagerProfilePage() {
           })
         }
       } else if (response.status === 401) {
-        router.push(isSuperAdminProfile ? "/superadmin/login" : "/branch-manager/login")
+        router.push(
+          onPartnerRoute
+            ? partnerLoginPath()
+            : isSuperAdminProfile
+              ? "/superadmin/login"
+              : "/branch-manager/login"
+        )
       } else {
         const errorData = await response.json()
         toast({
@@ -395,7 +517,9 @@ export default function BranchManagerProfilePage() {
                       <div className="flex items-start space-x-3 min-w-0">
                         <User className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-900">Branch</p>
+                          <p className="text-sm font-medium text-gray-900">
+                            {profile.role_label === "Partner Admin" ? "Organization" : "Branch"}
+                          </p>
                           <div className="text-xs text-gray-500 break-words">
                             {(profile.branch_names?.length ? profile.branch_names : [profile.branch_name]).map((name, index) => (
                               <p key={`${name}-${index}`} className="break-words">{name}</p>
