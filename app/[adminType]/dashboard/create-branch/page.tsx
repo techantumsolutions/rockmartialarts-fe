@@ -6,6 +6,7 @@ import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { TimePicker24 } from "@/components/ui/time-picker-24"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -13,8 +14,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Building, MapPin, Clock, Users, CreditCard, X, Plus, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import Header from "@/components/layout/Header"
-import { useDashboardRole, useDashboardBasePath } from "@/lib/useDashboardBasePath"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
 import { dropdownAPI, DropdownOption } from "@/lib/dropdownAPI"
@@ -847,10 +847,6 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
 
   return (
     <>
-      <Header
-        title={asPartner ? "Create Partner" : "Create Branch"}
-        role={useDashboardRole()}
-      />
       <div className="p-4 pt-4 md:p-8 md:pt-4">
         <div className="mb-6 flex items-center justify-between">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:space-x-4 md:gap-0">
@@ -1505,17 +1501,15 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
                     </Select>
                   </div>
 
-                  <Input
-                    type="time"
+                  <TimePicker24
                     value={newTiming.open}
-                    onChange={(e) => setNewTiming({ ...newTiming, open: e.target.value })}
+                    onChange={(open) => setNewTiming({ ...newTiming, open })}
                     className="min-w-0"
                   />
 
-                  <Input
-                    type="time"
+                  <TimePicker24
                     value={newTiming.close}
-                    onChange={(e) => setNewTiming({ ...newTiming, close: e.target.value })}
+                    onChange={(close) => setNewTiming({ ...newTiming, close })}
                     className="min-w-0"
                   />
 
