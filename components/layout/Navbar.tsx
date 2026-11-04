@@ -13,7 +13,7 @@ import {
 import { useRouter, usePathname } from "next/navigation"
 import { useCMS } from "@/contexts/CMSContext"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import NotificationDropdown from "@/components/notification-dropdown"
 import { MobileSidebar } from "@/components/layout/responsive"
 import {
@@ -39,6 +39,9 @@ export default function Navbar({ role }: NavbarProps) {
   const pathname = usePathname()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [profileImage, setProfileImage] = useState<string>("")
+  const [openNavMenu, setOpenNavMenu] = useState<string | null>(null)
+  const navMenuCloseTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hoveredNavMenu = useRef<string | null>(null)
   const { hasPermission } = usePermissions(role)
   const { branches: assignedBranches, active: activeBranch, setActive: setActiveBranch } = useActiveBranch()
 
@@ -113,6 +116,22 @@ export default function Navbar({ role }: NavbarProps) {
     setIsMobileMenuOpen(false)
   }
 
+  const openNavDropdown = (menu: string) => {
+    if (navMenuCloseTimeout.current) clearTimeout(navMenuCloseTimeout.current)
+    hoveredNavMenu.current = menu
+    setOpenNavMenu(menu)
+  }
+
+  const scheduleNavDropdownClose = (menu: string, pointerLeft = false) => {
+    if (navMenuCloseTimeout.current) clearTimeout(navMenuCloseTimeout.current)
+    if (pointerLeft && hoveredNavMenu.current === menu) hoveredNavMenu.current = null
+    navMenuCloseTimeout.current = setTimeout(() => {
+      if (hoveredNavMenu.current !== menu) {
+        setOpenNavMenu((current) => (current === menu ? null : current))
+      }
+    }, 300)
+  }
+
   const isActivePath = (path: string) =>
     path === basePath
       ? pathname === path
@@ -131,6 +150,13 @@ export default function Navbar({ role }: NavbarProps) {
   const profilePath = `${basePath}/profile`
   const settingsPath = `${basePath}/settings`
   const cmsPath = `${basePath}/cms`
+
+  useEffect(
+    () => () => {
+      if (navMenuCloseTimeout.current) clearTimeout(navMenuCloseTimeout.current)
+    },
+    []
+  )
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-gray-200/80 backdrop-blur-sm min-w-0">
@@ -152,16 +178,38 @@ export default function Navbar({ role }: NavbarProps) {
               {visibleNavItems.map((item) => {
                 const Icon = item.icon
                 return item.children ? (
-                  <DropdownMenu key={item.path}>
+                  <DropdownMenu
+                    key={item.path}
+                    modal={false}
+                    open={openNavMenu === item.path}
+                    onOpenChange={(open) => {
+                      if (open) openNavDropdown(item.path)
+                      else scheduleNavDropdownClose(item.path)
+                    }}
+                  >
                     <DropdownMenuTrigger asChild>
-                      <button className={navButtonClass(item) + " flex items-center"}>
+                      <button
+                        className={navButtonClass(item) + " flex items-center"}
+                        onMouseEnter={() => openNavDropdown(item.path)}
+                        onMouseLeave={() => scheduleNavDropdownClose(item.path, true)}
+                      >
                         {Icon && <Icon className="w-4 h-4 mr-1" />}
                         {item.label}
-                        <ChevronDown className="w-3 h-3 ml-1 transition-transform duration-200" />
+                        <ChevronDown
+                          className={`w-3 h-3 ml-1 transition-transform duration-200 ${
+                            openNavMenu === item.path ? "rotate-180" : ""
+                          }`}
+                        />
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuPortal>
-                      <DropdownMenuContent align="start" className="w-56 z-[1000] bg-white/95 backdrop-blur-md border border-gray-200/50 shadow-xl rounded-lg p-2" sideOffset={8}>
+                      <DropdownMenuContent
+                        align="start"
+                        className="w-56 z-[1000] bg-white/95 backdrop-blur-md border border-gray-200/50 shadow-xl rounded-lg p-2"
+                        sideOffset={8}
+                        onMouseEnter={() => openNavDropdown(item.path)}
+                        onMouseLeave={() => scheduleNavDropdownClose(item.path, true)}
+                      >
                         {item.children.map((child) => {
                           const ChildIcon = child.icon
                           return (
@@ -186,17 +234,37 @@ export default function Navbar({ role }: NavbarProps) {
                 )
               })}
               {moreNavItems.length > 0 && (
-                <DropdownMenu>
+                <DropdownMenu
+                  modal={false}
+                  open={openNavMenu === "more"}
+                  onOpenChange={(open) => {
+                    if (open) openNavDropdown("more")
+                    else scheduleNavDropdownClose("more")
+                  }}
+                >
                   <DropdownMenuTrigger asChild>
                     <button
                       aria-label="More navigation items"
-                      className="pb-2 px-2 text-gray-700 hover:text-gray-900 cursor-pointer rounded-lg bg-gray-50 hover:bg-gray-100 transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center border border-gray-200 hover:border-gray-300 flex-shrink-0 h-8 w-8"
+                      className="pb-2 px-2 text-gray-700 hover:text-gray-900 cursor-pointer rounded-lg bg-gray-50 hover:bg-gray-100 transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center gap-1 border border-gray-200 hover:border-gray-300 flex-shrink-0 h-8"
+                      onMouseEnter={() => openNavDropdown("more")}
+                      onMouseLeave={() => scheduleNavDropdownClose("more", true)}
                     >
                       <MoreVertical className="w-4 h-4" />
+                      <ChevronDown
+                        className={`w-3 h-3 transition-transform duration-200 ${
+                          openNavMenu === "more" ? "rotate-180" : ""
+                        }`}
+                      />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuPortal>
-                    <DropdownMenuContent align="end" className="w-56 max-h-[70vh] overflow-y-auto z-[1000] bg-white/95 backdrop-blur-md border border-gray-200/50 shadow-xl rounded-lg p-2" sideOffset={8}>
+                    <DropdownMenuContent
+                      align="end"
+                      className="w-56 max-h-[70vh] overflow-y-auto z-[1000] bg-white/95 backdrop-blur-md border border-gray-200/50 shadow-xl rounded-lg p-2"
+                      sideOffset={8}
+                      onMouseEnter={() => openNavDropdown("more")}
+                      onMouseLeave={() => scheduleNavDropdownClose("more", true)}
+                    >
                       {moreNavItems.map((item) => {
                         const Icon = item.icon
                         if (item.children && item.children.length > 0) {
