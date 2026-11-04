@@ -452,17 +452,32 @@ export default function EditCoachPage() {
   }
 
   // Load categories
+  // Load categories
   const loadCategories = async () => {
     try {
       setIsLoadingCategories(true)
-      const response = await fetch(getBackendApiUrl('categories/public/all'))
-      
+      const token = TokenManager.getToken()
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+      const response = await fetch(
+        getBackendApiUrl('categories?active_only=true&limit=200'),
+        { headers }
+      )
+
       if (response.ok) {
         const data = await response.json()
-        setCategories(data.categories || [])
-        console.log('✅ Loaded categories:', data.categories?.length || 0)
+        const validCategories = (data.categories || []).filter((category: any) =>
+          category && category.id && category.name && category.name.trim() !== '' && !category.parent_category_id
+        )
+        setCategories(validCategories)
+        console.log('✅ Loaded categories:', validCategories.length)
       } else {
-        console.error('Failed to load categories')
+        console.error('Failed to load categories, status:', response.status)
+        setCategories([])
       }
     } catch (error) {
       console.error('Error loading categories:', error)
@@ -537,6 +552,10 @@ export default function EditCoachPage() {
           notes: coach.notes || '',
         }))
 
+        const initialCatId = coach.professional_info?.category_id || coach.professional_info?.category
+        if (initialCatId) {
+          loadSubCategories(initialCatId)
+        }
         setIsLoading(false)
       } catch (error) {
         console.error('Error fetching coach:', error)
