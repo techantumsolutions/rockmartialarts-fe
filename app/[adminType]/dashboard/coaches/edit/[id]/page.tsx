@@ -27,6 +27,7 @@ import WeeklySlotTimePicker from "@/components/coaches/WeeklySlotTimePicker"
 import {
   AlertDialog,
   AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -189,6 +190,8 @@ export default function EditCoachPage() {
   const [externalBatches, setExternalBatches] = useState<AssignmentBatch[]>([])
   const [assignedBatchIds, setAssignedBatchIds] = useState<string[]>([])
   const initialBranchBatchesLoadedRef = useRef<boolean>(false)
+  /** Pending branch id while Super Admin confirms reassignment (FE-only). */
+  const [pendingBranchId, setPendingBranchId] = useState<string | null>(null)
 
   const [formData, setFormData] = useState({
     // Personal Information
@@ -270,6 +273,38 @@ export default function EditCoachPage() {
   const patchFormData = useCallback((patch: Partial<typeof formData>) => {
     setFormData((prev) => ({ ...prev, ...patch }))
   }, [])
+
+  const getBranchLabel = useCallback(
+    (branchId: string) => {
+      const match = branches.find((b) => b.id === branchId)
+      if (!match) return "the selected branch"
+      return `${match.branch.name} (${match.branch.code})`
+    },
+    [branches]
+  )
+
+  /** Confirm before changing an already-assigned coach to another branch (UI only). */
+  const handleBranchSelect = (value: string) => {
+    if (isBranchAdmin) return
+    if (formData.branch && value !== formData.branch) {
+      setPendingBranchId(value)
+      return
+    }
+    patchFormData({ branch: value })
+  }
+
+  const confirmBranchReassign = () => {
+    if (!pendingBranchId) return
+    const nextBranchId = pendingBranchId
+    setPendingBranchId(null)
+    // Clear course/batch picks so admin re-assigns for the new branch schedule.
+    setAssignedBatchIds([])
+    patchFormData({ branch: nextBranchId, courses: [] })
+  }
+
+  const cancelBranchReassign = () => {
+    setPendingBranchId(null)
+  }
 
 
 
@@ -2082,8 +2117,9 @@ export default function EditCoachPage() {
                     </div>
                   ) : (
                     <Select
+                      key={formData.branch || "no-branch"}
                       value={formData.branch}
-                      onValueChange={(value) => patchFormData({ branch: value })}
+                      onValueChange={handleBranchSelect}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select branch" />
@@ -2672,6 +2708,44 @@ export default function EditCoachPage() {
           <AlertDialogFooter>
             <AlertDialogAction onClick={() => setBlockedSlotConflict(null)}>
               Understood
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Branch reassignment confirmation (Super Admin / Partner Admin — FE only) */}
+      <AlertDialog
+        open={!!pendingBranchId}
+        onOpenChange={(open) => !open && cancelBranchReassign()}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-[#4F5077]">
+              <Building2 className="w-5 h-5 shrink-0" />
+              Reassign coach to another branch?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2 text-left pt-2 text-slate-700">
+              <p>
+                This coach is already assigned to{" "}
+                <span className="font-semibold text-slate-900">
+                  {getBranchLabel(formData.branch)}
+                </span>
+                . Do you want to reassign them to{" "}
+                <span className="font-semibold text-slate-900">
+                  {pendingBranchId ? getBranchLabel(pendingBranchId) : "another branch"}
+                </span>
+                ?
+              </p>
+              <p className="text-xs text-slate-600">
+                After confirming, you can assign courses and batches based on the newly selected branch.
+                Previous course/batch selections for the current branch will be cleared.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={cancelBranchReassign}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBranchReassign}>
+              Confirm reassignment
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

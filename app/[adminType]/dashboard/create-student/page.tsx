@@ -45,6 +45,10 @@ interface Branch {
   id: string
   name: string
   code?: string
+  branch?: {
+    name?: string
+    code?: string
+  }
   address?: {
     state?: string
     city?: string
@@ -91,7 +95,9 @@ export default function CreateStudent() {
   const basePath = useDashboardBasePath()
   const role = useDashboardRole()
   const isSuperAdmin = role === "super_admin"
+  const isPartnerAdmin = role === "partner_super_admin"
   const isBranchAdmin = role === "branch_admin"
+  const canSelectBranch = isSuperAdmin || isPartnerAdmin
   const { toast } = useToast()
 
   const branchManager = BranchManagerAuth.getCurrentUser()
@@ -159,10 +165,24 @@ export default function CreateStudent() {
       try {
         // 1. Load active branches
         try {
-          const bRes = await fetch(getBackendApiUrl("branches/public/all?active_only=true"))
+          const token = TokenManager.getToken()
+          const bUrl = isPartnerAdmin
+            ? getBackendApiUrl("branches?active_only=true&limit=100")
+            : getBackendApiUrl("branches/public/all?active_only=true")
+          const bRes = await fetch(bUrl, {
+            headers: {
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              "Content-Type": "application/json",
+            },
+          })
           if (bRes.ok) {
             const bData = await bRes.json()
-            const branchList: Branch[] = Array.isArray(bData.branches) ? bData.branches : []
+            const rawList: any[] = Array.isArray(bData.branches) ? bData.branches : []
+            const branchList: Branch[] = rawList.map((b: any) => ({
+              ...b,
+              name: b.name || b.branch?.name || b.branch_name || "Branch",
+              code: b.code || b.branch?.code || "",
+            }))
             setBranches(branchList)
 
             if (isBranchAdmin) {
@@ -172,10 +192,19 @@ export default function CreateStudent() {
                 setBranchName(matched.name)
               }
               setFormData((prev) => ({ ...prev, branch: currentId }))
-            } else if (isSuperAdmin) {
-              // Super admin can default to first branch or let user select
+            } else if (canSelectBranch) {
+              // Super admin & Partner admin can default to first branch or let user select
               if (branchList.length > 0) {
-                setFormData((prev) => (prev.branch ? prev : { ...prev, branch: branchList[0].id }))
+                setFormData((prev) => {
+                  const selectedId = prev.branch && branchList.some((b) => b.id === prev.branch)
+                    ? prev.branch
+                    : branchList[0].id
+                  const matched = branchList.find((b) => b.id === selectedId)
+                  if (matched) {
+                    setBranchName(matched.name)
+                  }
+                  return { ...prev, branch: selectedId }
+                })
               }
             }
           }
@@ -217,7 +246,7 @@ export default function CreateStudent() {
     }
 
     loadInitialData()
-  }, [isBranchAdmin, isSuperAdmin, headerBranchId, toast])
+  }, [isBranchAdmin, isSuperAdmin, isPartnerAdmin, canSelectBranch, headerBranchId, toast])
 
   // When branch changes, load courses for that branch
   useEffect(() => {
@@ -228,24 +257,57 @@ export default function CreateStudent() {
 
     const loadCoursesForBranch = async () => {
       try {
-        const cRes = await fetch(
-          getBackendApiUrl(`courses/public/by-branch/${encodeURIComponent(formData.branch)}`)
-        )
-        if (cRes.ok) {
-          const cData = await cRes.json()
-          const list: Course[] = Array.isArray(cData.courses) ? cData.courses : []
-          setCourses(list)
+        const token = TokenManager.getToken()
+        let fetchedCourses: any[] = []
 
-          // If current selected course not in this branch's courses, reset it
-          setFormData((prev) => {
-            if (prev.course && !list.some((c) => c.id === prev.course)) {
-              return { ...prev, course: "", slot: "", category: "" }
+        // Try authenticated by-branch endpoint first
+        try {
+          const authRes = await fetch(
+            getBackendApiUrl(`courses/by-branch/${encodeURIComponent(formData.branch)}`),
+            {
+              headers: {
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                "Content-Type": "application/json",
+              },
             }
-            return prev
-          })
-        } else {
-          setCourses([])
+          )
+          if (authRes.ok) {
+            const authData = await authRes.json()
+            if (Array.isArray(authData.courses)) {
+              fetchedCourses = authData.courses
+            }
+          }
+        } catch (authErr) {
+          console.warn("Authenticated by-branch fetch error, trying public:", authErr)
         }
+
+        // Fallback to public by-branch endpoint
+        if (fetchedCourses.length === 0) {
+          const cRes = await fetch(
+            getBackendApiUrl(`courses/public/by-branch/${encodeURIComponent(formData.branch)}`)
+          )
+          if (cRes.ok) {
+            const cData = await cRes.json()
+            if (Array.isArray(cData.courses)) {
+              fetchedCourses = cData.courses
+            }
+          }
+        }
+
+        const list: Course[] = fetchedCourses.map((c: any) => ({
+          ...c,
+          title: c.title || c.name || "Untitled Course",
+          code: c.code || "",
+        }))
+        setCourses(list)
+
+        // If current selected course not in this branch's courses, reset it
+        setFormData((prev) => {
+          if (prev.course && !list.some((c) => c.id === prev.course)) {
+            return { ...prev, course: "", slot: "", category: "" }
+          }
+          return prev
+        })
       } catch (err) {
         console.error("Error loading courses for branch:", err)
         setCourses([])
@@ -348,6 +410,10 @@ export default function CreateStudent() {
   }
 
   const handleBranchChange = (newBranchId: string) => {
+    const selectedBranch = branches.find((b) => b.id === newBranchId)
+    if (selectedBranch) {
+      setBranchName(selectedBranch.name || (selectedBranch as any).branch?.name || "Assigned Branch")
+    }
     setFormData((prev) => ({
       ...prev,
       branch: newBranchId,
@@ -447,14 +513,15 @@ export default function CreateStudent() {
         : null
 
     const createdBy = {
-      id: rawUser?.id || rawUser?.user_id || (isSuperAdmin ? "super_admin" : "branch_manager"),
+      id: rawUser?.id || rawUser?.user_id || (isSuperAdmin ? "super_admin" : isPartnerAdmin ? "partner_super_admin" : "branch_manager"),
       name:
         rawUser?.full_name ||
         rawUser?.name ||
         `${rawUser?.first_name || ""} ${rawUser?.last_name || ""}`.trim() ||
-        (isSuperAdmin ? "Super Admin" : "Branch Admin"),
-      role: isSuperAdmin ? "super_admin" : "branch_manager",
+        (isSuperAdmin ? "Super Admin" : isPartnerAdmin ? "Partner Admin" : "Branch Admin"),
+      role: isSuperAdmin ? "super_admin" : isPartnerAdmin ? "partner_super_admin" : "branch_manager",
       email: rawUser?.email || "",
+      ...(rawUser?.partner_org_id ? { partner_org_id: rawUser.partner_org_id } : {}),
     }
 
     try {
@@ -571,8 +638,10 @@ export default function CreateStudent() {
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-[#4F5077] mb-1">Create New Student</h1>
             <p className="text-sm text-gray-500">
-              {isSuperAdmin
-                ? "Register a student under any branch, course, and batch"
+              {canSelectBranch
+                ? isPartnerAdmin
+                  ? "Register a student under your partner branches, courses, and batches"
+                  : "Register a student under any branch, course, and batch"
                 : "Register a student under your assigned branch and courses"}
             </p>
           </div>
@@ -601,8 +670,8 @@ export default function CreateStudent() {
               )}
 
               <div className="space-y-8">
-                {/* Branch Section: Super Admin (Select Any) vs Branch Admin (Locked) */}
-                {isSuperAdmin ? (
+                {/* Branch Section: Super Admin / Partner Admin (Select Branch) vs Branch Admin (Locked) */}
+                {canSelectBranch ? (
                   <div className="p-5 bg-gradient-to-r from-amber-50/80 to-yellow-50/60 border border-amber-200 rounded-xl space-y-3">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="flex items-center space-x-3">
@@ -612,13 +681,15 @@ export default function CreateStudent() {
                             Branch Allocation
                           </p>
                           <p className="text-sm text-gray-700">
-                            Select any branch to load its allocated courses & batches
+                            {isPartnerAdmin
+                              ? "Select a partner branch to load its allocated courses & batches"
+                              : "Select any branch to load its allocated courses & batches"}
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center text-xs text-green-700 bg-white/80 px-3 py-1.5 rounded-lg border border-green-200 self-start sm:self-auto font-medium">
                         <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-green-600" />
-                        Super Admin Access: All Branches Available
+                        {isPartnerAdmin ? "Partner Access: Partner Branches Available" : "Super Admin Access: All Branches Available"}
                       </div>
                     </div>
 
@@ -640,8 +711,10 @@ export default function CreateStudent() {
                               className="!py-3 !pl-3 pr-8 text-base hover:bg-gray-50 rounded-lg cursor-pointer"
                             >
                               <div className="flex flex-col">
-                                <span className="font-medium text-gray-900">{b.name}</span>
-                                {b.code && <span className="text-xs text-gray-500">Code: {b.code}</span>}
+                                <span className="font-medium text-gray-900">{b.name || (b as any).branch?.name || "Branch"}</span>
+                                {(b.code || (b as any).branch?.code) && (
+                                  <span className="text-xs text-gray-500">Code: {b.code || (b as any).branch?.code}</span>
+                                )}
                               </div>
                             </SelectItem>
                           ))}
@@ -882,7 +955,7 @@ export default function CreateStudent() {
                       Course & Batch Allocation
                     </h3>
                     <span className="text-xs text-gray-500">
-                      {isSuperAdmin
+                      {canSelectBranch
                         ? "Select any course and batch available for the chosen branch"
                         : "Only courses & batches allocated to your branch are visible"}
                     </span>
@@ -927,7 +1000,7 @@ export default function CreateStudent() {
                                   className="!py-3 !pl-3 pr-8 text-base hover:bg-gray-50 rounded-lg cursor-pointer"
                                 >
                                   <div className="flex flex-col">
-                                    <span className="font-medium text-gray-900">{course.title}</span>
+                                    <span className="font-medium text-gray-900">{course.title || (course as any).name || "Untitled Course"}</span>
                                     {course.code && (
                                       <span className="text-xs text-gray-500">{course.code}</span>
                                     )}
