@@ -253,7 +253,7 @@ export default function GeographySettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pt-6">
       <DashboardHeader currentPage="Geography" />
       <main className="w-full p-4 lg:px-8">
         <div className="mx-auto space-y-6">
