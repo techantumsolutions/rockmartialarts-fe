@@ -601,46 +601,37 @@ const paginatedBranches = filteredBranches.slice(
                 {/* <th className="px-2 py-3 text-left text-xs font-medium text-gray-500  ">
                   Branch ID
                 </th> */}
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500  ">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
                   Branch Name
                 </th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500  ">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap min-w-[200px]">
                   Branch Location
                 </th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500  ">
-                  <div className="flex items-center">
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 whitespace-nowrap">
+                  <div className="flex items-center justify-center">
                     <span>Active Students</span>
                     <div className="w-2 h-2 bg-blue-500 rounded-full ml-2"></div>
                   </div>
                 </th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500  ">
-                  <div className="flex items-center">
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 whitespace-nowrap">
+                  <div className="flex items-center justify-center">
                     <span>Courses Offered</span>
                     <div className="w-2 h-2 bg-green-500 rounded-full ml-2"></div>
                   </div>
                 </th>
-                {/* <th className="px-2 py-3 text-left text-xs font-medium text-gray-500  ">
-                  Branch Admin
-                </th> */}
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500  ">
-                  <div className="flex items-center">
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 whitespace-nowrap">
+                  <div className="flex items-center justify-center">
                     <span>Assigned Coaches</span>
                     <div className="w-2 h-2 bg-purple-500 rounded-full ml-2"></div>
                   </div>
                 </th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500  ">
-                  Branch manager
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap min-w-[160px]">
+                  Branch Manager
                 </th>
-                {/* <th className="px-2 py-3 text-left text-xs font-medium text-gray-500  ">
-                  Accessories Available
-                </th> */}
-                {/* <th className="px-2 py-3 text-left text-xs font-medium text-gray-500  ">
-                  Branch Email Id
-                </th> */}
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500  ">
-                  Contact number
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 whitespace-nowrap min-w-[140px]">
+                  Contact Number
                 </th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500  ">
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 whitespace-nowrap min-w-[130px]">
                   Action
                 </th>
               </tr>
@@ -671,7 +662,7 @@ const paginatedBranches = filteredBranches.slice(
                     className={`hover:bg-gray-50 ${branch.is_active === false ? "bg-gray-50/80" : ""}`}
                   >
                     {/* <td className="px-2 py-4 whitespace-nowrap text-xs text-[#6B7A99]">{branch.id}</td> */}
-                    <td className="px-2 py-4 whitespace-nowrap text-xs text-[#6B7A99]">
+                    <td className="px-4 py-4 whitespace-nowrap text-xs text-[#6B7A99]">
                       <div className="flex items-center gap-2">
                         <span>{branch.branch?.name || 'N/A'}</span>
                         {(branch.is_collaboration_partner || branch.allows_collaboration) && (
@@ -686,67 +677,59 @@ const paginatedBranches = filteredBranches.slice(
                         )}
                       </div>
                     </td>
-                    <td className="px-2 py-4 text-xs text-[#6B7A99] max-w-xs">
+                    <td className="px-4 py-4 text-xs text-[#6B7A99] max-w-xs">
                       {branch.branch?.address ?
                         `${branch.branch.address.line1}, ${branch.branch.address.city}, ${branch.branch.address.state}` :
                         'Address not available'
                       }
                     </td>
-                    <td className="px-2 py-4 whitespace-nowrap text-xs text-[#6B7A99]">
-                      <div className="flex items-center">
+                    <td className="px-4 py-4 whitespace-nowrap text-xs text-[#6B7A99] text-center">
+                      <div className="flex items-center justify-center">
                         {loadingStats && !branch.statistics ? (
                           <div className="animate-pulse bg-gray-200 rounded-full px-2.5 py-0.5 text-xs">
                             Loading...
                           </div>
                         ) : (
                           <span className="inline-flex items-center text-xs text-[#6B7A99]">
-                            {branch.statistics?.student_count ?? 0} 
+                            {branch.statistics?.student_count ?? 0}
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="px-2 py-4 whitespace-nowrap text-xs text-[#6B7A99]">
-                      <div className="flex items-center">
+                    <td className="px-4 py-4 whitespace-nowrap text-xs text-[#6B7A99] text-center">
+                      <div className="flex items-center justify-center">
                         {loadingStats && !branch.statistics ? (
                           <div className="animate-pulse bg-gray-200 rounded-full px-2.5 py-0.5 text-xs">
                             Loading...
                           </div>
                         ) : (
                           <span className="inline-flex items-center text-xs text-[#6B7A99]">
-                            {branch.statistics?.course_count ?? branch.operational_details?.courses_offered?.length ?? 0} 
+                            {branch.statistics?.course_count ?? branch.operational_details?.courses_offered?.length ?? 0}
                           </span>
                         )}
                       </div>
-                    {/* <td className="px-2 py-4 whitespace-nowrap">
-                      <div className="flex flex-col">
-                        <span className="text-xs text-[#6B7A99]">{branch.manager_id || 'Not Assigned'}</span>
-                        <span className="inline-flex px-2 py-1 text-xs font-medium rounded bg-[#FFC403] text-[#FFFFFF] mt-1 w-fit">
-                          Change
-                        </span>
-                      </div>
-                    </td> */}
                     </td>
-                    <td className="px-2 py-4 whitespace-nowrap text-xs text-[#6B7A99]">
-                      <div className="flex items-center">
+                    <td className="px-4 py-4 whitespace-nowrap text-xs text-[#6B7A99] text-center">
+                      <div className="flex items-center justify-center">
                         {loadingStats && !branch.statistics ? (
                           <div className="animate-pulse bg-gray-200 rounded-full px-2.5 py-0.5 text-xs">
                             Loading...
                           </div>
                         ) : (
                           <span className="text-xs text-[#6B7A99]">
-                            {branch.statistics?.coach_count ?? 0} 
+                            {branch.statistics?.coach_count ?? 0}
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="px-2 py-4 text-xs text-[#6B7A99] max-w-[180px]">
+                    <td className="px-4 py-4 text-xs text-[#6B7A99] whitespace-nowrap min-w-[160px]">
                       {getManagerDisplayName(branch)}
                     </td>
-                    <td className="px-2 py-4 text-xs text-[#6B7A99] max-w-[200px]">
+                    <td className="px-4 py-4 whitespace-nowrap text-xs text-[#6B7A99] text-center">
                       {getBranchContactDisplay(branch)}
                     </td>
-                    <td className="px-2 py-4 whitespace-nowrap text-xs text-[#6B7A99]">
-                      <div className="flex items-center space-x-2">
+                    <td className="px-4 py-4 whitespace-nowrap text-xs text-[#6B7A99] text-center">
+                      <div className="flex items-center justify-center space-x-2">
                         <button
                           className="text-blue-400 hover:text-blue-600"
                           onClick={() => handleViewClick(branch.id)}
