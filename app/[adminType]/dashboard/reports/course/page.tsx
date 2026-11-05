@@ -177,7 +177,7 @@ export default function CourseReportPage() {
       const response = await reportsAPI.getCourseReports(token, {
         ...currentFilters,
         skip: 0,
-        limit: 50
+        limit: 100
       })
 
       // Discard stale response if a newer request was issued

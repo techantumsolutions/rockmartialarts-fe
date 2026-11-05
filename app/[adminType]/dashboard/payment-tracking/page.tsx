@@ -120,13 +120,15 @@ export default function PaymentTrackingPage() {
   const adminType = String(params?.adminType || "super-admin").toLowerCase()
   const isSuperAdmin = adminType === "super-admin"
   const isPartnerAdmin = adminType === "partner-admin" || adminType === "partners"
+  /** Super admin and partner admin pick a branch. Branch managers stay on the header branch. */
+  const canPickBranch = isSuperAdmin || isPartnerAdmin
   const branchManager = BranchManagerAuth.getCurrentUser()
   const headerBranchId =
     getActiveBranchId() ||
     branchManager?.branch_id ||
     branchManager?.managed_branches?.[0] ||
     ""
-  const effectiveBranchFilter = isSuperAdmin ? branchFilter : headerBranchId || branchFilter
+  const effectiveBranchFilter = canPickBranch ? branchFilter : headerBranchId || branchFilter
   const partnerQuery = useMemo(() => {
     if (!isSuperAdmin || partnerFilter === "all") return {} as { partner_org_id?: string; partner_scope?: string }
     if (partnerFilter === "rock") return { partner_scope: "rock" }
@@ -776,16 +778,18 @@ export default function PaymentTrackingPage() {
         <div className="flex flex-wrap items-center justify-between gap-4 border-1 shadow overflow-x-auto p-6 mb-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-medium text-gray-700">
-              {isSuperAdmin ? "Select Branch:" : "Branch:"}
+              {canPickBranch ? "Select Branch:" : "Branch:"}
             </span>
-            {isSuperAdmin ? (
+            {canPickBranch ? (
               <Select value={branchFilter} onValueChange={setBranchFilter} disabled={branchesLoading}>
                 <SelectTrigger className="w-48 bg-gray-100 text-gray-600 border-0">
                   <SelectValue placeholder={branchesLoading ? "Loading…" : "Choose branch"} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All branches</SelectItem>
-                  <SelectItem value="unassigned">No branch on record</SelectItem>
+                  {!isPartnerAdmin ? (
+                    <SelectItem value="unassigned">No branch on record</SelectItem>
+                  ) : null}
                   {branchOptions.map((b) => (
                     <SelectItem key={b.id} value={b.id}>
                       {b.name}

@@ -1,12 +1,13 @@
 "use client"
 
-import { useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { usePathname } from "next/navigation"
 import {
   filterNavItemsByPermission,
   getBasePath,
   getMainNavItems,
   getOverflowNavItems,
+  isPartnerBranchManagerNav,
   type DashboardRole,
 } from "@/lib/dashboard-config"
 import { usePermissions } from "@/hooks/use-permissions"
@@ -20,18 +21,32 @@ export default function Sidebar({ role, onNavigate }: SidebarProps) {
   const pathname = usePathname()
   const { hasPermission } = usePermissions(role)
   const basePath = getBasePath(role)
+  const [partnerBranchManager, setPartnerBranchManager] = useState(false)
+
+  useEffect(() => {
+    setPartnerBranchManager(role === "branch_admin" && isPartnerBranchManagerNav())
+  }, [role])
+
+  const menuOptions = useMemo(
+    () => ({ partnerBranchManager }),
+    [partnerBranchManager]
+  )
 
   const menuItems = useMemo(
-    () => filterNavItemsByPermission(getMainNavItems(role, basePath), { role, hasPermission }),
-    [role, hasPermission, basePath]
-  )
-  const overflowItems = useMemo(
     () =>
-      filterNavItemsByPermission(getOverflowNavItems(role, basePath), {
+      filterNavItemsByPermission(getMainNavItems(role, basePath, menuOptions), {
         role,
         hasPermission,
       }),
-    [role, hasPermission, basePath]
+    [role, hasPermission, basePath, menuOptions]
+  )
+  const overflowItems = useMemo(
+    () =>
+      filterNavItemsByPermission(getOverflowNavItems(role, basePath, menuOptions), {
+        role,
+        hasPermission,
+      }),
+    [role, hasPermission, basePath, menuOptions]
   )
 
   const isActivePath = (path: string) => pathname === path || pathname.startsWith(path + "/")

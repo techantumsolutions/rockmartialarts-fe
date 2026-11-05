@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Download, Filter, FileText, TrendingUp, AlertCircle, Loader2, RefreshCw, Eye } from "lucide-react"
-import { useRouter, useParams } from "next/navigation"
+import { useRouter } from "next/navigation"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { reportsAPI, ReportFilters, ReportFilterOptions } from "@/lib/reportsAPI"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
@@ -157,11 +158,8 @@ const REPORT_CATEGORIES = [
 // Enhanced component with error boundary wrapper
 function ReportsPageContent() {
   const router = useRouter()
-  const params = useParams()
-  const adminType = (params?.adminType as string) || "super-admin"
-  const basePath = `/${adminType}/dashboard`
+  const basePath = useDashboardBasePath()
   const { user, token } = useAuth()
-  const isBranchAdminDashboard = basePath.startsWith("/branch-admin/dashboard")
 
   // Enhanced state management with performance monitoring
   const [searchTerm, setSearchTerm] = useState("")
@@ -416,11 +414,6 @@ function ReportsPageContent() {
                   <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
                     Description
                   </th>
-                  {!isBranchAdminDashboard && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
-                      Reports
-                    </th>
-                  )}
                   <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
                     Action
                   </th>
@@ -449,11 +442,6 @@ function ReportsPageContent() {
                       <td className="px-4 py-3 text-sm text-gray-600 hidden sm:table-cell max-w-xs">
                         {category.description}
                       </td>
-                      {!isBranchAdminDashboard && (
-                        <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
-                          {`${category.reports.length} available`}
-                        </td>
-                      )}
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         <Button
                           variant="outline"

@@ -61,7 +61,9 @@ export default function AddLinkedStudentPage() {
     setStudentName(user?.full_name || "Student")
     ;(async () => {
       try {
-        const res = await fetch(getBackendApiUrl("branches/public/all"))
+        const res = await fetch(getBackendApiUrl("auth/branch-options"), {
+          headers: TokenManager.getAuthHeaders(),
+        })
         if (!res.ok) return
         const data = await res.json()
         setBranches(
