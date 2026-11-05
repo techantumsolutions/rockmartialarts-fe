@@ -173,7 +173,7 @@ export default function NotificationDropdown({ className = "" }: NotificationDro
         </button>
       </DropdownMenuTrigger>
       
-      <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
+      <DropdownMenuContent align="end" className="w-80 overflow-hidden">
         <div className="px-4 py-2 border-b">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-sm">Notifications</h3>

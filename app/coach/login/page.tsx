@@ -151,6 +151,10 @@ function CoachLoginFormContent() {
 
       // Store comprehensive coach data for coach-specific features
       localStorage.setItem("coach", JSON.stringify(data.coach));
+      if (!data.coach?.partner_org_id) {
+        localStorage.removeItem("partner_slug");
+        localStorage.removeItem("partner_name");
+      }
       
       console.log("Coach login successful:", {
         coach_id: data.coach.id,

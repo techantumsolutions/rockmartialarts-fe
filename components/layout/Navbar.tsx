@@ -245,16 +245,30 @@ export default function Navbar({ role }: NavbarProps) {
                   <DropdownMenuTrigger asChild>
                     <button
                       aria-label="More navigation items"
-                      className="pb-2 px-2 text-gray-700 hover:text-gray-900 cursor-pointer rounded-lg bg-gray-50 hover:bg-gray-100 transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center gap-1 border border-gray-200 hover:border-gray-300 flex-shrink-0 h-8"
+                      className={`${
+                        role === "partner_super_admin" ||
+                        role === "branch_admin" ||
+                        pathname?.startsWith("/partners/") ||
+                        pathname?.startsWith("/partner-admin") ||
+                        pathname?.startsWith("/branch-admin")
+                          ? "px-2 min-w-[36px]"
+                          : "pb-2 px-2 gap-1"
+                      } text-gray-700 hover:text-gray-900 cursor-pointer rounded-lg bg-gray-50 hover:bg-gray-100 transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center border border-gray-200 hover:border-gray-300 flex-shrink-0 h-8`}
                       onMouseEnter={() => openNavDropdown("more")}
                       onMouseLeave={() => scheduleNavDropdownClose("more", true)}
                     >
                       <MoreVertical className="w-4 h-4" />
-                      <ChevronDown
-                        className={`w-3 h-3 transition-transform duration-200 ${
-                          openNavMenu === "more" ? "rotate-180" : ""
-                        }`}
-                      />
+                      {role !== "partner_super_admin" &&
+                        role !== "branch_admin" &&
+                        !pathname?.startsWith("/partners/") &&
+                        !pathname?.startsWith("/partner-admin") &&
+                        !pathname?.startsWith("/branch-admin") && (
+                          <ChevronDown
+                            className={`w-3 h-3 transition-transform duration-200 ${
+                              openNavMenu === "more" ? "rotate-180" : ""
+                            }`}
+                          />
+                        )}
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuPortal>

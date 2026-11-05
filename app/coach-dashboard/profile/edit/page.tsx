@@ -301,8 +301,16 @@ export default function CoachProfileEditPage() {
       state: profileData.address_info?.state || "",
       zipCode: profileData.address_info?.zip_code || "",
       country: profileData.address_info?.country || "India",
-      specialization: profileData.professional_info?.designation_id || "",
-      experience: profileData.professional_info?.years_of_experience || profileData.professional_info?.professional_experience || "",
+      specialization: (() => {
+        const raw = (profileData.professional_info?.designation_id || profileData.professional_info?.specialization || "").trim()
+        const slug = raw.toLowerCase().replace(/[\s_]+/g, "-")
+        const matched = designationOptions.find((o) => o.value === raw || o.value === slug || o.label.toLowerCase() === raw.toLowerCase())
+        return matched ? matched.value : ""
+      })(),
+      experience: (() => {
+        const raw = (profileData.professional_info?.years_of_experience || profileData.professional_info?.professional_experience || "").trim()
+        return experienceOptions.includes(raw) ? raw : ""
+      })(),
       qualifications: profileData.professional_info?.education_qualification || "",
       certifications: Array.isArray(profileData.professional_info?.certifications)
         ? profileData.professional_info.certifications.join(', ')
@@ -310,6 +318,51 @@ export default function CoachProfileEditPage() {
       bio: profileData.professional_info?.bio || "",
       areasOfExpertise: profileData.areas_of_expertise || []
     })
+  }
+
+  const clearFieldError = (field: string) => {
+    if (errors[field]) {
+      setErrors((prev) => {
+        const next = { ...prev }
+        delete next[field]
+        return next
+      })
+    }
+  }
+
+  const scrollToFirstError = (validationErrors: { [key: string]: string }) => {
+    const fieldOrder = [
+      "firstName",
+      "lastName",
+      "gender",
+      "dateOfBirth",
+      "email",
+      "phone",
+      "address",
+      "city",
+      "state",
+      "zipCode",
+      "specialization",
+      "experience",
+      "qualifications",
+    ]
+    const firstKey = fieldOrder.find((key) => Boolean(validationErrors[key])) || Object.keys(validationErrors)[0]
+    if (!firstKey || typeof document === "undefined") return
+
+    setTimeout(() => {
+      const target =
+        document.getElementById(firstKey) ||
+        (document.querySelector(`[data-field="${firstKey}"]`) as HTMLElement | null)
+      if (target) {
+        const container = (target.closest("[data-field]") as HTMLElement | null) || target
+        container.scrollIntoView({ behavior: "smooth", block: "center" })
+        setTimeout(() => {
+          if (typeof (target as HTMLElement).focus === "function") {
+            ;(target as HTMLElement).focus({ preventScroll: true })
+          }
+        }, 250)
+      }
+    }, 50)
   }
 
   const validateForm = () => {
@@ -329,12 +382,12 @@ export default function CoachProfileEditPage() {
     if (!formData.address.trim()) newErrors.address = "Address is required"
     if (!formData.city.trim()) newErrors.city = "City is required"
     if (!formData.state.trim()) newErrors.state = "State is required"
-    if (!formData.zipCode.trim()) newErrors.zipCode = "Zip code is required"
+    if (!formData.zipCode.trim()) newErrors.zipCode = "ZIP code is required"
 
     // Professional info validation
-    if (!formData.specialization.trim()) newErrors.specialization = "Specialization is required"
-    if (!formData.experience.trim()) newErrors.experience = "Experience is required"
-    if (!formData.qualifications.trim()) newErrors.qualifications = "Qualifications are required"
+    if (!formData.specialization.trim()) newErrors.specialization = "Primary specialization is required"
+    if (!formData.experience.trim()) newErrors.experience = "Years of experience is required"
+    if (!formData.qualifications.trim()) newErrors.qualifications = "Education qualifications are required"
 
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -347,20 +400,23 @@ export default function CoachProfileEditPage() {
     if (!cleanedPhone) {
       newErrors.phone = "Phone number is required"
     } else if (cleanedPhone.length !== 10) {
-      newErrors.phone = "Please enter a valid 10-digit phone number without prefix"
+      newErrors.phone = "Please enter a valid 10-digit phone number"
     }
 
     setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    return { isValid: Object.keys(newErrors).length === 0, newErrors }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!validateForm()) {
+    const { isValid, newErrors } = validateForm()
+    if (!isValid) {
+      scrollToFirstError(newErrors)
+      const firstMessage = Object.values(newErrors)[0] || "Please fix the highlighted fields in the form"
       toast({
         title: "Validation Error",
-        description: "Please fix the errors in the form",
+        description: firstMessage,
         variant: "destructive",
       })
       return
@@ -586,7 +642,7 @@ export default function CoachProfileEditPage() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+          <form onSubmit={handleSubmit} noValidate className="space-y-4 sm:space-y-6">
             {/* Personal Information */}
             <Card className="shadow-sm">
               <CardHeader className="pb-4">
@@ -666,39 +722,48 @@ export default function CoachProfileEditPage() {
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="firstName" className="text-sm font-medium">First Name *</Label>
+                  <div className="space-y-2" data-field="firstName">
+                    <Label htmlFor="firstName" className="text-sm font-medium">First Name <span className="text-red-500">*</span></Label>
                     <Input
                       id="firstName"
                       value={formData.firstName}
-                      onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, firstName: e.target.value })
+                        clearFieldError("firstName")
+                      }}
                       placeholder="Enter first name"
-                      className={`h-11 ${errors.firstName ? "border-red-500" : ""}`}
+                      className={`h-11 ${errors.firstName ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                     />
                     {errors.firstName && <p className="text-red-500 text-xs sm:text-sm">{errors.firstName}</p>}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName" className="text-sm font-medium">Last Name *</Label>
+                  <div className="space-y-2" data-field="lastName">
+                    <Label htmlFor="lastName" className="text-sm font-medium">Last Name <span className="text-red-500">*</span></Label>
                     <Input
                       id="lastName"
                       value={formData.lastName}
-                      onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, lastName: e.target.value })
+                        clearFieldError("lastName")
+                      }}
                       placeholder="Enter last name"
-                      className={`h-11 ${errors.lastName ? "border-red-500" : ""}`}
+                      className={`h-11 ${errors.lastName ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                     />
                     {errors.lastName && <p className="text-red-500 text-xs sm:text-sm">{errors.lastName}</p>}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="gender" className="text-sm font-medium">Gender *</Label>
+                  <div className="space-y-2" data-field="gender">
+                    <Label htmlFor="gender" className="text-sm font-medium">Gender <span className="text-red-500">*</span></Label>
                     <Select
-                      value={formData.gender}
-                      onValueChange={(value) => setFormData({ ...formData, gender: value })}
+                      value={genderOptions.includes(formData.gender) ? formData.gender : undefined}
+                      onValueChange={(value) => {
+                        setFormData({ ...formData, gender: value })
+                        clearFieldError("gender")
+                      }}
                     >
-                      <SelectTrigger className={`h-11 ${errors.gender ? "border-red-500" : ""}`}>
+                      <SelectTrigger id="gender" className={`w-full !h-11 ${errors.gender ? "border-red-500 focus-visible:ring-red-500" : ""}`}>
                         <SelectValue placeholder="Select gender" />
                       </SelectTrigger>
                       <SelectContent>
@@ -712,15 +777,19 @@ export default function CoachProfileEditPage() {
                     {errors.gender && <p className="text-red-500 text-xs sm:text-sm">{errors.gender}</p>}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="dateOfBirth" className="text-sm font-medium">Date of Birth</Label>
+                  <div className="space-y-2" data-field="dateOfBirth">
+                    <Label htmlFor="dateOfBirth" className="text-sm font-medium">Date of Birth <span className="text-red-500">*</span></Label>
                     <Input
                       id="dateOfBirth"
                       type="date"
                       value={formData.dateOfBirth}
-                      onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                      className="h-11"
+                      onChange={(e) => {
+                        setFormData({ ...formData, dateOfBirth: e.target.value })
+                        clearFieldError("dateOfBirth")
+                      }}
+                      className={`h-11 ${errors.dateOfBirth ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                     />
+                    {errors.dateOfBirth && <p className="text-red-500 text-xs sm:text-sm">{errors.dateOfBirth}</p>}
                   </div>
                 </div>
               </CardContent>
@@ -736,8 +805,8 @@ export default function CoachProfileEditPage() {
               </CardHeader>
               <CardContent className="space-y-4 sm:space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="email" className="text-sm font-medium">Email *</Label>
+                  <div className="space-y-2" data-field="email">
+                    <Label htmlFor="email" className="text-sm font-medium">Email <span className="text-red-500">*</span></Label>
                     <Input
                       id="email"
                       type="email"
@@ -747,11 +816,15 @@ export default function CoachProfileEditPage() {
                       placeholder="Enter email address"
                       className="h-11 bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200"
                     />
-                    <p className="text-xs text-gray-500">Email address cannot be changed.</p>
+                    {errors.email ? (
+                      <p className="text-red-500 text-xs sm:text-sm">{errors.email}</p>
+                    ) : (
+                      <p className="text-xs text-gray-500">Email address cannot be changed.</p>
+                    )}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="phone" className="text-sm font-medium">Phone Number *</Label>
+                  <div className="space-y-2" data-field="phone">
+                    <Label htmlFor="phone" className="text-sm font-medium">Phone Number <span className="text-red-500">*</span></Label>
                     <Input
                       id="phone"
                       type="tel"
@@ -759,13 +832,11 @@ export default function CoachProfileEditPage() {
                       onChange={(e) => {
                         const cleaned = cleanPhoneNumber(e.target.value)
                         setFormData((prev) => ({ ...prev, phone: cleaned }))
-                        if (errors.phone) {
-                          setErrors((prev) => ({ ...prev, phone: "" }))
-                        }
+                        clearFieldError("phone")
                       }}
                       placeholder="Enter 10-digit phone number"
                       maxLength={10}
-                      className={`h-11 ${errors.phone ? "border-red-500" : ""}`}
+                      className={`h-11 ${errors.phone ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                     />
                     {errors.phone && <p className="text-red-500 text-xs sm:text-sm">{errors.phone}</p>}
                   </div>
@@ -782,15 +853,19 @@ export default function CoachProfileEditPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 sm:space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="address" className="text-sm font-medium">Address</Label>
+                <div className="space-y-2" data-field="address">
+                  <Label htmlFor="address" className="text-sm font-medium">Address <span className="text-red-500">*</span></Label>
                   <Input
                     id="address"
                     value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, address: e.target.value })
+                      clearFieldError("address")
+                    }}
                     placeholder="Enter street address"
-                    className="h-11"
+                    className={`h-11 ${errors.address ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                   />
+                  {errors.address && <p className="text-red-500 text-xs sm:text-sm">{errors.address}</p>}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
@@ -805,39 +880,51 @@ export default function CoachProfileEditPage() {
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="city" className="text-sm font-medium">City</Label>
+                  <div className="space-y-2" data-field="city">
+                    <Label htmlFor="city" className="text-sm font-medium">City <span className="text-red-500">*</span></Label>
                     <Input
                       id="city"
                       value={formData.city}
-                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, city: e.target.value })
+                        clearFieldError("city")
+                      }}
                       placeholder="Enter city"
-                      className="h-11"
+                      className={`h-11 ${errors.city ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                     />
+                    {errors.city && <p className="text-red-500 text-xs sm:text-sm">{errors.city}</p>}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="state" className="text-sm font-medium">State</Label>
+                  <div className="space-y-2" data-field="state">
+                    <Label htmlFor="state" className="text-sm font-medium">State <span className="text-red-500">*</span></Label>
                     <Input
                       id="state"
                       value={formData.state}
-                      onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, state: e.target.value })
+                        clearFieldError("state")
+                      }}
                       placeholder="Enter state"
-                      className="h-11"
+                      className={`h-11 ${errors.state ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                     />
+                    {errors.state && <p className="text-red-500 text-xs sm:text-sm">{errors.state}</p>}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="zipCode" className="text-sm font-medium">ZIP Code</Label>
+                  <div className="space-y-2" data-field="zipCode">
+                    <Label htmlFor="zipCode" className="text-sm font-medium">ZIP Code <span className="text-red-500">*</span></Label>
                     <Input
                       id="zipCode"
                       value={formData.zipCode}
-                      onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, zipCode: e.target.value })
+                        clearFieldError("zipCode")
+                      }}
                       placeholder="Enter ZIP code"
-                      className="h-11"
+                      className={`h-11 ${errors.zipCode ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                     />
+                    {errors.zipCode && <p className="text-red-500 text-xs sm:text-sm">{errors.zipCode}</p>}
                   </div>
 
                   <div className="space-y-2 sm:col-span-2 lg:col-span-1">
@@ -864,14 +951,17 @@ export default function CoachProfileEditPage() {
               </CardHeader>
               <CardContent className="space-y-4 sm:space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="specialization" className="text-sm font-medium">Primary Specialization</Label>
+                  <div className="space-y-2" data-field="specialization">
+                    <Label htmlFor="specialization" className="text-sm font-medium">Primary Specialization <span className="text-red-500">*</span></Label>
                     <Select
-                      value={formData.specialization}
-                      onValueChange={(value) => setFormData({ ...formData, specialization: value })}
+                      value={designationOptions.some((o) => o.value === formData.specialization) ? formData.specialization : undefined}
+                      onValueChange={(value) => {
+                        setFormData({ ...formData, specialization: value })
+                        clearFieldError("specialization")
+                      }}
                     >
-                      <SelectTrigger className="h-11">
-                        <SelectValue placeholder="Select specialization" />
+                      <SelectTrigger id="specialization" className={`w-full !h-11 ${errors.specialization ? "border-red-500 focus-visible:ring-red-500" : ""}`}>
+                        <SelectValue placeholder="Select primary specialization" />
                       </SelectTrigger>
                       <SelectContent>
                         {designationOptions.map((option) => (
@@ -882,18 +972,21 @@ export default function CoachProfileEditPage() {
                       </SelectContent>
                     </Select>
                     {errors.specialization && (
-                      <p className="text-sm text-red-600">{errors.specialization}</p>
+                      <p className="text-red-500 text-xs sm:text-sm">{errors.specialization}</p>
                     )}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="experience" className="text-sm font-medium">Years of Experience</Label>
+                  <div className="space-y-2" data-field="experience">
+                    <Label htmlFor="experience" className="text-sm font-medium">Years of Experience <span className="text-red-500">*</span></Label>
                     <Select
-                      value={formData.experience}
-                      onValueChange={(value) => setFormData({ ...formData, experience: value })}
+                      value={experienceOptions.includes(formData.experience) ? formData.experience : undefined}
+                      onValueChange={(value) => {
+                        setFormData({ ...formData, experience: value })
+                        clearFieldError("experience")
+                      }}
                     >
-                      <SelectTrigger className="h-11">
-                        <SelectValue placeholder="Select experience" />
+                      <SelectTrigger id="experience" className={`w-full !h-11 ${errors.experience ? "border-red-500 focus-visible:ring-red-500" : ""}`}>
+                        <SelectValue placeholder="Select years of experience" />
                       </SelectTrigger>
                       <SelectContent>
                         {experienceOptions.map((exp) => (
@@ -904,23 +997,26 @@ export default function CoachProfileEditPage() {
                       </SelectContent>
                     </Select>
                     {errors.experience && (
-                      <p className="text-sm text-red-600">{errors.experience}</p>
+                      <p className="text-red-500 text-xs sm:text-sm">{errors.experience}</p>
                     )}
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="qualifications" className="text-sm font-medium">Education Qualifications</Label>
+                <div className="space-y-2" data-field="qualifications">
+                  <Label htmlFor="qualifications" className="text-sm font-medium">Education Qualifications <span className="text-red-500">*</span></Label>
                   <Textarea
                     id="qualifications"
                     value={formData.qualifications}
-                    onChange={(e) => setFormData({ ...formData, qualifications: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, qualifications: e.target.value })
+                      clearFieldError("qualifications")
+                    }}
                     placeholder="Enter your educational qualifications"
                     rows={3}
-                    className="resize-none"
+                    className={`resize-none ${errors.qualifications ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                   />
                   {errors.qualifications && (
-                    <p className="text-sm text-red-600">{errors.qualifications}</p>
+                    <p className="text-red-500 text-xs sm:text-sm">{errors.qualifications}</p>
                   )}
                 </div>
 
@@ -951,16 +1047,23 @@ export default function CoachProfileEditPage() {
                 <div className="space-y-3">
                   <Label className="text-sm font-medium">Areas of Expertise</Label>
                   <div className="flex flex-wrap gap-2 sm:gap-3">
-                    {availableSpecializations.map((specialization) => (
-                      <Badge
-                        key={specialization}
-                        variant={formData.areasOfExpertise.includes(specialization) ? "default" : "outline"}
-                        className="cursor-pointer hover:bg-yellow-100 hover:text-yellow-800 transition-colors duration-200 px-3 py-2 text-xs sm:text-sm touch-manipulation"
-                        onClick={() => handleSpecializationToggle(specialization)}
-                      >
-                        {specialization}
-                      </Badge>
-                    ))}
+                    {availableSpecializations.map((specialization) => {
+                      const isSelected = formData.areasOfExpertise.includes(specialization)
+                      return (
+                        <Badge
+                          key={specialization}
+                          variant={isSelected ? "default" : "outline"}
+                          className={`cursor-pointer select-none transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm active:scale-95 px-3.5 py-2 text-xs sm:text-sm touch-manipulation ${
+                            isSelected
+                              ? "bg-gray-900 text-white border-gray-900 shadow-sm"
+                              : "bg-white text-gray-700 border-gray-300"
+                          }`}
+                          onClick={() => handleSpecializationToggle(specialization)}
+                        >
+                          {specialization}
+                        </Badge>
+                      )
+                    })}
                   </div>
                   <p className="text-xs sm:text-sm text-gray-500">Tap to select/deselect areas of expertise</p>
                 </div>

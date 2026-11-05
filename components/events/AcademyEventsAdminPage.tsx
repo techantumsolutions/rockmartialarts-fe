@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import WeeklySlotTimePicker from "@/components/coaches/WeeklySlotTimePicker"
 import { useToast } from "@/hooks/use-toast"
 import { TokenManager } from "@/lib/tokenManager"
 import { getBackendApiUrl } from "@/lib/config"
@@ -84,8 +85,10 @@ const EMPTY_FORM = {
   description: "",
   venue: "",
   venue_address: "",
-  start_at: "",
-  end_at: "",
+  start_date: "",
+  start_time: "",
+  end_date: "",
+  end_time: "",
   branch_id: "",
   fee_inr: "0",
   capacity: "",
@@ -111,7 +114,19 @@ export default function AcademyEventsAdminPage() {
   const pathname = usePathname()
   const { active: activeBranch } = useActiveBranch()
   const isBranchAdmin = pathname?.includes("/branch-admin") ?? false
-  const fieldSpacingClass = isBranchAdmin ? "space-y-2" : undefined
+  const isPartnerAdmin =
+    (pathname?.includes("/partner-admin") || pathname?.startsWith("/partners/")) ?? false
+  const fieldSpacingClass = isBranchAdmin || isPartnerAdmin ? "space-y-2" : "space-y-1.5"
+
+  const sanitizeDateValue = (rawVal: string) => {
+    if (!rawVal) return ""
+    const cleaned = rawVal.replace(/^\+/, "")
+    const match = cleaned.match(/^(\d{5,})-(\d{2}-\d{2})$/)
+    if (match) {
+      return `${match[1].slice(0, 4)}-${match[2]}`
+    }
+    return cleaned
+  }
   const defaultBranchId = isBranchAdmin
     ? activeBranch?.id || getActiveBranchId() || ""
     : ""
@@ -215,6 +230,10 @@ export default function AcademyEventsAdminPage() {
 
   const startEdit = (ev: AcademyEvent) => {
     setEditingId(ev.id)
+    const startLocal = toDatetimeLocalValue(ev.start_at)
+    const [startDate = "", startTime = ""] = startLocal ? startLocal.split("T") : ["", ""]
+    const endLocal = toDatetimeLocalValue(ev.end_at)
+    const [endDate = "", endTime = ""] = endLocal ? endLocal.split("T") : ["", ""]
     setForm({
       title: ev.title || "",
       slug: ev.slug || "",
@@ -223,8 +242,10 @@ export default function AcademyEventsAdminPage() {
       description: ev.description || "",
       venue: ev.venue || "",
       venue_address: ev.venue_address || "",
-      start_at: toDatetimeLocalValue(ev.start_at),
-      end_at: toDatetimeLocalValue(ev.end_at),
+      start_date: startDate,
+      start_time: startTime.slice(0, 5),
+      end_date: endDate,
+      end_time: endTime.slice(0, 5),
       branch_id: ev.branch_id || "",
       fee_inr: String(ev.fee_inr ?? 0),
       capacity: ev.capacity != null ? String(ev.capacity) : "",
@@ -268,9 +289,37 @@ export default function AcademyEventsAdminPage() {
       toast({ title: "Title required", variant: "destructive" })
       return
     }
-    if (!form.start_at.trim()) {
-      toast({ title: "Start date/time required", variant: "destructive" })
+    if (!form.start_date.trim()) {
+      toast({ title: "Start date required", variant: "destructive" })
       return
+    }
+    if (!form.start_time.trim()) {
+      toast({ title: "Start time required", variant: "destructive" })
+      return
+    }
+    if (form.end_time.trim() && !form.end_date.trim()) {
+      toast({
+        title: "End date required",
+        description: "Please select an end date when an end time is specified.",
+        variant: "destructive",
+      })
+      return
+    }
+    const startAtLocal = `${form.start_date.trim()}T${form.start_time.trim()}`
+    const endAtLocal = form.end_date.trim()
+      ? `${form.end_date.trim()}T${form.end_time.trim() || "23:59"}`
+      : ""
+    if (endAtLocal) {
+      const startMs = new Date(startAtLocal).getTime()
+      const endMs = new Date(endAtLocal).getTime()
+      if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs < startMs) {
+        toast({
+          title: "Invalid end date/time",
+          description: "End date and time must be after the start date and time.",
+          variant: "destructive",
+        })
+        return
+      }
     }
     const fee = Number(form.fee_inr)
     if (!Number.isFinite(fee) || fee < 0) {
@@ -295,9 +344,9 @@ export default function AcademyEventsAdminPage() {
         description: form.description.trim() || undefined,
         venue: form.venue.trim() || undefined,
         venue_address: form.venue_address.trim() || undefined,
-        start_at: fromDatetimeLocalValue(form.start_at),
-        end_at: form.end_at
-          ? fromDatetimeLocalValue(form.end_at)
+        start_at: fromDatetimeLocalValue(startAtLocal),
+        end_at: endAtLocal
+          ? fromDatetimeLocalValue(endAtLocal)
           : undefined,
         branch_id: form.branch_id || undefined,
         fee_inr: fee,
@@ -570,26 +619,72 @@ export default function AcademyEventsAdminPage() {
                   }
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className={fieldSpacingClass}>
-                  <Label>Start</Label>
-                  <Input
-                    type="datetime-local"
-                    value={form.start_at}
-                    onChange={(e) =>
-                      setForm({ ...form, start_at: e.target.value })
-                    }
-                  />
+              <div className="rounded-lg border border-gray-100 bg-gray-50/70 p-3 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className={fieldSpacingClass}>
+                    <Label className="text-xs font-medium text-gray-700">
+                      Start Date <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      type="date"
+                      min="1900-01-01"
+                      max="2099-12-31"
+                      value={form.start_date}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          start_date: sanitizeDateValue(e.target.value),
+                        })
+                      }
+                      className="w-full bg-white [color-scheme:light] cursor-pointer"
+                    />
+                  </div>
+                  <div className={fieldSpacingClass}>
+                    <Label className="text-xs font-medium text-gray-700">
+                      Start Time <span className="text-red-500">*</span>
+                    </Label>
+                    <WeeklySlotTimePicker
+                      value={form.start_time}
+                      onChange={(value) =>
+                        setForm({ ...form, start_time: value })
+                      }
+                      placeholder="--:-- --"
+                      className="bg-white"
+                    />
+                  </div>
                 </div>
-                <div className={fieldSpacingClass}>
-                  <Label>End</Label>
-                  <Input
-                    type="datetime-local"
-                    value={form.end_at}
-                    onChange={(e) =>
-                      setForm({ ...form, end_at: e.target.value })
-                    }
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className={fieldSpacingClass}>
+                    <Label className="text-xs font-medium text-gray-700">
+                      End Date <span className="text-gray-400 font-normal">(optional)</span>
+                    </Label>
+                    <Input
+                      type="date"
+                      min={form.start_date || "1900-01-01"}
+                      max="2099-12-31"
+                      value={form.end_date}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          end_date: sanitizeDateValue(e.target.value),
+                        })
+                      }
+                      className="w-full bg-white [color-scheme:light] cursor-pointer"
+                    />
+                  </div>
+                  <div className={fieldSpacingClass}>
+                    <Label className="text-xs font-medium text-gray-700">
+                      End Time <span className="text-gray-400 font-normal">(optional)</span>
+                    </Label>
+                    <WeeklySlotTimePicker
+                      value={form.end_time}
+                      onChange={(value) =>
+                        setForm({ ...form, end_time: value })
+                      }
+                      placeholder="--:-- --"
+                      className="bg-white"
+                    />
+                  </div>
                 </div>
               </div>
               <div className={fieldSpacingClass}>
