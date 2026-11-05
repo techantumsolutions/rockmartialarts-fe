@@ -385,7 +385,7 @@ export default function CourseDetailsPage() {
 
           {/* Course Details Tabs */}
           <Tabs defaultValue="overview" className="space-y-4">
-            <TabsList>
+            <TabsList className="gap-1">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="students">Students ({students.length})</TabsTrigger>
               <TabsTrigger value="curriculum">Curriculum</TabsTrigger>
@@ -400,32 +400,34 @@ export default function CourseDetailsPage() {
                   <CardContent>
                     <div className="space-y-4">
                       <div>
-                        <label className="text-sm font-medium text-gray-500">Course Name</label>
+                        <label className="text-sm font-medium text-gray-500 block mb-1">Course Name</label>
                         <p className="text-gray-900">{course.course_name}</p>
                       </div>
                       
                       {course.course_code && (
                         <div>
-                          <label className="text-sm font-medium text-gray-500">Course Code</label>
+                          <label className="text-sm font-medium text-gray-500 block mb-1">Course Code</label>
                           <p className="text-gray-900">{course.course_code}</p>
                         </div>
                       )}
                       
                       <div>
-                        <label className="text-sm font-medium text-gray-500">Difficulty Level</label>
+                        <label className="text-sm font-medium text-gray-500 block mb-1">Difficulty Level</label>
                         <p className="text-gray-900">{course.difficulty_level || 'N/A'}</p>
                       </div>
                       
                       <div>
-                        <label className="text-sm font-medium text-gray-500">Category</label>
+                        <label className="text-sm font-medium text-gray-500 block mb-1">Category</label>
                         <p className="text-gray-900">{course.category || 'N/A'}</p>
                       </div>
                       
                       <div>
-                        <label className="text-sm font-medium text-gray-500">Status</label>
-                        <Badge className={getStatusColor(course.status)}>
-                          {course.status}
-                        </Badge>
+                        <label className="text-sm font-medium text-gray-500 block mb-1">Status</label>
+                        <div>
+                          <Badge className={getStatusColor(course.status)}>
+                            {course.status}
+                          </Badge>
+                        </div>
                       </div>
                     </div>
                   </CardContent>

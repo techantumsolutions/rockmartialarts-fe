@@ -107,6 +107,7 @@ export default function CreateStudent() {
   const [courses, setCourses] = useState<Course[]>([])
   const [availableBatches, setAvailableBatches] = useState<any[]>([])
   const [coachBranchName, setCoachBranchName] = useState("")
+  const [isPartnerCoach, setIsPartnerCoach] = useState(false)
   const [coachAssignedCourses, setCoachAssignedCourses] = useState<any[]>([])
 
   // Payment states
@@ -168,6 +169,12 @@ export default function CreateStudent() {
         if (authResult.isAuthenticated && authResult.coach) {
           setCoachData(authResult.coach)
           setCoachToken(authResult.token)
+          if (
+            authResult.coach?.partner_org_id ||
+            (typeof window !== "undefined" && Boolean(localStorage.getItem("partner_slug")?.trim()))
+          ) {
+            setIsPartnerCoach(true)
+          }
         } else {
           router.push("/coach/login")
         }
@@ -245,6 +252,15 @@ export default function CreateStudent() {
                 const bData = await bRes.json()
                 const bObj = bData.branch || bData
                 setCoachBranchName(bObj.name || "Assigned Branch")
+                if (
+                  coach?.partner_org_id ||
+                  bObj?.partner_org_id ||
+                  bObj?.is_collaboration_partner ||
+                  bObj?.allows_collaboration ||
+                  (typeof window !== "undefined" && Boolean(localStorage.getItem("partner_slug")?.trim()))
+                ) {
+                  setIsPartnerCoach(true)
+                }
                 setFormData((prev) => ({
                   ...prev,
                   location: bObj.location_id || bObj.location || "Branch Location",
@@ -290,6 +306,7 @@ export default function CreateStudent() {
       const currentValid = batches.some((b: any) => (b.batch_id || b.id) === formData.slot)
       if (!currentValid) {
         setFormData((prev) => ({ ...prev, slot: batches[0].batch_id || batches[0].id }))
+        setErrors((prev) => (prev.slot ? { ...prev, slot: "" } : prev))
       }
     }
 
@@ -329,6 +346,76 @@ export default function CreateStudent() {
     }
   }
 
+  const FIELD_ORDER = [
+    "firstName",
+    "lastName",
+    "email",
+    "contactNumber",
+    "gender",
+    "dob",
+    "course",
+    "slot",
+  ]
+
+  const scrollToFirstError = (validationErrors: FormErrors) => {
+    const partnerCoachActive =
+      isPartnerCoach ||
+      Boolean(coachData?.partner_org_id) ||
+      (typeof window !== "undefined" && Boolean(localStorage.getItem("partner_slug")?.trim()))
+    if (!partnerCoachActive) return
+
+    const firstErrorKey =
+      FIELD_ORDER.find((key) => Boolean(validationErrors[key])) ||
+      Object.keys(validationErrors)[0]
+    if (!firstErrorKey) return
+
+    requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        const inputElement =
+          document.getElementById(firstErrorKey) ||
+          document.querySelector<HTMLElement>(`[name="${firstErrorKey}"]`)
+
+        const labelElement =
+          document.querySelector<HTMLElement>(`label[for="${firstErrorKey}"]`) ||
+          document.querySelector<HTMLElement>(`[data-label-for="${firstErrorKey}"]`)
+
+        const fieldContainer = document.getElementById(`field-${firstErrorKey}`)
+
+        const scrollTarget =
+          labelElement ||
+          fieldContainer ||
+          inputElement?.parentElement ||
+          inputElement
+
+        if (scrollTarget) {
+          const navOffset = 130
+          const elementPosition = scrollTarget.getBoundingClientRect().top
+          const offsetPosition = elementPosition + window.pageYOffset - navOffset
+
+          window.scrollTo({
+            top: Math.max(0, offsetPosition),
+            behavior: "smooth",
+          })
+
+          window.setTimeout(() => {
+            const focusable = inputElement?.matches("input, select, textarea, button, [role='combobox']")
+              ? inputElement
+              : (inputElement?.querySelector<HTMLElement>("input, select, textarea, button, [role='combobox']") ||
+                 fieldContainer?.querySelector<HTMLElement>("input, select, textarea, button, [role='combobox']"))
+
+            if (focusable && typeof focusable.focus === "function") {
+              try {
+                focusable.focus({ preventScroll: true })
+              } catch {
+                focusable.focus()
+              }
+            }
+          }, 350)
+        }
+      }, 50)
+    })
+  }
+
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {}
 
@@ -338,7 +425,9 @@ export default function CreateStudent() {
     if (!formData.gender) newErrors.gender = "Gender is required"
     if (!formData.dob) newErrors.dob = "Date of birth is required"
     if (!formData.course) newErrors.course = "Please select an assigned course"
-    if (availableBatches.length > 0 && !formData.slot) newErrors.slot = "Please select an assigned batch"
+    if ((!formData.course || availableBatches.length > 0) && !formData.slot) {
+      newErrors.slot = "Please select an assigned batch"
+    }
 
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Please enter a valid email address"
@@ -356,7 +445,11 @@ export default function CreateStudent() {
     }
 
     setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    if (Object.keys(newErrors).length > 0) {
+      scrollToFirstError(newErrors)
+      return false
+    }
+    return true
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -384,6 +477,7 @@ export default function CreateStudent() {
           dupErrors.contactNumber = "This mobile number is already registered."
         }
         setErrors((prev) => ({ ...prev, ...dupErrors }))
+        scrollToFirstError(dupErrors)
         toast({
           title: "Student Already Exists",
           description: availability.message || "A student with this email address or mobile number already exists.",
@@ -547,7 +641,7 @@ export default function CreateStudent() {
           </div>
         ) : (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-            <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-8">
+            <form onSubmit={handleSubmit} noValidate className="p-6 sm:p-8 space-y-8">
               {errors.submit && (
                 <div className="bg-red-50 border border-red-200 rounded-xl p-4">
                   <p className="text-red-600 font-medium">{errors.submit}</p>
@@ -581,13 +675,14 @@ export default function CreateStudent() {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 text-[#7D8592]">
                     {/* First Name */}
-                    <div>
-                      <Label className="block text-sm font-medium mb-2">
+                    <div id="field-firstName">
+                      <Label htmlFor="firstName" data-label-for="firstName" className="block text-sm font-medium mb-2">
                         First Name <span className="text-red-500">*</span>
                       </Label>
                       <div className="relative">
                         <UserIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                         <Input
+                          id="firstName"
                           placeholder="Enter first name"
                           value={formData.firstName}
                           onChange={(e) => handleInputChange("firstName", e.target.value)}
@@ -601,13 +696,14 @@ export default function CreateStudent() {
                     </div>
 
                     {/* Last Name */}
-                    <div>
-                      <Label className="block text-sm font-medium mb-2">
+                    <div id="field-lastName">
+                      <Label htmlFor="lastName" data-label-for="lastName" className="block text-sm font-medium mb-2">
                         Last Name <span className="text-red-500">*</span>
                       </Label>
                       <div className="relative">
                         <UserIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                         <Input
+                          id="lastName"
                           placeholder="Enter last name"
                           value={formData.lastName}
                           onChange={(e) => handleInputChange("lastName", e.target.value)}
@@ -621,13 +717,14 @@ export default function CreateStudent() {
                     </div>
 
                     {/* Email */}
-                    <div>
-                      <Label className="block text-sm font-medium mb-2">
+                    <div id="field-email">
+                      <Label htmlFor="email" data-label-for="email" className="block text-sm font-medium mb-2">
                         Email Address <span className="text-red-500">*</span>
                       </Label>
                       <div className="relative">
                         <MailIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                         <Input
+                          id="email"
                           type="email"
                           placeholder="Enter email address"
                           value={formData.email}
@@ -642,13 +739,14 @@ export default function CreateStudent() {
                     </div>
 
                     {/* Mobile Number */}
-                    <div>
-                      <Label className="block text-sm font-medium mb-2">
+                    <div id="field-contactNumber">
+                      <Label htmlFor="contactNumber" data-label-for="contactNumber" className="block text-sm font-medium mb-2">
                         Mobile Number <span className="text-red-500">*</span>
                       </Label>
                       <div className="relative">
                         <PhoneIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                         <Input
+                          id="contactNumber"
                           type="tel"
                           inputMode="numeric"
                           pattern="[0-9]*"
@@ -684,12 +782,13 @@ export default function CreateStudent() {
                     </div>
 
                     {/* Gender */}
-                    <div>
-                      <Label className="block text-sm font-medium mb-2">
+                    <div id="field-gender">
+                      <Label htmlFor="gender" data-label-for="gender" className="block text-sm font-medium mb-2">
                         Gender <span className="text-red-500">*</span>
                       </Label>
                       <Select value={formData.gender} onValueChange={(value) => handleInputChange("gender", value)}>
                         <SelectTrigger
+                          id="gender"
                           className={cn(
                             "!w-full !h-14 !pl-4 !pr-4 !py-4 !text-base !bg-gray-50 !border-gray-200 !rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-400 !min-h-14",
                             errors.gender ? "!border-red-500 !bg-red-50" : ""
@@ -707,13 +806,15 @@ export default function CreateStudent() {
                     </div>
 
                     {/* Date of Birth */}
-                    <div>
-                      <Label className="block text-sm font-medium mb-2">
+                    <div id="field-dob">
+                      <Label htmlFor="dob" data-label-for="dob" className="block text-sm font-medium mb-2">
                         Date of Birth <span className="text-red-500">*</span>
                       </Label>
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
+                            id="dob"
+                            type="button"
                             variant="outline"
                             className={cn(
                               "w-full h-14 justify-start text-left font-normal pl-12 py-4 text-base bg-gray-50 border-gray-200 rounded-xl relative",
@@ -792,8 +893,8 @@ export default function CreateStudent() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 text-[#7D8592]">
                     {/* Course */}
-                    <div>
-                      <Label className="block text-sm font-medium mb-2">
+                    <div id="field-course">
+                      <Label htmlFor="course" data-label-for="course" className="block text-sm font-medium mb-2">
                         Assigned Course <span className="text-red-500">*</span>
                       </Label>
                       <div className="relative">
@@ -803,6 +904,7 @@ export default function CreateStudent() {
                           onValueChange={(value) => handleInputChange("course", value)}
                         >
                           <SelectTrigger
+                            id="course"
                             className={cn(
                               "!w-full !h-14 !pl-12 !pr-4 !py-4 !text-base !bg-gray-50 !border-gray-200 !rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-400 !min-h-14",
                               errors.course ? "!border-red-500 !bg-red-50" : ""
@@ -845,8 +947,8 @@ export default function CreateStudent() {
                     </div>
 
                     {/* Batch Selection */}
-                    <div>
-                      <Label className="block text-sm font-medium mb-2">
+                    <div id="field-slot">
+                      <Label htmlFor="slot" data-label-for="slot" className="block text-sm font-medium mb-2">
                         Assigned Batch <span className="text-red-500">*</span>
                       </Label>
                       <div className="relative">
@@ -857,6 +959,7 @@ export default function CreateStudent() {
                           disabled={!formData.course}
                         >
                           <SelectTrigger
+                            id="slot"
                             className={cn(
                               "!w-full !h-14 !pl-12 !pr-4 !py-4 !text-base !bg-gray-50 !border-gray-200 !rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-400 !min-h-14",
                               errors.slot ? "!border-red-500 !bg-red-50" : ""

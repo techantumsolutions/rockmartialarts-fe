@@ -316,7 +316,6 @@ const BRANCH_ADMIN_MENU: NavItem[] = [
   { label: "Leads", path: `${BRANCH_ADMIN_BASE}/leads`, icon: UserPlus, overflowOnly: true, permissionId: "crm" },
   { label: "Coach Availability", path: `${BRANCH_ADMIN_BASE}/coach-availability`, icon: Clock, overflowOnly: true, permissionId: "coaches" },
   { label: "Demo Bookings", path: `${BRANCH_ADMIN_BASE}/demo-bookings`, icon: CalendarCheck, overflowOnly: true, permissionId: "crm" },
-  { label: "Training Requests", path: `${BRANCH_ADMIN_BASE}/training-requests`, icon: ClipboardList, overflowOnly: true, permissionId: "crm" },
   { label: "Invoices", path: `${BRANCH_ADMIN_BASE}/invoices`, icon: FileText, overflowOnly: true, permissionId: "payments" },
   { label: "Testimonials", path: `${BRANCH_ADMIN_BASE}/testimonials`, icon: MessageSquare, overflowOnly: true },
   { label: "Champions", path: `${BRANCH_ADMIN_BASE}/champions`, icon: Trophy, overflowOnly: true },

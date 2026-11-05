@@ -129,6 +129,10 @@ function BranchManagerLoginFormContent() {
 
       // Store authentication data using BranchManagerAuth (primary for branch-admin)
       const userData = BranchManagerAuth.storeLoginData(data);
+      if (typeof window !== "undefined" && !data.branch_manager?.partner_org_id) {
+        localStorage.removeItem("partner_slug");
+        localStorage.removeItem("partner_name");
+      }
       // Also sync to TokenManager so /branch-admin/dashboard/* pages that use TokenManager get the same token
       TokenManager.storeAuthData({
         access_token: data.access_token,

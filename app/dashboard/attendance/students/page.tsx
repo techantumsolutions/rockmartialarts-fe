@@ -1330,7 +1330,7 @@ export default function SuperAdminStudentAttendancePage() {
             ) : (
               <Select value={selectedBranch} onValueChange={setSelectedBranch}>
                 <SelectTrigger className="bg-white shadow-sm">
-                  <MapPin className="h-4 w-4 mr-2 text-blue-600 flex-shrink-0" />
+                  <MapPin className="h-4 w-4 text-blue-600 flex-shrink-0" />
                   <SelectValue placeholder="All Branches" />
                 </SelectTrigger>
                 <SelectContent>

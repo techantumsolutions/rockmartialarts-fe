@@ -46,6 +46,7 @@ export default function CoachesListPage() {
   const router = useRouter()
   const basePath = useDashboardBasePath()
   const isBranchAdmin = basePath.includes("branch-admin")
+  const isPartnerAdmin = basePath.includes("partner-admin") || basePath.startsWith("/partners/")
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [showSendCredentialsPopup, setShowSendCredentialsPopup] = useState(false)
@@ -240,7 +241,7 @@ const paginatedCoaches = filteredCoaches.slice(
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-[#4F5077]">Coach list</h1>
           <div className="flex space-x-3">
-            {!isBranchAdmin && (
+            {!isBranchAdmin && !isPartnerAdmin && (
               <Button
                 onClick={() => router.push(`${basePath}/coach-approvals`)}
                 variant="outline"
