@@ -12,6 +12,7 @@ export interface BranchManagerUser {
   branch_id?: string
   branch_name?: string
   managed_branches?: string[]  // Array of branch IDs managed by this branch manager
+  partner_org_id?: string
 }
 
 export interface BranchManagerLoginResponse {
@@ -45,7 +46,8 @@ export const BranchManagerAuth = {
         role: "branch_manager",
         branch_id: branch_manager.branch_assignment?.branch_id || branch_manager.branch_id,
         branch_name: branch_manager.branch_assignment?.branch_name || branch_manager.branch_name,
-        managed_branches: branch_manager.managed_branches || []
+        managed_branches: branch_manager.managed_branches || [],
+        partner_org_id: String(branch_manager.partner_org_id || "").trim() || undefined,
       }
     }
 
@@ -68,7 +70,8 @@ export const BranchManagerAuth = {
       role: "branch_manager",
       branch_id: branch_manager.branch_assignment?.branch_id || branch_manager.branch_id,
       branch_name: branch_manager.branch_assignment?.branch_name || branch_manager.branch_name,
-      managed_branches: branch_manager.managed_branches || []
+      managed_branches: branch_manager.managed_branches || [],
+      partner_org_id: String(branch_manager.partner_org_id || "").trim() || undefined,
     }
     localStorage.setItem("branch_manager", JSON.stringify(userData))
     localStorage.setItem("user", JSON.stringify(userData)) // For compatibility
@@ -151,6 +154,8 @@ export const BranchManagerAuth = {
     localStorage.removeItem("token_expiration")
     localStorage.removeItem("branch_manager")
     localStorage.removeItem("user")
+    localStorage.removeItem("partner_bm_session")
+    localStorage.removeItem("partner_slug")
     clearActiveBranch()
   },
 

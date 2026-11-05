@@ -709,6 +709,7 @@ export default function EditCoursePage() {
       })
       const firstAmount = addedTenures.length > 0 && feeByDurationId[addedTenures[0]] ? parseFloat(String(feeByDurationId[addedTenures[0]])) : 0
 
+      const parsedMaxStudents = parseInt(String(formData.maxStudents ?? "").trim(), 10)
       const apiData = {
         title: formData.courseTitle,
         code: formData.courseCode,
@@ -720,6 +721,9 @@ export default function EditCoursePage() {
         martial_art_style_id: 'style-default',
         instructor_id: user?.id && user.id.includes('instructor-') ? user.id : 'instructor-default',
         student_requirements: {
+          ...(Number.isFinite(parsedMaxStudents) && parsedMaxStudents > 0
+            ? { max_students: parsedMaxStudents }
+            : {}),
           min_age: parseInt(formData.minAge) || 6,
           max_age: parseInt(formData.maxAge) || 99,
           prerequisites: prerequisites

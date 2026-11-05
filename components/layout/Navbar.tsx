@@ -23,6 +23,7 @@ import {
   getOverflowNavItems,
   getRoleLabel,
   getBasePath,
+  isPartnerBranchManagerNav,
   type NavItem,
 } from "@/lib/dashboard-config"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
@@ -48,22 +49,32 @@ export default function Navbar({ role }: NavbarProps) {
   const { cms } = useCMS()
   const basePath = getBasePath(role)
   const NAV_VISIBLE_LIMIT = 7
+  const [partnerBranchManager, setPartnerBranchManager] = useState(false)
+
+  useEffect(() => {
+    setPartnerBranchManager(role === "branch_admin" && isPartnerBranchManagerNav())
+  }, [role])
+
+  const menuOptions = useMemo(
+    () => ({ partnerBranchManager }),
+    [partnerBranchManager]
+  )
 
   const menuItems = useMemo(
     () =>
-      filterNavItemsByPermission(getMainNavItems(role, basePath), {
+      filterNavItemsByPermission(getMainNavItems(role, basePath, menuOptions), {
         role,
         hasPermission,
       }),
-    [role, hasPermission, basePath]
+    [role, hasPermission, basePath, menuOptions]
   )
   const overflowNavItems = useMemo(
     () =>
-      filterNavItemsByPermission(getOverflowNavItems(role, basePath), {
+      filterNavItemsByPermission(getOverflowNavItems(role, basePath, menuOptions), {
         role,
         hasPermission,
       }),
-    [role, hasPermission, basePath]
+    [role, hasPermission, basePath, menuOptions]
   )
   const primaryNavItems = useMemo(
     () => menuItems.filter((item) => item.label !== "Settings"),

@@ -127,6 +127,11 @@ function BranchManagerLoginFormContent() {
         return;
       }
 
+      // Rock branch-manager login must not inherit a partner session flag.
+      localStorage.removeItem("partner_slug")
+      localStorage.removeItem("partner_name")
+      localStorage.removeItem("partner_bm_session")
+
       // Store authentication data using BranchManagerAuth (primary for branch-admin)
       const userData = BranchManagerAuth.storeLoginData(data);
       // Also sync to TokenManager so /branch-admin/dashboard/* pages that use TokenManager get the same token

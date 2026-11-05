@@ -386,12 +386,43 @@ export function filterNavItemsByPermission(
     })
 }
 
-export function getMenuForRole(role: DashboardRole, basePathOverride?: string): NavItem[] {
+const PARTNER_BRANCH_MANAGER_HIDDEN_LABELS = new Set([
+  "Demo Bookings",
+  "Training Requests",
+])
+
+/** True when the signed-in branch manager belongs to a white-label partner. */
+export function isPartnerBranchManagerNav(): boolean {
+  if (typeof window === "undefined") return false
+  if (localStorage.getItem("partner_bm_session") === "1") return true
+  try {
+    const raw = localStorage.getItem("branch_manager")
+    if (!raw) return false
+    const user = JSON.parse(raw) as { role?: string; partner_org_id?: string }
+    const role = String(user.role || "").toLowerCase()
+    if (role !== "branch_manager" && role !== "branch_admin") return false
+    if (String(user.partner_org_id || "").trim()) return true
+    // Partner branch-manager login stores this; Rock login clears it.
+    return !!localStorage.getItem("partner_slug")
+  } catch {
+    return false
+  }
+}
+
+type MenuOptions = { partnerBranchManager?: boolean }
+
+export function getMenuForRole(
+  role: DashboardRole,
+  basePathOverride?: string,
+  options?: MenuOptions
+): NavItem[] {
   switch (role) {
     case "super_admin":
       return SUPER_ADMIN_MENU
     case "branch_admin":
-      return BRANCH_ADMIN_MENU
+      return options?.partnerBranchManager
+        ? BRANCH_ADMIN_MENU.filter((item) => !PARTNER_BRANCH_MANAGER_HIDDEN_LABELS.has(item.label))
+        : BRANCH_ADMIN_MENU
     case "student":
       return STUDENT_MENU
     case "partner_super_admin":
@@ -401,12 +432,20 @@ export function getMenuForRole(role: DashboardRole, basePathOverride?: string): 
   }
 }
 
-export function getMainNavItems(role: DashboardRole, basePathOverride?: string): NavItem[] {
-  return getMenuForRole(role, basePathOverride).filter((i) => !i.overflowOnly)
+export function getMainNavItems(
+  role: DashboardRole,
+  basePathOverride?: string,
+  options?: MenuOptions
+): NavItem[] {
+  return getMenuForRole(role, basePathOverride, options).filter((i) => !i.overflowOnly)
 }
 
-export function getOverflowNavItems(role: DashboardRole, basePathOverride?: string): NavItem[] {
-  return getMenuForRole(role, basePathOverride).filter((i) => i.overflowOnly)
+export function getOverflowNavItems(
+  role: DashboardRole,
+  basePathOverride?: string,
+  options?: MenuOptions
+): NavItem[] {
+  return getMenuForRole(role, basePathOverride, options).filter((i) => i.overflowOnly)
 }
 
 /** Header action buttons (Add Course, Add Coach, etc.) - super_admin only gets Add Branch Manager / Add New Branch */

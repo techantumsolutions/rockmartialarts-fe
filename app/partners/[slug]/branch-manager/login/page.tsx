@@ -64,6 +64,7 @@ export default function PartnerBranchManagerLoginPage() {
       if (typeof window !== "undefined") {
         localStorage.setItem("partner_slug", slug)
         localStorage.setItem("partner_name", partnerName)
+        localStorage.setItem("partner_bm_session", "1")
       }
       toast({ title: "Welcome", description: `Signed in to ${partnerName}` })
       router.replace("/branch-admin/dashboard")

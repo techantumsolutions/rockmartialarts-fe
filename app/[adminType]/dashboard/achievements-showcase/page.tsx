@@ -217,8 +217,12 @@ export default function ManageShowcaseAchievementsPage() {
         </div>
         <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
           {isPartnerAdmin ? (
-            <Button type="button" onClick={() => void openAdd()} className="gap-2">
-              <Plus className="w-4 h-4" /> Add achievement
+            <Button
+              type="button"
+              onClick={() => void openAdd()}
+              className="gap-1.5 shrink-0 whitespace-nowrap text-xs h-9 px-4 min-w-[11.5rem]"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add achievement
             </Button>
           ) : null}
         <Input
