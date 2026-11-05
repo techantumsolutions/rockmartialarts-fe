@@ -28,6 +28,7 @@ import { studentPaymentAPI, type PaymentRecord } from "@/lib/studentPaymentAPI"
 import { studentProfileAPI, type StudentEnrollment } from "@/lib/studentProfileAPI"
 import { openRazorpayCheckout, type RazorpayPaymentResponse } from "@/lib/razorpay"
 import { getBackendApiUrl } from "@/lib/config"
+import { cancelPendingStudentCheckout } from "@/lib/cancelPendingCheckout"
 import {
   getEnrollmentUiStatus,
   isEnrollmentActivePaid,
@@ -494,16 +495,20 @@ export default function StudentPaymentsPage() {
     }
     setPaymentProcessingId(enrollment.id)
     setError(null)
+    const payStatus = String(enrollment.payment_status || "").toLowerCase()
+    // Existing pending enrollments must be paid in place. prepare-student-checkout
+    // deletes pending rows and can recreate them with ₹0 when pricing lookup fails.
+    const payExistingPending =
+      !isRenewal &&
+      !!enrollment.id &&
+      (payStatus === "pending" || payStatus === "processing")
+    // Only cancel enrollments created by prepare in this session (never the source/paid row).
+    let pendingEnrollmentId = enrollment.id
+    let preparedCheckoutId: string | null = null
+
     try {
       const userData = user
       const batchRef = (selectedBatchRef || enrollment.batch_ref || "").trim()
-      const payStatus = String(enrollment.payment_status || "").toLowerCase()
-      // Existing pending enrollments must be paid in place. prepare-student-checkout
-      // deletes pending rows and can recreate them with ₹0 when pricing lookup fails.
-      const payExistingPending =
-        !isRenewal &&
-        !!enrollment.id &&
-        (payStatus === "pending" || payStatus === "processing")
 
       let prepJson: Record<string, unknown> = {
         enrollment_id: enrollment.id,
@@ -512,7 +517,6 @@ export default function StudentPaymentsPage() {
         amount:
           Number(enrollment.fee_amount || 0) + Number(enrollment.admission_fee || 0),
       }
-      let pendingEnrollmentId = enrollment.id
 
       if (!payExistingPending) {
         const prepUrl = isRenewal
@@ -558,6 +562,7 @@ export default function StudentPaymentsPage() {
         if (!pendingEnrollmentId) {
           throw new Error("Invalid checkout response from server")
         }
+        preparedCheckoutId = pendingEnrollmentId
       }
 
       const createOrder = async (enrollmentId: string) => {
@@ -619,6 +624,7 @@ export default function StudentPaymentsPage() {
           void loadPaymentData(token)
           throw new Error("Invalid checkout response from server")
         }
+        preparedCheckoutId = pendingEnrollmentId
         const rebuiltAmount = Number(prepJson.amount)
         if (Number.isFinite(rebuiltAmount) && rebuiltAmount <= 0) {
           void loadPaymentData(token)
@@ -683,8 +689,12 @@ export default function StudentPaymentsPage() {
         customerEmail: enrollmentData.student_email,
         customerContact: enrollmentData.student_phone,
         onPaymentFailure: (msg) => {
+          if (preparedCheckoutId) {
+            void cancelPendingStudentCheckout(preparedCheckoutId, token)
+          }
           setError(msg || "Payment failed, please try again")
           setPaymentProcessingId(null)
+          void loadPaymentData(token)
         },
         onSuccess: async (response: RazorpayPaymentResponse) => {
           try {
@@ -713,6 +723,7 @@ export default function StudentPaymentsPage() {
                 TokenManager.clearAuthData()
                 throw new Error(SESSION_EXPIRED_PAYMENT_MESSAGE)
               }
+              // Razorpay succeeded but verify failed — keep pending for recovery; do not cancel.
               throw new Error(data?.error ?? data?.detail ?? "Verification failed")
             }
             const paymentId =
@@ -747,9 +758,18 @@ export default function StudentPaymentsPage() {
             setPaymentProcessingId(null)
           }
         },
-        onDismiss: () => setPaymentProcessingId(null),
+        onDismiss: () => {
+          if (preparedCheckoutId) {
+            void cancelPendingStudentCheckout(preparedCheckoutId, token)
+          }
+          setPaymentProcessingId(null)
+          void loadPaymentData(token)
+        },
       })
     } catch (e) {
+      if (preparedCheckoutId) {
+        void cancelPendingStudentCheckout(preparedCheckoutId, token)
+      }
       const msg = getSessionErrorMessage(e, true)
       if (msg === SESSION_EXPIRED_PAYMENT_MESSAGE) {
         TokenManager.clearAuthData()

@@ -50,6 +50,7 @@ import { studentProfileAPI } from "@/lib/studentProfileAPI"
 import { courseAPI } from "@/lib/courseAPI"
 import { branchAPI } from "@/lib/branchAPI"
 import { getBackendApiUrl } from "@/lib/config"
+import { cancelPendingStudentCheckout } from "@/lib/cancelPendingCheckout"
 import { isEnrollmentActivePaid, isEnrollmentExpiredByDate } from "@/lib/student-enrollment-status"
 import { mergeEnrollmentsByCourseBranch } from "@/lib/merge-enrollment-groups"
 import { TokenManager } from "@/lib/tokenManager"
@@ -1147,6 +1148,8 @@ export default function StudentCoursesPage() {
     }
 
     setEnrolling(true)
+    let preparedCheckoutId: string | null = null
+    let checkoutToken: string | null = null
 
     try {
       const token = requireStudentSession(router, pathname || "/student-dashboard/courses")
@@ -1154,6 +1157,7 @@ export default function StudentCoursesPage() {
         setEnrolling(false)
         return
       }
+      checkoutToken = token
 
       // Get student profile for prefill data
       const profileResponse = await studentProfileAPI.getProfile(token)
@@ -1193,9 +1197,14 @@ export default function StudentCoursesPage() {
         throw new Error(msg)
       }
 
+      preparedCheckoutId = String(prepJson.enrollment_id || "") || null
+      if (!preparedCheckoutId) {
+        throw new Error("Invalid checkout response from server")
+      }
+
       const prepAmount = typeof prepJson.amount === "number" ? prepJson.amount : enrollAmount
       const enrollmentData = {
-        enrollment_id: prepJson.enrollment_id as string,
+        enrollment_id: preparedCheckoutId,
         course_id: selectedCourse.id,
         course_name: (prepJson.course_name as string) || selectedCourse.title,
         branch_id: selectedBranch,
@@ -1221,6 +1230,9 @@ export default function StudentCoursesPage() {
         },
         onFailure: (error: any) => {
           console.error('Payment failed:', error)
+          if (preparedCheckoutId) {
+            void cancelPendingStudentCheckout(preparedCheckoutId, checkoutToken)
+          }
           setEnrolling(false)
           const message = getSessionErrorMessage(error, true)
           if (message === SESSION_EXPIRED_PAYMENT_MESSAGE) {
@@ -1233,6 +1245,9 @@ export default function StudentCoursesPage() {
       })
     } catch (error: any) {
       console.error('Enrollment failed:', error)
+      if (preparedCheckoutId) {
+        void cancelPendingStudentCheckout(preparedCheckoutId, checkoutToken)
+      }
       const message = getSessionErrorMessage(error, true)
       if (message === SESSION_EXPIRED_PAYMENT_MESSAGE) {
         TokenManager.clearAuthData()

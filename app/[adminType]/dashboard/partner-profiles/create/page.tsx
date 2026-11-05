@@ -52,10 +52,16 @@ export default function CreatePartnerPage() {
     setSaving(true)
     try {
       if (paymentMethod === "offline") {
-        await partnerOrgAPI.createOffline(body)
+        const result = await partnerOrgAPI.createOffline(body)
+        const emailSent = result?.invite_email_sent !== false
         toast({
-          title: "Partner created",
-          description: "Invitation email sent to the partner to create their password.",
+          title: emailSent ? "Partner created" : "Partner created — invite email failed",
+          description:
+            result?.message ||
+            (emailSent
+              ? "Invitation email sent to the partner to create their password."
+              : "Partner was created, but the invitation email could not be delivered. Use Resend invite on Partner Profiles."),
+          variant: emailSent ? "default" : "destructive",
         })
         router.push(`${basePath}/partner-profiles`)
         return
@@ -80,15 +86,21 @@ export default function CreatePartnerPage() {
         customerContact: body.phone,
         onSuccess: async (response) => {
           try {
-            await partnerOrgAPI.verifyOnlinePayment({
+            const verified = await partnerOrgAPI.verifyOnlinePayment({
               partner_org_id: partnerId,
               razorpay_order_id: response.razorpay_order_id || orderId,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature || "",
             })
+            const emailSent = verified?.invite_email_sent !== false
             toast({
-              title: "Payment successful",
-              description: "Partner created. Invitation email sent to set password.",
+              title: emailSent ? "Payment successful" : "Payment successful — invite email failed",
+              description:
+                verified?.message ||
+                (emailSent
+                  ? "Partner created. Invitation email sent to set password."
+                  : "Partner was created, but the invitation email could not be delivered. Use Resend invite on Partner Profiles."),
+              variant: emailSent ? "default" : "destructive",
             })
             router.push(`${basePath}/partner-profiles`)
           } catch (err) {
