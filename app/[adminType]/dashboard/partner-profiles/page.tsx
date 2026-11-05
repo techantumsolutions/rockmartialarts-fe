@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Loader2, Handshake, Plus } from "lucide-react"
+import { Loader2, Handshake, Plus, Mail } from "lucide-react"
 import { TokenManager } from "@/lib/tokenManager"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { useToast } from "@/hooks/use-toast"
@@ -19,6 +19,7 @@ export default function PartnerProfilesPage() {
   const [partners, setPartners] = useState<PartnerOrg[]>([])
   const [loading, setLoading] = useState(true)
   const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [resendingId, setResendingId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!TokenManager.isAuthenticated()) {
@@ -43,6 +44,37 @@ export default function PartnerProfilesPage() {
   useEffect(() => {
     void load()
   }, [load])
+
+  async function resendInvite(p: PartnerOrg) {
+    setResendingId(p.id)
+    try {
+      const res = await partnerOrgAPI.resendInvite(p.id)
+      setPartners((prev) =>
+        prev.map((row) =>
+          row.id === p.id
+            ? {
+                ...row,
+                ...(res.partner || {}),
+                invite_email_sent: true,
+                status: res.partner?.status || "invited",
+              }
+            : row
+        )
+      )
+      toast({
+        title: "Invitation resent",
+        description: res.message || `Set-password email sent to ${p.email}.`,
+      })
+    } catch (e: any) {
+      toast({
+        title: "Could not resend invite",
+        description: e?.message || "Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setResendingId(null)
+    }
+  }
 
   async function toggleActive(p: PartnerOrg, next: boolean) {
     setTogglingId(p.id)
@@ -175,6 +207,23 @@ export default function PartnerProfilesPage() {
                         </td>
                         <td className="px-3 py-2.5">
                           <div className="flex items-center justify-end gap-2">
+                            {(p.status === "invited" || p.invite_email_sent === false) && enabled ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-8 gap-1.5 text-xs"
+                                disabled={resendingId === p.id}
+                                onClick={() => void resendInvite(p)}
+                              >
+                                {resendingId === p.id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <Mail className="h-3.5 w-3.5" />
+                                )}
+                                Resend invite
+                              </Button>
+                            ) : null}
                             <span className="text-xs text-gray-500 whitespace-nowrap">
                               {enabled ? "Enabled" : "Disabled"}
                             </span>

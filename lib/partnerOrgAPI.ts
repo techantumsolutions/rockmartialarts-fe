@@ -13,6 +13,8 @@ export type PartnerOrg = {
   status?: string
   is_active?: boolean
   login_path?: string | null
+  invite_email_sent?: boolean | null
+  invite_email_sent_at?: string | null
   created_at?: string
   activated_at?: string | null
 }
@@ -97,7 +99,28 @@ class PartnerOrgAPI {
       body: JSON.stringify(body),
     })
     if (!res.ok) throw new Error(await parseError(res))
-    return res.json()
+    return res.json() as Promise<{
+      message?: string
+      invite_email_sent?: boolean
+      partner?: PartnerOrg
+    }>
+  }
+
+  async resendInvite(partnerOrgId: string) {
+    const res = await fetch(
+      getBackendApiUrl(`partner-organizations/${encodeURIComponent(partnerOrgId)}/resend-invite`),
+      {
+        method: "POST",
+        headers: authHeaders(true),
+        body: JSON.stringify({}),
+      }
+    )
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{
+      message?: string
+      invite_email_sent?: boolean
+      partner?: PartnerOrg
+    }>
   }
 
   async setActive(partnerOrgId: string, is_active: boolean) {
