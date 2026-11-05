@@ -2,13 +2,29 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { Loader2, Star } from "lucide-react"
+import { Loader2, Plus, Star } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { TokenManager } from "@/lib/tokenManager"
 import { getBackendApiUrl } from "@/lib/config"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
+import { AchievementForm, type AchievementFormData } from "@/components/achievements/AchievementForm"
 
 type Row = {
   id: string
@@ -35,6 +51,10 @@ export default function ManageShowcaseAchievementsPage() {
   const [rows, setRows] = useState<Row[]>([])
   const [search, setSearch] = useState("")
   const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [addOpen, setAddOpen] = useState(false)
+  const [students, setStudents] = useState<{ id: string; name: string }[]>([])
+  const [studentId, setStudentId] = useState("")
+  const [studentsLoading, setStudentsLoading] = useState(false)
 
   useEffect(() => {
     if (!canManage) {
@@ -90,6 +110,64 @@ export default function ManageShowcaseAchievementsPage() {
     }
   }
 
+  const openAdd = async () => {
+    setStudentId("")
+    setAddOpen(true)
+    const token = TokenManager.getToken()
+    if (!token) return
+    setStudentsLoading(true)
+    try {
+      const res = await fetch(getBackendApiUrl("champions/student-options?limit=200"), {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) throw new Error("Failed to load students")
+      const data = await res.json()
+      const list = Array.isArray(data.students) ? data.students : []
+      setStudents(
+        list
+          .filter((s: { id?: string }) => s?.id)
+          .map((s: { id: string; name?: string }) => ({
+            id: s.id,
+            name: s.name || s.id,
+          }))
+      )
+    } catch {
+      setStudents([])
+      toast({ title: "Error", description: "Could not load students", variant: "destructive" })
+    } finally {
+      setStudentsLoading(false)
+    }
+  }
+
+  const createAchievement = async (data: AchievementFormData) => {
+    const token = TokenManager.getToken()
+    if (!token) return
+    if (!studentId) {
+      toast({ title: "Select a student", variant: "destructive" })
+      throw new Error("Student required")
+    }
+    const res = await fetch(getBackendApiUrl("achievements/create"), {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        student_id: studentId,
+        title: data.title,
+        description: data.description || null,
+        images: data.images,
+        documents: data.documents,
+      }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      const message = typeof err?.detail === "string" ? err.detail : "Could not add achievement"
+      toast({ title: "Error", description: message, variant: "destructive" })
+      throw new Error(message)
+    }
+    toast({ title: "Achievement added" })
+    setAddOpen(false)
+    await load()
+  }
+
   const filtered = rows.filter((r) => {
     const q = search.trim().toLowerCase()
     if (!q) return true
@@ -124,22 +202,32 @@ export default function ManageShowcaseAchievementsPage() {
             {isPartnerAdmin ? "Organization achievements" : "Homepage achievements"}
           </h1>
           <p className="text-gray-600 text-sm mt-1">
-            Achievements are created on the student details page. Mark them as{" "}
-            <span className="font-medium text-gray-800">Featured</span> here
-            {isPartnerAdmin
-              ? " to highlight them on your organization landing page."
-              : " to show them on the home page."}
-            {isPartnerAdmin
-              ? " Only students from your organization branches are listed."
-              : ""}
+            {isPartnerAdmin ? (
+              <>
+                Add an achievement for a student in your organization. Mark it{" "}
+                <span className="font-medium text-gray-800">Featured</span> to highlight it on your organization landing page.
+              </>
+            ) : (
+              <>
+                Achievements are created on the student details page. Mark them as{" "}
+                <span className="font-medium text-gray-800">Featured</span> here to show them on the home page.
+              </>
+            )}
           </p>
         </div>
+        <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+          {isPartnerAdmin ? (
+            <Button type="button" onClick={() => void openAdd()} className="gap-2">
+              <Plus className="w-4 h-4" /> Add achievement
+            </Button>
+          ) : null}
         <Input
           placeholder="Search student, title, branch…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-xs"
         />
+        </div>
       </div>
 
       <div className="rounded-lg border border-gray-200 bg-white overflow-x-auto">
@@ -199,13 +287,44 @@ export default function ManageShowcaseAchievementsPage() {
             {filtered.length === 0 ? (
               <tr>
                 <td colSpan={5} className="p-8 text-center text-gray-500">
-                  No student achievements yet. Add them from a student&apos;s details page first.
+                  {isPartnerAdmin
+                    ? "No student achievements yet. Add one for a student in your organization."
+                    : "No student achievements yet. Add them from a student's details page first."}
                 </td>
               </tr>
             ) : null}
           </tbody>
         </table>
       </div>
+
+      {isPartnerAdmin ? (
+        <Dialog open={addOpen} onOpenChange={setAddOpen}>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Add achievement</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Label>Student</Label>
+              <Select value={studentId} onValueChange={setStudentId} disabled={studentsLoading}>
+                <SelectTrigger>
+                  <SelectValue placeholder={studentsLoading ? "Loading students…" : "Select a student"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {students.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <AchievementForm
+              onSubmit={createAchievement}
+              onCancel={() => setAddOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
+      ) : null}
     </div>
   )
 }

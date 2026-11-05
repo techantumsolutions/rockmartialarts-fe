@@ -115,7 +115,13 @@ function partnerSuperAdminMenu(basePath: string = PARTNER_ADMIN_BASE): NavItem[]
   }
 
   // Rock-only items — hide from Partner SA nav (Rock SA menu unchanged)
-  const rockOnlyTopLabels = new Set(["Camp Registrations"])
+  const rockOnlyTopLabels = new Set([
+    "Camp Registrations",
+    "Online Learning",
+    "Learning Plans",
+    "Learning Subs",
+    "Coach Sessions",
+  ])
   const rockOnlyChildPathSuffixes = [
     "/camp-registrations",
     "/callbacks",
@@ -123,6 +129,8 @@ function partnerSuperAdminMenu(basePath: string = PARTNER_ADMIN_BASE): NavItem[]
     "/demo-bookings",
     "/training-requests",
     "/coach-approvals",
+    "/coach-subscription-plans",
+    "/coach-subscriptions",
   ]
   const filtered = menu
     .filter((i) => !rockOnlyTopLabels.has(i.label))

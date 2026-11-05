@@ -6,7 +6,6 @@ import Link from "next/link"
 import AOS from "aos"
 import {
   ArrowLeft,
-  ExternalLink,
   Loader2,
   Mail,
   MapPin,
@@ -238,14 +237,6 @@ export default function PartnerOrgLandingClient() {
                 <p className="text-lg text-gray-200 max-w-2xl">{hero.tagline}</p>
               ) : null}
             </div>
-            {data.login_path ? (
-              <Link
-                href={data.login_path}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#FFB70F] text-[#171A26] font-semibold hover:bg-[#ffc53d]"
-              >
-                Partner login <ExternalLink className="w-4 h-4" />
-              </Link>
-            ) : null}
           </div>
         </div>
       </section>

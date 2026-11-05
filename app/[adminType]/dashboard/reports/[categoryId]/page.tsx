@@ -243,17 +243,18 @@ function CategoryReportsPageContent() {
       return
     }
 
-    const isSuperAdmin =
-      currentUser.role === "superadmin" || currentUser.role === "super_admin"
-    const isBranchManager = currentUser.role === "branch_manager"
+    const role = String(currentUser.role || "").toLowerCase()
+    const isSuperAdmin = role === "superadmin" || role === "super_admin"
+    const isBranchManager = role === "branch_manager"
+    const isPartnerAdmin = role === "partner_super_admin"
 
-    if (!isSuperAdmin && !(isBranchAdminRoute && isBranchManager)) {
+    if (!isSuperAdmin && !isPartnerAdmin && !(isBranchAdminRoute && isBranchManager)) {
       console.log("❌ User is not allowed on this reports view:", currentUser.role)
-      if (currentUser.role === "student") {
+      if (role === "student") {
         router.push("/student-dashboard")
-      } else if (currentUser.role === "coach") {
+      } else if (role === "coach") {
         router.push("/coach-dashboard")
-      } else if (currentUser.role === "branch_manager") {
+      } else if (role === "branch_manager") {
         router.push("/branch-manager-dashboard")
       } else {
         router.push("/login")
