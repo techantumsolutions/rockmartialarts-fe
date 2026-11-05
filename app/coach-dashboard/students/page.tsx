@@ -566,16 +566,6 @@ export default function StudentsListPage() {
                   </Select>
                 </div>
 
-                {/* Refresh Button */}
-                <Button
-                  variant="outline"
-                  onClick={handleRefresh}
-                  disabled={refreshing}
-                  className="shrink-0"
-                >
-                  <RefreshCw className={cn("w-4 h-4 mr-2", refreshing && "animate-spin")} />
-                  Refresh
-                </Button>
               </div>
             </CardContent>
           </Card>

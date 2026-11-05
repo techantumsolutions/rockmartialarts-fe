@@ -101,8 +101,10 @@ export default function CoachAttendancePage() {
   const [saveStatus, setSaveStatus] = useState<{[key: string]: 'saving' | 'success' | 'error'}>({})
   const [bulkSaving, setBulkSaving] = useState(false)
   const [viewMode, setViewMode] = useState<'today' | 'historical'>('today')
-  const [startDate, setStartDate] = useState<Date>(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)) // 7 days ago
-  const [endDate, setEndDate] = useState<Date>(new Date())
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined)
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined)
+  const [startDatePickerOpen, setStartDatePickerOpen] = useState(false)
+  const [endDatePickerOpen, setEndDatePickerOpen] = useState(false)
   const [historicalRecords, setHistoricalRecords] = useState<AttendanceRecord[]>([])
   const [loadingHistorical, setLoadingHistorical] = useState(false)
 
@@ -320,9 +322,14 @@ export default function CoachAttendancePage() {
 
       console.log("📊 Fetching historical attendance records...")
 
+      if (!startDate || !endDate) {
+        setError("Please select both start and end dates")
+        return
+      }
+
       // Format dates for API
-      const startDateStr = startDate.toISOString().split('T')[0]
-      const endDateStr = endDate.toISOString().split('T')[0]
+      const startDateStr = format(startDate, "yyyy-MM-dd")
+      const endDateStr = format(endDate, "yyyy-MM-dd")
 
       // Fetch historical attendance reports
       const response = await fetch(
@@ -941,35 +948,53 @@ export default function CoachAttendancePage() {
                   </PopoverContent>
                 </Popover>
               ) : (
-                <div className="flex space-x-2">
-                  <Popover>
+                <div className="flex items-center space-x-2">
+                  <Popover open={startDatePickerOpen} onOpenChange={setStartDatePickerOpen}>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" className={cn("w-[140px] justify-start text-left font-normal")}>
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {format(startDate, "MMM dd")}
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "h-10 w-auto px-3 gap-3 justify-center text-left font-normal",
+                          !startDate && "text-gray-500"
+                        )}
+                      >
+                        <CalendarIcon className="h-4 w-4 shrink-0" />
+                        <span>{startDate ? format(startDate, "dd-MM-yyyy") : "DD-MM-YYYY"}</span>
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
                         selected={startDate}
-                        onSelect={(date) => setStartDate(date || startDate)}
+                        onSelect={(date) => {
+                          if (date) setStartDate(date)
+                          setStartDatePickerOpen(false)
+                        }}
                       />
                     </PopoverContent>
                   </Popover>
                   <span className="flex items-center text-gray-500">to</span>
-                  <Popover>
+                  <Popover open={endDatePickerOpen} onOpenChange={setEndDatePickerOpen}>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" className={cn("w-[140px] justify-start text-left font-normal")}>
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {format(endDate, "MMM dd")}
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "h-10 w-auto px-3 gap-3 justify-center text-left font-normal",
+                          !endDate && "text-gray-500"
+                        )}
+                      >
+                        <CalendarIcon className="h-4 w-4 shrink-0" />
+                        <span>{endDate ? format(endDate, "dd-MM-yyyy") : "DD-MM-YYYY"}</span>
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
                         selected={endDate}
-                        onSelect={(date) => setEndDate(date || endDate)}
+                        onSelect={(date) => {
+                          if (date) setEndDate(date)
+                          setEndDatePickerOpen(false)
+                        }}
                       />
                     </PopoverContent>
                   </Popover>
@@ -1188,7 +1213,9 @@ export default function CoachAttendancePage() {
               <CardTitle>
                 {viewMode === 'today'
                   ? `Attendance for ${format(selectedDate, "PPP")}`
-                  : `Historical Records (${format(startDate, "MMM dd")} - ${format(endDate, "MMM dd")})`
+                  : startDate && endDate
+                  ? `Historical Records (${format(startDate, "dd-MM-yyyy")} - ${format(endDate, "dd-MM-yyyy")})`
+                  : "Historical Records"
                 }
               </CardTitle>
             </CardHeader>

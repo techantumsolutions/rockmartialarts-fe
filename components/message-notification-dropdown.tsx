@@ -166,7 +166,7 @@ export default function MessageNotificationDropdown({
 
       <DropdownMenuContent 
         align="end" 
-        className="w-80 max-h-96 overflow-y-auto"
+        className="w-80 overflow-hidden"
         sideOffset={5}
       >
         <div className="px-4 py-2 border-b">
