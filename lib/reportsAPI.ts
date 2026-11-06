@@ -478,6 +478,7 @@ export interface CourseReportsResponse {
 export interface CourseReportFiltersResponse {
   filters: {
     branches: Array<{ id: string; name: string }>
+    courses?: Array<{ id: string; name: string }>
     categories: Array<{ id: string; name: string }>
     difficulty_levels: Array<{ id: string; name: string }>
     active_status: Array<{ id: string; name: string }>
@@ -1023,6 +1024,7 @@ class ReportsAPI extends BaseAPI {
    */
   async getCourseReports(token: string, filters?: {
     branch_id?: string
+    course_id?: string
     category_id?: string
     difficulty_level?: string
     active_only?: boolean
@@ -1048,11 +1050,20 @@ class ReportsAPI extends BaseAPI {
   /**
    * Get available filter options for course reports
    */
-  async getCourseReportFilters(token: string): Promise<CourseReportFiltersResponse> {
-    return await this.makeRequest('/api/reports/courses/filters', {
-      method: 'GET',
-      token
-    })
+  async getCourseReportFilters(
+    token: string,
+    filters?: { branch_id?: string }
+  ): Promise<CourseReportFiltersResponse> {
+    const params = new URLSearchParams()
+    if (filters?.branch_id) params.set("branch_id", filters.branch_id)
+    const qs = params.toString()
+    return await this.makeRequest(
+      `/api/reports/courses/filters${qs ? `?${qs}` : ""}`,
+      {
+        method: "GET",
+        token,
+      }
+    )
   }
 
   /**
