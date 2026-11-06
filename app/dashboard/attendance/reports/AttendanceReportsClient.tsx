@@ -31,6 +31,7 @@ import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 interface AttendanceReport {
   id: string
   student_id?: string
+  coach_id?: string
   student_name: string
   course_name: string
   branch_name: string
@@ -41,6 +42,7 @@ interface AttendanceReport {
   status: string
   method: string
   notes?: string
+  record_type?: "student" | "coach" | string
 }
 
 interface ReportSummary {
@@ -113,6 +115,7 @@ export default function AttendanceReportsPage() {
   const [selectedBranch, setSelectedBranch] = useState("all")
   const [selectedStatus, setSelectedStatus] = useState("all")
   const [selectedMethod, setSelectedMethod] = useState("all")
+  const [selectedRecordType, setSelectedRecordType] = useState<"all" | "student" | "coach">("all")
 
   const [students, setStudents] = useState<StudentOption[]>([])
   const [branches, setBranches] = useState<BranchOption[]>([])
@@ -130,10 +133,15 @@ export default function AttendanceReportsPage() {
           headers: authHeaders(),
           cache: "no-store",
         }),
-        fetch(getBackendApiUrl("branches"), {
-          headers: authHeaders(),
-          cache: "no-store",
-        }),
+        fetch(
+          getBackendApiUrl(
+            "branches?skip=0&limit=200&include_stats=false&active_only=true"
+          ),
+          {
+            headers: authHeaders(),
+            cache: "no-store",
+          }
+        ),
       ])
       if (studentsRes.ok) {
         const data = await studentsRes.json()
@@ -156,7 +164,10 @@ export default function AttendanceReportsPage() {
     const params = new URLSearchParams()
     params.set("start_date", format(startDate, "yyyy-MM-dd"))
     params.set("end_date", format(endDate, "yyyy-MM-dd"))
-    if (selectedStudent !== "all") params.set("student_id", selectedStudent)
+    if (selectedRecordType !== "all") params.set("record_type", selectedRecordType)
+    if (selectedStudent !== "all" && selectedRecordType !== "coach") {
+      params.set("student_id", selectedStudent)
+    }
     if (selectedBranch !== "all") params.set("branch_id", selectedBranch)
     if (selectedStatus !== "all") params.set("status", selectedStatus)
     if (selectedMethod !== "all") params.set("method", selectedMethod)
@@ -164,6 +175,7 @@ export default function AttendanceReportsPage() {
   }, [
     startDate,
     endDate,
+    selectedRecordType,
     selectedStudent,
     selectedBranch,
     selectedStatus,
@@ -277,7 +289,7 @@ export default function AttendanceReportsPage() {
           </Button>
           <h1 className="text-2xl font-bold text-gray-900">Attendance Reports</h1>
           <p className="text-gray-600 text-sm mt-1">
-            History by student, branch, date, status, and method (including biometric).
+            History for students and coaches by branch, date, status, and method (including biometric).
           </p>
         </div>
         <div className="flex flex-nowrap items-center gap-2 shrink-0">
@@ -341,6 +353,24 @@ export default function AttendanceReportsPage() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="space-y-1.5">
+              <label className="text-sm font-medium">Record type</label>
+              <Select
+                value={selectedRecordType}
+                onValueChange={(v) =>
+                  setSelectedRecordType(v as "all" | "student" | "coach")
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All records" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All (students & coaches)</SelectItem>
+                  <SelectItem value="student">Students only</SelectItem>
+                  <SelectItem value="coach">Coaches only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
               <label className="text-sm font-medium">Start date</label>
               <Popover open={startOpen} onOpenChange={setStartOpen}>
                 <PopoverTrigger asChild>
@@ -384,7 +414,11 @@ export default function AttendanceReportsPage() {
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Student</label>
-              <Select value={selectedStudent} onValueChange={setSelectedStudent}>
+              <Select
+                value={selectedStudent}
+                onValueChange={setSelectedStudent}
+                disabled={selectedRecordType === "coach"}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="All students" />
                 </SelectTrigger>
@@ -447,7 +481,7 @@ export default function AttendanceReportsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
                 className="pl-9"
-                placeholder="Search student, course, or branch…"
+                placeholder="Search name, course, or branch…"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -495,7 +529,7 @@ export default function AttendanceReportsPage() {
                 <thead>
                   <tr className="border-b text-left text-slate-500">
                     <th className="py-2 pr-3 font-medium">Date</th>
-                    <th className="py-2 pr-3 font-medium">Student</th>
+                    <th className="py-2 pr-3 font-medium">Name</th>
                     <th className="py-2 pr-3 font-medium">Course</th>
                     <th className="py-2 pr-3 font-medium">Branch</th>
                     <th className="py-2 pr-3 font-medium">Status</th>
@@ -505,9 +539,14 @@ export default function AttendanceReportsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((r) => (
+                  {filtered.map((r) => {
+                    const isCoach = (r.record_type || "").toLowerCase() === "coach"
+                    return (
                     <tr
-                      key={r.id || `${r.student_id}-${r.attendance_date}`}
+                      key={
+                        r.id ||
+                        `${r.record_type || "row"}-${r.student_id || r.coach_id}-${r.attendance_date}`
+                      }
                       className="border-b last:border-0"
                     >
                       <td className="py-2.5 pr-3 whitespace-nowrap">
@@ -516,21 +555,28 @@ export default function AttendanceReportsPage() {
                           : "—"}
                       </td>
                       <td className="py-2.5 pr-3">
-                        {r.student_id ? (
-                          <button
-                            type="button"
-                            className="text-blue-700 hover:underline text-left"
-                            onClick={() =>
-                              router.push(
-                                `${basePath}/attendance/student-detail/${r.student_id}`
-                              )
-                            }
-                          >
-                            {r.student_name || "—"}
-                          </button>
-                        ) : (
-                          r.student_name || "—"
-                        )}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {r.student_id && !isCoach ? (
+                            <button
+                              type="button"
+                              className="text-blue-700 hover:underline text-left"
+                              onClick={() =>
+                                router.push(
+                                  `${basePath}/attendance/student-detail/${r.student_id}`
+                                )
+                              }
+                            >
+                              {r.student_name || "—"}
+                            </button>
+                          ) : (
+                            <span>{r.student_name || "—"}</span>
+                          )}
+                          {isCoach ? (
+                            <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 font-normal">
+                              Coach
+                            </Badge>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="py-2.5 pr-3">{r.course_name || "—"}</td>
                       <td className="py-2.5 pr-3">{r.branch_name || "—"}</td>
@@ -558,7 +604,8 @@ export default function AttendanceReportsPage() {
                         </span>
                       </td>
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

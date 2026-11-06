@@ -244,107 +244,89 @@ export default function SuperAdminCoachAttendancePage() {
       }
       const dateStr = format(selectedDate, 'yyyy-MM-dd')
 
-      console.log(`🔄 Superadmin fetching coach attendance data for date: ${dateStr}`)
+      console.log(`🔄 Fetching coach attendance data for date: ${dateStr}`)
 
-      // Fetch all coaches first
-      const coachesResponse = await fetch('/api/backend/coaches', {
-        method: 'GET',
-        headers
+      // Backend returns only coaches with active courses + assigned batches.
+      const attendanceResponse = await fetch(
+        `/api/backend/attendance/coaches?date=${encodeURIComponent(dateStr)}`,
+        {
+          method: "GET",
+          headers,
+        }
+      )
+
+      if (!attendanceResponse.ok) {
+        const errorText = await attendanceResponse.text()
+        console.error("❌ Failed to fetch coach attendance:", attendanceResponse.status, errorText)
+        setError(`Failed to fetch coach attendance: ${attendanceResponse.status}`)
+        return
+      }
+
+      const attendanceData = await attendanceResponse.json()
+      console.log("✅ Coach attendance data received:", attendanceData)
+
+      const records: CoachAttendanceRecord[] = (attendanceData.coaches || []).map((coach: any) => {
+        const attendance = coach.attendance || {}
+        const coachId = coach.coach_id || coach.id
+        const expertiseRaw = coach.expertise
+        const expertise =
+          Array.isArray(expertiseRaw) && expertiseRaw.length > 0
+            ? expertiseRaw.join(", ")
+            : typeof expertiseRaw === "string" && expertiseRaw.trim()
+              ? expertiseRaw
+              : "General"
+
+        return {
+          id: `${coachId}_${dateStr}`,
+          coach_id: coachId,
+          coach_name: coach.coach_name || coach.full_name || "Unknown Coach",
+          email: coach.email || "",
+          phone: coach.phone || "",
+          expertise,
+          branch_id: coach.branch_id || "",
+          branch_name:
+            coach.branch_name ||
+            branches.find((b) => b.id === coach.branch_id)?.name ||
+            "Unknown Branch",
+          status: (attendance.status as CoachAttendanceRecord["status"]) || "not_marked",
+          check_in_time: attendance.check_in_time
+            ? formatTimeIST(
+                typeof attendance.check_in_time === "string"
+                  ? attendance.check_in_time
+                  : new Date(attendance.check_in_time).toISOString()
+              )
+            : undefined,
+          check_out_time: attendance.check_out_time
+            ? formatTimeIST(
+                typeof attendance.check_out_time === "string"
+                  ? attendance.check_out_time
+                  : new Date(attendance.check_out_time).toISOString()
+              )
+            : undefined,
+          notes: attendance.notes || "",
+          date: dateStr,
+          date_of_join: coach.date_of_join,
+        }
       })
 
-      if (coachesResponse.ok) {
-        const coachesData = await coachesResponse.json()
-        console.log("✅ Coaches data received:", coachesData)
+      setAttendanceRecords(records)
 
-        const records: CoachAttendanceRecord[] = (coachesData.coaches || []).map((coach: any) => {
-          return {
-            id: `${coach.id}_${dateStr}`,
-            coach_id: coach.id,
-            coach_name: coach.full_name || 'Unknown Coach',
-            email: coach.email || '',
-            phone: coach.phone || '',
-            expertise: coach.expertise || 'General',
-            branch_id: coach.branch_id || '',
-            branch_name: branches.find(b => b.id === coach.branch_id)?.name || 'Unknown Branch',
-            status: "not_marked", // Default status - we'll fetch actual attendance separately
-            check_in_time: undefined,
-            check_out_time: undefined,
-            notes: "",
-            date: dateStr,
-            date_of_join: coach.date_of_join
-          }
-        })
-
-        // Now try to fetch actual attendance data for coaches
-        try {
-          const attendanceResponse = await fetch(`/api/backend/attendance/coaches?date=${dateStr}`, {
-            method: 'GET',
-            headers
-          })
-
-          if (attendanceResponse.ok) {
-            const attendanceData = await attendanceResponse.json()
-            console.log("✅ Coach attendance data received:", attendanceData)
-
-            // Update records with actual attendance data
-            const updatedRecords = records.map(record => {
-              const attendanceRecord = (attendanceData.coaches || []).find((a: any) =>
-                a.coach_id === record.coach_id || a.id === record.coach_id
-              )
-
-              if (attendanceRecord && attendanceRecord.attendance) {
-                return {
-                  ...record,
-                  status: attendanceRecord.attendance.status || "not_marked",
-                  check_in_time: attendanceRecord.attendance.check_in_time
-                    ? formatTimeIST(
-                        typeof attendanceRecord.attendance.check_in_time === "string"
-                          ? attendanceRecord.attendance.check_in_time
-                          : new Date(attendanceRecord.attendance.check_in_time).toISOString()
-                      )
-                    : undefined,
-                  check_out_time: attendanceRecord.attendance.check_out_time
-                    ? formatTimeIST(
-                        typeof attendanceRecord.attendance.check_out_time === "string"
-                          ? attendanceRecord.attendance.check_out_time
-                          : new Date(attendanceRecord.attendance.check_out_time).toISOString()
-                      )
-                    : undefined,
-                  notes: attendanceRecord.attendance.notes || ""
-                }
-              }
-              return record
-            })
-
-            setAttendanceRecords(updatedRecords)
-          } else {
-            console.warn("No attendance endpoint for coaches, using coach list only")
-            setAttendanceRecords(records)
-          }
-        } catch (attendanceError) {
-          console.warn("Failed to fetch coach attendance, using coach list only:", attendanceError)
-          setAttendanceRecords(records)
-        }
-
-        // Calculate statistics
-        const stats = {
-          total_coaches: records.length,
-          present_today: records.filter(r => r.status === "present").length,
-          absent_today: records.filter(r => r.status === "absent").length,
-          late_today: records.filter(r => r.status === "late").length,
-          not_marked_today: records.filter(r => r.status === "not_marked").length,
-          attendance_rate: records.length > 0 ?
-            (records.filter(r => r.status === "present" || r.status === "late").length / records.length) * 100 : 0
-        }
-
-        setAttendanceStats(stats)
-        console.log("📊 Calculated coach stats:", stats)
-
-      } else {
-        const errorText = await coachesResponse.text()
-        console.error("❌ Failed to fetch coaches data:", coachesResponse.status, errorText)
-        setError(`Failed to fetch coaches data: ${coachesResponse.status}`)
+      const present = records.filter((r) => r.status === "present").length
+      const absent = records.filter((r) => r.status === "absent").length
+      const late = records.filter((r) => r.status === "late").length
+      const notMarked = records.filter((r) => r.status === "not_marked").length
+      const stats = {
+        total_coaches: records.length,
+        present_today: present,
+        absent_today: absent,
+        late_today: late,
+        not_marked_today: notMarked,
+        attendance_rate:
+          records.length > 0 ? ((present + late) / records.length) * 100 : 0,
       }
+
+      setAttendanceStats(stats)
+      console.log("📊 Calculated coach stats:", stats)
 
     } catch (error) {
       console.error("❌ Error fetching coach attendance data:", error)
