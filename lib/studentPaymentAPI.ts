@@ -76,7 +76,7 @@ class StudentPaymentAPI extends BaseAPI {
 
     try {
       // Use the general payments endpoint which filters by student role automatically
-      const response = await this.makeRequest('/api/payments', {
+      const response = await this.makeRequest(`/api/payments?_ts=${Date.now()}`, {
         method: 'GET',
         token: authToken
       })

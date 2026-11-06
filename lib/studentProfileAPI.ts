@@ -97,7 +97,7 @@ class StudentProfileAPI extends BaseAPI {
    * @returns Promise<StudentProfileResponse>
    */
   async getProfile(token: string): Promise<StudentProfileResponse> {
-    return await this.makeRequest('/api/auth/profile', {
+    return await this.makeRequest(`/api/auth/profile?_ts=${Date.now()}`, {
       method: 'GET',
       token
     })
