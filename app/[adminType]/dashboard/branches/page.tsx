@@ -12,6 +12,16 @@ import { Input } from "@/components/ui/input"
 import { Search, Edit, X, Eye, Handshake, ImageIcon, Award, Images, MessageSquareQuote, UserCog, SearchCode, ChevronLeft, ChevronRight } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { useRouter, usePathname } from "next/navigation"
 import { useState, useEffect, useRef, useCallback } from "react"
 import { TokenManager } from "@/lib/tokenManager"
@@ -102,6 +112,8 @@ export default function BranchesList() {
   const [loadingBranchManagers, setLoadingBranchManagers] = useState(false)
   const [assignmentLoading, setAssignmentLoading] = useState(false)
   const [assignmentError, setAssignmentError] = useState<string | null>(null)
+  const [deactivateTarget, setDeactivateTarget] = useState<Branch | null>(null)
+  const [statusUpdating, setStatusUpdating] = useState(false)
   // Add state for pagination
 const [currentPage, setCurrentPage] = useState(1)
 const itemsPerPage = 10
@@ -461,6 +473,42 @@ const itemsPerPage = 10
     const coach = coachById[mid]
     if (coach?.full_name?.trim()) return coach.full_name.trim()
     return "—"
+  }
+
+  const updateBranchActiveStatus = async (branch: Branch, isActive: boolean) => {
+    try {
+      setStatusUpdating(true)
+      const token = TokenManager.getToken()
+      if (!token) return
+
+      const response = await fetch(getBackendApiUrl(`branches/${branch.id}`), {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ is_active: isActive }),
+      })
+
+      if (response.ok) {
+        setBranches((prev) =>
+          prev.map((b) => (b.id === branch.id ? { ...b, is_active: isActive } : b))
+        )
+      }
+    } catch (error) {
+      console.error("Error updating branch status:", error)
+    } finally {
+      setStatusUpdating(false)
+      setDeactivateTarget(null)
+    }
+  }
+
+  const handleBranchActiveToggle = (branch: Branch, checked: boolean) => {
+    if (checked) {
+      void updateBranchActiveStatus(branch, true)
+      return
+    }
+    setDeactivateTarget(branch)
   }
 
   /** Branch phone first; if missing, first assigned coach phone for that branch. */
@@ -837,30 +885,11 @@ const paginatedBranches = filteredBranches.slice(
                         )}
                         <Switch
                           checked={branch.is_active ?? true}
+                          disabled={statusUpdating}
                           className="data-[state=checked]:bg-yellow-400"
-                          onCheckedChange={async (checked) => {
-                            try {
-                              const token = TokenManager.getToken()
-                              if (!token) return
-
-                              const response = await fetch(getBackendApiUrl(`branches/${branch.id}`), {
-                                method: 'PUT',
-                                headers: {
-                                  'Authorization': `Bearer ${token}`,
-                                  'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify({ is_active: checked })
-                              })
-
-                              if (response.ok) {
-                                setBranches(branches.map(b =>
-                                  b.id === branch.id ? { ...b, is_active: checked } : b
-                                ))
-                              }
-                            } catch (error) {
-                              console.error("Error updating branch status:", error)
-                            }
-                          }}
+                          onCheckedChange={(checked) =>
+                            handleBranchActiveToggle(branch, checked)
+                          }
                         />
                       </div>
                     </td>
@@ -1019,6 +1048,53 @@ const paginatedBranches = filteredBranches.slice(
           </div>
         </div>
       )}
+
+      <AlertDialog
+        open={!!deactivateTarget}
+        onOpenChange={(open) => {
+          if (!open && !statusUpdating) setDeactivateTarget(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deactivate this branch?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>
+                  You are about to deactivate{" "}
+                  <span className="font-medium text-foreground">
+                    {deactivateTarget?.branch?.name || "this branch"}
+                  </span>
+                  .
+                </p>
+                <p>
+                  The assigned Branch Manager
+                  {deactivateTarget && getManagerDisplayName(deactivateTarget) !== "—"
+                    ? ` (${getManagerDisplayName(deactivateTarget)})`
+                    : ""}{" "}
+                  will not be able to use this branch until it is reactivated.
+                  {deactivateTarget?.manager_id
+                    ? " If they manage other active branches, they can switch to those."
+                    : ""}
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={statusUpdating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={statusUpdating || !deactivateTarget}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+              onClick={(e) => {
+                e.preventDefault()
+                if (deactivateTarget) void updateBranchActiveStatus(deactivateTarget, false)
+              }}
+            >
+              {statusUpdating ? "Deactivating…" : "Deactivate"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   )

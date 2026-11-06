@@ -115,7 +115,23 @@ function installActiveBranchFetch() {
       init?.headers || (input instanceof Request ? input.headers : undefined)
     )
     if (!headers.has("X-Active-Branch-Id")) headers.set("X-Active-Branch-Id", id)
-    return original(input, { ...init, headers })
+    return original(input, { ...init, headers }).then((res) => {
+      if (res.status === 403) {
+        res
+          .clone()
+          .text()
+          .then((text) => {
+            if (
+              text.includes("BRANCH_INACTIVE") ||
+              text.toLowerCase().includes("branch account is disabled")
+            ) {
+              window.dispatchEvent(new CustomEvent("bm-branch-inactive"))
+            }
+          })
+          .catch(() => {})
+      }
+      return res
+    })
   }
   host.__bmActiveBranchFetch = true
 }
