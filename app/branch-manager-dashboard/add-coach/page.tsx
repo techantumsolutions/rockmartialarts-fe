@@ -400,6 +400,30 @@ export default function AddCoachPage() {
     return digits.slice(0, 10)
   }
 
+  function getCoachPhoneError(value: string, required: boolean): string {
+    const phone = value.trim()
+    if (!phone) return required ? "Phone number is required" : ""
+    if (!/^[6-9]\d{9}$/.test(phone)) {
+      return required
+        ? "Please enter a valid 10-digit Indian phone number (starting with 6, 7, 8, or 9)"
+        : "Please enter a valid 10-digit Indian phone number"
+    }
+    return ""
+  }
+
+  function setFieldError(field: string, message: string) {
+    setErrors((prev) => {
+      if (!message) {
+        if (!prev[field]) return prev
+        const next = { ...prev }
+        delete next[field]
+        return next
+      }
+      if (prev[field] === message) return prev
+      return { ...prev, [field]: message }
+    })
+  }
+
   function normalizeToYYYYMMDD(dateStr?: string | null): string {
     if (!dateStr || !String(dateStr).trim()) return ""
     const cleaned = String(dateStr).trim()
@@ -788,7 +812,17 @@ export default function AddCoachPage() {
                     inputMode="numeric"
                     maxLength={10}
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: formatIndianPhoneNumber(e.target.value) })}
+                    onChange={(e) => {
+                      const phone = formatIndianPhoneNumber(e.target.value)
+                      setFormData({ ...formData, phone })
+                      if (errors.phone) setFieldError("phone", "")
+                    }}
+                    onBlur={(e) =>
+                      setFieldError(
+                        "phone",
+                        getCoachPhoneError(formatIndianPhoneNumber(e.target.value), true)
+                      )
+                    }
                     placeholder="10-digit Indian phone number"
                     className={errors.phone ? "border-red-500" : ""}
                   />
@@ -1142,7 +1176,17 @@ export default function AddCoachPage() {
                     inputMode="numeric"
                     maxLength={10}
                     value={formData.emergencyContactPhone}
-                    onChange={(e) => setFormData({ ...formData, emergencyContactPhone: formatIndianPhoneNumber(e.target.value) })}
+                    onChange={(e) => {
+                      const emergencyContactPhone = formatIndianPhoneNumber(e.target.value)
+                      setFormData({ ...formData, emergencyContactPhone })
+                      if (errors.emergencyContactPhone) setFieldError("emergencyContactPhone", "")
+                    }}
+                    onBlur={(e) =>
+                      setFieldError(
+                        "emergencyContactPhone",
+                        getCoachPhoneError(formatIndianPhoneNumber(e.target.value), false)
+                      )
+                    }
                     placeholder="10-digit Indian phone number"
                     className={errors.emergencyContactPhone ? "border-red-500" : ""}
                   />

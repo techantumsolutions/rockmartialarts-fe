@@ -90,7 +90,6 @@ export default function CreateBranchManagerPage() {
     country: "India",
 
     // Professional Information
-    designation: "Branch Manager",
     experience: "",
     qualifications: "",
     certifications: "",
@@ -111,13 +110,6 @@ export default function CreateBranchManagerPage() {
 
   // Available options
   // Dropdown options state
-  const [designations, setDesignations] = useState<any[]>([
-    { value: "Branch Manager", label: "Branch Manager" },
-    { value: "Assistant Branch Manager", label: "Assistant Branch Manager" },
-    { value: "Senior Branch Manager", label: "Senior Branch Manager" },
-    { value: "Regional Manager", label: "Regional Manager" },
-    { value: "Operations Manager", label: "Operations Manager" }
-  ])
   const [genders, setGenders] = useState<any[]>([{ value: "male", label: "Male" }, { value: "female", label: "Female" }, { value: "other", label: "Other" }])
   const [countries, setCountries] = useState<any[]>([{ value: "India", label: "India" }, { value: "USA", label: "USA" }, { value: "UK", label: "UK" }])
   const [experienceRanges, setExperienceRanges] = useState<any[]>([])
@@ -135,15 +127,6 @@ export default function CreateBranchManagerPage() {
     const loadDropdowns = async () => {
       try {
         const token = TokenManager.getToken()
-        
-        // Fetch designations
-        const designationsRes = await dropdownAPI.getCategoryOptions("designations", token || undefined)
-        if (designationsRes?.length > 0) {
-          const activeDesignations = designationsRes
-            .filter((opt: any) => opt.is_active)
-            
-          setDesignations(activeDesignations)
-        }
 
         // Fetch genders
         const gendersRes = await dropdownAPI.getCategoryOptions("genders", token || undefined)
@@ -350,7 +333,6 @@ export default function CreateBranchManagerPage() {
       newErrors.password = "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"
     }
     if (!formData.gender) newErrors.gender = "Gender is required"
-    if (!formData.designation) newErrors.designation = "Designation is required"
 
     setErrors(newErrors)
     return newErrors
@@ -364,7 +346,6 @@ export default function CreateBranchManagerPage() {
       "password",
       "phone",
       "gender",
-      "designation",
     ]
     const firstKey = fieldOrder.find((key) => newErrors[key]) || Object.keys(newErrors)[0]
     if (!firstKey) return
@@ -392,7 +373,7 @@ export default function CreateBranchManagerPage() {
     const newErrors = validateForm()
     if (Object.keys(newErrors).length > 0) {
       const firstKey =
-        ["firstName", "lastName", "email", "password", "phone", "gender", "designation"].find(
+        ["firstName", "lastName", "email", "password", "phone", "gender"].find(
           (key) => newErrors[key]
         ) || Object.keys(newErrors)[0]
       toast({
@@ -432,7 +413,7 @@ export default function CreateBranchManagerPage() {
         professional_info: {
           education_qualification: formData.qualifications,
           professional_experience: formData.experience,
-          designation: formData.designation,
+          designation: "Branch Manager",
           certifications: formData.certifications ? formData.certifications.split(',').map(cert => cert.trim()) : []
         },
         branch_id: formData.branch || null,  // Include branch assignment
@@ -723,26 +704,6 @@ export default function CreateBranchManagerPage() {
             </CardHeader>
             <CardContent className="space-y-4 text-[#7D8592]">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="designation">Designation *</Label>
-                  <Select
-                    value={formData.designation}
-                    onValueChange={(value) => setFormData({ ...formData, designation: value })}
-                  >
-                    <SelectTrigger id="designation" className={errors.designation ? "border-red-500" : ""}>
-                      <SelectValue placeholder="Select designation" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {designations.map((designation) => (
-                        <SelectItem key={designation.value || designation} value={designation.value || designation}>
-                          {designation.label || designation}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {errors.designation && <p className="text-red-500 text-sm">{errors.designation}</p>}
-                </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="experience">Experience</Label>
                   <Select

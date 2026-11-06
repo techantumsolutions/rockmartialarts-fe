@@ -407,48 +407,48 @@ const paginatedCoaches = filteredCoaches.slice(
               </table>
             </div>
 
-           {/* Pagination */}
-<div className="flex justify-center items-center space-x-2 py-4 border-t">
-  {totalPages > 1 && (
-    <Button
-      variant="outline"
-      size="sm"
-      className="bg-gray-200"
-      disabled={currentPage <= 1}
-      onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-    >
-      Previous
-    </Button>
-  )}
+           {/* Pagination — keep Prev/Next pinned so they stay visible when page numbers wrap */}
+            {totalPages > 0 && (
+              <div className="flex flex-wrap items-center justify-center gap-2 border-t px-3 py-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 bg-gray-200 text-gray-800 hover:bg-gray-300 hover:text-gray-900"
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                >
+                  Previous
+                </Button>
 
-  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-    <Button
-      key={page}
-      onClick={() => setCurrentPage(page)}
-      className={`${
-        currentPage === page
-          ? "bg-yellow-400 hover:bg-yellow-500 text-black"
-          : "bg-transparent"
-      }`}
-      variant={currentPage === page ? "default" : "outline"}
-      size="sm"
-    >
-      {page}
-    </Button>
-  ))}
+                <div className="flex max-w-full flex-wrap items-center justify-center gap-2">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <Button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={
+                        currentPage === page
+                          ? "bg-yellow-400 text-black hover:bg-yellow-500"
+                          : "bg-transparent text-gray-800"
+                      }
+                      variant={currentPage === page ? "default" : "outline"}
+                      size="sm"
+                    >
+                      {page}
+                    </Button>
+                  ))}
+                </div>
 
-  {totalPages > 1 && (
-    <Button
-      variant="outline"
-      size="sm"
-      className="bg-gray-200"
-      disabled={currentPage >= totalPages}
-      onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-    >
-      Next
-    </Button>
-  )}
-</div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 bg-gray-200 text-gray-800 hover:bg-gray-300 hover:text-gray-900"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                >
+                  Next
+                </Button>
+              </div>
+            )}
 
           </CardContent>
         </Card>
