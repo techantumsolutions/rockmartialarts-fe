@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Search, Edit, ToggleLeft, ToggleRight, Eye, Mail, Loader2 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -16,6 +17,12 @@ import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { useToast } from "@/hooks/use-toast"
+
+type CoachSourceTab = "admin" | "public"
+
+function isPublicCoach(coach: { registration_source?: string | null }) {
+  return (coach.registration_source || "").toLowerCase() === "self"
+}
 
 interface Coach {
   id: string
@@ -39,6 +46,7 @@ interface Coach {
   full_name: string
   is_active: boolean
   approval_status?: string | null
+  registration_source?: string | null
   created_at: string
 }
 
@@ -49,6 +57,7 @@ export default function CoachesListPage() {
   const isPartnerAdmin = basePath.includes("partner-admin") || basePath.startsWith("/partners/")
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
+  const [sourceTab, setSourceTab] = useState<CoachSourceTab>("admin")
   const [showSendCredentialsPopup, setShowSendCredentialsPopup] = useState(false)
   const [selectedCoachForCredentials, setSelectedCoachForCredentials] = useState<Coach | null>(null)
   const [isSendingCredentials, setIsSendingCredentials] = useState(false)
@@ -58,6 +67,7 @@ export default function CoachesListPage() {
 // Pagination state
 const [currentPage, setCurrentPage] = useState(1)
 const itemsPerPage = 15
+  const showApprovalColumn = sourceTab === "public"
 
   const authToken = () => {
     if (isBranchAdmin) {
@@ -204,8 +214,19 @@ const itemsPerPage = 15
     }
   }
 
-  // Enhanced search functionality - filter coaches based on search term
+  let adminCount = 0
+  let publicCount = 0
+  for (const coach of coaches) {
+    if (isPublicCoach(coach)) publicCount += 1
+    else adminCount += 1
+  }
+  const sourceCounts = { admin: adminCount, public: publicCount }
+
+  // Filter by registration source tab, then search
   const filteredCoaches = coaches.filter((coach) => {
+    const matchesSource =
+      sourceTab === "public" ? isPublicCoach(coach) : !isPublicCoach(coach)
+    if (!matchesSource) return false
     if (!searchTerm) return true
 
     const searchLower = searchTerm.toLowerCase()
@@ -232,6 +253,7 @@ const paginatedCoaches = filteredCoaches.slice(
   (currentPage - 1) * itemsPerPage,
   currentPage * itemsPerPage
 )
+  const tableColSpan = showApprovalColumn ? 5 : 4
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -266,16 +288,47 @@ const paginatedCoaches = filteredCoaches.slice(
           </div>
         </div>
 
-        {/* Search Bar */}
-        <div className="mb-6">
-          <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-black w-4 h-4" />
-          <Input
-            placeholder="Search by name, ID, location"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+        {/* Source tabs + Search */}
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <Tabs
+            value={sourceTab}
+            onValueChange={(value) => {
+              setSourceTab(value as CoachSourceTab)
+              setCurrentPage(1)
+            }}
+          >
+            <TabsList className="bg-gray-100">
+              <TabsTrigger
+                value="admin"
+                className="gap-1.5 data-[state=active]:bg-white data-[state=active]:text-[#4F5077]"
+              >
+                Admin added
+                <span className="rounded-md bg-gray-200/80 px-1.5 py-0.5 text-[11px] font-semibold text-[#6B7A99]">
+                  {sourceCounts.admin}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="public"
+                className="gap-1.5 data-[state=active]:bg-white data-[state=active]:text-[#4F5077]"
+              >
+                Public
+                <span className="rounded-md bg-gray-200/80 px-1.5 py-0.5 text-[11px] font-semibold text-[#6B7A99]">
+                  {sourceCounts.public}
+                </span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <div className="relative w-full max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-black w-4 h-4" />
+            <Input
+              placeholder="Search by name, ID, location"
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value)
+                setCurrentPage(1)
+              }}
+              className="pl-10"
+            />
           </div>
         </div>
 
@@ -289,27 +342,33 @@ const paginatedCoaches = filteredCoaches.slice(
                     <th className="text-left py-4 px-4 font-medium text-[#6B7A99] text-sm">Coach Name</th>
                     <th className="text-left py-4 px-4 font-medium text-[#6B7A99] text-sm">Designation</th>
                     <th className="text-left py-4 px-4 font-medium text-[#6B7A99] text-sm">Phone Number</th>
-                    <th className="text-left py-4 px-4 font-medium text-[#6B7A99] text-sm">Approval</th>
+                    {showApprovalColumn && (
+                      <th className="text-left py-4 px-4 font-medium text-[#6B7A99] text-sm">Approval</th>
+                    )}
                     <th className="text-center py-4 px-4 font-medium text-[#6B7A99] text-sm">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={5} className="py-8 px-6 text-center text-gray-500">
+                      <td colSpan={tableColSpan} className="py-8 px-6 text-center text-gray-500">
                         Loading coaches...
                       </td>
                     </tr>
                   ) : error ? (
                     <tr>
-                      <td colSpan={5} className="py-8 px-6 text-center text-red-500">
+                      <td colSpan={tableColSpan} className="py-8 px-6 text-center text-red-500">
                         Error: {error}
                       </td>
                     </tr>
                   ) : filteredCoaches.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-8 px-6 text-center text-gray-500">
-                        {searchTerm ? `No coaches found matching "${searchTerm}"` : 'No coaches found'}
+                      <td colSpan={tableColSpan} className="py-8 px-6 text-center text-gray-500">
+                        {searchTerm
+                          ? `No coaches found matching "${searchTerm}"`
+                          : sourceTab === "public"
+                            ? "No public coaches found"
+                            : "No admin-added coaches found"}
                       </td>
                     </tr>
                   ) : (
@@ -318,22 +377,24 @@ const paginatedCoaches = filteredCoaches.slice(
                         <td className="py-4 px-6 ">{coach.full_name}</td>
                         <td className="py-4 px-6">{coach.professional_info.designation_id}</td>
                         <td className="py-4 px-6">{coach.contact_info.phone}</td>
-                        <td className="py-4 px-6">
-                          <Badge
-                            variant="outline"
-                            className={
-                              (coach.approval_status || "approved") === "pending"
-                                ? "bg-amber-50 text-amber-900 border-amber-200"
-                                : (coach.approval_status || "approved") === "rejected"
-                                  ? "bg-red-50 text-red-800 border-red-200"
-                                  : "bg-green-50 text-green-800 border-green-200"
-                            }
-                          >
-                            {(coach.approval_status || "approved").replace(/^\w/, (c) =>
-                              c.toUpperCase()
-                            )}
-                          </Badge>
-                        </td>
+                        {showApprovalColumn && (
+                          <td className="py-4 px-6">
+                            <Badge
+                              variant="outline"
+                              className={
+                                (coach.approval_status || "approved") === "pending"
+                                  ? "bg-amber-50 text-amber-900 border-amber-200"
+                                  : (coach.approval_status || "approved") === "rejected"
+                                    ? "bg-red-50 text-red-800 border-red-200"
+                                    : "bg-green-50 text-green-800 border-green-200"
+                              }
+                            >
+                              {(coach.approval_status || "approved").replace(/^\w/, (c) =>
+                                c.toUpperCase()
+                              )}
+                            </Badge>
+                          </td>
+                        )}
                         <td className="py-4 px-6">
                           <div className="flex items-center justify-center space-x-2">
                             <Tooltip>
