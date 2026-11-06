@@ -66,140 +66,6 @@ const fetchOpts = (token: string) => ({
   cache: "no-store" as RequestCache,
 })
 
-function pickDisplayDurationKey(availableDurations?: CourseDurationRef[]): string {
-  if (!availableDurations?.length) return "1-month"
-  const keyOf = (d: CourseDurationRef) => String(d.code || d.id || "").trim()
-  const oneMonth = availableDurations.find((d) => {
-    const k = keyOf(d).toLowerCase()
-    const n = String(d.name || "").toLowerCase()
-    return (
-      d.duration_months === 1 ||
-      /1\s*(-)?\s*month/.test(k) ||
-      /1\s*(-)?\s*month/.test(n)
-    )
-  })
-  if (oneMonth) return keyOf(oneMonth) || "1-month"
-  const sorted = [...availableDurations].sort(
-    (a, b) => (a.duration_months ?? 99) - (b.duration_months ?? 99)
-  )
-  return keyOf(sorted[0]) || "1-month"
-}
-
-function durationKeysForPricing(
-  primary: string,
-  availableDurations?: CourseDurationRef[]
-): string[] {
-  const keys = [primary, "1-month", "1 month", "1month"]
-  for (const d of availableDurations || []) {
-    const k = String(d.code || d.id || "").trim()
-    if (k) keys.push(k)
-  }
-  return [...new Set(keys.map((k) => k.trim()).filter(Boolean))]
-}
-
-function parsePricingTotal(pricing: Record<string, unknown> | undefined): number | null {
-  if (!pricing) return null
-  const total = pricing.total_amount
-  if (typeof total === "number" && total > 0 && !Number.isNaN(total)) return total
-  const courseFee = pricing.course_fee
-  const admission = pricing.admission_fee
-  if (typeof courseFee === "number" && courseFee > 0) {
-    const adm = typeof admission === "number" ? admission : 0
-    return courseFee + adm
-  }
-  return null
-}
-
-/** Live fee from payment-info / quote (same rules as checkout), not branch list cache. */
-async function fetchLiveCoursePrice(
-  courseId: string,
-  branchId: string,
-  token: string,
-  durationKeys: string[]
-): Promise<number | null> {
-  for (const durKey of durationKeys) {
-    try {
-      const qs = new URLSearchParams({ branch_id: branchId, duration: durKey })
-      const piRes = await fetch(
-        getBackendApiUrl(`courses/${courseId}/payment-info?${qs.toString()}`),
-        fetchOpts(token)
-      )
-      if (piRes.ok) {
-        const pi = await piRes.json().catch(() => ({}))
-        const total = parsePricingTotal(pi?.pricing as Record<string, unknown>)
-        if (total != null) return total
-      }
-      const quoteRes = await fetch(getBackendApiUrl("payments/student-checkout-quote"), {
-        method: "POST",
-        ...fetchOpts(token),
-        body: JSON.stringify({
-          course_id: courseId,
-          branch_id: branchId,
-          duration: durKey,
-        }),
-      })
-      if (quoteRes.ok) {
-        const q = await quoteRes.json().catch(() => ({}))
-        const total = parsePricingTotal(q?.pricing as Record<string, unknown>)
-        if (total != null) return total
-      }
-    } catch {
-      /* try next duration key */
-    }
-  }
-  return null
-}
-
-async function loadCourseDurations(
-  courseId: string,
-  token: string,
-  existing?: CourseDurationRef[]
-): Promise<CourseDurationRef[]> {
-  if (existing?.length) return existing
-  try {
-    const durRes = await fetch(
-      getBackendApiUrl(`durations/public/by-course/${courseId}?active_only=true`),
-      fetchOpts(token)
-    )
-    if (!durRes.ok) return []
-    const durData = await durRes.json().catch(() => ({}))
-    const list = (durData as { durations?: CourseDurationRef[] }).durations
-    return Array.isArray(list) ? list : []
-  } catch {
-    return []
-  }
-}
-
-/** Current admin-configured fee for list display (1-month / primary tenure via payment-info). */
-async function enrichAvailableCoursePricing(
-  courses: AvailableCourse[],
-  branchIds: string[],
-  token: string
-): Promise<AvailableCourse[]> {
-  return Promise.all(
-    courses.map(async (c) => {
-      const branchId = c.branch_id || branchIds[0]
-      if (!branchId) return c
-      try {
-        const durations = await loadCourseDurations(c.id, token, c.available_durations)
-        const displayKey = pickDisplayDurationKey(durations)
-        const keysToTry = durationKeysForPricing(displayKey, durations)
-        const liveAmount = await fetchLiveCoursePrice(c.id, branchId, token, keysToTry)
-        if (liveAmount != null) {
-          return {
-            ...c,
-            available_durations: durations.length ? durations : c.available_durations,
-            pricing: { amount: liveAmount, currency: "INR" },
-          }
-        }
-      } catch {
-        /* fall through */
-      }
-      return { ...c, pricing: { amount: 0, currency: c.pricing?.currency || "INR" } }
-    })
-  )
-}
-
 /** Stable id for Select when the same course exists at multiple branches. */
 function courseRowKey(c: Pick<AvailableCourse, "id" | "branch_id">) {
   return `${c.id}::${c.branch_id ?? ""}`
@@ -637,21 +503,23 @@ export default function StudentCoursesPage() {
         let availableCoursesList: any[] = []
 
         if (branchIdsToLoad.length > 0) {
-          for (const branchId of branchIdsToLoad) {
-            try {
-              const branchCoursesResponse = await fetch(
-                getBackendApiUrl(`courses/public/by-branch/${encodeURIComponent(branchId)}`),
-                fetchOpts(token)
-              )
-              
-              if (branchCoursesResponse.ok) {
+          const lists = await Promise.all(
+            branchIdsToLoad.map(async (branchId) => {
+              try {
+                const branchCoursesResponse = await fetch(
+                  getBackendApiUrl(`courses/public/by-branch/${encodeURIComponent(branchId)}`),
+                  fetchOpts(token)
+                )
+                if (!branchCoursesResponse.ok) return []
                 const branchData = await branchCoursesResponse.json()
                 const branchCourses = branchData.courses || []
                 const bObj = transformedBranches.find((b: any) => String(b.id) === String(branchId))
                 const branchName = bObj?.name || enrolledData.find((e) => e.branch_id === branchId)?.branch_name || "Branch"
-                
-                // Add branch info and normalize fields for each course
-                const coursesWithBranch = branchCourses.map((c: any) => ({
+                const listedAmount = (pricing: any) => {
+                  const n = Number(pricing?.amount ?? pricing?.fee_1_month)
+                  return Number.isFinite(n) && n > 0 ? n : 0
+                }
+                return branchCourses.map((c: any) => ({
                   id: c.id,
                   title: c.title || c.name || c.course_name || "Untitled Course",
                   description: c.description || "",
@@ -662,17 +530,17 @@ export default function StudentCoursesPage() {
                   available_durations: c.available_durations || [],
                   batches: c.batches || c.branch_batches || [],
                   pricing: {
-                    amount: 0,
+                    amount: listedAmount(c.pricing),
                     currency: c.pricing?.currency || "INR",
                   },
                 }))
-                
-                availableCoursesList.push(...coursesWithBranch)
+              } catch (err) {
+                console.error(`Error loading courses for branch ${branchId}:`, err)
+                return []
               }
-            } catch (err) {
-              console.error(`Error loading courses for branch ${branchId}:`, err)
-            }
-          }
+            })
+          )
+          availableCoursesList = lists.flat()
         }
         
         // If no branch-specific courses loaded, load all courses
@@ -718,8 +586,7 @@ export default function StudentCoursesPage() {
         })
 
         console.log("✅ Branch courses (including enrolled):", withEnrollment.length)
-        const priced = await enrichAvailableCoursePricing(withEnrollment, studentBranchIds, token)
-        setAvailableCourses(priced)
+        setAvailableCourses(withEnrollment)
       } catch (err) {
         console.error("Error loading available courses:", err)
       }

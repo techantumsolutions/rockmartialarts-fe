@@ -172,8 +172,14 @@ function PaymentSuccessContent() {
             Continue to My Courses
           </Button>
           {isRenewal ? (
-            <Button variant="outline" asChild size="lg">
-              <Link href="/student-dashboard/payments">Back to Payments</Link>
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => {
+                window.location.assign("/student-dashboard/payments")
+              }}
+            >
+              Back to Payments
             </Button>
           ) : null}
         </div>

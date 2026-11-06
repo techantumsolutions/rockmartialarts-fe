@@ -219,7 +219,16 @@ export default function StudentPaymentsPage() {
       email: user.email || "",
     })
 
-    loadPaymentData(token)
+    void loadPaymentData(token)
+
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted) return
+      const active = TokenManager.isAuthenticated() ? TokenManager.getToken() : null
+      if (!active) return
+      void loadPaymentData(active, { silent: true })
+    }
+    window.addEventListener("pageshow", onPageShow)
+    return () => window.removeEventListener("pageshow", onPageShow)
   }, [router, pathname])
 
   // When tenure modal opens, fetch price for each duration using the student's batch
@@ -263,11 +272,13 @@ export default function StudentPaymentsPage() {
             }))
             .filter((b) => b.batch_ref)
           setBatchOptions(loadedBatches)
-          if (!resolvedBatchRef || !loadedBatches.some((b) => b.batch_ref === resolvedBatchRef)) {
-            resolvedBatchRef = loadedBatches.length === 1 ? loadedBatches[0].batch_ref : resolvedBatchRef
+          const batchStillOffered = loadedBatches.some((b) => b.batch_ref === resolvedBatchRef)
+          if (!batchStillOffered) {
+            resolvedBatchRef = loadedBatches.length === 1 ? loadedBatches[0].batch_ref : ""
           }
         } catch {
           setBatchOptions([])
+          resolvedBatchRef = ""
         }
         setSelectedBatchRef(resolvedBatchRef)
 
@@ -302,11 +313,7 @@ export default function StudentPaymentsPage() {
 
         if (!resolvedBatchRef && loadedBatches.length > 1) {
           setTenurePrices({})
-          return
-        }
-
-        if (!resolvedBatchRef && loadedBatches.length > 1) {
-          setTenurePrices({})
+          setTenureQuotes({})
           return
         }
 
@@ -361,10 +368,13 @@ export default function StudentPaymentsPage() {
     })()
   }, [tenureModal])
 
-  const loadPaymentData = async (token: string) => {
+  const loadPaymentData = async (token: string, options?: { silent?: boolean }) => {
+    const silent = options?.silent === true
     try {
-      setLoading(true)
-      setError(null)
+      if (!silent) {
+        setLoading(true)
+        setError(null)
+      }
 
       // Load payment history
       const history = await studentPaymentAPI.getPaymentHistory(token)
@@ -415,7 +425,7 @@ export default function StudentPaymentsPage() {
       console.error("Error loading payment data:", error)
       setError(`Failed to load payment data: ${error.message}. Please try again.`)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }
 
@@ -508,7 +518,13 @@ export default function StudentPaymentsPage() {
 
     try {
       const userData = user
-      const batchRef = (selectedBatchRef || enrollment.batch_ref || "").trim()
+      const chosenBatch = (selectedBatchRef || "").trim()
+      const batchStillOffered = batchOptions.some((b) => b.batch_ref === chosenBatch)
+      const batchRef = batchStillOffered
+        ? chosenBatch
+        : batchOptions.length === 1
+          ? batchOptions[0].batch_ref
+          : ""
 
       let prepJson: Record<string, unknown> = {
         enrollment_id: enrollment.id,
@@ -745,6 +761,7 @@ export default function StudentPaymentsPage() {
                 params.set("new_end_date", String(data.new_end_date))
               }
             }
+            await loadPaymentData(activeToken, { silent: true })
             router.replace(`/student-dashboard/payment-success?${params.toString()}`)
           } catch (e) {
             const message = getSessionErrorMessage(e, true)
