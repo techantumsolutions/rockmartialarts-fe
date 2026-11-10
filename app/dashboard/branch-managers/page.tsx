@@ -457,7 +457,7 @@ const filteredManagers = branchManagers.filter((manager) => {
                     {error.includes('Authentication') ? (
                       <Button
                         onClick={() => router.push('/superadmin/login')}
-                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                        className="text-white"
                       >
                         Go to Superadmin Login
                       </Button>
@@ -484,7 +484,7 @@ const filteredManagers = branchManagers.filter((manager) => {
       <DashboardHeader currentPage="Branch Managers" />
       
       <main className="w-full p-4 lg:px-8">
-        <div className=" mx-auto">
+        <div className="mx-auto">
           {/* Header */}
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
             <div>
@@ -750,7 +750,7 @@ const filteredManagers = branchManagers.filter((manager) => {
 
       {/* Delete Confirmation Popup */}
       {showDeletePopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Delete Branch Manager</h3>
             <p className="text-gray-600 mb-6">
@@ -788,7 +788,7 @@ const filteredManagers = branchManagers.filter((manager) => {
 
       {/* Send Credentials Popup */}
       {showSendCredentialsPopup && selectedManagerForCredentials && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Send Login Credentials</h3>
             <p className="text-gray-600 mb-6">

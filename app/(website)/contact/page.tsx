@@ -80,7 +80,7 @@ export default function ContactPage() {
   }, [])
 
   return (
-    <main className="min-h-screen bg-[#171A26]">
+    <main className="min-h-screen">
       {/* Hero */}
       <section
         className="relative py-20 md:py-28 bg-cover bg-center"
@@ -106,7 +106,7 @@ export default function ContactPage() {
       </section>
 
       {/* Branches list */}
-      <section className="py-16 md:py-20 bg-[#171A26]">
+      <section className="py-16 md:py-20">
         <div className="site-content px-0 sm:px-1">
           {loading ? (
             <div className="flex justify-center py-16">

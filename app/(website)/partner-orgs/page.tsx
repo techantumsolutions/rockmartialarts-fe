@@ -43,7 +43,7 @@ export default function PartnerOrgsDirectoryPage() {
   }, [q])
 
   return (
-    <main className="min-h-screen bg-[#171A26] text-white">
+    <main className="min-h-screen text-white">
       <section className="relative pt-28 pb-12 px-4">
         <div className="site-content">
           <p className="text-[#FFB70F] uppercase tracking-[0.2em] text-xs mb-3">

@@ -2163,7 +2163,7 @@ export default function SuperAdminStudentAttendancePage() {
             </Button>
             <Button
               type="button"
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="text-white"
               disabled={correctionSubmitting || correctionReason.trim().length < 3}
               onClick={() => void submitAttendanceCorrection()}
             >

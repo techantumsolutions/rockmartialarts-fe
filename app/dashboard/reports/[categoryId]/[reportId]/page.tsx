@@ -483,7 +483,7 @@ export default function IndividualReportPage() {
             {/* Generate Report Button */}
             <div className="flex justify-end">
               <Button
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6"
+                className="text-white px-6"
                 onClick={handleGenerateReport}
                 disabled={loading}
               >

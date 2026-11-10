@@ -317,7 +317,7 @@ export default function AttendanceReportsPage() {
             CSV
           </Button>
           <Button
-            className="bg-blue-600 hover:bg-blue-700 text-white"
+            className="text-white"
             onClick={() => downloadExport("excel")}
             disabled={exporting || loading}
           >
@@ -498,7 +498,7 @@ export default function AttendanceReportsPage() {
               />
             </div>
             <Button
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="text-white"
               onClick={fetchReports}
               disabled={loading}
             >

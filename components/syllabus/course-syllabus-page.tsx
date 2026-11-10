@@ -273,7 +273,7 @@ export default function CourseSyllabusPage() {
             <RefreshCw className="h-4 w-4 mr-1" />
             Refresh
           </Button>
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={openUpload}>
+          <Button className="text-white" onClick={openUpload}>
             <Plus className="h-4 w-4 mr-1" />
             Upload syllabus
           </Button>
@@ -497,7 +497,7 @@ export default function CourseSyllabusPage() {
               Cancel
             </Button>
             <Button
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="text-white"
               disabled={saving}
               onClick={() => void submit()}
             >

@@ -239,7 +239,7 @@ export default function KpiSettingsPage() {
             <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={openCreate}>
+          <Button className="text-white" onClick={openCreate}>
             <Plus className="h-4 w-4 mr-1" />
             Add KPI
           </Button>
@@ -512,7 +512,7 @@ export default function KpiSettingsPage() {
               Cancel
             </Button>
             <Button
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="text-white"
               onClick={() => void handleSave()}
               disabled={saving}
             >

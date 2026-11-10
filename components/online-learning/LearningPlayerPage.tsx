@@ -294,7 +294,7 @@ export default function LearningPlayerPage() {
       : null
 
   return (
-    <main className="min-h-screen bg-[#171A26]">
+    <main className="min-h-screen">
       <div className="border-b border-gray-800 bg-[#12141c]">
         <div className="container mx-auto px-4 max-w-7xl py-4 flex flex-wrap items-center gap-3">
           <Link

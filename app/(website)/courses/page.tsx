@@ -158,7 +158,7 @@ export default function CoursesPage() {
   }, [])
 
   return (
-    <main className="min-h-screen bg-[#171A26]">
+    <main className="min-h-screen">
       {/* Hero */}
       <section
         className="relative py-20 md:py-28 bg-cover bg-center"
@@ -176,7 +176,7 @@ export default function CoursesPage() {
       </section>
 
       {/* Courses grid from API */}
-      <section className="py-16 md:py-20 bg-[#171A26] min-h-[60vh]">
+      <section className="py-16 md:py-20 min-h-[60vh]">
         <div className="site-content px-0 sm:px-1">
           {loading ? (
             <div className="flex justify-center py-24">

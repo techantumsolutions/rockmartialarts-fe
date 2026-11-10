@@ -623,7 +623,6 @@ export default function EditStudentProfilePage() {
             <Button
               onClick={handleSave}
               disabled={saving}
-              className="bg-blue-600 hover:bg-blue-700"
             >
               {saving ? (
                 <>

@@ -459,7 +459,7 @@ export default function AcademyEventsAdminPage() {
             </Button>
             <Button
               onClick={startCreate}
-              className="gap-2 bg-[#4F5077] hover:bg-[#3d3e5c]"
+              className="gap-2"
             >
               <Plus className="w-4 h-4" />
               New event
@@ -903,7 +903,7 @@ export default function AcademyEventsAdminPage() {
                         type="button"
                         size="sm"
                         disabled={reminderBusy || !form.reminders_enabled}
-                        className="bg-[#4F5077] hover:bg-[#3d3e5c]"
+                        
                         onClick={() => {
                           if (
                             confirm(

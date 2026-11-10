@@ -352,7 +352,7 @@ export function StudentProfilePhotoSheet(props: {
               </Button>
               <Button
                 type="button"
-                className="sm:flex-1 bg-blue-600 hover:bg-blue-700"
+                className="sm:flex-1"
                 onClick={handleSave}
                 disabled={!pendingFile || uploading || cameraLive}
               >

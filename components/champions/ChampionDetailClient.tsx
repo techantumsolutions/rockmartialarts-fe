@@ -45,7 +45,7 @@ export default function ChampionDetailClient() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#171A26] flex items-center justify-center">
+      <main className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
       </main>
     )
@@ -53,7 +53,7 @@ export default function ChampionDetailClient() {
 
   if (error || !champion) {
     return (
-      <main className="min-h-screen bg-[#171A26] flex flex-col items-center justify-center gap-4 px-4">
+      <main className="min-h-screen flex flex-col items-center justify-center gap-4 px-4">
         <p className="text-gray-300">{error || "Champion not found"}</p>
         <Button asChild variant="outline" className="border-gray-600 text-white">
           <Link href="/champions">Back to champions</Link>
@@ -65,7 +65,7 @@ export default function ChampionDetailClient() {
   const photo = resolvePublicAssetUrl(champion.photo_url)
 
   return (
-    <main className="min-h-screen bg-[#171A26]">
+    <main className="min-h-screen">
       <section className="relative py-16 md:py-24 bg-cover bg-center"
         style={{ backgroundImage: "url(/assets/img/banner.jpg)" }}
       >

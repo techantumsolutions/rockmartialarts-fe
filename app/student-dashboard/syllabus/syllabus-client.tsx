@@ -226,7 +226,7 @@ export default function StudentSyllabusClient() {
                   {item.has_syllabus && item.syllabus ? (
                     <Button
                       size="sm"
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                      className="text-white"
                       disabled={openingId === item.syllabus.id}
                       onClick={() => void openSyllabus(item)}
                     >

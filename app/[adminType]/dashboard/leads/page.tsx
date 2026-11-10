@@ -567,13 +567,19 @@ export default function LeadsPage() {
                       const status = normalizeStatus(row.status)
                       const priority = normalizePriority(row.priority)
                       const overdue = isOverdue(row.next_follow_up_at, row.status)
+                      const isUnopened = status === "new"
+                      const isDeepLinked = deepLinkLeadId === row.id
                       return (
                         <tr
                           key={row.id}
-                          className={`border-t border-gray-200 cursor-pointer ${
-                            overdue
-                              ? "bg-red-50/70 hover:bg-red-50"
-                              : "hover:bg-gray-50/80"
+                          className={`border-t border-gray-200 cursor-pointer transition-colors ${
+                            isDeepLinked
+                              ? "bg-[#E1BB33]/25 ring-2 ring-inset ring-[#E1BB33]/70"
+                              : isUnopened
+                                ? "bg-amber-50/90 hover:bg-amber-100/80 border-l-4 border-l-[#E1BB33]"
+                                : overdue
+                                  ? "bg-red-50/70 hover:bg-red-50"
+                                  : "hover:bg-gray-50/80"
                           }`}
                           onClick={() => void openDetail(row)}
                         >

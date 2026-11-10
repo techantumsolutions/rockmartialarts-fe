@@ -322,7 +322,6 @@ export default function StudentProgressPage() {
               </p>
               <Button
                 onClick={() => router.push('/student-dashboard/courses')}
-                className="bg-blue-600 hover:bg-blue-700"
               >
                 Browse Courses
               </Button>

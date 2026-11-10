@@ -29,7 +29,7 @@ export function BranchHero({ branch, coverImageUrl }: BranchHeroProps) {
 
   return (
     <section
-      className="relative min-h-[60vh] flex items-end justify-center overflow-hidden bg-[#171A26]"
+      className="relative min-h-[60vh] flex items-end justify-center overflow-hidden"
       data-aos="fade-up"
       data-aos-duration="600"
       data-aos-once="true"

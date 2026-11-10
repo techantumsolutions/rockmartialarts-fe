@@ -713,7 +713,7 @@ export default function CoachAvailabilityEditor({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setBlockedSlotDelete(null)} className="bg-[#4F5077] hover:bg-[#3d3e5c]">
+            <AlertDialogAction onClick={() => setBlockedSlotDelete(null)} >
               Understood
             </AlertDialogAction>
           </AlertDialogFooter>

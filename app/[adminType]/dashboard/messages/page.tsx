@@ -507,7 +507,7 @@ export default function AdminMessagesPage() {
                       <Button
                         onClick={handleSendMessage}
                         disabled={isSending || !messageInput.trim()}
-                        className="bg-blue-500 hover:bg-blue-600 h-10 px-4"
+                        className="bg-blue-500 hover: h-10 px-4"
                       >
                         {isSending ? (
                           <Loader2 className="w-4 h-4 animate-spin" />

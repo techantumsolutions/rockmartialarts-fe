@@ -35,7 +35,7 @@ export function Carousel({ children, className = "", slideClassName = "" }: Caro
             <button
               type="button"
               onClick={scrollPrev}
-              className="absolute left-0 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-[#FFB70F]/50 bg-[#171A26] text-[#FFB70F] shadow-lg transition-colors hover:bg-[#FFB70F] hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFB70F] focus-visible:ring-offset-2 focus-visible:ring-offset-[#171A26]"
+              className="absolute left-0 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-[#FFB70F]/50 text-[#FFB70F] shadow-lg transition-colors hover:bg-[#FFB70F] hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFB70F] focus-visible:ring-offset-2 focus-visible:ring-offset-[#171A26]"
               aria-label="Previous slide"
               title="Previous slide"
             >
@@ -44,7 +44,7 @@ export function Carousel({ children, className = "", slideClassName = "" }: Caro
             <button
               type="button"
               onClick={scrollNext}
-              className="absolute right-0 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-[#FFB70F]/50 bg-[#171A26] text-[#FFB70F] shadow-lg transition-colors hover:bg-[#FFB70F] hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFB70F] focus-visible:ring-offset-2 focus-visible:ring-offset-[#171A26]"
+              className="absolute right-0 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-[#FFB70F]/50 text-[#FFB70F] shadow-lg transition-colors hover:bg-[#FFB70F] hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFB70F] focus-visible:ring-offset-2 focus-visible:ring-offset-[#171A26]"
               aria-label="Next slide"
               title="Next slide"
             >

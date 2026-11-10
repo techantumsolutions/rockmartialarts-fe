@@ -196,7 +196,7 @@ export default function StudentPromotionPopup() {
 
         <div className="p-6 space-y-3">
           <DialogHeader className="space-y-2 text-left">
-            <DialogTitle className="text-xl text-[#4F5077] pr-6">
+            <DialogTitle className="text-xl text-[#171A26] pr-6">
               {promo.title}
             </DialogTitle>
             {(promo.short_description || promo.description) && (

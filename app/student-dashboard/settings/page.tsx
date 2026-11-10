@@ -371,7 +371,7 @@ export default function StudentSettingsPage() {
             {/* Save Button */}
             <div className="flex justify-end space-x-4">
               <Button variant="outline">Cancel</Button>
-              <Button onClick={handleSaveSettings} className="bg-blue-600 hover:bg-blue-700">
+              <Button onClick={handleSaveSettings} >
                 Save Changes
               </Button>
             </div>

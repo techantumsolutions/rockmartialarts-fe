@@ -1628,7 +1628,7 @@ export default function EditCoursePage() {
       </main>
 
       {showSuccessPopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
           <div className="mx-4 w-full max-w-md rounded-2xl bg-white p-8 shadow-xl">
             <div className="text-center">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">

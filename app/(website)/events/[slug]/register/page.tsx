@@ -316,7 +316,7 @@ export default function EventRegisterPage() {
 
   if (confirmed) {
     return (
-      <main className="min-h-screen bg-[#171A26]">
+      <main className="min-h-screen">
         <section className="py-16 md:py-24">
           <div className="container mx-auto px-4 max-w-xl">
             <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center space-y-4">
@@ -367,7 +367,7 @@ export default function EventRegisterPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#171A26]">
+    <main className="min-h-screen">
       <section className="py-10 md:py-16">
         <div className="container mx-auto px-4 max-w-xl space-y-6">
           <Link

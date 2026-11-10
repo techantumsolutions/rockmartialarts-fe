@@ -536,9 +536,9 @@ function CourseDetailPageInner() {
   }, [course?.id, effectiveLocationForFetch])
 
   /* Loading / Error */
-  if (loading) return <main className="min-h-screen bg-[#171A26] flex items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-[#FFB70F]" /></main>
+  if (loading) return <main className="min-h-screen flex items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-[#FFB70F]" /></main>
   if (error || !course) return (
-    <main className="min-h-screen bg-[#171A26] flex items-center justify-center px-4">
+    <main className="min-h-screen flex items-center justify-center px-4">
       <div className="text-center text-white"><p className="text-red-300 mb-6 text-lg">{error || "Course not found."}</p>
         <Link href="/courses" onClick={handleBackNavigation} className="inline-flex items-center gap-2 rounded-lg bg-[#FFB70F] px-6 py-3 text-black font-semibold hover:bg-[#F73322] hover:text-white transition-colors"><ArrowLeft className="w-4 h-4" /> Back to Courses</Link>
       </div>
@@ -673,7 +673,7 @@ function CourseDetailPageInner() {
     ""
 
   return (
-    <main className="min-h-screen bg-[#171A26] text-gray-300">
+    <main className="min-h-screen text-gray-300">
       {/* ============ 1. HERO ============ */}
       {enabled("hero") && (
         <section
@@ -731,7 +731,7 @@ function CourseDetailPageInner() {
                             <ChevronDown className={`h-4 w-4 shrink-0 transition-transform duration-200 ${locationOpen ? "rotate-180" : ""}`} />
                           </button>
                         </PopoverTrigger>
-                        <PopoverContent align="start" className="z-50 w-[var(--radix-popover-trigger-width)] min-w-[180px] border-white/10 bg-[#171A26] p-1 text-white">
+                        <PopoverContent align="start" className="z-50 w-[var(--radix-popover-trigger-width)] min-w-[180px] border-white/10 p-1 text-white">
                           <div role="listbox" aria-label="Locations" className="max-h-60 overflow-y-auto">
                             {branches.map((branch) => {
                               const selected = branch.branch_id === effectiveLocationId
@@ -787,7 +787,7 @@ function CourseDetailPageInner() {
                             <ChevronDown className={`h-4 w-4 shrink-0 transition-transform duration-200 ${durationOpen ? "rotate-180" : ""}`} />
                           </button>
                         </PopoverTrigger>
-                        <PopoverContent align="start" className="z-50 w-[var(--radix-popover-trigger-width)] min-w-[180px] border-white/10 bg-[#171A26] p-1 text-white">
+                        <PopoverContent align="start" className="z-50 w-[var(--radix-popover-trigger-width)] min-w-[180px] border-white/10 p-1 text-white">
                           <div role="listbox" aria-label="Course durations" className="max-h-60 overflow-y-auto">
                             {durations.map((duration) => {
                               const selected = duration.id === effectiveDurationKey
@@ -866,7 +866,7 @@ function CourseDetailPageInner() {
                         <PopoverContent
                           align="start"
                           sideOffset={8}
-                          className="bg-[#171A26] border border-gray-700/80 rounded-xl shadow-2xl p-3 text-white z-50 w-auto min-w-[280px] sm:min-w-[340px] max-w-[min(94vw,420px)]"
+                          className="border border-gray-700/80 rounded-xl shadow-2xl p-3 text-white z-50 w-auto min-w-[280px] sm:min-w-[340px] max-w-[min(94vw,420px)]"
                         >
                           <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10 text-xs font-semibold text-gray-300">
                             <span className="flex items-center gap-1.5 text-[#FFB70F]">
@@ -953,7 +953,7 @@ function CourseDetailPageInner() {
 
       {/* ============ CTA (Ready to Start Your Journey?) ============ */}
       {enabled("cta") && (
-        <section className="bg-[#171A26] px-4 py-8 md:bg-[#F73322] md:px-0 md:py-12">
+        <section className="px-4 py-8 md:bg-[#F73322] md:px-0 md:py-12">
           <div className="site-content rounded-2xl bg-[#F73322] px-5 py-8 text-center sm:px-8 md:rounded-none md:bg-transparent md:px-4 md:py-0">
             <h2 className="text-2xl md:text-3xl font-extrabold text-white uppercase mb-5 md:mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>
               {pc.cta_section?.headline?.trim() || "Ready to Start Your Journey?"}
@@ -1049,7 +1049,7 @@ function CourseDetailPageInner() {
             ) : (
               <h2 className="sr-only">Syllabus and equipment — {displayTitle}</h2>
             )}
-            <div className="max-w-4xl mx-auto bg-[#171A26] border border-gray-800 rounded-xl p-6 md:p-8 space-y-6">
+            <div className="max-w-4xl mx-auto border border-gray-800 rounded-xl p-6 md:p-8 space-y-6">
               {courseContent.syllabus && (
                 <div>
                   <h3 className="text-xl font-bold text-[#FFB70F] uppercase mb-3" style={{ fontFamily: "'Oswald', sans-serif" }}>
@@ -1091,7 +1091,7 @@ function CourseDetailPageInner() {
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {benefits.map((b, i) => (
-                <div key={i} className="bg-[#171A26] border border-gray-800 rounded-xl p-6 hover:border-[#FFB70F] transition-colors text-center">
+                <div key={i} className="border border-gray-800 rounded-xl p-6 hover:border-[#FFB70F] transition-colors text-center">
                   {b.icon && <span className="text-3xl block mb-3">{b.icon}</span>}
                   <h3 className="text-xl font-bold text-[#FFB70F] uppercase mb-2" style={{ fontFamily: "'Oswald', sans-serif" }}>{b.title}</h3>
                   <p className="text-gray-400 text-sm">{b.description}</p>
@@ -1145,7 +1145,7 @@ function CourseDetailPageInner() {
                   <div
                     key={i}
                     onClick={() => setSelectedGalleryImg(resolvedUrl)}
-                    className="relative overflow-hidden rounded-lg group h-56 sm:h-64 bg-[#171A26] border border-gray-800 flex items-center justify-center cursor-pointer shadow-md hover:border-[#FFB70F]/50 transition-colors"
+                    className="relative overflow-hidden rounded-lg group h-56 sm:h-64 border border-gray-800 flex items-center justify-center cursor-pointer shadow-md hover:border-[#FFB70F]/50 transition-colors"
                   >
                     {/* Ambient blurred backdrop so portrait and landscape images fill the card gracefully */}
                     <img
@@ -1230,7 +1230,7 @@ function CourseDetailPageInner() {
             )}
             <div className="max-w-4xl mx-auto">
               {/* Active testimonial */}
-              <div className="bg-[#171A26] border border-gray-800 rounded-xl p-8 md:p-10 text-center relative">
+              <div className="border border-gray-800 rounded-xl p-8 md:p-10 text-center relative">
                 <Quote className="w-10 h-10 text-[#FFB70F] mx-auto mb-4 opacity-50" />
                 <p className="text-gray-300 text-lg leading-relaxed mb-6 italic">&ldquo;{testimonials[testimonialIdx]?.text}&rdquo;</p>
                 <p className="text-[#FFB70F] font-bold uppercase">{testimonials[testimonialIdx]?.name}</p>
@@ -1337,7 +1337,7 @@ export default function CourseDetailPage() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-screen bg-[#171A26] flex items-center justify-center">
+        <main className="min-h-screen flex items-center justify-center">
           <Loader2 className="w-10 h-10 animate-spin text-[#FFB70F]" />
         </main>
       }

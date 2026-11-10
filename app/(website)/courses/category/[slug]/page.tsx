@@ -89,7 +89,7 @@ export default function CategoryLandingPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#171A26] flex items-center justify-center">
+      <main className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4 text-gray-400">
           <Loader2 className="w-12 h-12 animate-spin text-[#FFB70F]" />
           <p>Loading category...</p>
@@ -100,7 +100,7 @@ export default function CategoryLandingPage() {
 
   if (notFound || !category) {
     return (
-      <main className="min-h-screen bg-[#171A26] flex items-center justify-center px-4">
+      <main className="min-h-screen flex items-center justify-center px-4">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-white mb-4">Category not found</h1>
           <p className="text-gray-400 mb-6">This category may be inactive or no longer available.</p>
@@ -120,7 +120,7 @@ export default function CategoryLandingPage() {
   const hasCourses = courses.length > 0
 
   return (
-    <main className="min-h-screen bg-[#171A26]">
+    <main className="min-h-screen">
       <section
         className="relative py-20 md:py-28 bg-cover bg-center"
         style={{ backgroundImage: "url(/assets/img/banner.jpg)" }}
@@ -158,7 +158,7 @@ export default function CategoryLandingPage() {
       </section>
 
       {hasSubcategories ? (
-        <section className="py-10 md:py-12 bg-[#171A26] border-b border-gray-800">
+        <section className="py-10 md:py-12 border-b border-gray-800">
           <div className="site-content px-0 sm:px-1">
             <h2 className="text-xl font-semibold text-white mb-4">Subcategories</h2>
             <div className="flex flex-wrap gap-3">
@@ -176,7 +176,7 @@ export default function CategoryLandingPage() {
         </section>
       ) : null}
 
-      <section className="py-16 md:py-20 bg-[#171A26]">
+      <section className="py-16 md:py-20">
         <div className="site-content px-0 sm:px-1">
           {!hasCourses ? (
             <div className="text-center py-16 text-gray-400">

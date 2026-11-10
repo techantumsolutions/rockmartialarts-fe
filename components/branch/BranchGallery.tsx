@@ -18,7 +18,7 @@ export function BranchGallery({ branch }: BranchGalleryProps) {
 
   if (gallery.length === 0) {
     return (
-      <section className="py-16 md:py-20 bg-[#171A26] relative z-10">
+      <section className="py-16 md:py-20 relative z-10">
         <div className="container mx-auto px-4 max-w-7xl">
           <h2 className="text-3xl md:text-4xl font-bold text-[#FFB70F] mb-8 text-center">
             Gallery
@@ -30,7 +30,7 @@ export function BranchGallery({ branch }: BranchGalleryProps) {
   }
 
   return (
-    <section className="py-16 md:py-20 bg-[#171A26] relative z-10">
+    <section className="py-16 md:py-20 relative z-10">
       <div className="container mx-auto px-4 max-w-7xl">
         <h2
           className="text-3xl md:text-4xl font-bold text-[#FFB70F] mb-10 text-center"

@@ -239,7 +239,7 @@ export default function EnrollmentCartPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#171A26] flex items-center justify-center pt-24">
+      <main className="min-h-screen flex items-center justify-center pt-24">
         <Loader2 className="w-10 h-10 animate-spin text-[#FFB70F]" />
       </main>
     )
@@ -254,7 +254,7 @@ export default function EnrollmentCartPage() {
     hasStudents || cartAccess.allowed || (cartAccess.allowed === false && cartAccess.kind === "staff")
 
   return (
-    <main className="min-h-screen bg-[#171A26] text-white pt-24 pb-16">
+    <main className="min-h-screen text-white pt-24 pb-16">
       <div className="container mx-auto px-4 max-w-4xl">
         <div className="flex items-center gap-3 mb-8">
           <ShoppingCart className="w-8 h-8 text-[#FFB70F]" />
@@ -516,7 +516,7 @@ export default function EnrollmentCartPage() {
           if (!open) setRemoveStudentTarget(null)
         }}
       >
-        <AlertDialogContent className="bg-[#171A26] border-gray-700 text-white">
+        <AlertDialogContent className="border-gray-700 text-white">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-[#FFB70F]">Remove student from cart?</AlertDialogTitle>
             <AlertDialogDescription className="text-gray-400">

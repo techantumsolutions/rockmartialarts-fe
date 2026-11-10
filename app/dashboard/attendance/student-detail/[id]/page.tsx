@@ -217,7 +217,7 @@ export default function StudentAttendanceDetailPage() {
             CSV
           </Button>
           <Button
-            className="bg-blue-600 hover:bg-blue-700 text-white"
+            className="text-white"
             onClick={() =>
               router.push(
                 `${basePath}/attendance/reports?student_id=${encodeURIComponent(studentId)}`

@@ -397,7 +397,7 @@ export default function NotificationTemplatesAdminPage() {
             </Button>
             <Button
               onClick={startCreate}
-              className="gap-2 bg-[#4F5077] hover:bg-[#3d3e5c]"
+              className="gap-2"
             >
               <Plus className="w-4 h-4" />
               New template
@@ -788,7 +788,7 @@ export default function NotificationTemplatesAdminPage() {
                   <Button
                     type="button"
                     disabled={saving}
-                    className="gap-2 bg-[#4F5077] hover:bg-[#3d3e5c]"
+                    className="gap-2"
                     onClick={() =>
                       void cloneRockDefault({
                         id: editingId,

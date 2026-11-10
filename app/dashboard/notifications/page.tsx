@@ -294,7 +294,7 @@ export default function NotificationsPage() {
                           </p>
                           <div className="flex items-center space-x-2">
                             {!notification.is_read && (
-                              <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                              <div className="w-2 h-2 rounded-full"></div>
                             )}
                             <span className="text-xs text-gray-500">
                               {formatTimeAgo(notification.created_at)}

@@ -373,7 +373,7 @@ export default function BranchManagerMessagesPage() {
                         <div className="flex-1">
                           <Input placeholder="Type your message here ..." value={messageInput} onChange={(e) => setMessageInput(e.target.value)} onKeyDown={handleKeyPress} className="h-10 border-gray-300 focus:border-blue-400" disabled={isSending} />
                         </div>
-                        <Button onClick={handleSendMessage} disabled={isSending || !messageInput.trim()} className="bg-blue-500 hover:bg-blue-600 h-10 px-4">
+                        <Button onClick={handleSendMessage} disabled={isSending || !messageInput.trim()} className="bg-blue-500 hover: h-10 px-4">
                           {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                         </Button>
                       </div>

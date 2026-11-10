@@ -1607,7 +1607,7 @@ export default function EditBranch() {
 
       {/* Success Popup */}
       {showSuccessPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
           <Card className="w-96">
             <CardContent className="pt-6">
               <div className="text-center space-y-4">

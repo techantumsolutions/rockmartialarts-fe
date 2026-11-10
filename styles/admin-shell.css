@@ -622,10 +622,44 @@ body:has([data-admin-shell]) {
   font-weight: 600;
 }
 
-/* ─── Dialogs / sheets inside admin ─── */
+/* ─── Dialogs / sheets inside admin (above sidebar z-60) ─── */
 [data-admin-shell] [role="dialog"],
 [data-admin-shell] [data-radix-dialog-content] {
-  border-radius: var(--admin-radius-card) !important;
+  border-radius: 1rem !important;
+}
+
+[data-slot="dialog-overlay"],
+[data-slot="alert-dialog-overlay"],
+[data-slot="sheet-overlay"],
+[data-slot="drawer-overlay"] {
+  z-index: 100 !important;
+}
+
+[data-slot="dialog-content"],
+[data-slot="alert-dialog-content"],
+[data-slot="sheet-content"],
+[data-slot="drawer-content"] {
+  z-index: 110 !important;
+}
+
+/* Soft content enter inside admin main */
+[data-admin-shell] .admin-content-frame {
+  animation: page-enter 0.35s ease-out both;
+}
+
+[data-admin-shell] .admin-content-frame > * {
+  animation: content-rise 0.4s ease-out both;
+}
+
+@keyframes content-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ─── Utility: icon tile used in section headers ─── */

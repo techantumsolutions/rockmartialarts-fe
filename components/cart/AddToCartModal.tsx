@@ -245,7 +245,7 @@ export function AddToCartModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md bg-[#171A26] border-gray-700 text-white">
+        <DialogContent className="sm:max-w-md border-gray-700 text-white">
           <DialogHeader>
             <DialogTitle className="text-[#FFB70F]">Add to enrollment cart</DialogTitle>
             <DialogDescription className="text-gray-400">

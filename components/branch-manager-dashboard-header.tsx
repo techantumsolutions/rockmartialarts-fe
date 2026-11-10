@@ -147,7 +147,7 @@ export default function BranchManagerDashboardHeader({ currentPage = "Dashboard"
         <div className="flex justify-between items-center h-auto roboto">
           {/* Logo and Navigation */}
           <div className="flex items-center space-x-2 min-w-0">
-            <div className="  flex-shrink-0">
+            <div className="flex-shrink-0">
               <img
                 src="/logo.png"
                 alt="Logo"

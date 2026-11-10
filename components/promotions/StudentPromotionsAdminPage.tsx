@@ -393,7 +393,7 @@ export default function StudentPromotionsAdminPage() {
             </Button>
             <Button
               onClick={startCreate}
-              className="gap-2 bg-[#4F5077] hover:bg-[#3d3e5c]"
+              className="gap-2"
             >
               <Plus className="w-4 h-4" />
               New promotion

@@ -1284,7 +1284,6 @@ export default function StudentCoursesPage() {
               <Button
                 size="sm"
                 onClick={openBrowseNewEnrollment}
-                className="bg-blue-600 hover:bg-blue-700"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Enroll Course
@@ -1370,7 +1369,6 @@ export default function StudentCoursesPage() {
                 {availableCourses.some((c) => !c.is_enrolled) && (
                   <Button 
                     onClick={openBrowseNewEnrollment}
-                    className="bg-blue-600 hover:bg-blue-700"
                   >
                     Browse Courses
                   </Button>
@@ -1869,7 +1867,7 @@ export default function StudentCoursesPage() {
                 !selectedDurationKey ||
                 durationOptions.length === 0
               }
-              className="bg-blue-600 hover:bg-blue-700"
+              
             >
               {enrolling ? "Enrolling..." : "Proceed to Payment"}
             </Button>

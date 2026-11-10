@@ -9,6 +9,7 @@ import Sidebar, {
 } from "@/components/layout/Sidebar"
 import Footer from "@/components/layout/Footer"
 import { ResponsiveContainer } from "@/components/layout/responsive"
+import NewLeadAlerts from "@/components/dashboard/NewLeadAlerts"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -49,6 +50,7 @@ export default function DashboardLayout({ children, role }: DashboardLayoutProps
           </ResponsiveContainer>
         </main>
         <Footer />
+        <NewLeadAlerts />
       </div>
     )
   }
@@ -94,6 +96,7 @@ export default function DashboardLayout({ children, role }: DashboardLayoutProps
           </div>
         </main>
       </div>
+      <NewLeadAlerts />
     </div>
   )
 }

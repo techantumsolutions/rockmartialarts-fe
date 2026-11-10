@@ -411,7 +411,7 @@ export default function BranchManagerCoachDetailPage() {
             <div className="flex space-x-3">
               <Button
                 onClick={() => router.push(`/branch-manager-dashboard/coaches/edit/${coachId}`)}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="text-white"
               >
                 <Edit className="w-4 h-4 mr-2" />
                 Edit Coach
@@ -668,7 +668,7 @@ export default function BranchManagerCoachDetailPage() {
                         <span className="text-sm text-gray-600">Progress:</span>
                         <div className="flex-1 bg-gray-200 rounded-full h-2">
                           <div 
-                            className="bg-blue-600 h-2 rounded-full" 
+                            className="h-2 rounded-full" 
                             style={{ width: `${student.progress}%` }}
                           ></div>
                         </div>

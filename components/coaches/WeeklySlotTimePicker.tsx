@@ -111,13 +111,13 @@ export default function WeeklySlotTimePicker({
       >
         {/* Header row: Selected Hour, Minute, AM/PM styled in blue matching timepicker header */}
         <div className="grid grid-cols-3 gap-1.5 p-2 bg-slate-50 border-b">
-          <div className="flex items-center justify-center py-1 rounded bg-blue-600 text-white font-semibold text-sm shadow-sm">
+          <div className="flex items-center justify-center py-1 rounded text-white font-semibold text-sm shadow-sm">
             {String(hour12).padStart(2, "0")}
           </div>
-          <div className="flex items-center justify-center py-1 rounded bg-blue-600 text-white font-semibold text-sm shadow-sm">
+          <div className="flex items-center justify-center py-1 rounded text-white font-semibold text-sm shadow-sm">
             {String(minute).padStart(2, "0")}
           </div>
-          <div className="flex items-center justify-center py-1 rounded bg-blue-600 text-white font-semibold text-sm shadow-sm">
+          <div className="flex items-center justify-center py-1 rounded text-white font-semibold text-sm shadow-sm">
             {period}
           </div>
         </div>

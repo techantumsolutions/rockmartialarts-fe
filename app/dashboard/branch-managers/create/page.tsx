@@ -426,7 +426,7 @@ export default function CreateBranchManagerPage() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6 ">
+        <form onSubmit={handleSubmit} className="space-y-6">
           {/* Personal Information */}
           <Card>
             <CardHeader>
@@ -791,7 +791,7 @@ export default function CreateBranchManagerPage() {
 
       {/* Success Popup */}
       {showSuccessPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
           <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4 text-center">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -805,7 +805,7 @@ export default function CreateBranchManagerPage() {
               <Button
                 onClick={sendCredentialsEmail}
                 disabled={isSendingEmail || !createdManagerId}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                className="w-full text-white"
               >
                 {isSendingEmail ? (
                   <>

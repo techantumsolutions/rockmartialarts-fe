@@ -1128,7 +1128,7 @@ function CategoryReportsPageContent() {
                 {/* Search Button */}
                 <div className="flex justify-end">
                   <Button
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-6"
+                    className="text-white px-6"
                     onClick={handleFinancialSearch}
                     disabled={searchLoading}
                   >
@@ -1344,7 +1344,7 @@ function CategoryReportsPageContent() {
                 {/* Search Button */}
                 <div className="flex justify-end">
                   <Button
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-6"
+                    className="text-white px-6"
                     onClick={handleBranchSearch}
                     disabled={searchLoading}
                   >
@@ -1542,7 +1542,7 @@ function CategoryReportsPageContent() {
                 {/* Search Button */}
                 <div className="flex justify-end">
                   <Button
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-6"
+                    className="text-white px-6"
                     onClick={handleCoachSearch}
                     disabled={searchLoading}
                   >
@@ -1741,7 +1741,7 @@ function CategoryReportsPageContent() {
                 {/* Search Button */}
                 <div className="flex justify-end">
                   <Button
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-6"
+                    className="text-white px-6"
                     onClick={handleCourseSearch}
                     disabled={searchLoading}
                   >
@@ -1943,7 +1943,7 @@ function CategoryReportsPageContent() {
                 {/* Search Button */}
                 <div className="flex justify-end">
                   <Button
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-6"
+                    className="text-white px-6"
                     onClick={handleCoachSearch}
                     disabled={searchLoading}
                   >
@@ -2237,7 +2237,7 @@ function CategoryReportsPageContent() {
                       )}
                     </Button>
                     <Button
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-6"
+                      className="text-white px-6"
                       onClick={handleStudentSearch}
                       disabled={searchLoading}
                     >

@@ -75,12 +75,12 @@ export function TimePicker24({
         </button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-44 p-0 shadow-xl border rounded-lg overflow-hidden z-50" align="start">
+      <PopoverContent className="w-44 p-0 shadow-xl border rounded-lg overflow-hidden z-[120]" align="start">
         <div className="grid grid-cols-2 gap-1.5 p-2 bg-slate-50 border-b">
-          <div className="flex items-center justify-center py-1 rounded bg-blue-600 text-white font-semibold text-sm">
+          <div className="flex items-center justify-center py-1 rounded text-white font-semibold text-sm">
             {String(hour).padStart(2, "0")}
           </div>
-          <div className="flex items-center justify-center py-1 rounded bg-blue-600 text-white font-semibold text-sm">
+          <div className="flex items-center justify-center py-1 rounded text-white font-semibold text-sm">
             {String(minute).padStart(2, "0")}
           </div>
         </div>

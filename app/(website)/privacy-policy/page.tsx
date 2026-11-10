@@ -103,7 +103,7 @@ const sections = [
 
 export default function PrivacyPolicyPage() {
   return (
-    <main className="min-h-screen bg-[#171A26]">
+    <main className="min-h-screen">
       <section
         className="relative py-20 md:py-28 bg-cover bg-center"
         style={{ backgroundImage: "url(/assets/img/banner.jpg)" }}
@@ -119,7 +119,7 @@ export default function PrivacyPolicyPage() {
         </div>
       </section>
 
-      <section className="py-16 md:py-20 bg-[#171A26]">
+      <section className="py-16 md:py-20">
         <div className="container mx-auto px-4 max-w-3xl">
           <p className="text-gray-300 text-lg leading-relaxed mb-12">
             Welcome to Rock Martial Arts. We value your privacy and are committed to protecting

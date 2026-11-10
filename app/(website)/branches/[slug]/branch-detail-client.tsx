@@ -239,7 +239,7 @@ export default function BranchDetailPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#171A26] flex items-center justify-center">
+      <main className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4 text-gray-400">
           <Loader2 className="w-12 h-12 animate-spin text-[#FFB70F]" />
           <p>Loading branch...</p>
@@ -250,7 +250,7 @@ export default function BranchDetailPage() {
 
   if (error || !branch) {
     return (
-      <main className="min-h-screen bg-[#171A26] flex items-center justify-center px-4">
+      <main className="min-h-screen flex items-center justify-center px-4">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-white mb-4">Branch not found</h1>
           <p className="text-gray-400 mb-6">{error || "This branch may no longer exist."}</p>
@@ -278,7 +278,7 @@ export default function BranchDetailPage() {
   )}`
 
   return (
-    <main className="min-h-screen bg-[#171A26]">
+    <main className="min-h-screen">
       <BranchHero branch={branch} coverImageUrl={coverImage} />
       {isPartnerBranch ? (
         <div className="site-content px-0 sm:px-1 -mt-4 mb-6 relative z-20">
@@ -291,7 +291,7 @@ export default function BranchDetailPage() {
         </div>
       ) : null}
       <BranchCourses branch={branch} />
-      <section className="py-8 md:py-10 bg-[#171A26] relative z-10">
+      <section className="py-8 md:py-10 relative z-10">
         <div className="site-content px-0 sm:px-1">
           <div className="text-center mb-12" data-aos="fade-up">
             <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
@@ -352,7 +352,7 @@ export default function BranchDetailPage() {
         </div>
       </section>
       {partnerTeam.length > 0 ? (
-        <section className="py-8 md:py-10 bg-[#171A26] relative z-10">
+        <section className="py-8 md:py-10 relative z-10">
           <div className="site-content px-0 sm:px-1">
             <div className="text-center mb-12" data-aos="fade-up">
               <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />

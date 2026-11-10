@@ -98,7 +98,7 @@ function DemoFilterDropdown({ label, value, options, onChange }: DemoFilterDropd
       {open && (
         <div
           role="menu"
-          className="absolute left-0 top-full z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-gray-700 bg-[#171A26] py-1 shadow-xl"
+          className="absolute left-0 top-full z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-gray-700 py-1 shadow-xl"
         >
           {[{ id: "all", name: allLabel }, ...options].map((option) => (
             <button

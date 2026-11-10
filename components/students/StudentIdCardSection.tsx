@@ -130,7 +130,7 @@ export function StudentIdCardSection({ studentId, getToken }: StudentIdCardSecti
             <Button
               onClick={() => handleGenerate(false)}
               disabled={busy}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="text-white"
             >
               {busy ? (
                 <>

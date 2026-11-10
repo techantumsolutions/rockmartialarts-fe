@@ -415,7 +415,6 @@ export default function AttendanceOverviewPage() {
                 </Button>
                 <Button
                   onClick={() => router.push('/dashboard/attendance/students')}
-                  className="bg-blue-600 hover:bg-blue-700"
                 >
                   <Users className="h-4 w-4 mr-2" />
                   Manage Students
@@ -721,7 +720,7 @@ export default function AttendanceOverviewPage() {
                           <div className="flex items-center">
                             <div className="flex-1 bg-gray-200 rounded-full h-2 mr-2">
                               <div
-                                className="bg-blue-600 h-2 rounded-full"
+                                className="h-2 rounded-full"
                                 style={{ width: `${branch.attendance_rate}%` }}
                               ></div>
                             </div>

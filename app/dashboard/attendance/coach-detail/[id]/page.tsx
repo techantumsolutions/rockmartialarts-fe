@@ -85,7 +85,7 @@ export default function CoachAttendanceDetailPage() {
         </div>
 
         {/* Coach Profile Card */}
-        <Card className="">
+        <Card >
           <CardContent className="py-2 px-8 flex flex-col">
             {/* Attendance Overview */}
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4 boeder border-gray-200">
@@ -250,7 +250,7 @@ export default function CoachAttendanceDetailPage() {
                 </Button>
               </div>
               <div className="w-full border-r border-gray-200 flex justify-center text-[#5A6ACF]">
-              <Button variant="outline" size="sm" className="">
+              <Button variant="outline" size="sm" >
                 View Report
               </Button>
               </div>

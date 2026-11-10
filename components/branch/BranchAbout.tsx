@@ -17,7 +17,7 @@ export function BranchAbout({ branch, aboutImageUrl }: BranchAboutProps) {
     `Welcome to ${name}, a Rock Martial Arts Academy branch. We offer expert-led training in a supportive environment. Visit us to start your martial arts journey.`
 
   return (
-    <section className="py-16 md:py-20 bg-[#171A26] relative z-10">
+    <section className="py-16 md:py-20 relative z-10">
       <div className="container mx-auto px-4 max-w-7xl">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div

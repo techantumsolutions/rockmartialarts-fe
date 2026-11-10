@@ -201,7 +201,7 @@ export default function BranchManagerBranchInfo() {
             {branches.length > 0 && (
               <Button
                 onClick={() => handleEditBranch(branches[0]?.id)}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="text-white"
               >
                 Edit Branch
               </Button>

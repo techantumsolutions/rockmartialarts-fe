@@ -29,7 +29,7 @@ export function PartnerOrgHeader({ slug, name, logoUrl, logoAlt }: Props) {
     pathname === href || (href !== base && pathname?.startsWith(href))
 
   return (
-    <header className="fixed top-0 inset-x-0 z-50 border-b border-white/10 bg-[#171A26]/95 backdrop-blur">
+    <header className="fixed top-0 inset-x-0 z-50 border-b border-white/10 /95 backdrop-blur">
       <div className="container mx-auto max-w-7xl px-4 h-16 md:h-18 flex items-center justify-between gap-4">
         <Link href={base} className="flex items-center gap-3 min-w-0">
           {logo ? (
@@ -72,7 +72,7 @@ export function PartnerOrgHeader({ slug, name, logoUrl, logoAlt }: Props) {
       </div>
 
       {open ? (
-        <div className="md:hidden border-t border-white/10 bg-[#171A26] px-4 py-4 space-y-3">
+        <div className="md:hidden border-t border-white/10 px-4 py-4 space-y-3">
           {links.map((l) => (
             <Link
               key={l.href}

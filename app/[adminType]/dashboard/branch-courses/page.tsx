@@ -304,7 +304,7 @@ export default function BranchCourseAssignmentsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button className="bg-blue-600 hover:bg-blue-700" disabled={!addCourseId} onClick={addCourseToBranch}>
+              <Button  disabled={!addCourseId} onClick={addCourseToBranch}>
                 Assign
               </Button>
             </CardContent>

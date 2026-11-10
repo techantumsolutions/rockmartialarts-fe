@@ -1272,7 +1272,7 @@ export default function StudentPaymentsPage() {
                           ) : (
                             <>
                               <Button 
-                                className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
+                                className="w-full sm:w-auto"
                                 onClick={() => openTenureModal(enrollment, true)}
                                 disabled={paymentProcessingId === enrollment.id}
                               >

@@ -789,7 +789,7 @@ export default function BranchManagerCategoryReportsPage() {
                   <div className="space-y-2">
                     <label className="text-sm font-medium invisible">Search</label>
                     <Button
-                      className="bg-blue-600 hover:bg-blue-700 text-white w-full"
+                      className="text-white w-full"
                       onClick={handleFinancialSearch}
                       disabled={searchLoading}
                     >
@@ -875,7 +875,7 @@ export default function BranchManagerCategoryReportsPage() {
                 <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
                 <p className="text-lg font-medium text-gray-900 mb-2">Error Loading Data</p>
                 <p className="text-gray-600 mb-4">{error}</p>
-                <Button onClick={retryLoadData} className="bg-blue-600 hover:bg-blue-700 text-white">
+                <Button onClick={retryLoadData} className="text-white">
                   Try Again
                 </Button>
               </div>

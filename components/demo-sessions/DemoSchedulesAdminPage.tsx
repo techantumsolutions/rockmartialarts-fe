@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
-import { Loader2, Plus, RefreshCw, Search } from "lucide-react"
+import { CalendarDays, Loader2, Plus, RefreshCw, Search } from "lucide-react"
+import {
+  BeautifiedModal,
+  BeautifiedSection,
+} from "@/components/ui/beautified-modal"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -555,32 +559,20 @@ export default function DemoSchedulesAdminPage() {
         </Card>
       </div>
 
-      {editorOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
-          onClick={() => {
-            if (!saving) setEditorOpen(false)
-          }}
-        >
-          <div
-            className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-auto p-6 space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-start gap-4">
-              <div>
-                <h2 className="text-xl font-bold">
-                  {editing ? "Edit demo schedule" : "Add demo schedule"}
-                </h2>
-                <p className="text-sm text-gray-600">
-                  Set branch, course, recurrence, timing, capacity and fee
-                </p>
-              </div>
-              <Button variant="outline" onClick={() => setEditorOpen(false)} disabled={saving}>
-                Close
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <BeautifiedModal
+        open={editorOpen}
+        onClose={() => {
+          if (!saving) setEditorOpen(false)
+        }}
+        title={editing ? "Edit Demo Schedule" : "Add Demo Schedule"}
+        subtitle="Set branch, course, recurrence, timing, capacity and fee."
+        icon={CalendarDays}
+        tone="violet"
+        size="lg"
+        closeDisabled={saving}
+      >
+        <BeautifiedSection title="Schedule Details" icon={CalendarDays} tone="blue">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 px-3 py-3">
               <div className="sm:col-span-2 space-y-1">
                 <Label>Title (optional)</Label>
                 <Input
@@ -739,28 +731,23 @@ export default function DemoSchedulesAdminPage() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={saving}
-                onClick={() => setEditorOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                className="bg-yellow-400 hover:bg-yellow-500 text-white"
-                disabled={saving}
-                onClick={save}
-              >
-                {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                {editing ? "Save changes" : "Create schedule"}
-              </Button>
-            </div>
-          </div>
+        </BeautifiedSection>
+
+        <div className="flex justify-end gap-2 pt-1">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={saving}
+            onClick={() => setEditorOpen(false)}
+          >
+            Cancel
+          </Button>
+          <Button type="button" disabled={saving} onClick={save}>
+            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+            {editing ? "Save changes" : "Create schedule"}
+          </Button>
         </div>
-      )}
+      </BeautifiedModal>
     </div>
   )
 }

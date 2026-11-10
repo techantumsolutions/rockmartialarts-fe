@@ -170,7 +170,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 {showRetry && canRetry && (
                   <Button
                     onClick={this.handleRetry}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                    className="w-full text-white"
                   >
                     <RefreshCw className="w-4 h-4 mr-2" />
                     Try Again ({this.maxRetries - retryCount} attempts left)

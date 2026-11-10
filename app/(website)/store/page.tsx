@@ -127,7 +127,7 @@ export default function StorePage() {
       : products.filter((p) => p.category === filter)
 
   return (
-    <main className="min-h-screen bg-[#171A26]">
+    <main className="min-h-screen">
       {/* Hero */}
       <section className="relative py-24 md:py-32 overflow-hidden">
         <img
@@ -148,7 +148,7 @@ export default function StorePage() {
       </section>
 
       {/* Filters & Products */}
-      <section className="py-16 md:py-20 bg-[#171A26]">
+      <section className="py-16 md:py-20">
         <div className="site-content px-0 sm:px-1">
           {/* Desktop View (lg and xl screens): Standard flex-wrap pills without arrows or scrolling */}
           <div className="hidden lg:flex flex-wrap gap-3 mb-10">

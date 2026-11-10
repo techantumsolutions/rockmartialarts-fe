@@ -338,7 +338,7 @@ const paginatedCoaches = filteredCoaches.slice(
             </Button>
             <Button
               onClick={handleAssignClick}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-6"
+              className="bg-blue-500 hover: text-white px-6"
             >
               Assign Manager
             </Button>
@@ -393,7 +393,7 @@ const paginatedCoaches = filteredCoaches.slice(
                   ) : (
                     paginatedCoaches.map((coach) => (
                       <tr key={coach.id} className="border-b hover:bg-gray-50 text-[#6B7A99] text-xs">
-                        <td className="py-4 px-6 ">{coach.full_name}</td>
+                        <td className="py-4 px-6">{coach.full_name}</td>
                         <td className="py-4 px-6">{coach.professional_info.designation_id}</td>
                         <td className="py-4 px-6">{coach.contact_info.phone}</td>
                         <td className="py-4 px-6">
@@ -504,7 +504,7 @@ const paginatedCoaches = filteredCoaches.slice(
 
       {/* Assign Popup */}
       {showAssignPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Assign Coach as Branch Manager</h3>
@@ -579,7 +579,7 @@ const paginatedCoaches = filteredCoaches.slice(
               <Button
                 onClick={handleAssignSubmit}
                 disabled={assignmentLoading}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+                className="w-full text-white disabled:opacity-50"
               >
                 {assignmentLoading ? "Assigning..." : "Assign as Manager"}
               </Button>
@@ -590,7 +590,7 @@ const paginatedCoaches = filteredCoaches.slice(
 
       {/* Delete Confirmation Popup */}
       {showDeletePopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <div className="text-center">
               <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -615,7 +615,7 @@ const paginatedCoaches = filteredCoaches.slice(
 
       {/* Send Credentials Confirmation Popup */}
       {showSendCredentialsPopup && selectedCoachForCredentials && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <div className="text-center">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">

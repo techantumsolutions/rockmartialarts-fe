@@ -280,7 +280,7 @@ export default function BiometricDevicesPage() {
               <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} />
               Refresh
             </Button>
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={openCreate}>
+            <Button className="text-white" onClick={openCreate}>
               <Plus className="h-4 w-4 mr-1" />
               Add Device
             </Button>
@@ -581,7 +581,7 @@ export default function BiometricDevicesPage() {
             <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={handleSave} disabled={saving} >
               {saving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-1 animate-spin" />

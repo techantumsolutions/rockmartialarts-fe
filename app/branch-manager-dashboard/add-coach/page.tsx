@@ -739,7 +739,7 @@ export default function AddCoachPage() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6 ">
+        <form onSubmit={handleSubmit} className="space-y-6">
           {/* Personal Information */}
           <Card>
             <CardHeader>
@@ -1296,7 +1296,7 @@ export default function AddCoachPage() {
 
         {/* Success Popup */}
         {showSuccessPopup && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
             <div className="bg-white rounded-lg p-6 w-full max-w-md">
               <div className="text-center">
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">

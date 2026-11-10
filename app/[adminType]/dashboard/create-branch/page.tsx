@@ -1775,7 +1775,7 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
 
       {/* Success Popup */}
       {showSuccessPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
           <Card className="w-full max-w-96">
             <CardContent className="pt-6">
               <div className="text-center space-y-4">

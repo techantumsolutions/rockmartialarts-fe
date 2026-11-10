@@ -281,7 +281,7 @@ export function MultiCoursePickerModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-hidden flex flex-col bg-[#171A26] border-gray-700 text-white">
+      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-hidden flex flex-col border-gray-700 text-white">
         <DialogHeader>
           <DialogTitle className="text-[#FFB70F]">Add multiple courses</DialogTitle>
           <DialogDescription className="text-gray-400">

@@ -36,7 +36,7 @@ export function PartnerOrgSiteChrome({ children }: { children: React.ReactNode }
   const footer = data?.footer || {}
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#171A26]">
+    <div className="min-h-screen flex flex-col">
       <PartnerOrgHeader
         slug={data?.slug || slug}
         name={name}

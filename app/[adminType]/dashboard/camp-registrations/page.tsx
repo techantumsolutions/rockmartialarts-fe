@@ -1,14 +1,40 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import {
+  Activity,
+  AlertTriangle,
+  CalendarDays,
+  Coins,
+  Droplets,
+  GraduationCap,
+  HeartPulse,
+  Home,
+  Mail,
+  MapPin,
+  Phone,
+  Pill,
+  RefreshCw,
+  Search,
+  Shield,
+  User,
+  UserRound,
+  Utensils,
+} from "lucide-react"
 import { getBackendApiUrl } from "@/lib/config"
 import { TokenManager } from "@/lib/tokenManager"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { RefreshCw, Search } from "lucide-react"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
+import {
+  BeautifiedField,
+  BeautifiedFooterNote,
+  BeautifiedHero,
+  BeautifiedModal,
+  BeautifiedSection,
+} from "@/components/ui/beautified-modal"
 
 type EventOption = { event_id: string; event_name: string; event_dates?: string }
 
@@ -53,6 +79,36 @@ type Detail = {
   hear_about?: { sources?: string[]; other_source?: string; referred_by?: string }
   final?: Record<string, string | boolean>
   created_at?: string
+}
+
+function pick(data: Record<string, unknown> | undefined, keys: string[]): string {
+  if (!data) return ""
+  for (const k of keys) {
+    const v = data[k]
+    if (v !== null && v !== undefined && String(v).trim() !== "") return String(v)
+  }
+  return ""
+}
+
+function statusLabel(status?: string) {
+  if (status === "paid") return "Paid"
+  if (status === "pending_payment") return "Pending payment"
+  if (status === "received") return "Received"
+  if (status === "registered") return "Registered"
+  return status ? status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "—"
+}
+
+function statusTone(status?: string): "success" | "warning" | "danger" | "info" | "neutral" {
+  if (status === "paid" || status === "received" || status === "registered") return "success"
+  if (status === "pending_payment") return "warning"
+  if (status === "cancelled" || status === "rejected") return "danger"
+  return "info"
+}
+
+function shortId(id?: string) {
+  if (!id) return "—"
+  const clean = id.replace(/-/g, "").toUpperCase()
+  return `CR-${clean.slice(-5)}`
 }
 
 export default function CampRegistrationsPage() {
@@ -113,6 +169,11 @@ export default function CampRegistrationsPage() {
     setDetail(await res.json())
   }
 
+  const participantName = useMemo(
+    () => pick(detail?.participant, ["full_name", "name", "participant_name"]) || "Participant",
+    [detail]
+  )
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 lg:px-8">
       <div className="w-full max-w-none space-y-6">
@@ -169,9 +230,7 @@ export default function CampRegistrationsPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <Button type="submit" className="bg-yellow-400 hover:bg-yellow-500 text-white">
-                Search
-              </Button>
+              <Button type="submit">Search</Button>
             </form>
 
             {error && <p className="text-sm text-red-600">{error}</p>}
@@ -232,99 +291,298 @@ export default function CampRegistrationsPage() {
         </Card>
       </div>
 
-      {detail ? (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setDetail(null)}>
-          <div
-            className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-auto p-6 space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-bold">{detail.participant?.full_name || "Registration"}</h2>
-                <p className="text-sm text-gray-600">
-                  {statusLabel(detail.status)} {detail.event?.event_name} {detail.event?.event_dates ? `• ${detail.event.event_dates}` : ""}{" "}
-                  {detail.event?.event_location ? `• ${detail.event.event_location}` : ""}
-                </p>
-              </div>
-              <Button variant="outline" onClick={() => setDetail(null)}>
-                Close
-              </Button>
-            </div>
-            <Section title="Fees at registration">
-              <p>Total: {detail.event?.fee_total}</p>
-              <p>Pay now: {detail.event?.fee_pay_now}</p>
-              <p>Balance: {detail.event?.fee_balance}</p>
-              <p>{detail.event?.refund_text}</p>
-            </Section>
-            <Kv title="Participant" data={detail.participant} />
-            <Kv title="Training" data={detail.training} />
-            <Kv title="Medical" data={detail.medical} />
-            <Kv title="Food" data={detail.food} />
-            <Kv title="Emergency" data={detail.emergency} />
-            <Kv title="Residential" data={detail.residential} />
-            <Section title="Payment">
-              <p>Mode: {String(detail.payment?.payment_mode || "")}</p>
-              <p>Other: {String(detail.payment?.other_mode || "")}</p>
-              <p>Txn: {String(detail.payment?.transaction_id || "")}</p>
+      <BeautifiedModal
+        open={!!detail}
+        onClose={() => setDetail(null)}
+        title="Camp Registration – Participant Details"
+        subtitle="Complete registration information, training, and medical details."
+        icon={CalendarDays}
+        tone="violet"
+        size="lg"
+        footer={
+          <BeautifiedFooterNote
+            icon={Coins}
+            balance={
+              <>
+                Balance ₹ {detail?.event?.fee_balance || pick(detail?.payment as Record<string, unknown>, ["balance", "fee_balance"]) || "—"}
+              </>
+            }
+            note={
+              detail?.event?.refund_text ||
+              "Registration/payment is non-refundable once confirmed."
+            }
+          />
+        }
+      >
+        {detail ? (
+          <>
+            <BeautifiedHero
+              name={participantName}
+              idLabel={shortId(detail.id)}
+              statusLabel={statusLabel(detail.status)}
+              statusTone={statusTone(detail.status)}
+              subtitle={[
+                detail.event?.event_name,
+                detail.event?.event_dates,
+                detail.event?.event_location,
+              ]
+                .filter(Boolean)
+                .join(" • ")}
+            />
+
+            <BeautifiedSection title="Participant Information" icon={User} tone="blue">
+              <BeautifiedField
+                label="Full Name"
+                value={pick(detail.participant, ["full_name", "name"])}
+                icon={User}
+                tone="blue"
+              />
+              <BeautifiedField
+                label="DOB"
+                value={pick(detail.participant, ["dob", "date_of_birth", "birth_date"])}
+                icon={CalendarDays}
+                tone="blue"
+              />
+              <BeautifiedField
+                label="Age"
+                value={pick(detail.participant, ["age"])}
+                icon={Activity}
+                tone="blue"
+              />
+              <BeautifiedField
+                label="Gender"
+                value={pick(detail.participant, ["gender"])}
+                icon={UserRound}
+                tone="blue"
+              />
+              <BeautifiedField
+                label="Guardian Name"
+                value={pick(detail.participant, [
+                  "guardian_name",
+                  "parent_guardian_name",
+                  "parent_name",
+                ])}
+                icon={Shield}
+                tone="blue"
+              />
+              <BeautifiedField
+                label="Guardian Relation"
+                value={pick(detail.participant, [
+                  "guardian_relation",
+                  "parent_guardian_relation",
+                  "relation",
+                ])}
+                icon={UserRound}
+                tone="blue"
+              />
+              <BeautifiedField
+                label="Contact"
+                value={pick(detail.participant, [
+                  "parent_guardian_mobile",
+                  "mobile",
+                  "phone",
+                  "contact",
+                ])}
+                icon={Phone}
+                tone="blue"
+              />
+              <BeautifiedField
+                label="Email"
+                value={pick(detail.participant, ["email"])}
+                icon={Mail}
+                tone="blue"
+              />
+              <BeautifiedField
+                label="Address"
+                value={pick(detail.participant, ["address", "full_address", "residential_address"])}
+                icon={MapPin}
+                tone="blue"
+              />
+            </BeautifiedSection>
+
+            <BeautifiedSection title="Training Information" icon={GraduationCap} tone="green">
+              <BeautifiedField
+                label="Level"
+                value={pick(detail.training, ["level", "belt_level", "current_level", "course_level"])}
+                icon={GraduationCap}
+                tone="green"
+              />
+              <BeautifiedField
+                label="Trained Before"
+                value={pick(detail.training, ["trained_before", "prior_training", "previous_training"])}
+                icon={Activity}
+                tone="green"
+              />
+              <BeautifiedField
+                label="Current Sports"
+                value={pick(detail.training, ["current_sports", "sports", "other_sports"])}
+                icon={Activity}
+                tone="green"
+              />
+              <BeautifiedField
+                label="Fitness Level"
+                value={pick(detail.training, ["fitness_level", "fitness"])}
+                icon={HeartPulse}
+                tone="green"
+              />
+            </BeautifiedSection>
+
+            <BeautifiedSection title="Medical Information" icon={HeartPulse} tone="rose">
+              <BeautifiedField
+                label="Injury"
+                value={pick(detail.medical, ["injury", "injuries", "recent_injury"])}
+                icon={AlertTriangle}
+                tone="rose"
+              />
+              <BeautifiedField
+                label="Medical Condition"
+                value={pick(detail.medical, ["medical_condition", "condition", "conditions"])}
+                icon={HeartPulse}
+                tone="rose"
+              />
+              <BeautifiedField
+                label="Allergies"
+                value={pick(detail.medical, ["allergies", "allergy"])}
+                icon={AlertTriangle}
+                tone="rose"
+              />
+              <BeautifiedField
+                label="Medication"
+                value={pick(detail.medical, ["medication", "medications", "current_medication"])}
+                icon={Pill}
+                tone="rose"
+              />
+              <BeautifiedField
+                label="Blood Group"
+                value={pick(detail.medical, ["blood_group", "blood_type"])}
+                icon={Droplets}
+                tone="rose"
+              />
+            </BeautifiedSection>
+
+            {(detail.food || detail.emergency || detail.residential) && (
+              <BeautifiedSection title="Camp & Emergency" icon={Home} tone="teal">
+                {detail.food ? (
+                  <>
+                    <BeautifiedField
+                      label="Food Preference"
+                      value={pick(detail.food, ["preference", "food_preference", "diet"])}
+                      icon={Utensils}
+                      tone="teal"
+                    />
+                    <BeautifiedField
+                      label="Food Notes"
+                      value={pick(detail.food, ["notes", "special_requests", "other"])}
+                      icon={Utensils}
+                      tone="teal"
+                    />
+                  </>
+                ) : null}
+                {detail.emergency ? (
+                  <>
+                    <BeautifiedField
+                      label="Emergency Contact"
+                      value={pick(detail.emergency, ["name", "contact_name", "emergency_name"])}
+                      icon={Shield}
+                      tone="teal"
+                    />
+                    <BeautifiedField
+                      label="Emergency Phone"
+                      value={pick(detail.emergency, ["phone", "mobile", "contact_phone"])}
+                      icon={Phone}
+                      tone="teal"
+                    />
+                  </>
+                ) : null}
+                {detail.residential ? (
+                  <BeautifiedField
+                    label="Accommodation"
+                    value={pick(detail.residential, ["accommodation", "room_type", "stay"])}
+                    icon={Home}
+                    tone="teal"
+                  />
+                ) : null}
+              </BeautifiedSection>
+            )}
+
+            <BeautifiedSection title="Payment & Fees" icon={Coins} tone="amber">
+              <BeautifiedField label="Fee Total" value={detail.event?.fee_total} icon={Coins} tone="amber" />
+              <BeautifiedField label="Pay Now" value={detail.event?.fee_pay_now} icon={Coins} tone="amber" />
+              <BeautifiedField label="Balance" value={detail.event?.fee_balance} icon={Coins} tone="amber" />
+              <BeautifiedField
+                label="Payment Mode"
+                value={String(detail.payment?.payment_mode || "")}
+                icon={Coins}
+                tone="amber"
+              />
+              <BeautifiedField
+                label="Transaction"
+                value={String(detail.payment?.transaction_id || "")}
+                icon={Coins}
+                tone="amber"
+              />
               {typeof detail.payment?.screenshot_url === "string" && detail.payment.screenshot_url ? (
-                <a
-                  className="text-yellow-700 underline"
-                  href={resolvePublicAssetUrl(detail.payment.screenshot_url)}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  View screenshot
-                </a>
+                <BeautifiedField
+                  label="Screenshot"
+                  value={
+                    <a
+                      className="text-[#B45309] underline"
+                      href={resolvePublicAssetUrl(detail.payment.screenshot_url)}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      View screenshot
+                    </a>
+                  }
+                  tone="amber"
+                />
               ) : null}
-            </Section>
-            <Section title="Hear about us">
-              <p>{(detail.hear_about?.sources || []).join(", ")}</p>
-              <p>Other: {detail.hear_about?.other_source}</p>
-              <p>Referred by: {detail.hear_about?.referred_by}</p>
-            </Section>
-            {typeof detail.parent_consent?.signature === "string" && detail.parent_consent.signature ? (
-              <Section title="Parent signature">
-                <img src={detail.parent_consent.signature} alt="Parent signature" className="max-h-24 border" />
-              </Section>
+            </BeautifiedSection>
+
+            {(detail.hear_about?.sources?.length ||
+              detail.hear_about?.other_source ||
+              detail.hear_about?.referred_by) && (
+              <BeautifiedSection title="Hear About Us" icon={User} tone="slate">
+                <BeautifiedField
+                  label="Sources"
+                  value={(detail.hear_about?.sources || []).join(", ")}
+                  tone="slate"
+                />
+                <BeautifiedField label="Other" value={detail.hear_about?.other_source} tone="slate" />
+                <BeautifiedField label="Referred By" value={detail.hear_about?.referred_by} tone="slate" />
+              </BeautifiedSection>
+            )}
+
+            {(typeof detail.parent_consent?.signature === "string" && detail.parent_consent.signature) ||
+            (typeof detail.final?.signature === "string" && detail.final.signature) ? (
+              <BeautifiedSection title="Signatures" icon={Shield} tone="violet">
+                {typeof detail.parent_consent?.signature === "string" && detail.parent_consent.signature ? (
+                  <div className="px-4 py-3">
+                    <p className="mb-2 text-xs text-[#64748B]">Parent signature</p>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={detail.parent_consent.signature}
+                      alt="Parent signature"
+                      className="max-h-24 rounded-lg border border-[#E2E8F0] bg-white"
+                    />
+                  </div>
+                ) : null}
+                {typeof detail.final?.signature === "string" && detail.final.signature ? (
+                  <div className="px-4 py-3">
+                    <p className="mb-2 text-xs text-[#64748B]">Final signature</p>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={detail.final.signature}
+                      alt="Final signature"
+                      className="max-h-24 rounded-lg border border-[#E2E8F0] bg-white"
+                    />
+                  </div>
+                ) : null}
+              </BeautifiedSection>
             ) : null}
-            {typeof detail.final?.signature === "string" && detail.final.signature ? (
-              <Section title="Final signature">
-                <img src={detail.final.signature} alt="Final signature" className="max-h-24 border" />
-              </Section>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+          </>
+        ) : null}
+      </BeautifiedModal>
     </div>
-  )
-}
-
-function statusLabel(status?: string) {
-  if (status === "paid") return "Paid"
-  if (status === "pending_payment") return "Pending payment"
-  if (status === "received") return "Received"
-  return status || "—"
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <h3 className="font-semibold text-[#4F5077] mb-1">{title}</h3>
-      <div className="text-sm text-gray-800 space-y-1">{children}</div>
-    </div>
-  )
-}
-
-function Kv({ title, data }: { title: string; data?: Record<string, unknown> }) {
-  if (!data) return null
-  return (
-    <Section title={title}>
-      {Object.entries(data).map(([k, v]) => (
-        <p key={k}>
-          <span className="text-gray-500">{k.replace(/_/g, " ")}: </span>
-          {String(v ?? "")}
-        </p>
-      ))}
-    </Section>
   )
 }

@@ -81,7 +81,7 @@ export default async function TestimonialsPage() {
   const testimonials: TestimonialCardItem[] = mongoList
 
   return (
-    <main className="min-h-screen bg-[#171A26]">
+    <main className="min-h-screen">
       <div className="site-content px-0 sm:px-1 py-16 md:py-20 lg:py-24">
         <div className="mb-12 md:mb-14">
           <Link

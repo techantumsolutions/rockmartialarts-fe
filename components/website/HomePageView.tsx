@@ -243,7 +243,7 @@ export default function HomePageView({
     ) : undefined
 
   return (
-    <main className="min-h-screen bg-[#171A26] relative">
+    <main className="min-h-screen relative">
       {/* Floating background shapes — slow floating motion */}
       <FloatingShapes className="z-0" />
 
@@ -278,7 +278,7 @@ export default function HomePageView({
       />
 
       {/* Tagline - scroll reveal */}
-      <AnimatedSection variant="fadeSlideUp" className="py-10 md:py-14 bg-[#171A26] relative z-10">
+      <AnimatedSection variant="fadeSlideUp" className="py-10 md:py-14 relative z-10">
         <div className="site-content px-0 sm:px-1">
           <h1 className="text-center text-white text-xl md:text-2xl lg:text-3xl font-medium">
             {ctaTitle}
@@ -292,7 +292,7 @@ export default function HomePageView({
       {/* Our Classes - Section 3: each card zooms individually (in view = scale 1, scroll past = scale 0) */}
       <section
         id="courses"
-        className="py-12 md:py-16 bg-[#171A26] scroll-mt-24 relative z-10"
+        className="py-12 md:py-16 scroll-mt-24 relative z-10"
       >
         <div className="site-content px-0 sm:px-1">
           <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
@@ -338,7 +338,7 @@ export default function HomePageView({
       {mediaSectionItems.length > 0 ? (
         <section
           id="media"
-          className="py-12 md:py-16 bg-[#171A26] scroll-mt-24 relative z-10"
+          className="py-12 md:py-16 scroll-mt-24 relative z-10"
         >
           <div className="site-content px-0 sm:px-1">
             <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
@@ -385,7 +385,7 @@ export default function HomePageView({
       {/* About: image (left); title, subtitle, rich text (right). Mobile: image first. Fallback benefits when no HTML. */}
       <AnimatedSection
         variant="fadeSlideUp"
-        className="py-12 md:py-16 bg-[#171A26] relative z-10"
+        className="py-12 md:py-16 relative z-10"
       >
         <div className="site-content px-0 sm:px-1">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start lg:items-center">
@@ -451,7 +451,7 @@ export default function HomePageView({
       </AnimatedSection>
 
       {/* Our Expert Masters — up to 8 coaches; desktop 4 / tablet 2 / mobile 1 */}
-      <LazySection className="py-16 md:py-20 bg-[#171A26] relative z-10" minHeight={420} rootMargin="280px">
+      <LazySection className="py-16 md:py-20 relative z-10" minHeight={420} rootMargin="280px">
       <section>
         <div className="site-content px-0 sm:px-1">
           <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
@@ -517,7 +517,7 @@ export default function HomePageView({
 
       {/* Student testimonials (MongoDB marketing) — carousel, max 6 */}
       {testimonialsEnabled && (
-      <LazySection className="py-16 md:py-20 bg-[#171A26] relative z-10" minHeight={480} rootMargin="280px">
+      <LazySection className="py-16 md:py-20 relative z-10" minHeight={480} rootMargin="280px">
       <section>
         <div className="site-content px-0 sm:px-1">
           <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
@@ -598,7 +598,7 @@ export default function HomePageView({
       )}
 
       {/* Student achievements showcase (MongoDB) */}
-      <LazySection className="py-16 md:py-20 bg-[#171A26] relative z-10 border-t border-gray-800/80" minHeight={400} rootMargin="280px">
+      <LazySection className="py-16 md:py-20 relative z-10 border-t border-gray-800/80" minHeight={400} rootMargin="280px">
       <section>
         <div className="site-content px-0 sm:px-1">
           <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
@@ -627,7 +627,7 @@ export default function HomePageView({
 
       {/* CTA section — only when CMS provides bottom CTA copy */}
       {bottomCtaTitle?.trim() ? (
-      <AnimatedSection variant="fadeSlideUp" className="py-16 md:py-24 bg-[#171A26] relative z-10">
+      <AnimatedSection variant="fadeSlideUp" className="py-16 md:py-24 relative z-10">
         <div className="site-content px-0 sm:px-1 text-center">
           <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">{bottomCtaTitle}</h2>
           {bottomCtaSubtitle ? <p className="text-gray-400 mb-8">{bottomCtaSubtitle}</p> : null}

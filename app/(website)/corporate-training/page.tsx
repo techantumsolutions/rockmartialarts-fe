@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function CorporateTrainingPage() {
   return (
-    <main className="min-h-screen bg-[#171A26]">
+    <main className="min-h-screen">
       <section
         className="relative py-20 md:py-28 bg-cover bg-center"
         style={{ backgroundImage: "url(/assets/img/banner.jpg)" }}
@@ -29,7 +29,7 @@ export default function CorporateTrainingPage() {
         </div>
       </section>
 
-      <section className="py-12 md:py-16 bg-[#171A26]">
+      <section className="py-12 md:py-16">
         <div className="site-content px-0 sm:px-1">
           <CorporateTrainingPublicForm />
         </div>

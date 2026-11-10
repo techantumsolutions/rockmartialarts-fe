@@ -447,7 +447,7 @@ export default function StudentDetailPage() {
       case 'cancelled':
         return <XCircle className="w-4 h-4 text-red-600" />
       default:
-        return <Clock className="w-4 h-4 " />
+        return <Clock className="w-4 h-4" />
     }
   }
 
@@ -460,7 +460,7 @@ export default function StudentDetailPage() {
       case 'absent':
         return <XCircle className="w-4 h-4 text-red-600" />
       default:
-        return <Clock className="w-4 h-4 " />
+        return <Clock className="w-4 h-4" />
     }
   }
 
@@ -511,8 +511,8 @@ export default function StudentDetailPage() {
         <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center py-12">
             <User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-semibold  mb-2">Student Not Found</h2>
-            <p className=" mb-6">{error}</p>
+            <h2 className="text-2xl font-semibold mb-2">Student Not Found</h2>
+            <p className="mb-6">{error}</p>
             <div className="space-x-4">
               <Button onClick={handleBack} variant="outline">
                 <ArrowLeft className="w-4 h-4 mr-2" />
@@ -567,7 +567,7 @@ export default function StudentDetailPage() {
                   variant="ghost"
                   size="sm"
                   onClick={handleBack}
-                  className=" hover:"
+                  className="hover:"
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back to Students
@@ -622,28 +622,28 @@ export default function StudentDetailPage() {
                 {/* Basic Info */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <h3 className="text-sm font-medium  mb-2 flex items-center">
+                    <h3 className="text-sm font-medium mb-2 flex items-center">
                       <Mail className="w-4 h-4 mr-2" />
                       Email
                     </h3>
-                    <p className="text-sm ">{student.email}</p>
+                    <p className="text-sm">{student.email}</p>
                   </div>
 
                   <div>
-                    <h3 className="text-sm font-medium  mb-2 flex items-center">
+                    <h3 className="text-sm font-medium mb-2 flex items-center">
                       <Phone className="w-4 h-4 mr-2" />
                       Phone
                     </h3>
-                    <p className="text-sm ">{student.phone || 'Not provided'}</p>
+                    <p className="text-sm">{student.phone || 'Not provided'}</p>
                   </div>
 
                   {student.date_of_birth && (
                     <div>
-                      <h3 className="text-sm font-medium  mb-2 flex items-center">
+                      <h3 className="text-sm font-medium mb-2 flex items-center">
                         <Calendar className="w-4 h-4 mr-2" />
                         Date of Birth
                       </h3>
-                      <p className="text-sm ">
+                      <p className="text-sm">
                         {new Date(student.date_of_birth).toLocaleDateString('en-US', {
                           year: 'numeric',
                           month: 'long',
@@ -660,8 +660,8 @@ export default function StudentDetailPage() {
 
                   {student.gender && (
                     <div>
-                      <h3 className="text-sm font-medium  mb-1">Gender</h3>
-                      <p className="text-sm  capitalize">{student.gender}</p>
+                      <h3 className="text-sm font-medium mb-1">Gender</h3>
+                      <p className="text-sm capitalize">{student.gender}</p>
                     </div>
                   )}
                 </div>
@@ -669,11 +669,11 @@ export default function StudentDetailPage() {
                 {/* Address */}
                 {student.address && (
                   <div>
-                    <h3 className="text-sm font-medium  mb-2 flex items-center">
+                    <h3 className="text-sm font-medium mb-2 flex items-center">
                       <MapPin className="w-4 h-4 mr-2" />
                       Address
                     </h3>
-                    <div className="text-sm ">
+                    <div className="text-sm">
                       {(student.address.line1 || student.address.street) && (
                         <p>{student.address.line1 || student.address.street}</p>
                       )}
@@ -693,11 +693,11 @@ export default function StudentDetailPage() {
                 {/* Emergency Contact */}
                 {student.emergency_contact && (
                   <div>
-                    <h3 className="text-sm font-medium  mb-2 flex items-center">
+                    <h3 className="text-sm font-medium mb-2 flex items-center">
                       <UserCheck className="w-4 h-4 mr-2" />
                       Emergency Contact
                     </h3>
-                    <div className="text-sm ">
+                    <div className="text-sm">
                       <p><strong>{student.emergency_contact.name}</strong></p>
                       {student.emergency_contact.phone && <p>Phone: {student.emergency_contact.phone}</p>}
                       {student.emergency_contact.relationship && (
@@ -710,15 +710,15 @@ export default function StudentDetailPage() {
                 {/* Timestamps */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
                   <div>
-                    <h3 className="text-sm font-medium  mb-1">Enrolled (registered)</h3>
-                    <p className="text-sm ">
+                    <h3 className="text-sm font-medium mb-1">Enrolled (registered)</h3>
+                    <p className="text-sm">
                       {formatRegisteredDateTime(student.created_at)}
                     </p>
                   </div>
 
                   <div>
-                    <h3 className="text-sm font-medium  mb-1">Last Updated</h3>
-                    <p className="text-sm ">
+                    <h3 className="text-sm font-medium mb-1">Last Updated</h3>
+                    <p className="text-sm">
                       {latestUpdatedDate.toLocaleString('en-US', {
                         year: 'numeric',
                         month: 'long',
@@ -808,8 +808,8 @@ export default function StudentDetailPage() {
                       <div key={enrollment.id} className={`p-4 bg-gray-50 rounded-lg border-l-4 ${borderClass}`}>
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center space-x-2">
-                            <BookOpen className="w-5 h-5 " />
-                            <h4 className="font-semibold ">{enrollment.course_name}</h4>
+                            <BookOpen className="w-5 h-5" />
+                            <h4 className="font-semibold">{enrollment.course_name}</h4>
                             {enrollment.duration_label ? (
                               <span className="text-xs text-slate-500">({enrollment.duration_label})</span>
                             ) : null}
@@ -822,7 +822,7 @@ export default function StudentDetailPage() {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm  mb-3">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-3">
                           <div className="flex items-center space-x-1">
                             <Calendar className="w-4 h-4" />
                             <span className="font-medium">Enrolled:</span>
@@ -887,7 +887,7 @@ export default function StudentDetailPage() {
                         {enrollment.progress > 0 && (
                           <div className="mt-3">
                             <div className="flex items-center justify-between text-sm mb-2">
-                              <span className=" flex items-center">
+                              <span className="flex items-center">
                                 <TrendingUp className="w-4 h-4 mr-1" />
                                 Course Progress
                               </span>
@@ -925,9 +925,9 @@ export default function StudentDetailPage() {
                         <div>
                           <div className="flex items-center space-x-2 mb-1">
                             {getAttendanceIcon(record.status)}
-                            <span className="font-medium ">{record.course_name}</span>
+                            <span className="font-medium">{record.course_name}</span>
                           </div>
-                          <div className="text-sm ">
+                          <div className="text-sm">
                             {new Date(record.date).toLocaleDateString('en-US', {
                               month: 'short',
                               day: 'numeric',
@@ -969,7 +969,7 @@ export default function StudentDetailPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <BookOpen className="w-4 h-4 mr-2" />
-                    <span className="text-sm ">Total Courses</span>
+                    <span className="text-sm">Total Courses</span>
                   </div>
                   <span className="font-semibold">{student.total_courses || student.courses?.length || 0}</span>
                 </div>
@@ -977,7 +977,7 @@ export default function StudentDetailPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <Award className="w-4 h-4 mr-2" />
-                    <span className="text-sm ">Completed</span>
+                    <span className="text-sm">Completed</span>
                   </div>
                   <span className="font-semibold">
                     {student.completed_courses || student.courses?.filter(c => c.status === 'completed').length || 0}
@@ -987,7 +987,7 @@ export default function StudentDetailPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <Clock className="w-4 h-4 mr-2" />
-                    <span className="text-sm ">Attendance Rate</span>
+                    <span className="text-sm">Attendance Rate</span>
                   </div>
                   <span className="font-semibold">
                     {student.attendance_percentage ||
@@ -1000,7 +1000,7 @@ export default function StudentDetailPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
                       <CreditCard className="w-4 h-4 mr-2 text-red-600" />
-                      <span className="text-sm ">Outstanding</span>
+                      <span className="text-sm">Outstanding</span>
                     </div>
                     <span className={`font-semibold ${student.outstanding_balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
                       ₹{student.outstanding_balance.toLocaleString()}
@@ -1046,7 +1046,7 @@ export default function StudentDetailPage() {
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center space-x-2">
                             <CreditCard className="w-4 h-4 text-blue-600" />
-                            <span className="font-semibold ">₹{payment.amount.toLocaleString()}</span>
+                            <span className="font-semibold">₹{payment.amount.toLocaleString()}</span>
                           </div>
                           <Badge
                             variant="secondary"
@@ -1059,7 +1059,7 @@ export default function StudentDetailPage() {
                             {payment.status}
                           </Badge>
                         </div>
-                        <div className="text-sm  space-y-1">
+                        <div className="text-sm space-y-1">
                           <p className="font-medium">{payment.description}</p>
                           <div className="flex items-center justify-between">
                             <span>
@@ -1102,7 +1102,7 @@ export default function StudentDetailPage() {
               <CardContent className="text-[#7F8592]">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm ">Status</span>
+                    <span className="text-sm">Status</span>
                     <Badge
                       variant={student.is_active ? "default" : "secondary"}
                       className={student.is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
@@ -1112,14 +1112,14 @@ export default function StudentDetailPage() {
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="text-sm ">Student ID</span>
-                    <span className="text-sm font-mono ">
+                    <span className="text-sm">Student ID</span>
+                    <span className="text-sm font-mono">
                       {student.student_id || student.id}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="text-sm ">Role</span>
+                    <span className="text-sm">Role</span>
                     <Badge variant="outline" className="text-xs">
                       {student.role}
                     </Badge>

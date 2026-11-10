@@ -177,7 +177,7 @@ export function RolePermissionsManager() {
               <TabsContent key={role.role} value={role.role} className="space-y-4 mt-6">
                 <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-600 rounded-lg">
+                    <div className="p-2 rounded-lg">
                       <IconComponent className="w-5 h-5 text-white" />
                     </div>
                     <div>
@@ -229,7 +229,7 @@ export function RolePermissionsManager() {
           <Button
             onClick={handleSave}
             disabled={!hasChanges}
-            className="flex items-center gap-2 bg-[#4F5077] hover:bg-[#3d3f5c]"
+            className="flex items-center gap-2 hover:bg-[#3d3f5c]"
           >
             <Save className="w-4 h-4" />
             Save Changes

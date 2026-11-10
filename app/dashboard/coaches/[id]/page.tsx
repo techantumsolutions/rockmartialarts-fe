@@ -319,7 +319,7 @@ export default function CoachDetailPage() {
                   variant="ghost"
                   size="sm"
                   onClick={handleBack}
-                  className=" hover:text-gray-900"
+                  className="hover:text-gray-900"
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back to Coaches
@@ -371,7 +371,7 @@ export default function CoachDetailPage() {
                       <Mail className="w-4 h-4 mr-2" />
                       Email
                     </h3>
-                    <p className="text-sm ">{coach.contact_info.email}</p>
+                    <p className="text-sm">{coach.contact_info.email}</p>
                   </div>
 
                   <div>
@@ -379,7 +379,7 @@ export default function CoachDetailPage() {
                       <Phone className="w-4 h-4 mr-2" />
                       Phone
                     </h3>
-                    <p className="text-sm ">{coach.contact_info.phone}</p>
+                    <p className="text-sm">{coach.contact_info.phone}</p>
                   </div>
 
                   {coach.hire_date && (
@@ -388,7 +388,7 @@ export default function CoachDetailPage() {
                         <Calendar className="w-4 h-4 mr-2" />
                         Hire Date
                       </h3>
-                      <p className="text-sm ">
+                      <p className="text-sm">
                         {new Date(coach.hire_date).toLocaleDateString('en-US', {
                           year: 'numeric',
                           month: 'long',
@@ -401,7 +401,7 @@ export default function CoachDetailPage() {
                   {coach.experience_years && (
                     <div>
                       <h3 className="text-sm font-medium mb-1">Experience</h3>
-                      <p className="text-sm ">{coach.experience_years} years</p>
+                      <p className="text-sm">{coach.experience_years} years</p>
                     </div>
                   )}
                 </div>
@@ -428,7 +428,7 @@ export default function CoachDetailPage() {
                       <GraduationCap className="w-4 h-4 mr-2" />
                       Qualifications
                     </h3>
-                    <ul className="text-sm  space-y-1">
+                    <ul className="text-sm space-y-1">
                       {coach.qualifications.map((qualification, index) => (
                         <li key={index} className="flex items-start">
                           <span className="w-2 h-2 bg-gray-400 rounded-full mt-2 mr-3 flex-shrink-0"></span>
@@ -460,7 +460,7 @@ export default function CoachDetailPage() {
                 {coach.bio && (
                   <div>
                     <h3 className="text-sm font-medium mb-2">Biography</h3>
-                    <p className="text-sm  leading-relaxed">{coach.bio}</p>
+                    <p className="text-sm leading-relaxed">{coach.bio}</p>
                   </div>
                 )}
 
@@ -471,7 +471,7 @@ export default function CoachDetailPage() {
                       <MapPin className="w-4 h-4 mr-2" />
                       Address
                     </h3>
-                    <div className="text-sm ">
+                    <div className="text-sm">
                       {coach.contact_info.address.street && <p>{coach.contact_info.address.street}</p>}
                       {(coach.contact_info.address.city || coach.contact_info.address.state || coach.contact_info.address.postal_code) && (
                         <p>
@@ -489,7 +489,7 @@ export default function CoachDetailPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
                   <div>
                     <h3 className="text-sm font-medium mb-1">Joined</h3>
-                    <p className="text-sm ">
+                    <p className="text-sm">
                       {new Date(coach.created_at).toLocaleDateString('en-US', {
                         year: 'numeric',
                         month: 'long',
@@ -500,7 +500,7 @@ export default function CoachDetailPage() {
 
                   <div>
                     <h3 className="text-sm font-medium mb-1">Last Updated</h3>
-                    <p className="text-sm ">
+                    <p className="text-sm">
                       {new Date(coach.updated_at).toLocaleDateString('en-US', {
                         year: 'numeric',
                         month: 'long',
@@ -553,7 +553,7 @@ export default function CoachDetailPage() {
                           </Badge>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm ">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                           <div>
                             <span className="font-medium">Level:</span> {course.difficulty_level}
                           </div>
@@ -568,7 +568,7 @@ export default function CoachDetailPage() {
                         </div>
 
                         {course.schedule && (
-                          <div className="mt-2 text-sm ">
+                          <div className="mt-2 text-sm">
                             <span className="font-medium">Schedule:</span> {course.schedule}
                           </div>
                         )}
@@ -622,7 +622,7 @@ export default function CoachDetailPage() {
                           </Badge>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm  mb-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-3">
                           <div>
                             <span className="font-medium">Course:</span> {student.course_name}
                           </div>
@@ -634,12 +634,12 @@ export default function CoachDetailPage() {
 
                         <div className="space-y-2">
                           <div className="flex items-center justify-between text-sm">
-                            <span className="">Progress</span>
+                            <span >Progress</span>
                             <span className="font-medium">{student.progress}%</span>
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-2">
                             <div
-                              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                              className="h-2 rounded-full transition-all duration-300"
                               style={{ width: `${student.progress}%` }}
                             ></div>
                           </div>
@@ -670,7 +670,7 @@ export default function CoachDetailPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <Users className="w-4 h-4 mr-2" />
-                    <span className="text-sm ">Total Students</span>
+                    <span className="text-sm">Total Students</span>
                   </div>
                   <span className="font-semibold">{coach.total_students || studentAssignments.length}</span>
                 </div>
@@ -726,7 +726,7 @@ export default function CoachDetailPage() {
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="text-sm ">Coach ID</span>
+                    <span className="text-sm">Coach ID</span>
                     <span className="text-sm font-mono">{coach.id}</span>
                   </div>
 

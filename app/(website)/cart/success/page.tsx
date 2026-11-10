@@ -39,7 +39,7 @@ function CartSuccessInner() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#171A26] flex items-center justify-center pt-24">
+      <main className="min-h-screen flex items-center justify-center pt-24">
         <Loader2 className="w-10 h-10 animate-spin text-[#FFB70F]" />
       </main>
     )
@@ -48,7 +48,7 @@ function CartSuccessInner() {
   const fulfilled = status === "fulfilled" || status === "paid"
 
   return (
-    <main className="min-h-screen bg-[#171A26] text-white pt-24 pb-16">
+    <main className="min-h-screen text-white pt-24 pb-16">
       <div className="container mx-auto px-4 max-w-2xl text-center">
         <CheckCircle2 className="w-16 h-16 text-emerald-400 mx-auto mb-4" />
         <h1 className="text-3xl font-bold text-[#FFB70F] mb-2">
@@ -109,7 +109,7 @@ export default function CartCheckoutSuccessPage() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-screen bg-[#171A26] flex items-center justify-center pt-24">
+        <main className="min-h-screen flex items-center justify-center pt-24">
           <Loader2 className="w-10 h-10 animate-spin text-[#FFB70F]" />
         </main>
       }

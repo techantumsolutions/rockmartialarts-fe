@@ -43,7 +43,7 @@ export default function OnlineLearningCataloguePage() {
   }, [search])
 
   return (
-    <main className="min-h-screen bg-[#171A26]">
+    <main className="min-h-screen">
       <section
         className="relative py-20 md:py-28 bg-cover bg-center"
         style={{ backgroundImage: "url(/assets/img/banner.jpg)" }}
@@ -61,7 +61,7 @@ export default function OnlineLearningCataloguePage() {
         </div>
       </section>
 
-      <section className="pt-6 pb-12 sm:pt-10 sm:pb-16 bg-[#171A26]">
+      <section className="pt-6 pb-12 sm:pt-10 sm:pb-16">
         <div className="site-content px-0 sm:px-1 space-y-6 sm:space-y-8">
           <form
             className="flex flex-col sm:flex-row gap-3 sm:gap-2.5 max-w-xl"

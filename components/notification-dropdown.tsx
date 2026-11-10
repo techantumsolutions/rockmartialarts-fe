@@ -230,7 +230,7 @@ export default function NotificationDropdown({ className = "" }: NotificationDro
                         {notification.title}
                       </p>
                       {!notification.is_read && (
-                        <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0 ml-2"></div>
+                        <div className="w-2 h-2 rounded-full flex-shrink-0 ml-2"></div>
                       )}
                     </div>
                     <p className="text-xs text-gray-600 mt-1 line-clamp-2">

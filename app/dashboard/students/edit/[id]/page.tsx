@@ -966,7 +966,7 @@ export default function EditStudent() {
       </main>
 
       {showSuccessPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
             <div className="text-center">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">

@@ -231,7 +231,7 @@ export function PaymentReceipt({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Button 
           onClick={handleDownloadPDF} 
-          className="w-full bg-blue-600 hover:bg-blue-700"
+          className="w-full"
           size="lg"
         >
           <Download className="w-5 h-5 mr-2" />
@@ -256,7 +256,7 @@ export function PaymentReceipt({
                 onClick={() => handleShare('facebook')}
                 variant="outline"
                 size="icon"
-                className="hover:bg-blue-600 hover:text-white"
+                className="hover: hover:text-white"
               >
                 <Facebook className="w-4 h-4" />
               </Button>
@@ -272,7 +272,7 @@ export function PaymentReceipt({
                 onClick={() => handleShare('linkedin')}
                 variant="outline"
                 size="icon"
-                className="hover:bg-blue-700 hover:text-white"
+                className="hover:text-white"
               >
                 <Linkedin className="w-4 h-4" />
               </Button>

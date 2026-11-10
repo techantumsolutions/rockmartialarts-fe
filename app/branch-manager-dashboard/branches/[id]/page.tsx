@@ -249,7 +249,7 @@ export default function BranchManagerBranchDetailPage() {
             <div className="flex space-x-3">
               <Button
                 onClick={() => router.push(`/branch-manager-dashboard/branches/edit/${branchId}`)}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="text-white"
               >
                 <Edit className="w-4 h-4 mr-2" />
                 Edit Branch

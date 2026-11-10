@@ -344,7 +344,7 @@ export default function MyEventRegistrationsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#171A26]">
+    <main className="min-h-screen">
       <section
         className="relative py-16 md:py-20 bg-cover bg-center"
         style={{ backgroundImage: "url(/assets/img/banner.jpg)" }}

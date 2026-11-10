@@ -267,7 +267,7 @@ export default function OnlineLearningDetailPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#171A26]">
+    <main className="min-h-screen">
       <section
         className="relative py-16 md:py-24 bg-cover bg-center"
         style={{ backgroundImage: "url(/assets/img/banner.jpg)" }}
@@ -310,7 +310,7 @@ export default function OnlineLearningDetailPage() {
         </div>
       </section>
 
-      <section className="py-12 md:py-16 bg-[#171A26]">
+      <section className="py-12 md:py-16">
         <div className="site-content px-0 sm:px-1">
           {loading ? null : !course ? (
             <div className="text-center text-gray-400">

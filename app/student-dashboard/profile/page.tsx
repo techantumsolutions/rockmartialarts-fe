@@ -267,7 +267,6 @@ export default function StudentProfilePage() {
       headerActions={
         <Button
           onClick={handleEditProfile}
-          className="bg-blue-600 hover:bg-blue-700"
         >
           <Edit className="w-4 h-4 mr-2" />
           Edit Profile

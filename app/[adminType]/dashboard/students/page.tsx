@@ -1384,7 +1384,7 @@ const paginatedStudents = filteredStudents.slice(
 
       {/* Assign Popup */}
       {showAssignPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Assign Student to Branch & Course</h3>
@@ -1554,7 +1554,7 @@ const paginatedStudents = filteredStudents.slice(
             <Button
               onClick={handleAssignConfirm}
               disabled={assignmentLoading}
-              className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+              className="w-full mt-6 text-white disabled:opacity-50"
             >
               {assignmentLoading ? "Assigning..." : "Assign Now"}
             </Button>
@@ -1564,7 +1564,7 @@ const paginatedStudents = filteredStudents.slice(
 
       {/* Delete Confirmation Popup */}
       {showDeletePopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold mb-4">Delete Student</h3>
             <p className="text-gray-600 mb-6">

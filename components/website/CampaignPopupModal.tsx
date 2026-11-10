@@ -153,7 +153,7 @@ export function CampaignPopupModal() {
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
-        className="max-w-md p-0 overflow-hidden gap-0 border-0 bg-[#171A26] text-white sm:rounded-xl"
+        className="max-w-md p-0 overflow-hidden gap-0 border-0 text-white sm:rounded-xl"
         closeButtonClassName="top-3 right-3 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-yellow-400 text-white opacity-100 shadow-md ring-offset-[#171A26] hover:bg-yellow-500 hover:opacity-100 focus:ring-yellow-400 data-[state=open]:bg-yellow-400 data-[state=open]:text-white [&_svg:not([class*='size-'])]:size-4"
       >
         <DialogTitle className="sr-only">{popup.event_title}</DialogTitle>

@@ -217,7 +217,7 @@ export default function ChampionAchievementsPanel({
         <Button
           type="button"
           size="sm"
-          className="gap-1 bg-[#4F5077] hover:bg-[#3d3e5c]"
+          className="gap-1"
           onClick={openCreate}
         >
           <Plus className="w-3.5 h-3.5" />

@@ -107,7 +107,7 @@ export default function SubscriptionExpiredModal({
           <Button
             onClick={handlePaymentRedirect}
             disabled={isNavigating}
-            className="w-full bg-blue-600 hover:bg-blue-700"
+            className="w-full"
           >
             {isNavigating ? (
               <>

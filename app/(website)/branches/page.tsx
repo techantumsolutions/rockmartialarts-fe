@@ -183,7 +183,7 @@ export default function BranchesDiscoveryPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#171A26]">
+    <main className="min-h-screen">
       <section
         className="relative py-20 md:py-28 bg-cover bg-center"
         style={{ backgroundImage: "url(/assets/img/banner.jpg)" }}
@@ -199,7 +199,7 @@ export default function BranchesDiscoveryPage() {
         </div>
       </section>
 
-      <section className="py-10 md:py-12 bg-[#171A26] border-b border-gray-800">
+      <section className="py-10 md:py-12 border-b border-gray-800">
         <div className="site-content px-0 sm:px-1">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
@@ -291,7 +291,7 @@ export default function BranchesDiscoveryPage() {
         </div>
       </section>
 
-      <section className="py-16 md:py-20 bg-[#171A26]">
+      <section className="py-16 md:py-20">
         <div className="site-content px-0 sm:px-1">
           {loading ? (
             <div className="flex justify-center py-16">

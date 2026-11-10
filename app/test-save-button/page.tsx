@@ -78,7 +78,7 @@ export default function TestSaveButtonPage() {
               <Button 
                 onClick={handleBulkSave} 
                 disabled={bulkSaving}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="text-white"
               >
                 {bulkSaving ? (
                   <>

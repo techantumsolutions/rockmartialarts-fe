@@ -67,7 +67,7 @@ export default function PartnerOrgCourseDetailPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#171A26] flex items-center justify-center text-gray-400">
+      <main className="min-h-screen flex items-center justify-center text-gray-400">
         <Loader2 className="w-8 h-8 animate-spin text-[#FFB70F]" />
       </main>
     )
@@ -75,7 +75,7 @@ export default function PartnerOrgCourseDetailPage() {
 
   if (!landing || !branch || !course) {
     return (
-      <main className="min-h-screen bg-[#171A26] flex items-center justify-center px-4 text-white">
+      <main className="min-h-screen flex items-center justify-center px-4 text-white">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Course not found</h1>
           <Link
@@ -121,7 +121,7 @@ export default function PartnerOrgCourseDetailPage() {
   const difficulty = course.difficulty_level as string | undefined
 
   return (
-    <main className="min-h-screen bg-[#171A26] text-white">
+    <main className="min-h-screen text-white">
       <section className="relative min-h-[50vh] flex items-end overflow-hidden">
         <div className="absolute inset-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}

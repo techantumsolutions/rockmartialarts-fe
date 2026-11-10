@@ -756,7 +756,7 @@ export default function KpiAssessmentsPage() {
                 />
               </div>
               <Button
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="text-white"
                 onClick={() => void submitAssessment()}
                 disabled={saving || !studentId || !periodId || !courseId}
               >
@@ -770,7 +770,7 @@ export default function KpiAssessmentsPage() {
         <TabsContent value="periods" className="space-y-4 mt-4">
           <div className="flex justify-end">
             {canManagePeriods ? (
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={openCreatePeriod}>
+              <Button className="text-white" onClick={openCreatePeriod}>
                 <Plus className="h-4 w-4 mr-1" />
                 Add period
               </Button>
@@ -935,7 +935,7 @@ export default function KpiAssessmentsPage() {
               ) : null}
               <div className="flex flex-wrap gap-2">
                 <Button
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  className="text-white"
                   disabled={ratingBusy || !periodId || !courseId || !studentId}
                   onClick={() => void calculateOneRating()}
                 >
@@ -1165,7 +1165,7 @@ export default function KpiAssessmentsPage() {
               ) : null}
               <div className="flex flex-wrap gap-2">
                 <Button
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  className="text-white"
                   disabled={rankingBusy || !periodId}
                   onClick={() => void recalculateRankings()}
                 >
@@ -1369,7 +1369,7 @@ export default function KpiAssessmentsPage() {
               Cancel
             </Button>
             <Button
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="text-white"
               onClick={() => void savePeriod()}
               disabled={saving}
             >

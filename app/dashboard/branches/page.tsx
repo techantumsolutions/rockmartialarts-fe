@@ -433,7 +433,7 @@ const paginatedBranches = filteredBranches.slice(
                   + Add Branch
                 </Button>
                 <Button
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-6"
+                  className="bg-blue-500 hover: text-white px-6"
                   onClick={handleOpenAssignModal}
                 >
                   Assign Manager
@@ -465,46 +465,46 @@ const paginatedBranches = filteredBranches.slice(
           <table className="w-full">
             <thead className="bg-gray-50 border-b">
               <tr className="text-[#6B7A99]">
-                {/* <th className="px-2 py-3 text-left text-xs font-medium text-gray-500  ">
+                {/* <th className="px-2 py-3 text-left text-xs font-medium text-gray-500">
                   Branch ID
                 </th> */}
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500  ">
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500">
                   Branch Name
                 </th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500  ">
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500">
                   Branch Location
                 </th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500  ">
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500">
                   <div className="flex items-center">
                     <span>Active Students</span>
                     <div className="w-2 h-2 bg-blue-500 rounded-full ml-2"></div>
                   </div>
                 </th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500  ">
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500">
                   <div className="flex items-center">
                     <span>Courses Offered</span>
                     <div className="w-2 h-2 bg-green-500 rounded-full ml-2"></div>
                   </div>
                 </th>
-                {/* <th className="px-2 py-3 text-left text-xs font-medium text-gray-500  ">
+                {/* <th className="px-2 py-3 text-left text-xs font-medium text-gray-500">
                   Branch Admin
                 </th> */}
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500  ">
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500">
                   <div className="flex items-center">
                     <span>Assigned Coaches</span>
                     <div className="w-2 h-2 bg-purple-500 rounded-full ml-2"></div>
                   </div>
                 </th>
-                {/* <th className="px-2 py-3 text-left text-xs font-medium text-gray-500  ">
+                {/* <th className="px-2 py-3 text-left text-xs font-medium text-gray-500">
                   Accessories Available
                 </th> */}
-                {/* <th className="px-2 py-3 text-left text-xs font-medium text-gray-500  ">
+                {/* <th className="px-2 py-3 text-left text-xs font-medium text-gray-500">
                   Branch Email Id
                 </th> */}
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500  ">
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500">
                   Contact number
                 </th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500  ">
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500">
                   Action
                 </th>
               </tr>
@@ -679,7 +679,7 @@ const paginatedBranches = filteredBranches.slice(
 </div>
 
       {showAssignPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-auto max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center p-6 border-b">
               <h2 className="text-xl font-semibold text-gray-900">Assign Branch Manager</h2>
@@ -772,7 +772,7 @@ const paginatedBranches = filteredBranches.slice(
               </Button>
               <Button
                 onClick={handleAssign}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-6"
+                className="bg-blue-500 hover: text-white px-6"
                 disabled={!selectedBranch || !selectedCoach || assignmentLoading || loadingCoaches}
               >
                 {assignmentLoading ? (
@@ -790,7 +790,7 @@ const paginatedBranches = filteredBranches.slice(
       )}
 
       {showDeletePopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-lg font-semibold text-gray-900">Delete Branch</h2>

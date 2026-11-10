@@ -29,7 +29,7 @@ export default function ChampionsListingClient() {
   }, [search])
 
   return (
-    <main className="min-h-screen bg-[#171A26]">
+    <main className="min-h-screen">
       <section
         className="relative py-20 md:py-28 bg-cover bg-center"
         style={{ backgroundImage: "url(/assets/img/banner.jpg)" }}
@@ -51,7 +51,7 @@ export default function ChampionsListingClient() {
         </div>
       </section>
 
-      <section className="py-12 md:py-16 bg-[#171A26]">
+      <section className="py-12 md:py-16">
         <div className="container mx-auto px-4 max-w-7xl space-y-8">
           <form
             className="flex flex-col sm:flex-row gap-2 max-w-xl"

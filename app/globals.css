@@ -515,12 +515,66 @@ body[data-scroll-locked] {
   animation: page-enter 0.35s ease-out both;
 }
 
+.content-stagger > *:nth-child(1) { animation-delay: 0.02s; }
+.content-stagger > *:nth-child(2) { animation-delay: 0.06s; }
+.content-stagger > *:nth-child(3) { animation-delay: 0.1s; }
+
+@keyframes content-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+[data-admin-shell] .admin-content-frame .admin-page-shell,
+[data-app-shell] main > div {
+  animation: content-fade-up 0.4s ease-out both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .page-enter,
   .martial-loader-kick,
-  .martial-loader-bar {
+  .martial-loader-bar,
+  [data-admin-shell] .admin-content-frame,
+  [data-admin-shell] .admin-content-frame > *,
+  [data-admin-shell] .admin-content-frame .admin-page-shell,
+  [data-app-shell] main > div {
     animation: none !important;
   }
+}
+
+/* Remap legacy blue / navy primary buttons → brand gold */
+[data-admin-shell] .bg-blue-600,
+[data-admin-shell] .bg-blue-700,
+[data-app-shell] .bg-blue-600,
+[data-app-shell] .bg-blue-700,
+button.bg-blue-600,
+button.bg-blue-700,
+a.bg-blue-600,
+[data-admin-shell] .bg-\[\#4F5077\],
+[data-app-shell] .bg-\[\#4F5077\],
+button.bg-\[\#4F5077\] {
+  background-color: #e1bb33 !important;
+  color: #171a26 !important;
+}
+
+[data-admin-shell] .hover\:bg-blue-700:hover,
+[data-app-shell] .hover\:bg-blue-700:hover,
+button.hover\:bg-blue-700:hover,
+[data-admin-shell] .hover\:bg-\[\#3d3e5c\]:hover,
+[data-app-shell] .hover\:bg-\[\#3d3e5c\]:hover {
+  background-color: #d4ae2a !important;
+  color: #171a26 !important;
+}
+
+/* Unopened / new lead row highlight helper */
+.lead-row-unopened {
+  background: rgba(225, 187, 51, 0.12);
+  box-shadow: inset 3px 0 0 #e1bb33;
 }
 
 @keyframes martial-kick {

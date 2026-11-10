@@ -51,7 +51,7 @@ export default function PartnerOrgBranchCoursesPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#171A26] flex items-center justify-center text-gray-400">
+      <main className="min-h-screen flex items-center justify-center text-gray-400">
         <Loader2 className="w-8 h-8 animate-spin text-[#FFB70F]" />
       </main>
     )
@@ -59,7 +59,7 @@ export default function PartnerOrgBranchCoursesPage() {
 
   if (!landing || !branch) {
     return (
-      <main className="min-h-screen bg-[#171A26] flex items-center justify-center px-4 text-white">
+      <main className="min-h-screen flex items-center justify-center px-4 text-white">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Branch not found</h1>
           <Link href={`/partner-orgs/${encodeURIComponent(orgSlug)}`} className="text-[#FFB70F]">
@@ -81,7 +81,7 @@ export default function PartnerOrgBranchCoursesPage() {
   const branchPath = encodeURIComponent(String(branch.slug || branch.id || branchSlug))
 
   return (
-    <main className="min-h-screen bg-[#171A26] text-white">
+    <main className="min-h-screen text-white">
       <section className="pt-28 pb-10 px-4 border-b border-gray-800">
         <div className="site-content">
           <Link

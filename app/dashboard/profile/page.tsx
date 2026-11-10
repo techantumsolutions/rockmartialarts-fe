@@ -308,7 +308,7 @@ export default function BranchManagerProfilePage() {
                   <Button
                     onClick={handleSave}
                     disabled={isSubmitting}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    className="text-white"
                   >
                     {isSubmitting ? (
                       <>
@@ -326,7 +326,7 @@ export default function BranchManagerProfilePage() {
               ) : (
                 <Button
                   onClick={() => setIsEditing(true)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  className="text-white"
                 >
                   <Edit className="w-4 h-4 mr-2" />
                   Edit Profile

@@ -564,7 +564,7 @@ export default function StudentDetailsPage() {
                     <p className="text-sm text-gray-500 mb-3">ID: {student.student_id}</p>
                   )}
 
-                  <div className="space-y-2 ">
+                  <div className="space-y-2">
                     <Badge className={getStatusColor(student.status || (student.is_active ? 'active' : 'inactive'))}>
                       <UserCheck className="w-3 h-3 mr-1" />
                       {student.status || (student.is_active ? 'Active' : 'Inactive')}

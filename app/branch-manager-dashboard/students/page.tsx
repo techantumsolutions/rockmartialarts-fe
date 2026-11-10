@@ -628,7 +628,7 @@ export default function BranchManagerStudentList() {
                       </Button>
                       <Button
                         onClick={() => router.push("/branch-manager-dashboard/add-student")}
-                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                        className="text-white"
                       >
                         Add Student
                       </Button>
@@ -764,7 +764,7 @@ export default function BranchManagerStudentList() {
         </div>
       {/* Delete Confirmation Modal */}
       {showDeletePopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Confirm Delete</h3>
             <p className="text-gray-600 mb-6">

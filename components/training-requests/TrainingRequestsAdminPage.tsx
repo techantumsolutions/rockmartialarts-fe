@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { usePathname } from "next/navigation"
-import { Loader2, RefreshCw, Search } from "lucide-react"
+import { ClipboardList, Loader2, RefreshCw, Search } from "lucide-react"
+import {
+  BeautifiedHero,
+  BeautifiedModal,
+  BeautifiedSection,
+} from "@/components/ui/beautified-modal"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -626,49 +631,47 @@ export default function TrainingRequestsAdminPage() {
         </Card>
       </div>
 
-      {(detail || detailLoading) && (
-        <div
-          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
-          onClick={() => {
-            if (!dialogBusy) setDetail(null)
-          }}
-        >
-          <div
-            className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-auto p-6 space-y-5"
-            onClick={(e) => e.stopPropagation()}
-          >
+      <BeautifiedModal
+        open={!!(detail || detailLoading)}
+        onClose={() => {
+          if (!dialogBusy) setDetail(null)
+        }}
+        title="Training Request – Details"
+        subtitle="Participant, preferences, workflow, and coach assignment."
+        icon={ClipboardList}
+        tone="violet"
+        size="xl"
+        closeDisabled={dialogBusy}
+      >
             {detailLoading || !detail ? (
               <div className="flex justify-center py-16">
                 <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
               </div>
             ) : (
               <>
-                <div className="flex justify-between gap-4">
-                  <div>
-                    <h2 className="text-xl font-bold">{detail.contact_name}</h2>
-                    <p className="text-sm text-gray-600">
-                      {detail.contact_phone}
-                      {detail.contact_email ? ` • ${detail.contact_email}` : ""}
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <Badge
-                        variant="outline"
-                        className={TYPE_BADGE[String(detail.type)] || ""}
-                      >
-                        {typeLabel(detail.type)}
-                      </Badge>
-                      <Badge
-                        variant="outline"
-                        className={STATUS_BADGE[String(detail.status)] || ""}
-                      >
-                        {statusLabel(detail.status)}
-                      </Badge>
-                    </div>
-                  </div>
-                  <Button variant="outline" onClick={() => setDetail(null)} disabled={dialogBusy}>
-                    Close
-                  </Button>
-                </div>
+                <BeautifiedHero
+                  name={detail.contact_name || "Contact"}
+                  idLabel={
+                    detail.id
+                      ? `TR-${detail.id.replace(/-/g, "").slice(-5).toUpperCase()}`
+                      : undefined
+                  }
+                  statusLabel={statusLabel(detail.status)}
+                  statusTone={
+                    String(detail.status) === "completed" || String(detail.status) === "confirmed"
+                      ? "success"
+                      : String(detail.status) === "cancelled" || String(detail.status) === "rejected"
+                        ? "danger"
+                        : "info"
+                  }
+                  subtitle={[
+                    typeLabel(detail.type),
+                    detail.contact_phone,
+                    detail.contact_email,
+                  ]
+                    .filter(Boolean)
+                    .join(" • ")}
+                />
 
                 {detail.type === "residential" ? (
                   <Section title="Residential package & participant">
@@ -983,19 +986,26 @@ export default function TrainingRequestsAdminPage() {
                 </Section>
               </>
             )}
-          </div>
-        </div>
-      )}
+      </BeautifiedModal>
     </div>
   )
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  const tone =
+    title.toLowerCase().includes("medical") || title.toLowerCase().includes("coach")
+      ? ("rose" as const)
+      : title.toLowerCase().includes("status")
+        ? ("amber" as const)
+        : title.toLowerCase().includes("training")
+          ? ("green" as const)
+          : ("blue" as const)
   return (
-    <div>
-      <h3 className="font-semibold text-[#4F5077] mb-1">{title}</h3>
-      <div className="text-sm text-gray-800 space-y-1">{children}</div>
-    </div>
+    <BeautifiedSection title={title} tone={tone}>
+      <div className="space-y-1.5 px-4 py-3 text-sm text-[#1E1B4B] [&_p]:flex [&_p]:justify-between [&_p]:gap-3 [&_b]:font-semibold">
+        {children}
+      </div>
+    </BeautifiedSection>
   )
 }
 

@@ -298,7 +298,7 @@ export default function StudentAttendancePage() {
             </div>
           </div>
           <Button
-            className="student-attendance-date-apply bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+            className="student-attendance-date-apply text-white shrink-0"
             onClick={() => fetchAttendanceData()}
             disabled={loading}
           >

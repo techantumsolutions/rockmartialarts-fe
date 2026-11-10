@@ -192,7 +192,7 @@ export default function PaymentTrackingPage() {
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Payment Tracking</h1>
 
        {/* Filter Bar */}
-        <div className="flex  items-center justify-between border-1 shadow overflow-x-auto p-6 gap-6 mb-0">
+        <div className="flex items-center justify-between border-1 shadow overflow-x-auto p-6 gap-6 mb-0">
           {/* Branch Select */}
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-gray-700">Select Branch:</span>
@@ -209,7 +209,7 @@ export default function PaymentTrackingPage() {
           </div>
 
           {/* Payment Alerts Button */}
-          <Button className="bg-yellow-400 hover:bg-yellow-500  text-[#fff] text-[10px] px-6 py-2 w-[120px] rounded-md shadow-sm">
+          <Button className="bg-yellow-400 hover:bg-yellow-500 text-[#fff] text-[10px] px-6 py-2 w-[120px] rounded-md shadow-sm">
             Payment alerts
           </Button>
 
@@ -217,7 +217,7 @@ export default function PaymentTrackingPage() {
           <Button
             onClick={handleExport}
             disabled={exporting}
-            className="bg-transparent border border-gray-300  text-[#5A6ACF] text-[10px] w-[120px] hover:bg-gray-100 px-6 py-2 rounded-md flex items-center gap-1"
+            className="bg-transparent border border-gray-300 text-[#5A6ACF] text-[10px] w-[120px] hover:bg-gray-100 px-6 py-2 rounded-md flex items-center gap-1"
           >
             <Download className="w-3 h-3" />
             {exporting ? "Exporting..." : "Export CSV"}
@@ -268,7 +268,7 @@ export default function PaymentTrackingPage() {
           
         </div>
         {/* Payment Table */}
-        <div className="bg-white  rounded-b-xl shadow overflow-x-auto">
+        <div className="bg-white rounded-b-xl shadow overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>

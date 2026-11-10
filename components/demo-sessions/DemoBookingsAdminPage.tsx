@@ -2,7 +2,22 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
-import { Download, Loader2, RefreshCw, Search } from "lucide-react"
+import {
+  CalendarDays,
+  Download,
+  Loader2,
+  Mail,
+  Phone,
+  RefreshCw,
+  Search,
+  User,
+} from "lucide-react"
+import {
+  BeautifiedField,
+  BeautifiedHero,
+  BeautifiedModal,
+  BeautifiedSection,
+} from "@/components/ui/beautified-modal"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -501,58 +516,68 @@ export default function DemoBookingsAdminPage() {
         </Card>
       </div>
 
-      {(detail || detailLoading) && (
-        <div
-          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
-          onClick={() => {
-            if (!saving) setDetail(null)
-          }}
-        >
-          <div
-            className="bg-white rounded-lg max-w-lg w-full max-h-[90vh] overflow-auto p-6 space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {detailLoading || !detail ? (
-              <div className="flex justify-center py-16">
-                <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
-              </div>
-            ) : (
-              <>
-                <div className="flex justify-between gap-4">
-                  <div>
-                    <h2 className="text-xl font-bold">{detail.participant_name}</h2>
-                    <p className="text-sm text-gray-600">{detail.participant_phone}</p>
-                    <Badge
-                      variant="outline"
-                      className={`mt-2 ${STATUS_BADGE[detail.status] || ""}`}
-                    >
-                      {bookingStatusLabel(detail.status)}
-                    </Badge>
-                  </div>
-                  <Button variant="outline" onClick={() => setDetail(null)} disabled={saving}>
-                    Close
-                  </Button>
-                </div>
-                <div className="text-sm space-y-1 text-gray-700">
-                  <p>
-                    Slot: {formatSlotDate(detail.slot_date)} · {detail.start_time} –{" "}
-                    {detail.end_time}
-                  </p>
-                  <p>
-                    {detail.branch_name || "—"} · {detail.course_name || "—"}
-                  </p>
-                  <p>Email: {detail.participant_email || "—"}</p>
-                  <p>Age: {detail.participant_age ?? "—"}</p>
-                  <p>Fee: ₹{detail.fee_inr}</p>
-                  <p>Payment: {detail.payment_status}</p>
-                  {detail.razorpay_payment_id ? (
-                    <p className="text-xs break-all">Txn: {detail.razorpay_payment_id}</p>
-                  ) : null}
-                </div>
+      <BeautifiedModal
+        open={!!(detail || detailLoading)}
+        onClose={() => {
+          if (!saving) setDetail(null)
+        }}
+        title="Demo Booking – Participant Details"
+        subtitle="Slot, contact, fee, and booking status information."
+        icon={CalendarDays}
+        tone="violet"
+        size="md"
+        closeDisabled={saving}
+      >
+        {detailLoading || !detail ? (
+          <div className="flex justify-center py-16">
+            <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+          </div>
+        ) : (
+          <>
+            <BeautifiedHero
+              name={detail.participant_name || "Participant"}
+              idLabel={detail.id ? `DB-${detail.id.replace(/-/g, "").slice(-5).toUpperCase()}` : undefined}
+              statusLabel={bookingStatusLabel(detail.status)}
+              statusTone={
+                detail.status === "confirmed"
+                  ? "success"
+                  : detail.status === "pending_payment"
+                    ? "warning"
+                    : detail.status === "cancelled" || detail.status === "no_show"
+                      ? "danger"
+                      : "info"
+              }
+              subtitle={`${formatSlotDate(detail.slot_date)} · ${detail.start_time} – ${detail.end_time}`}
+            />
 
-                {transitions.length > 0 ? (
-                  <div className="space-y-3 border-t pt-4">
-                    <Label>Update status</Label>
+            <BeautifiedSection title="Participant Information" icon={User} tone="blue">
+              <BeautifiedField label="Full Name" value={detail.participant_name} icon={User} tone="blue" />
+              <BeautifiedField label="Phone" value={detail.participant_phone} icon={Phone} tone="blue" />
+              <BeautifiedField label="Email" value={detail.participant_email} icon={Mail} tone="blue" />
+              <BeautifiedField label="Age" value={detail.participant_age ?? "—"} tone="blue" />
+            </BeautifiedSection>
+
+            <BeautifiedSection title="Session Details" icon={CalendarDays} tone="green">
+              <BeautifiedField
+                label="Slot"
+                value={`${formatSlotDate(detail.slot_date)} · ${detail.start_time} – ${detail.end_time}`}
+                icon={CalendarDays}
+                tone="green"
+              />
+              <BeautifiedField label="Branch" value={detail.branch_name} tone="green" />
+              <BeautifiedField label="Course" value={detail.course_name} tone="green" />
+              <BeautifiedField label="Fee" value={`₹${detail.fee_inr}`} tone="green" />
+              <BeautifiedField label="Payment" value={detail.payment_status} tone="green" />
+              {detail.razorpay_payment_id ? (
+                <BeautifiedField label="Txn" value={detail.razorpay_payment_id} tone="green" />
+              ) : null}
+            </BeautifiedSection>
+
+            {transitions.length > 0 ? (
+              <BeautifiedSection title="Update Status" tone="amber">
+                <div className="space-y-3 px-3 py-3">
+                  <div className="space-y-1">
+                    <Label>New status</Label>
                     <Select value={nextStatus || undefined} onValueChange={setNextStatus}>
                       <SelectTrigger className="bg-white">
                         <SelectValue placeholder="Select new status" />
@@ -565,32 +590,32 @@ export default function DemoBookingsAdminPage() {
                         ))}
                       </SelectContent>
                     </Select>
-                    <Textarea
-                      placeholder="Optional note"
-                      value={statusNote}
-                      onChange={(e) => setStatusNote(e.target.value)}
-                      rows={2}
-                    />
-                    <Button
-                      type="button"
-                      className="bg-yellow-400 hover:bg-yellow-500 text-white"
-                      disabled={!nextStatus || saving}
-                      onClick={saveStatus}
-                    >
-                      {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                      Save status
-                    </Button>
                   </div>
-                ) : (
-                  <p className="text-sm text-gray-500 border-t pt-4">
-                    No further status changes available for this booking.
-                  </p>
-                )}
-              </>
+                  <Textarea
+                    placeholder="Optional note"
+                    value={statusNote}
+                    onChange={(e) => setStatusNote(e.target.value)}
+                    rows={2}
+                  />
+                  <Button
+                    type="button"
+                    disabled={!nextStatus || saving}
+                    onClick={saveStatus}
+                    className="w-full sm:w-auto"
+                  >
+                    {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                    Save status
+                  </Button>
+                </div>
+              </BeautifiedSection>
+            ) : (
+              <p className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 text-sm text-[#64748B]">
+                No further status changes available for this booking.
+              </p>
             )}
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </BeautifiedModal>
     </div>
   )
 }

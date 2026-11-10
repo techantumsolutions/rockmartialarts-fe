@@ -706,7 +706,6 @@ export default function EventRegistrationsAdminPage() {
                       <Button
                         disabled={!nextStatus || saving}
                         onClick={() => void saveStatus()}
-                        className="bg-[#4F5077] hover:bg-[#3d3e5c]"
                       >
                         {saving ? (
                           <Loader2 className="w-4 h-4 animate-spin mr-2" />

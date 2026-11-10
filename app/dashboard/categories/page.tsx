@@ -806,7 +806,7 @@ export default function CategoriesManagementPage() {
               <DialogTrigger asChild>
                 <Button
                   onClick={handleNewSubCategory}
-                  className="bg-blue-500 hover:bg-blue-600 text-white"
+                  className="bg-blue-500 hover: text-white"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Add Sub Category
@@ -934,7 +934,7 @@ export default function CategoriesManagementPage() {
                     <Button
                       onClick={handleSubCategorySubmit}
                       disabled={isSubmitting}
-                      className="bg-blue-500 hover:bg-blue-600 text-white"
+                      className="bg-blue-500 hover: text-white"
                     >
                       <Save className="w-4 h-4 mr-2" />
                       {isSubmitting ? "Creating..." : "Create Sub-Category"}

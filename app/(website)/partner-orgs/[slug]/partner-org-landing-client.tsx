@@ -153,7 +153,7 @@ export default function PartnerOrgLandingClient() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#171A26] flex items-center justify-center">
+      <main className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4 text-gray-400">
           <Loader2 className="w-12 h-12 animate-spin text-[#FFB70F]" />
           <p>Loading partner…</p>
@@ -164,7 +164,7 @@ export default function PartnerOrgLandingClient() {
 
   if (error || !data) {
     return (
-      <main className="min-h-screen bg-[#171A26] flex items-center justify-center px-4">
+      <main className="min-h-screen flex items-center justify-center px-4">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-white mb-4">Partner not found</h1>
           <p className="text-gray-400 mb-6">
@@ -204,7 +204,7 @@ export default function PartnerOrgLandingClient() {
   )
 
   return (
-    <main className="min-h-screen bg-[#171A26] text-white">
+    <main className="min-h-screen text-white">
       <section className="relative min-h-[70vh] flex items-end overflow-hidden">
         <div className="absolute inset-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
