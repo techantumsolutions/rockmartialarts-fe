@@ -318,7 +318,13 @@ export async function exportBranchReport(token: string, filters: BranchExportFil
 /** Downloads every course matching the filters. Returns the number of rows exported. */
 export async function exportCourseReport(
   token: string,
-  filters: { branch_id?: string; category_id?: string; difficulty_level?: string; active_only?: boolean } = {}
+  filters: {
+    branch_id?: string
+    course_id?: string
+    category_id?: string
+    difficulty_level?: string
+    active_only?: boolean
+  } = {}
 ): Promise<number> {
   const courses: any[] = []
   for (let page = 0; page < MAX_PAGES; page++) {

@@ -149,16 +149,27 @@ export default function AttendanceReportsPage() {
       }
       if (branchesRes.ok) {
         const data = await branchesRes.json()
-        const list = (data.branches || data || []).map((b: any) => ({
-          id: b.id,
-          name: b.name || b.branch?.name || b.code || b.id,
-        }))
-        setBranches(list)
+        let raw = data.branches || data || []
+        // Rock SA/BM only: hide partner / collaboration branches from the filter.
+        if (!isPartnerAdmin) {
+          raw = raw.filter(
+            (b: any) =>
+              !b?.partner_org_id &&
+              !b?.is_collaboration_partner &&
+              !b?.allows_collaboration
+          )
+        }
+        setBranches(
+          raw.map((b: any) => ({
+            id: b.id,
+            name: b.name || b.branch?.name || b.code || b.id,
+          }))
+        )
       }
     } catch {
       /* optional */
     }
-  }, [])
+  }, [isPartnerAdmin])
 
   const buildQuery = useCallback(() => {
     const params = new URLSearchParams()

@@ -26,6 +26,7 @@ import { exportCourseReport } from "@/lib/categoryReportExport"
 
 interface FilterState {
   branch_id: string
+  course_id: string
   category_id: string
   difficulty_level: string
   active_only: boolean
@@ -132,13 +133,14 @@ export default function CourseReportPage() {
   // Filter state
   const [filters, setFilters] = useState<FilterState>({
     branch_id: "",
+    course_id: "",
     category_id: "",
     difficulty_level: "",
     active_only: true
   })
 
-  // Load filter options
-  const loadFilterOptions = useCallback(async () => {
+  // Load filter options (courses scoped to selected branch when set)
+  const loadFilterOptions = useCallback(async (branchId?: string) => {
     const token = BranchManagerAuth.getToken() || TokenManager.getToken()
     if (!token) {
       toast.error("Authentication required. Please login again.")
@@ -147,7 +149,10 @@ export default function CourseReportPage() {
     }
 
     try {
-      const response = await reportsAPI.getCourseReportFilters(token)
+      const response = await reportsAPI.getCourseReportFilters(
+        token,
+        branchId ? { branch_id: branchId } : undefined
+      )
       setFilterOptions(response)
     } catch (error) {
       console.error('Error loading filter options:', error)
@@ -229,10 +234,17 @@ export default function CourseReportPage() {
     }
   }
 
-  // Handle filter changes
+  // Handle filter changes — branch change reloads course options for that branch
   const handleFilterChange = (key: keyof FilterState, value: string | boolean) => {
-    const processedValue = typeof value === 'string' && value === 'all' ? '' : value
-    setFilters(prev => ({ ...prev, [key]: processedValue }))
+    const processedValue = typeof value === "string" && value === "all" ? "" : value
+    setFilters((prev) => {
+      if (key === "branch_id") {
+        const nextBranch = String(processedValue || "")
+        void loadFilterOptions(nextBranch || undefined)
+        return { ...prev, branch_id: nextBranch, course_id: "" }
+      }
+      return { ...prev, [key]: processedValue }
+    })
   }
 
   const courseCategory = REPORT_CATEGORIES.find(category => category.id === "course")
@@ -308,8 +320,8 @@ export default function CourseReportPage() {
               <CardTitle className="text-lg font-semibold text-gray-900">Search Course Reports</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Branch Dropdown */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                {/* Branch Dropdown — Rock SA lists RMA branches only */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
                   {basePath.startsWith("/branch-admin") ? (
@@ -332,6 +344,27 @@ export default function CourseReportPage() {
                       </SelectContent>
                     </Select>
                   )}
+                </div>
+
+                {/* Course Dropdown — options follow selected branch allocation */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Course</label>
+                  <Select
+                    value={filters.course_id || "all"}
+                    onValueChange={(value) => handleFilterChange("course_id", value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Course" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Courses</SelectItem>
+                      {(filterOptions?.filters.courses || []).map((course) => (
+                        <SelectItem key={course.id} value={course.id}>
+                          {course.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Category Dropdown */}
