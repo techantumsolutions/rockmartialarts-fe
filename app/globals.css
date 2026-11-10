@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'aos/dist/aos.css';
+@import '../styles/admin-shell.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -13,7 +14,26 @@ body {
   padding: 0;
   margin: 0;
   overflow-x: hidden;
-  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-poppins), 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #171a26;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Shared app chrome (student / coach / partner) — same control language as admin */
+[data-app-shell] {
+  font-family: var(--font-poppins), 'Poppins', system-ui, sans-serif;
+  color: #171a26;
+}
+[data-app-shell] button[data-slot="button"],
+[data-app-shell] [data-slot="button"] {
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+[data-app-shell] [data-slot="switch"][data-state="checked"] {
+  background-color: #e1bb33 !important;
 }
 
 /* Prevent Radix UI dropdowns / dialogs from shifting the page left and leaving a right-side scrollbar gap */
@@ -44,39 +64,45 @@ body[data-scroll-locked] {
 }
 
 :root {
-  /* Brand colors */
+  /* Brand colors — single source for website + all dashboards */
   --brand-gold: #E1BB33;
+  --brand-gold-hover: #d4ae2a;
   --brand-dark: #4F5077;
+  --brand-title: #171A26;
   --brand-muted: #9593A8;
   --brand-muted-alt: #6B7A99;
+  --brand-border: #E2E8F0;
+  --brand-surface: #FFFFFF;
+  --brand-canvas: #F8FAFC;
 
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --background: #ffffff;
+  --foreground: #171a26;
+  font-family: var(--font-poppins), 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --card: #ffffff;
+  --card-foreground: #171a26;
+  --popover: #ffffff;
+  --popover-foreground: #171a26;
+  /* Primary CTA = brand gold across admin, student, coach, and public */
+  --primary: #e1bb33;
+  --primary-foreground: #3d3e5c;
+  --secondary: #f8fafc;
+  --secondary-foreground: #171a26;
+  --muted: #f8fafc;
+  --muted-foreground: #64748b;
+  --accent: #fff7df;
+  --accent-foreground: #171a26;
   --destructive: oklch(0.577 0.245 27.325);
   /* Must contrast with --destructive (was identical → invisible toast text) */
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: rgba(225, 187, 51, 0.45);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.625rem;
+  --radius: 0.75rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -172,11 +198,15 @@ body[data-scroll-locked] {
     font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
   
-  /* Scroll zoom helper for AOS-powered sections/cards */
+  /* Scroll zoom helper for AOS-powered sections/cards — mild, smooth */
   .scroll-zoom {
-    transform: scale(0.9);
-    opacity: 0.9;
-    transition: transform 0.8s ease, opacity 0.8s ease;
+    transform: scale(0.96);
+    opacity: 0.92;
+    transition: transform 0.95s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.95s ease;
+  }
+  .scroll-zoom.aos-animate {
+    transform: scale(1);
+    opacity: 1;
   }
   
   /* Global cursor pointer for interactive elements */
@@ -467,4 +497,136 @@ body[data-scroll-locked] {
 .scrollbar-none {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* ---- Page enter + martial loader motion ---- */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-enter {
+  animation: page-enter 0.35s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter,
+  .martial-loader-kick,
+  .martial-loader-bar {
+    animation: none !important;
+  }
+}
+
+@keyframes martial-kick {
+  0%,
+  100% {
+    transform: rotate(-8deg) translateY(0);
+  }
+  50% {
+    transform: rotate(10deg) translateY(-3px);
+  }
+}
+
+.martial-loader-kick {
+  display: inline-block;
+  animation: martial-kick 0.9s ease-in-out infinite;
+  transform-origin: 50% 80%;
+}
+
+@keyframes martial-bar {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(220%);
+  }
+}
+
+.martial-loader-bar {
+  animation: martial-bar 0.9s ease-in-out infinite;
+}
+
+/* Global button hover/focus polish for raw <button> too */
+button:not(:disabled):hover,
+[role="button"]:not([aria-disabled="true"]):hover,
+[type="submit"]:not(:disabled):hover,
+[type="button"]:not(:disabled):hover {
+  filter: brightness(1.03);
+}
+
+button:focus-visible,
+[role="button"]:focus-visible,
+[type="submit"]:focus-visible,
+[type="button"]:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--brand-gold, #e1bb33);
+  outline-offset: 2px;
+}
+
+/* Lazy-loaded media fade-in */
+img[loading="lazy"] {
+  content-visibility: auto;
+}
+
+/* ---- Website content rail: page 100% wide, content 85vw ---- */
+.site-shell {
+  width: 100%;
+}
+
+.site-content {
+  width: 85vw;
+  max-width: 85vw;
+  margin-left: auto;
+  margin-right: auto;
+  box-sizing: border-box;
+}
+
+/* Remap common Tailwind containers inside the website shell */
+.site-shell .max-w-7xl,
+.site-shell .container.max-w-7xl,
+.site-shell .mx-auto.max-w-7xl {
+  width: 85vw !important;
+  max-width: 85vw !important;
+}
+
+@media (max-width: 640px) {
+  .site-content,
+  .site-shell .max-w-7xl,
+  .site-shell .container.max-w-7xl,
+  .site-shell .mx-auto.max-w-7xl {
+    width: min(92vw, calc(100% - 1rem)) !important;
+    max-width: min(92vw, calc(100% - 1rem)) !important;
+  }
+}
+
+/* Image load shimmer */
+@keyframes img-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.img-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.15) 0%,
+    rgba(226, 232, 240, 0.45) 50%,
+    rgba(148, 163, 184, 0.15) 100%
+  );
+  background-size: 200% 100%;
+  animation: img-shimmer 1.1s linear infinite;
+}
+
+.img-fallback-applied {
+  object-fit: contain;
+  background-color: #f3f4f6;
 }

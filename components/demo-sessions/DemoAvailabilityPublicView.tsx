@@ -201,8 +201,51 @@ export default function DemoAvailabilityPublicView() {
   const loadOptions = useCallback(async () => {
     try {
       const data = await demoSessionAPI.options()
-      setBranches(data.branches || [])
-      setCourses(data.courses || [])
+      let nextBranches = data.branches || []
+      let nextCourses = data.courses || []
+
+      // Fallback: public branch/course catalogs when demo schedules haven't been configured yet
+      if (nextBranches.length === 0) {
+        try {
+          const res = await fetch("/api/backend/branches/public/all?limit=200", {
+            cache: "no-store",
+          })
+          if (res.ok) {
+            const payload = await res.json()
+            const list = payload.branches || payload || []
+            nextBranches = (Array.isArray(list) ? list : [])
+              .map((b: { id?: string; name?: string; branch?: { name?: string } }) => ({
+                id: String(b.id || ""),
+                name: String(b.branch?.name || b.name || b.id || "").trim(),
+              }))
+              .filter((b: DemoAvailabilityOption) => b.id && b.name)
+          }
+        } catch {
+          /* keep empty */
+        }
+      }
+      if (nextCourses.length === 0) {
+        try {
+          const res = await fetch("/api/backend/courses/public/all?limit=200", {
+            cache: "no-store",
+          })
+          if (res.ok) {
+            const payload = await res.json()
+            const list = payload.courses || payload || []
+            nextCourses = (Array.isArray(list) ? list : [])
+              .map((c: { id?: string; title?: string; name?: string }) => ({
+                id: String(c.id || ""),
+                name: String(c.title || c.name || c.id || "").trim(),
+              }))
+              .filter((c: DemoAvailabilityOption) => c.id && c.name)
+          }
+        } catch {
+          /* keep empty */
+        }
+      }
+
+      setBranches(nextBranches)
+      setCourses(nextCourses)
     } catch {
       setBranches([])
       setCourses([])
@@ -532,7 +575,9 @@ export default function DemoAvailabilityPublicView() {
               <CalendarDays className="w-10 h-10 text-white mx-auto" />
               <p>No demo slots found for the selected filters.</p>
               <p className="text-xs text-gray-500">
-                Try expanding your dates or clearing branch / course filters.
+                {branches.length === 0
+                  ? "Branches are loading or unavailable. Please refresh the page."
+                  : "Try another branch or course, expand the date range, or check back soon — demo schedules are set by the academy."}
               </p>
             </div>
           ) : (

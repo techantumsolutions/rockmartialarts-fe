@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Loader2, FileText, Printer, Search } from "lucide-react"
+import { Loader2, FileText, Printer, Search, MessageCircle } from "lucide-react"
 import { invoicesAPI, type InvoiceListItem } from "@/lib/invoicesAPI"
 import { dashboardAPI } from "@/lib/dashboardAPI"
 import {
@@ -74,6 +74,7 @@ export default function AdminInvoicesPage() {
   const [allItems, setAllItems] = useState<InvoiceListItem[]>([])
   const [serverTotal, setServerTotal] = useState(0)
   const [printingId, setPrintingId] = useState<string | null>(null)
+  const [whatsappId, setWhatsappId] = useState<string | null>(null)
 
   const [payerType, setPayerType] = useState<PayerTypeFilter>("all")
   const [courseId, setCourseId] = useState("all")
@@ -193,6 +194,25 @@ export default function AdminInvoicesPage() {
     }
   }
 
+  async function handleWhatsAppResend(id: string) {
+    setWhatsappId(id)
+    try {
+      const result = await invoicesAPI.resendWhatsApp(id)
+      toast({
+        title: "WhatsApp invoice sent",
+        description: result.message || `Status: ${result.status || "sent"}`,
+      })
+    } catch (err) {
+      toast({
+        title: "WhatsApp send failed",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setWhatsappId(null)
+    }
+  }
+
   function clearAll() {
     setSearch("")
     setPayerType("all")
@@ -202,9 +222,9 @@ export default function AdminInvoicesPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
+    <div className="w-full min-w-0 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Invoices</h1>
+        <h1 className="text-2xl font-bold text-[#4F5077]">Invoices</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Automatic invoices created after successful payments.
         </p>
@@ -382,6 +402,22 @@ export default function AdminInvoicesPage() {
                         <div className="flex justify-end gap-2">
                           <Button variant="outline" size="sm" asChild>
                             <Link href={`${basePath}/invoices/${inv.id}`}>View</Link>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={whatsappId === inv.id}
+                            onClick={() => void handleWhatsAppResend(inv.id)}
+                            title="Resend invoice on WhatsApp"
+                          >
+                            {whatsappId === inv.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <>
+                                <MessageCircle className="h-4 w-4 mr-1" />
+                                WhatsApp
+                              </>
+                            )}
                           </Button>
                           <Button
                             size="sm"

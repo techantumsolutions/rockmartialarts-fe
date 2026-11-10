@@ -1,6 +1,8 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import { motion, useReducedMotion } from "framer-motion"
+import { AnimatedStaggerGrid } from "@/components/animations/AnimatedStaggerGrid"
 import Image from "next/image"
 import Link from "next/link"
 import {
@@ -102,6 +104,32 @@ function branchPathKey(b: PartnerOrgBranchCard): string {
   return String(b.slug || b.id || b.code || "")
 }
 
+type CourseGroup = {
+  key: string
+  course: PartnerOrgBranchCourse
+  branches: PartnerOrgBranchCard[]
+}
+
+function buildCourseGroups(branches: PartnerOrgBranchCard[]): CourseGroup[] {
+  const map = new Map<string, CourseGroup>()
+  for (const branch of branches) {
+    for (const course of branch.courses || []) {
+      const key = String(course.id || course.slug || getCourseName(course))
+      const existing = map.get(key)
+      if (existing) {
+        if (!existing.branches.some((b) => b.id === branch.id)) {
+          existing.branches.push(branch)
+        }
+      } else {
+        map.set(key, { key, course, branches: [branch] })
+      }
+    }
+  }
+  return Array.from(map.values()).sort((a, b) =>
+    getCourseName(a.course).localeCompare(getCourseName(b.course))
+  )
+}
+
 type Props = {
   branches: PartnerOrgBranchCard[]
   achievements: PartnerOrgAchievementItem[]
@@ -130,6 +158,8 @@ export function PartnerOrgSiteSections({
     () => branches.find((b) => b.id === selectedBranchId) || null,
     [branches, selectedBranchId]
   )
+  const courseGroups = useMemo(() => buildCourseGroups(branches), [branches])
+  const reduceMotion = useReducedMotion()
 
   const isPublic = variant === "public"
   const navigateBranches = isPublic && !!orgSlug
@@ -168,8 +198,63 @@ export function PartnerOrgSiteSections({
     )
   }
 
+  const hoverCardProps = reduceMotion
+    ? {}
+    : { whileHover: { y: -4, transition: { duration: 0.2 } } }
+
   return (
     <div className="space-y-12">
+      {navigateBranches && courseGroups.length > 0 ? (
+        <section className={sectionBg}>
+          <div className="container mx-auto max-w-7xl px-4 py-12">
+            <div className="text-center mb-8">
+              <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
+              <h2 className={titleClass}>Available Courses</h2>
+              <p className={`mt-2 text-sm ${muted}`}>
+                Courses offered across partner branches
+              </p>
+            </div>
+            <AnimatedStaggerGrid className="grid grid-cols-1 lg:grid-cols-2 gap-5" staggerDelay={0.08}>
+              {courseGroups.map((group) => (
+                <motion.div
+                  key={group.key}
+                  {...hoverCardProps}
+                  className={`${cardClass} p-5`}
+                >
+                  <div className="flex items-start gap-2 mb-3">
+                    <BookOpen className={`w-5 h-5 shrink-0 ${isPublic ? "text-[#FFB70F]" : "text-amber-700"}`} />
+                    <div>
+                      <h3 className={`font-semibold ${isPublic ? "text-[#FFB70F]" : "text-[#1a2332]"}`}>
+                        {getCourseName(group.course)}
+                      </h3>
+                      {group.course.description ? (
+                        <p className={`text-xs mt-1 line-clamp-2 ${muted}`}>{group.course.description}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                  <ul className={`space-y-1.5 text-sm ${muted}`}>
+                    {group.branches.map((b) => {
+                      const key = branchPathKey(b)
+                      return (
+                        <li key={`${group.key}-${b.id}`}>
+                          <Link
+                            href={`/partner-orgs/${encodeURIComponent(orgSlug!)}/branches/${encodeURIComponent(key)}`}
+                            className={`inline-flex items-center gap-1.5 hover:underline ${isPublic ? "text-gray-300 hover:text-[#FFB70F]" : "text-gray-700 hover:text-amber-800"}`}
+                          >
+                            <Building2 className="w-3.5 h-3.5" />
+                            {getBranchName(b)}
+                          </Link>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </motion.div>
+              ))}
+            </AnimatedStaggerGrid>
+          </div>
+        </section>
+      ) : null}
+
       {/* Branches */}
       <section className={sectionBg}>
         <div className={isPublic ? "container mx-auto max-w-7xl px-4 py-12" : ""}>
@@ -186,7 +271,10 @@ export function PartnerOrgSiteSections({
           {branches.length === 0 ? (
             <p className={`text-center py-8 ${muted}`}>No branches published for this organization yet.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <AnimatedStaggerGrid
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"
+              staggerDelay={0.07}
+            >
               {branches.map((b) => {
                 const addr = b.branch?.address || b.address
                 const active = !navigateBranches && selectedBranchId === b.id
@@ -240,28 +328,30 @@ export function PartnerOrgSiteSections({
                 if (navigateBranches) {
                   const key = branchPathKey(b)
                   return (
-                    <Link
-                      key={b.id}
-                      href={`/partner-orgs/${encodeURIComponent(orgSlug!)}/branches/${encodeURIComponent(key)}`}
-                      className={`${cardClass} block p-5`}
-                    >
-                      {inner}
-                    </Link>
+                    <motion.div key={b.id} {...hoverCardProps}>
+                      <Link
+                        href={`/partner-orgs/${encodeURIComponent(orgSlug!)}/branches/${encodeURIComponent(key)}`}
+                        className={`${cardClass} block p-5`}
+                      >
+                        {inner}
+                      </Link>
+                    </motion.div>
                   )
                 }
 
                 return (
-                  <button
+                  <motion.button
                     key={b.id}
                     type="button"
+                    {...hoverCardProps}
                     onClick={() => toggleBranch(b.id)}
-                    className={`${cardClass} text-left p-5 ${active ? (isPublic ? "border-[#FFB70F]" : "border-amber-400 ring-1 ring-amber-200") : ""}`}
+                    className={`${cardClass} text-left p-5 w-full ${active ? (isPublic ? "border-[#FFB70F]" : "border-amber-400 ring-1 ring-amber-200") : ""}`}
                   >
                     {inner}
-                  </button>
+                  </motion.button>
                 )
               })}
-            </div>
+            </AnimatedStaggerGrid>
           )}
         </div>
       </section>
@@ -377,14 +467,17 @@ export function PartnerOrgSiteSections({
           {achievements.length === 0 ? (
             <p className={`text-center py-8 ${muted}`}>No student achievements yet.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            <AnimatedStaggerGrid
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
+              staggerDelay={0.06}
+            >
               {achievements.map((item) => (
                 <ShowcaseAchievementCard
                   key={`${item.source || "a"}-${item.id}`}
                   item={item}
                 />
               ))}
-            </div>
+            </AnimatedStaggerGrid>
           )}
         </div>
       </section>

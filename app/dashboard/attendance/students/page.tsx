@@ -55,6 +55,7 @@ import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { TokenManager } from "@/lib/tokenManager"
 import { getActiveBranch, getActiveBranchId } from "@/lib/activeBranch"
 import { formatTimeIST } from "@/lib/formatRegisteredDate"
+import { formatRange } from "@/lib/batchCoachAssignment"
 import { useToast } from "@/hooks/use-toast"
 
 function isPartnerDashboardPath(path: string): boolean {
@@ -321,6 +322,9 @@ export default function SuperAdminStudentAttendancePage() {
   const [selectedBatch, setSelectedBatch] = useState("all")
   const [selectedStatus, setSelectedStatus] = useState("all")
   const [batchOptions, setBatchOptions] = useState<BatchOption[]>([])
+  const [batchTimingByRef, setBatchTimingByRef] = useState<
+    Record<string, { start_time?: string; end_time?: string }>
+  >({})
   const [batchesLoading, setBatchesLoading] = useState(false)
 
   // Keep super-admin branch filter in sync with `?branch=` deep links only
@@ -450,6 +454,85 @@ export default function SuperAdminStudentAttendancePage() {
       isMounted = false
     }
   }, [selectedCourse, effectiveBranchId])
+
+  useEffect(() => {
+    if (!batchOptions.length) return
+    setBatchTimingByRef((prev) => {
+      const next = { ...prev }
+      for (const batch of batchOptions) {
+        if (batch.batch_ref) {
+          next[batch.batch_ref] = {
+            start_time: batch.start_time,
+            end_time: batch.end_time,
+          }
+        }
+      }
+      return next
+    })
+  }, [batchOptions])
+
+  useEffect(() => {
+    const headers = getAttendanceAuthHeaders()
+    if (!headers || attendanceRecords.length === 0) return
+
+    const pairs = new Map<string, string>()
+    for (const record of attendanceRecords) {
+      if (!record.course_id) continue
+      const branch =
+        record.branch_id && record.branch_id !== "all"
+          ? record.branch_id
+          : effectiveBranchId && effectiveBranchId !== "all"
+            ? effectiveBranchId
+            : ""
+      pairs.set(record.course_id, branch)
+    }
+    if (pairs.size === 0) return
+
+    let cancelled = false
+    const loadTimings = async () => {
+      for (const [courseId, branchId] of pairs) {
+        const qs = new URLSearchParams({ course_id: courseId })
+        if (branchId) qs.set("branch_id", branchId)
+        try {
+          const res = await fetch(`/api/backend/attendance/batches?${qs.toString()}`, {
+            headers,
+          })
+          if (!res.ok || cancelled) continue
+          const data = await res.json()
+          const batches: BatchOption[] = data.batches || []
+          setBatchTimingByRef((prev) => {
+            const next = { ...prev }
+            for (const batch of batches) {
+              if (batch.batch_ref) {
+                next[batch.batch_ref] = {
+                  start_time: batch.start_time,
+                  end_time: batch.end_time,
+                }
+              }
+            }
+            return next
+          })
+        } catch {
+          /* best-effort cache */
+        }
+      }
+    }
+    void loadTimings()
+    return () => {
+      cancelled = true
+    }
+  }, [attendanceRecords, effectiveBranchId])
+
+  const resolveBatchTimingLabel = (record: AttendanceRecord): string | null => {
+    const ref = record.batch_ref
+    if (!ref) return null
+    const fromOptions = batchOptions.find((b) => b.batch_ref === ref)
+    const cached = batchTimingByRef[ref]
+    const start = fromOptions?.start_time || cached?.start_time
+    const end = fromOptions?.end_time || cached?.end_time
+    if (start && end) return formatRange(start, end)
+    return null
+  }
 
   // Filter attendance records based on search and filters
   const filteredRecords = attendanceRecords.filter(record => {
@@ -1702,6 +1785,12 @@ export default function SuperAdminStudentAttendancePage() {
                                 </div>
                                 <div>
                                   <div className="text-sm font-medium text-gray-900">{record.course_name}</div>
+                                  {(() => {
+                                    const batchTiming = resolveBatchTimingLabel(record)
+                                    return batchTiming ? (
+                                      <div className="text-xs text-gray-500">{batchTiming}</div>
+                                    ) : null
+                                  })()}
                                   <div className="text-xs text-gray-500">Course</div>
                                 </div>
                               </div>

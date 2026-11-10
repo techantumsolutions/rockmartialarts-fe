@@ -696,7 +696,7 @@ export default function CategoriesManagementPage() {
 
                   <div className="hidden grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label className="hidden" htmlFor="parent_category_id" className="text-sm font-medium text-gray-700">
+                      <Label htmlFor="parent_category_id" className="hidden text-sm font-medium text-gray-700">
                         Parent Category
                       </Label>
                       <Select
@@ -739,7 +739,7 @@ export default function CategoriesManagementPage() {
 
                   <div className="hidden grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label className="hidden" htmlFor="icon_url" className="text-sm font-medium text-gray-700">
+                      <Label htmlFor="icon_url" className="hidden text-sm font-medium text-gray-700">
                         Icon URL
                       </Label>
                       <Input
@@ -751,7 +751,7 @@ export default function CategoriesManagementPage() {
                     </div>
 
                     <div>
-                      <Label className="hidden" htmlFor="color_code" className="text-sm font-medium text-gray-700">
+                      <Label htmlFor="color_code" className="hidden text-sm font-medium text-gray-700">
                         Color Code
                       </Label>
                       <Input

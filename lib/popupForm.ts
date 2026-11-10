@@ -59,14 +59,17 @@ export const DEFAULT_POPUP_DESCRIPTION =
 
 /** Public site: missing CMS object keeps current behavior (all on + default copy). */
 export function resolvePopupForm(raw?: PopupFormSettings | null): ResolvedPopupForm {
+  const enabled = raw?.enabled !== false
   return {
-    enabled: raw?.enabled !== false,
+    enabled,
     title: (raw?.title ?? "").trim() || DEFAULT_POPUP_TITLE,
     description: (raw?.description ?? "").trim() || DEFAULT_POPUP_DESCRIPTION,
     name_enabled: raw?.name_enabled !== false,
-    phone_enabled: raw?.phone_enabled !== false,
+    // Spec: mandatory visitor OTP — phone verification cannot be disabled while popup is on.
+    phone_enabled: enabled ? true : raw?.phone_enabled !== false,
     branch_enabled: raw?.branch_enabled !== false,
-    skip_enabled: raw?.skip_enabled !== false,
+    // Admin-controlled: when true, visitors may skip OTP and continue browsing.
+    skip_enabled: raw?.skip_enabled === true,
   }
 }
 
@@ -79,6 +82,6 @@ export function normalizePopupFormForCms(raw?: PopupFormSettings | null): Resolv
     name_enabled: raw?.name_enabled !== false,
     phone_enabled: raw?.phone_enabled !== false,
     branch_enabled: raw?.branch_enabled !== false,
-    skip_enabled: raw?.skip_enabled !== false,
+    skip_enabled: raw?.skip_enabled === true,
   }
 }

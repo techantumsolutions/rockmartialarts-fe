@@ -73,7 +73,7 @@ export default function PartnerOrgCoursesPage() {
   return (
     <main className="text-white pb-16">
       <section className="pt-10 pb-8 px-4 border-b border-gray-800">
-        <div className="container mx-auto max-w-7xl">
+        <div className="site-content">
           <p className="text-[#FFB70F] uppercase tracking-[0.2em] text-xs mb-2">
             {data?.hero?.name || "Partner"}
           </p>
@@ -85,7 +85,7 @@ export default function PartnerOrgCoursesPage() {
       </section>
 
       <section className="py-12 px-4">
-        <div className="container mx-auto max-w-7xl">
+        <div className="site-content">
           {rows.length === 0 ? (
             <p className="text-center text-gray-400 py-16">No courses published yet.</p>
           ) : (

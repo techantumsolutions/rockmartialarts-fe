@@ -23,7 +23,28 @@ interface BranchOption {
   name: string
 }
 
-const STORAGE_KEY = "rock_lead_captured"
+/** Only set after OTP-verified lead submit. Legacy "1" / skip markers are ignored. */
+const STORAGE_KEY = "rock_visitor_otp_verified_v2"
+const SKIP_STORAGE_KEY = "rock_visitor_otp_skipped_v1"
+const LEGACY_SKIP_KEYS = ["rock_lead_captured"]
+
+function readVerifiedVisitorMarker(): string | null {
+  if (typeof window === "undefined") return null
+  const raw = window.localStorage.getItem(STORAGE_KEY)
+  if (!raw) return null
+  // Expect verified|<phoneDigits>|<isoTimestamp>
+  const parts = raw.split("|")
+  if (parts.length < 3 || parts[0] !== "verified") return null
+  if (!/^\d{10}$/.test(parts[1] || "")) return null
+  return raw
+}
+
+function readSkipMarker(): boolean {
+  if (typeof window === "undefined") return false
+  const raw = window.localStorage.getItem(SKIP_STORAGE_KEY)
+  if (!raw) return false
+  return raw.startsWith("skipped|")
+}
 
 export function LeadCaptureModal() {
   const pathname = usePathname()
@@ -47,6 +68,22 @@ export function LeadCaptureModal() {
 
   useEffect(() => {
     if (typeof window === "undefined") return
+    // Purge legacy skip/bypass markers that granted access without OTP.
+    for (const k of LEGACY_SKIP_KEYS) {
+      try {
+        window.localStorage.removeItem(k)
+      } catch {
+        /* ignore */
+      }
+    }
+    // If admin disables Skip, clear prior skip so the gate reappears.
+    if (!popup.skip_enabled) {
+      try {
+        window.localStorage.removeItem(SKIP_STORAGE_KEY)
+      } catch {
+        /* ignore */
+      }
+    }
     if (hideForPartnerSite) {
       setOpen(false)
       return
@@ -56,12 +93,25 @@ export function LeadCaptureModal() {
       setOpen(false)
       return
     }
-    const alreadyCaptured = window.localStorage.getItem(STORAGE_KEY)
-    if (!alreadyCaptured) {
+    const alreadyVerified = readVerifiedVisitorMarker()
+    const alreadySkipped = popup.skip_enabled && readSkipMarker()
+    if (!alreadyVerified && !alreadySkipped) {
       setOpen(true)
       if (popup.branch_enabled) fetchBranches()
+    } else {
+      setOpen(false)
     }
-  }, [cmsLoading, popup.enabled, popup.branch_enabled, hideForPartnerSite])
+  }, [cmsLoading, popup.enabled, popup.branch_enabled, popup.skip_enabled, hideForPartnerSite])
+
+  function handleSkip() {
+    if (!popup.skip_enabled) return
+    try {
+      window.localStorage.setItem(SKIP_STORAGE_KEY, `skipped|${new Date().toISOString()}`)
+    } catch {
+      /* ignore */
+    }
+    setOpen(false)
+  }
 
   async function fetchBranches() {
     try {
@@ -137,7 +187,13 @@ export function LeadCaptureModal() {
         return
       }
       if (typeof window !== "undefined") {
-        window.localStorage.setItem(STORAGE_KEY, "1")
+        window.localStorage.setItem(
+          STORAGE_KEY,
+          `verified|${phoneDigits}|${new Date().toISOString()}`
+        )
+        for (const k of LEGACY_SKIP_KEYS) {
+          window.localStorage.removeItem(k)
+        }
       }
       toast({
         title: "Thank you!",
@@ -161,21 +217,37 @@ export function LeadCaptureModal() {
     }
   }
 
-  function handleSkip() {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, "1")
-    }
-    setOpen(false)
-  }
-
   if (!open) return null
 
   const submitDisabled =
-    submitting || (popup.phone_enabled && (!phoneValid || !verificationToken))
+    submitting || !phoneValid || !verificationToken || (popup.name_enabled && !name.trim())
 
   return (
-    <Dialog open={open}>
-      <DialogContent className="max-w-md border-gray-200 bg-white text-gray-900 shadow-xl" showCloseButton={false}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        // When Skip is disabled, ignore dismiss attempts (Esc / outside).
+        if (!next && !popup.skip_enabled) return
+        if (!next && popup.skip_enabled) {
+          handleSkip()
+          return
+        }
+        setOpen(next)
+      }}
+    >
+      <DialogContent
+        className="max-w-md border-gray-200 bg-white text-gray-900 shadow-xl"
+        showCloseButton={popup.skip_enabled}
+        onPointerDownOutside={(e) => {
+          if (!popup.skip_enabled) e.preventDefault()
+        }}
+        onEscapeKeyDown={(e) => {
+          if (!popup.skip_enabled) e.preventDefault()
+        }}
+        onInteractOutside={(e) => {
+          if (!popup.skip_enabled) e.preventDefault()
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{popup.title}</DialogTitle>
           <DialogDescription className="text-gray-600">
@@ -265,16 +337,21 @@ export function LeadCaptureModal() {
           >
             {submitting ? "Submitting..." : "Submit"}
           </Button>
+          {popup.skip_enabled ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full text-gray-600 hover:text-gray-900"
+              onClick={handleSkip}
+            >
+              Skip for now
+            </Button>
+          ) : (
+            <p className="text-center text-xs text-gray-500">
+              Mobile verification is required to continue browsing the site.
+            </p>
+          )}
         </form>
-        {popup.skip_enabled ? (
-          <button
-            type="button"
-            onClick={handleSkip}
-            className="mt-3 w-full text-sm text-gray-500 hover:text-gray-800 transition-colors"
-          >
-            Skip for now
-          </button>
-        ) : null}
       </DialogContent>
     </Dialog>
   )

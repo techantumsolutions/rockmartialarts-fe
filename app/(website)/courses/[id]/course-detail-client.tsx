@@ -685,7 +685,7 @@ function CourseDetailPageInner() {
           }
         >
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-black/30" />
-          <div className="container relative z-10 mx-auto px-4 max-w-7xl pb-16 pt-32">
+          <div className="site-content relative z-10 px-0 sm:px-1 pb-16 pt-32">
             <h1 className="text-4xl md:text-6xl font-extrabold text-white uppercase leading-tight mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>
               {displayTitle}
             </h1>
@@ -707,7 +707,7 @@ function CourseDetailPageInner() {
             branchPricingLoading && branches.length > 0 ? "opacity-[0.88]" : "opacity-100"
           }`}
         >
-          <div className="container mx-auto px-3 sm:px-4 max-w-7xl">
+          <div className="site-content px-0 sm:px-1">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-nowrap lg:items-stretch">
               {/* Location selector */}
               {(branches.length > 0 || info.location) && (
@@ -923,7 +923,7 @@ function CourseDetailPageInner() {
           about.image1 ||
           about.image2) && (
         <section className="py-16 md:py-20 bg-white text-[#171A26]">
-          <div className="container mx-auto px-4 max-w-7xl">
+          <div className="site-content px-0 sm:px-1">
             <div className="flex flex-col lg:flex-row lg:items-center gap-8">
               {/* LEFT: text content (60%) */}
               <div className="w-full lg:w-[60%]">
@@ -954,7 +954,7 @@ function CourseDetailPageInner() {
       {/* ============ CTA (Ready to Start Your Journey?) ============ */}
       {enabled("cta") && (
         <section className="bg-[#171A26] px-4 py-8 md:bg-[#F73322] md:px-0 md:py-12">
-          <div className="container mx-auto max-w-7xl rounded-2xl bg-[#F73322] px-5 py-8 text-center sm:px-8 md:rounded-none md:bg-transparent md:px-4 md:py-0">
+          <div className="site-content rounded-2xl bg-[#F73322] px-5 py-8 text-center sm:px-8 md:rounded-none md:bg-transparent md:px-4 md:py-0">
             <h2 className="text-2xl md:text-3xl font-extrabold text-white uppercase mb-5 md:mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>
               {pc.cta_section?.headline?.trim() || "Ready to Start Your Journey?"}
             </h2>
@@ -985,7 +985,7 @@ function CourseDetailPageInner() {
       {/* ============ 3a. COURSE INFO SECTIONS (60-40 / 40-60 alternating) ============ */}
       {enabled("course_info_sections") && courseInfoSections.length > 0 && (
         <section className="py-16 md:py-20 bg-white text-[#171A26]">
-          <div className="container mx-auto px-4 max-w-7xl space-y-16">
+          <div className="site-content px-0 sm:px-1 space-y-16">
             {courseInfoSections.map((sec, idx) => {
               const textLeft = sec.layout !== "image_left"
               const hasImage = Boolean(sec.image)
@@ -1043,7 +1043,7 @@ function CourseDetailPageInner() {
       {/* ============ COURSE CONTENT (syllabus / equipment) ============ */}
       {enabled("course_content") && (courseContent.syllabus || (courseContent.equipment_required && courseContent.equipment_required.length > 0)) && (
         <section className="pt-16 pb-4 md:pt-20 md:pb-6 bg-[#1E2130]">
-          <div className="container mx-auto px-4 max-w-7xl">
+          <div className="site-content px-0 sm:px-1">
             {headings?.course_content?.sub?.trim() || headings?.course_content?.title?.trim() ? (
               <SectionLabel sub={headings?.course_content?.sub} title={headings?.course_content?.title} />
             ) : (
@@ -1083,7 +1083,7 @@ function CourseDetailPageInner() {
       {/* ============ 4. BENEFITS ============ */}
       {enabled("benefits") && benefits.length > 0 && (
         <section className="pt-4 pb-16 md:pt-6 md:pb-20 bg-[#1E2130]">
-          <div className="container mx-auto px-4 max-w-7xl">
+          <div className="site-content px-0 sm:px-1">
             {headings?.benefits?.sub?.trim() || headings?.benefits?.title?.trim() ? (
               <SectionLabel sub={headings?.benefits?.sub} title={headings?.benefits?.title} />
             ) : (
@@ -1105,7 +1105,7 @@ function CourseDetailPageInner() {
       {/* ============ 5. LEARNING / VIDEO ============ */}
       {enabled("learning") && (learning.title || effectiveLearningVideo || learning.description) && (
         <section className="py-16 md:py-20">
-          <div className="container mx-auto px-4 max-w-7xl">
+          <div className="site-content px-0 sm:px-1">
             {headings?.learning?.sub?.trim() || headings?.learning?.title?.trim() || learning.title?.trim() ? (
               <SectionLabel
                 sub={headings?.learning?.sub}
@@ -1132,7 +1132,7 @@ function CourseDetailPageInner() {
       {/* ============ 6. GALLERY ============ */}
       {enabled("gallery") && gallery.length > 0 && (
         <section className="py-16 md:py-20 bg-[#1E2130]">
-          <div className="container mx-auto px-4 max-w-7xl">
+          <div className="site-content px-0 sm:px-1">
             {headings?.gallery?.sub?.trim() || headings?.gallery?.title?.trim() ? (
               <SectionLabel sub={headings?.gallery?.sub} title={headings?.gallery?.title} />
             ) : (
@@ -1172,7 +1172,7 @@ function CourseDetailPageInner() {
       {/* ============ 7. INSTRUCTORS ============ */}
       {enabled("instructors") && instructors.length > 0 && (
         <section className="py-16 md:py-20">
-          <div className="container mx-auto px-4 max-w-7xl">
+          <div className="site-content px-0 sm:px-1">
             {headings?.instructors?.sub?.trim() || headings?.instructors?.title?.trim() ? (
               <SectionLabel sub={headings?.instructors?.sub} title={headings?.instructors?.title} />
             ) : (
@@ -1201,7 +1201,7 @@ function CourseDetailPageInner() {
 
       {/* Student achievements (marketing showcase — MongoDB) */}
       <section className="py-16 md:py-20 bg-[#1E2130]">
-        <div className="container mx-auto px-4 max-w-7xl">
+        <div className="site-content px-0 sm:px-1">
           <SectionLabel sub="Celebrate" title="Student Achievements" />
           {showcaseLoading ? (
             <div className="flex justify-center py-12">
@@ -1222,7 +1222,7 @@ function CourseDetailPageInner() {
       {/* ============ 8. TESTIMONIALS ============ */}
       {enabled("testimonials") && testimonials.length > 0 && (
         <section className="py-16 md:py-20 bg-[#1E2130]">
-          <div className="container mx-auto px-4 max-w-7xl">
+          <div className="site-content px-0 sm:px-1">
             {headings?.testimonials?.sub?.trim() || headings?.testimonials?.title?.trim() ? (
               <SectionLabel sub={headings?.testimonials?.sub} title={headings?.testimonials?.title} />
             ) : (
@@ -1273,7 +1273,7 @@ function CourseDetailPageInner() {
       {/* ============ 9. PDF ATTACHMENTS ============ */}
       {enabled("attachments") && attachments.length > 0 && (
         <section className="py-16 md:py-20">
-          <div className="container mx-auto px-4 max-w-7xl">
+          <div className="site-content px-0 sm:px-1">
             {headings?.attachments?.sub?.trim() || headings?.attachments?.title?.trim() ? (
               <SectionLabel sub={headings?.attachments?.sub} title={headings?.attachments?.title} />
             ) : (

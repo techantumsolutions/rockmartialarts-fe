@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -114,6 +115,9 @@ function fromDatetimeLocal(value: string): string | undefined {
 
 export default function LeadsPage() {
   const { toast } = useToast()
+  const searchParams = useSearchParams()
+  const deepLinkLeadId = searchParams.get("leadId")
+  const openedLeadFromUrl = useRef<string | null>(null)
   const [leads, setLeads] = useState<LeadRow[]>([])
   const [total, setTotal] = useState(0)
   const [skip, setSkip] = useState(0)
@@ -251,6 +255,32 @@ export default function LeadsPage() {
     }
   }
 
+  useEffect(() => {
+    if (!deepLinkLeadId || openedLeadFromUrl.current === deepLinkLeadId) return
+    const row = leads.find((l) => l.id === deepLinkLeadId)
+    if (row) {
+      openedLeadFromUrl.current = deepLinkLeadId
+      void openDetail(row)
+      return
+    }
+    if (!loading && hasAuth()) {
+      openedLeadFromUrl.current = deepLinkLeadId
+      leadAPI
+        .get(deepLinkLeadId)
+        .then((data) => {
+          if (data.lead) {
+            setLeads((prev) =>
+              prev.some((l) => l.id === data.lead.id)
+                ? prev
+                : [data.lead, ...prev]
+            )
+            void openDetail(data.lead)
+          }
+        })
+        .catch(() => {})
+    }
+  }, [deepLinkLeadId, leads, loading])
+
   const updateStatus = async (id: string, previous: LeadStatus, next: LeadStatus) => {
     if (previous === next) return
     setLeads((rows) => rows.map((r) => (r.id === id ? { ...r, status: next } : r)))
@@ -336,11 +366,11 @@ export default function LeadsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 lg:px-8">
-      <div className="mx-auto max-w-7xl space-y-6">
+    <div className="w-full min-w-0">
+      <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Lead management</h1>
+            <h1 className="text-2xl font-bold text-[#4F5077]">Lead management</h1>
             <p className="text-gray-600 text-sm">
               Follow-up pipeline — notes, next follow-up dates, and status history.
             </p>

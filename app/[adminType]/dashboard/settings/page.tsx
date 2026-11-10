@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { Suspense, useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,25 +9,47 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
-import { Badge } from "@/components/ui/badge"
-import { 
-  Settings, 
-  Shield, 
-  Bell, 
-  Database, 
-  Globe, 
-  Lock, 
-  Save, 
+import {
+  Settings,
+  Shield,
+  Bell,
+  Database,
+  MapPin,
+  Save,
   RefreshCw,
   AlertTriangle,
-  Info,
   CreditCard,
+  ChevronRight,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { TokenManager } from "@/lib/tokenManager"
-import { settingsAPI, SystemSettings, SettingsResponse } from "@/lib/settingsAPI"
+import { settingsAPI, SystemSettings } from "@/lib/settingsAPI"
+import GeographySettingsPage from "@/components/settings/geography-settings-page"
+
+type SettingsSection =
+  | "system"
+  | "pricing"
+  | "security"
+  | "notifications"
+  | "master"
+  | "geography"
+  | "backup"
+
+const SETTINGS_SECTIONS: {
+  id: SettingsSection
+  label: string
+  description: string
+  icon: typeof Settings
+}[] = [
+  { id: "system", label: "System Configuration", description: "Basic system details & modes.", icon: Settings },
+  { id: "pricing", label: "Pricing & Registration", description: "Registration and training fees.", icon: CreditCard },
+  { id: "security", label: "Security Settings", description: "Session, password & 2FA.", icon: Shield },
+  { id: "notifications", label: "Notification Settings", description: "Email and SMS preferences.", icon: Bell },
+  { id: "master", label: "Master Data", description: "Manage common dropdowns.", icon: Database },
+  { id: "geography", label: "State & City", description: "Configure states and cities.", icon: MapPin },
+  { id: "backup", label: "Backup Settings", description: "Automated backups and retention.", icon: Database },
+]
 
 function isAllowedSettingsRole(role: string | undefined | null) {
   const normalized = String(role || "").toLowerCase()
@@ -57,13 +79,27 @@ interface FormErrors {
   [key: string]: string
 }
 
-export default function SuperAdminSettingsPage() {
+function SuperAdminSettingsPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const basePath = useDashboardBasePath()
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errors, setErrors] = useState<FormErrors>({})
+  const [activeSection, setActiveSection] = useState<SettingsSection>("system")
+
+  useEffect(() => {
+    const section = (searchParams.get("section") || "").toLowerCase()
+    const match = SETTINGS_SECTIONS.find((s) => s.id === section)
+    if (match) setActiveSection(match.id)
+  }, [searchParams])
+
+  const selectSection = (id: SettingsSection) => {
+    setActiveSection(id)
+    const url = id === "system" ? `${basePath}/settings` : `${basePath}/settings?section=${id}`
+    router.replace(url, { scroll: false })
+  }
   
   const [settings, setSettings] = useState<SystemSettings>({
     // System Configuration
@@ -300,533 +336,469 @@ export default function SuperAdminSettingsPage() {
     )
   }
 
+  const showSaveActions = activeSection !== "geography" && activeSection !== "master"
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      
-      <main className="w-full p-4 lg:px-8">
-        <div className="mx-auto space-y-6">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">System Settings</h1>
-              <p className="text-gray-600">Configure system-wide settings and preferences</p>
-            </div>
-            
-            <div className="flex gap-2">
-              <Button 
-                onClick={handleReset}
-                variant="outline"
-                disabled={isSubmitting}
-              >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Reset to Defaults
-              </Button>
-              <Button 
-                onClick={handleSave}
-                disabled={isSubmitting}
-                className="bg-yellow-400 hover:bg-yellow-500 text-white"
-              >
-                <Save className="w-4 h-4 mr-2" />
-                {isSubmitting ? "Saving..." : "Save Settings"}
-              </Button>
-            </div>
+    <div className="w-full min-w-0 space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-[#171A26]">System Settings</h1>
+          <p className="mt-1 text-sm text-[#64748B]">
+            Configure system-wide settings and preferences for your academy.
+          </p>
+        </div>
+        {showSaveActions && (
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={handleReset} variant="outline" disabled={isSubmitting}>
+              <RefreshCw className="h-4 w-4" />
+              Reset to Defaults
+            </Button>
+            <Button onClick={handleSave} loading={isSubmitting} loadingText="Saving...">
+              <Save className="h-4 w-4" />
+              Save Settings
+            </Button>
           </div>
+        )}
+      </div>
 
-          {/* System Configuration */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="w-5 h-5" />
-                System Configuration
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="system_name" className="text-sm font-medium text-gray-700">
-                    System Name *
-                  </Label>
-                  <Input
-                    id="system_name"
-                    value={settings.system_name}
-                    onChange={(e) => handleInputChange("system_name", e.target.value)}
-                    className={errors.system_name ? "border-red-500" : ""}
-                    placeholder="Enter system name"
-                  />
-                  {errors.system_name && (
-                    <p className="mt-1 text-sm text-red-600">{errors.system_name}</p>
-                  )}
-                </div>
-
-                <div>
-                  <Label htmlFor="system_version" className="text-sm font-medium text-gray-700">
-                    System Version
-                  </Label>
-                  <Input
-                    id="system_version"
-                    value={settings.system_version}
-                    onChange={(e) => handleInputChange("system_version", e.target.value)}
-                    placeholder="Enter system version"
-                    disabled
-                  />
-                  <p className="mt-1 text-xs text-gray-500">Version is automatically managed</p>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-sm font-medium text-gray-700">Maintenance Mode</Label>
-                    <p className="text-xs text-gray-500">
-                      Enable to prevent user access during system updates
-                    </p>
-                  </div>
-                  <Switch
-                    checked={settings.maintenance_mode}
-                    onCheckedChange={(checked) => handleInputChange("maintenance_mode", checked)}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-sm font-medium text-gray-700">Debug Mode</Label>
-                    <p className="text-xs text-gray-500">
-                      Enable detailed logging for troubleshooting
-                    </p>
-                  </div>
-                  <Switch
-                    checked={settings.debug_mode}
-                    onCheckedChange={(checked) => handleInputChange("debug_mode", checked)}
-                  />
-                </div>
-              </div>
-
-              {settings.maintenance_mode && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
-                  <div className="flex items-start gap-3">
-                    <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5" />
-                    <div>
-                      <h4 className="text-sm font-medium text-yellow-800">Maintenance Mode Active</h4>
-                      <p className="text-sm text-yellow-700 mt-1">
-                        The system is currently in maintenance mode. Users will see a maintenance page.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Pricing & registration */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="w-5 h-5" />
-                Pricing &amp; registration
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="registration_fee" className="text-sm font-medium text-gray-700">
-                    Registration fee (INR)
-                  </Label>
-                  <Input
-                    id="registration_fee"
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={settings.registration_fee}
-                    onChange={(e) => handleInputChange("registration_fee", parseFloat(e.target.value) || 0)}
-                    className={errors.registration_fee ? "border-red-500" : ""}
-                  />
-                  {errors.registration_fee && (
-                    <p className="mt-1 text-sm text-red-600">{errors.registration_fee}</p>
-                  )}
-                  <p className="mt-1 text-xs text-gray-500">
-                    Default admission/registration amount on the public registration payment page (unless overridden per branch).
-                  </p>
-                </div>
-
-                <div>
-                  <Label htmlFor="coach_registration_fee" className="text-sm font-medium text-gray-700">
-                    Coach registration fee (INR)
-                  </Label>
-                  <Input
-                    id="coach_registration_fee"
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={settings.coach_registration_fee}
-                    onChange={(e) => handleInputChange("coach_registration_fee", parseFloat(e.target.value) || 0)}
-                    className={errors.coach_registration_fee ? "border-red-500" : ""}
-                  />
-                  {errors.coach_registration_fee && (
-                    <p className="mt-1 text-sm text-red-600">{errors.coach_registration_fee}</p>
-                  )}
-                  <p className="mt-1 text-xs text-gray-500">
-                    Fee collected via Razorpay on the public coach registration page (set to 0 for free registration).
-                  </p>
-                </div>
-
-                <div>
-                  <Label htmlFor="coach_registration_fee_note" className="text-sm font-medium text-gray-700">
-                    Coach registration fee note / subtext
-                  </Label>
-                  <Input
-                    id="coach_registration_fee_note"
-                    type="text"
-                    value={settings.coach_registration_fee_note || ""}
-                    onChange={(e) => handleInputChange("coach_registration_fee_note", e.target.value)}
-                    placeholder="e.g. One-time non-refundable fee required to process your application via Razorpay."
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Custom subtext displayed in the fee card on the coach registration page. Leave empty to hide.
-                  </p>
-                </div>
-
-                <div>
-                  <Label htmlFor="partner_registration_fee" className="text-sm font-medium text-gray-700">
-                    Partner registration fee (INR)
-                  </Label>
-                  <Input
-                    id="partner_registration_fee"
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={settings.partner_registration_fee}
-                    onChange={(e) =>
-                      handleInputChange("partner_registration_fee", parseFloat(e.target.value) || 0)
-                    }
-                    className={errors.partner_registration_fee ? "border-red-500" : ""}
-                  />
-                  {errors.partner_registration_fee && (
-                    <p className="mt-1 text-sm text-red-600">{errors.partner_registration_fee}</p>
-                  )}
-                  <p className="mt-1 text-xs text-gray-500">
-                    Fee charged via Razorpay when creating a white-label partner with online payment (must be at least ₹1 for online checkout).
-                  </p>
-                </div>
-
-                <div>
-                  <Label htmlFor="home_training_fee" className="text-sm font-medium text-gray-700">
-                    Home training fee (INR)
-                  </Label>
-                  <Input
-                    id="home_training_fee"
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={settings.home_training_fee}
-                    onChange={(e) => handleInputChange("home_training_fee", parseFloat(e.target.value) || 0)}
-                    className={errors.home_training_fee ? "border-red-500" : ""}
-                  />
-                  {errors.home_training_fee && (
-                    <p className="mt-1 text-sm text-red-600">{errors.home_training_fee}</p>
-                  )}
-                  <p className="mt-1 text-xs text-gray-500">
-                    Fee collected via Razorpay on the public home training request page.
-                  </p>
-                </div>
-
-                <div>
-                  <Label htmlFor="school_training_fee" className="text-sm font-medium text-gray-700">
-                    School training fee (INR)
-                  </Label>
-                  <Input
-                    id="school_training_fee"
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={settings.school_training_fee}
-                    onChange={(e) => handleInputChange("school_training_fee", parseFloat(e.target.value) || 0)}
-                    className={errors.school_training_fee ? "border-red-500" : ""}
-                  />
-                  {errors.school_training_fee && (
-                    <p className="mt-1 text-sm text-red-600">{errors.school_training_fee}</p>
-                  )}
-                  <p className="mt-1 text-xs text-gray-500">
-                    Fee collected via Razorpay on the public school training request page.
-                  </p>
-                </div>
-
-                <div>
-                  <Label htmlFor="college_training_fee" className="text-sm font-medium text-gray-700">
-                    College training fee (INR)
-                  </Label>
-                  <Input
-                    id="college_training_fee"
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={settings.college_training_fee}
-                    onChange={(e) => handleInputChange("college_training_fee", parseFloat(e.target.value) || 0)}
-                    className={errors.college_training_fee ? "border-red-500" : ""}
-                  />
-                  {errors.college_training_fee && (
-                    <p className="mt-1 text-sm text-red-600">{errors.college_training_fee}</p>
-                  )}
-                  <p className="mt-1 text-xs text-gray-500">
-                    Fee collected via Razorpay on the public college training request page.
-                  </p>
-                </div>
-
-                <div>
-                  <Label htmlFor="corporate_training_fee" className="text-sm font-medium text-gray-700">
-                    Corporate training fee (INR)
-                  </Label>
-                  <Input
-                    id="corporate_training_fee"
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={settings.corporate_training_fee}
-                    onChange={(e) => handleInputChange("corporate_training_fee", parseFloat(e.target.value) || 0)}
-                    className={errors.corporate_training_fee ? "border-red-500" : ""}
-                  />
-                  {errors.corporate_training_fee && (
-                    <p className="mt-1 text-sm text-red-600">{errors.corporate_training_fee}</p>
-                  )}
-                  <p className="mt-1 text-xs text-gray-500">
-                    Fee collected via Razorpay on the public corporate training request page.
-                  </p>
-                </div>
-
-                <div>
-                  <Label htmlFor="residential_training_fee" className="text-sm font-medium text-gray-700">
-                    Residential training fee (INR)
-                  </Label>
-                  <Input
-                    id="residential_training_fee"
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={settings.residential_training_fee}
-                    onChange={(e) => handleInputChange("residential_training_fee", parseFloat(e.target.value) || 0)}
-                    className={errors.residential_training_fee ? "border-red-500" : ""}
-                  />
-                  {errors.residential_training_fee && (
-                    <p className="mt-1 text-sm text-red-600">{errors.residential_training_fee}</p>
-                  )}
-                  <p className="mt-1 text-xs text-gray-500">
-                    Fee collected via Razorpay on the public residential training request page.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Security Settings */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="w-5 h-5" />
-                Security Settings
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="session_timeout" className="text-sm font-medium text-gray-700">
-                    Session Timeout (hours) *
-                  </Label>
-                  <Input
-                    id="session_timeout"
-                    value={settings.session_timeout}
-                    onChange={(e) => handleInputChange("session_timeout", e.target.value)}
-                    className={errors.session_timeout ? "border-red-500" : ""}
-                    placeholder="24"
-                  />
-                  {errors.session_timeout && (
-                    <p className="mt-1 text-sm text-red-600">{errors.session_timeout}</p>
-                  )}
-                </div>
-
-                <div>
-                  <Label htmlFor="password_policy" className="text-sm font-medium text-gray-700">
-                    Password Policy
-                  </Label>
-                  <Select
-                    value={settings.password_policy}
-                    onValueChange={(value) => handleInputChange("password_policy", value)}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <aside className="h-fit rounded-2xl border border-[#E2E8F0] bg-white p-2 shadow-sm">
+          <nav className="space-y-1" aria-label="Settings sections">
+            {SETTINGS_SECTIONS.map((section) => {
+              const Icon = section.icon
+              const active = activeSection === section.id
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => selectSection(section.id)}
+                  className={`flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors ${
+                    active
+                      ? "bg-[#FFF7DF] text-[#171A26] ring-1 ring-[#FFB70F]/40"
+                      : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#171A26]"
+                  }`}
+                >
+                  <span
+                    className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                      active ? "bg-[#FFB70F]/20 text-[#B45309]" : "bg-[#F8FAFC] text-[#64748B]"
+                    }`}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select password policy" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="weak">Weak (6+ characters)</SelectItem>
-                      <SelectItem value="medium">Medium (8+ chars, mixed case)</SelectItem>
-                      <SelectItem value="strong">Strong (12+ chars, symbols)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold">{section.label}</span>
+                    <span className="mt-0.5 block text-xs leading-snug text-[#64748B]">{section.description}</span>
+                  </span>
+                </button>
+              )
+            })}
+          </nav>
+        </aside>
 
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-sm font-medium text-gray-700">Two-Factor Authentication</Label>
-                  <p className="text-xs text-gray-500">
-                    Require 2FA for all superadmin accounts
-                  </p>
+        <div className="min-w-0 space-y-4">
+          {activeSection === "system" && (
+            <Card className="rounded-2xl border-[#E2E8F0] shadow-sm">
+              <CardHeader className="border-b border-[#E2E8F0] pb-4">
+                <CardTitle className="flex items-center gap-2 text-[#171A26]">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFB70F]/20 text-[#B45309]">
+                    <Settings className="h-4 w-4" />
+                  </span>
+                  <span>
+                    <span className="block text-lg">System Configuration</span>
+                    <span className="mt-0.5 block text-sm font-normal text-[#64748B]">
+                      Configure basic system details and operational modes.
+                    </span>
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-6">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
+                    <Label htmlFor="system_name" className="text-sm font-medium text-[#171A26]">
+                      System Name *
+                    </Label>
+                    <Input
+                      id="system_name"
+                      value={settings.system_name}
+                      onChange={(e) => handleInputChange("system_name", e.target.value)}
+                      className={errors.system_name ? "border-red-500" : ""}
+                      placeholder="Enter system name"
+                    />
+                    {errors.system_name && <p className="mt-1 text-sm text-red-600">{errors.system_name}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="system_version" className="text-sm font-medium text-[#171A26]">
+                      System Version
+                    </Label>
+                    <Input id="system_version" value={settings.system_version} disabled />
+                    <p className="mt-1 text-xs text-[#64748B]">Version is automatically managed</p>
+                  </div>
                 </div>
-                <Switch
-                  checked={settings.two_factor_auth}
-                  onCheckedChange={(checked) => handleInputChange("two_factor_auth", checked)}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Notification Settings */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bell className="w-5 h-5" />
-                Notification Settings
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-sm font-medium text-gray-700">Enable Notifications</Label>
-                  <p className="text-xs text-gray-500">
-                    Allow the system to send notifications
-                  </p>
-                </div>
-                <Switch
-                  checked={settings.notifications_enabled}
-                  onCheckedChange={(checked) => handleInputChange("notifications_enabled", checked)}
-                />
-              </div>
-
-              {settings.notifications_enabled && (
-                <>
-                  <Separator />
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label className="text-sm font-medium text-gray-700">Email Notifications</Label>
-                        <p className="text-xs text-gray-500">Send notifications via email</p>
-                      </div>
-                      <Switch
-                        checked={settings.email_notifications}
-                        onCheckedChange={(checked) => handleInputChange("email_notifications", checked)}
-                      />
+                <Separator />
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-0.5">
+                      <Label className="text-sm font-medium text-[#171A26]">Maintenance Mode</Label>
+                      <p className="text-xs text-[#64748B]">Enable to prevent user access during system updates</p>
                     </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label className="text-sm font-medium text-gray-700">SMS Notifications</Label>
-                        <p className="text-xs text-gray-500">Send notifications via SMS</p>
+                    <Switch
+                      checked={settings.maintenance_mode}
+                      onCheckedChange={(checked) => handleInputChange("maintenance_mode", checked)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-0.5">
+                      <Label className="text-sm font-medium text-[#171A26]">Debug Mode</Label>
+                      <p className="text-xs text-[#64748B]">Enable detailed logging for troubleshooting</p>
+                    </div>
+                    <Switch
+                      checked={settings.debug_mode}
+                      onCheckedChange={(checked) => handleInputChange("debug_mode", checked)}
+                    />
+                  </div>
+                </div>
+                {settings.maintenance_mode && (
+                  <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="mt-0.5 h-5 w-5 text-yellow-600" />
+                      <div>
+                        <h4 className="text-sm font-medium text-yellow-800">Maintenance Mode Active</h4>
+                        <p className="mt-1 text-sm text-yellow-700">
+                          The system is currently in maintenance mode. Users will see a maintenance page.
+                        </p>
                       </div>
-                      <Switch
-                        checked={settings.sms_notifications}
-                        onCheckedChange={(checked) => handleInputChange("sms_notifications", checked)}
-                      />
                     </div>
                   </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
-          {/* Backup Settings */}
-
-          {/* Master Data */}
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => router.push(`${basePath}/settings/dropdown-settings`)}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="w-5 h-5" />
-                Master Data
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-600">
-                Manage dropdown options for forms like Add Coach, Add Student, etc. Configure countries, designations, specializations, and other dropdown values.
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => router.push(`${basePath}/settings/geography`)}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Globe className="w-5 h-5" />
-                State & City
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-600">
-                Manage states and cities used when selecting a branch location in admin and registration forms.
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="w-5 h-5" />
-                Backup Settings
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-sm font-medium text-gray-700">Auto Backup</Label>
-                  <p className="text-xs text-gray-500">
-                    Enable automatic system backups
-                  </p>
-                </div>
-                <Switch
-                  checked={settings.auto_backup}
-                  onCheckedChange={(checked) => handleInputChange("auto_backup", checked)}
-                />
-              </div>
-
-              {settings.auto_backup && (
-                <>
-                  <Separator />
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="backup_frequency" className="text-sm font-medium text-gray-700">
-                        Backup Frequency
-                      </Label>
-                      <Select
-                        value={settings.backup_frequency}
-                        onValueChange={(value) => handleInputChange("backup_frequency", value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select backup frequency" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="daily">Daily</SelectItem>
-                          <SelectItem value="weekly">Weekly</SelectItem>
-                          <SelectItem value="monthly">Monthly</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="backup_retention" className="text-sm font-medium text-gray-700">
-                        Backup Retention (days) *
+          {activeSection === "pricing" && (
+            <Card className="rounded-2xl border-[#E2E8F0] shadow-sm">
+              <CardHeader className="border-b border-[#E2E8F0] pb-4">
+                <CardTitle className="flex items-center gap-2 text-[#171A26]">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFB70F]/20 text-[#B45309]">
+                    <CreditCard className="h-4 w-4" />
+                  </span>
+                  <span>
+                    <span className="block text-lg">Pricing &amp; Registration</span>
+                    <span className="mt-0.5 block text-sm font-normal text-[#64748B]">
+                      Registration and training fees.
+                    </span>
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-6">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  {(
+                    [
+                      ["registration_fee", "Registration fee (INR)", "Default admission/registration amount on the public registration payment page (unless overridden per branch)."],
+                      ["coach_registration_fee", "Coach registration fee (INR)", "Fee collected via Razorpay on the public coach registration page (set to 0 for free registration)."],
+                      ["partner_registration_fee", "Partner registration fee (INR)", "Fee charged via Razorpay when creating a white-label partner with online payment."],
+                      ["home_training_fee", "Home training fee (INR)", "Fee collected via Razorpay on the public home training request page."],
+                      ["school_training_fee", "School training fee (INR)", "Fee collected via Razorpay on the public school training request page."],
+                      ["college_training_fee", "College training fee (INR)", "Fee collected via Razorpay on the public college training request page."],
+                      ["corporate_training_fee", "Corporate training fee (INR)", "Fee collected via Razorpay on the public corporate training request page."],
+                      ["residential_training_fee", "Residential training fee (INR)", "Fee collected via Razorpay on the public residential training request page."],
+                    ] as const
+                  ).map(([field, label, hint]) => (
+                    <div key={field}>
+                      <Label htmlFor={field} className="text-sm font-medium text-[#171A26]">
+                        {label}
                       </Label>
                       <Input
-                        id="backup_retention"
-                        value={settings.backup_retention}
-                        onChange={(e) => handleInputChange("backup_retention", e.target.value)}
-                        className={errors.backup_retention ? "border-red-500" : ""}
-                        placeholder="30"
+                        id={field}
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={settings[field] as number}
+                        onChange={(e) => handleInputChange(field, parseFloat(e.target.value) || 0)}
+                        className={errors[field] ? "border-red-500" : ""}
                       />
-                      {errors.backup_retention && (
-                        <p className="mt-1 text-sm text-red-600">{errors.backup_retention}</p>
-                      )}
+                      {errors[field] && <p className="mt-1 text-sm text-red-600">{errors[field]}</p>}
+                      <p className="mt-1 text-xs text-[#64748B]">{hint}</p>
                     </div>
+                  ))}
+                  <div className="md:col-span-2">
+                    <Label htmlFor="coach_registration_fee_note" className="text-sm font-medium text-[#171A26]">
+                      Coach registration fee note / subtext
+                    </Label>
+                    <Input
+                      id="coach_registration_fee_note"
+                      type="text"
+                      value={settings.coach_registration_fee_note || ""}
+                      onChange={(e) => handleInputChange("coach_registration_fee_note", e.target.value)}
+                      placeholder="e.g. One-time non-refundable fee required to process your application via Razorpay."
+                    />
+                    <p className="mt-1 text-xs text-[#64748B]">
+                      Custom subtext displayed in the fee card on the coach registration page. Leave empty to hide.
+                    </p>
                   </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {activeSection === "security" && (
+            <Card className="rounded-2xl border-[#E2E8F0] shadow-sm">
+              <CardHeader className="border-b border-[#E2E8F0] pb-4">
+                <CardTitle className="flex items-center gap-2 text-[#171A26]">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFB70F]/20 text-[#B45309]">
+                    <Shield className="h-4 w-4" />
+                  </span>
+                  <span>
+                    <span className="block text-lg">Security Settings</span>
+                    <span className="mt-0.5 block text-sm font-normal text-[#64748B]">
+                      Session, password &amp; 2FA.
+                    </span>
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-6">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
+                    <Label htmlFor="session_timeout" className="text-sm font-medium text-[#171A26]">
+                      Session Timeout (hours) *
+                    </Label>
+                    <Input
+                      id="session_timeout"
+                      value={settings.session_timeout}
+                      onChange={(e) => handleInputChange("session_timeout", e.target.value)}
+                      className={errors.session_timeout ? "border-red-500" : ""}
+                      placeholder="24"
+                    />
+                    {errors.session_timeout && (
+                      <p className="mt-1 text-sm text-red-600">{errors.session_timeout}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="password_policy" className="text-sm font-medium text-[#171A26]">
+                      Password Policy
+                    </Label>
+                    <Select
+                      value={settings.password_policy}
+                      onValueChange={(value) => handleInputChange("password_policy", value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select password policy" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="weak">Weak (6+ characters)</SelectItem>
+                        <SelectItem value="medium">Medium (8+ chars, mixed case)</SelectItem>
+                        <SelectItem value="strong">Strong (12+ chars, symbols)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-medium text-[#171A26]">Two-Factor Authentication</Label>
+                    <p className="text-xs text-[#64748B]">Require 2FA for all superadmin accounts</p>
+                  </div>
+                  <Switch
+                    checked={settings.two_factor_auth}
+                    onCheckedChange={(checked) => handleInputChange("two_factor_auth", checked)}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {activeSection === "notifications" && (
+            <Card className="rounded-2xl border-[#E2E8F0] shadow-sm">
+              <CardHeader className="border-b border-[#E2E8F0] pb-4">
+                <CardTitle className="flex items-center gap-2 text-[#171A26]">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFB70F]/20 text-[#B45309]">
+                    <Bell className="h-4 w-4" />
+                  </span>
+                  <span>
+                    <span className="block text-lg">Notification Settings</span>
+                    <span className="mt-0.5 block text-sm font-normal text-[#64748B]">
+                      Email and SMS preferences.
+                    </span>
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-6">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-medium text-[#171A26]">Enable Notifications</Label>
+                    <p className="text-xs text-[#64748B]">Allow the system to send notifications</p>
+                  </div>
+                  <Switch
+                    checked={settings.notifications_enabled}
+                    onCheckedChange={(checked) => handleInputChange("notifications_enabled", checked)}
+                  />
+                </div>
+                {settings.notifications_enabled && (
+                  <>
+                    <Separator />
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="space-y-0.5">
+                          <Label className="text-sm font-medium text-[#171A26]">Email Notifications</Label>
+                          <p className="text-xs text-[#64748B]">Send notifications via email</p>
+                        </div>
+                        <Switch
+                          checked={settings.email_notifications}
+                          onCheckedChange={(checked) => handleInputChange("email_notifications", checked)}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="space-y-0.5">
+                          <Label className="text-sm font-medium text-[#171A26]">SMS Notifications</Label>
+                          <p className="text-xs text-[#64748B]">Send notifications via SMS</p>
+                        </div>
+                        <Switch
+                          checked={settings.sms_notifications}
+                          onCheckedChange={(checked) => handleInputChange("sms_notifications", checked)}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {activeSection === "master" && (
+            <Card className="rounded-2xl border-[#E2E8F0] shadow-sm">
+              <CardHeader className="border-b border-[#E2E8F0] pb-4">
+                <CardTitle className="flex items-center gap-2 text-[#171A26]">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFB70F]/20 text-[#B45309]">
+                    <Database className="h-4 w-4" />
+                  </span>
+                  <span>
+                    <span className="block text-lg">Master Data</span>
+                    <span className="mt-0.5 block text-sm font-normal text-[#64748B]">
+                      Manage common dropdowns.
+                    </span>
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-6">
+                <p className="text-sm text-[#64748B]">
+                  Manage dropdown options for forms like Add Coach, Add Student, etc. Configure countries,
+                  designations, specializations, and other dropdown values.
+                </p>
+                <Button
+                  type="button"
+                  onClick={() => router.push(`${basePath}/settings/dropdown-settings`)}
+                >
+                  Open Master Data
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {activeSection === "geography" && (
+            <Card className="rounded-2xl border-[#E2E8F0] shadow-sm">
+              <CardHeader className="border-b border-[#E2E8F0] pb-4">
+                <CardTitle className="flex items-center gap-2 text-[#171A26]">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFB70F]/20 text-[#B45309]">
+                    <MapPin className="h-4 w-4" />
+                  </span>
+                  <span>
+                    <span className="block text-lg">State &amp; City</span>
+                    <span className="mt-0.5 block text-sm font-normal text-[#64748B]">
+                      Configure states and cities used across branch, registration, and student forms.
+                    </span>
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <GeographySettingsPage embedded />
+              </CardContent>
+            </Card>
+          )}
+
+          {activeSection === "backup" && (
+            <Card className="rounded-2xl border-[#E2E8F0] shadow-sm">
+              <CardHeader className="border-b border-[#E2E8F0] pb-4">
+                <CardTitle className="flex items-center gap-2 text-[#171A26]">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFB70F]/20 text-[#B45309]">
+                    <Database className="h-4 w-4" />
+                  </span>
+                  <span>
+                    <span className="block text-lg">Backup Settings</span>
+                    <span className="mt-0.5 block text-sm font-normal text-[#64748B]">
+                      Automated backups and retention.
+                    </span>
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-6">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-medium text-[#171A26]">Auto Backup</Label>
+                    <p className="text-xs text-[#64748B]">Enable automatic system backups</p>
+                  </div>
+                  <Switch
+                    checked={settings.auto_backup}
+                    onCheckedChange={(checked) => handleInputChange("auto_backup", checked)}
+                  />
+                </div>
+                {settings.auto_backup && (
+                  <>
+                    <Separator />
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div>
+                        <Label htmlFor="backup_frequency" className="text-sm font-medium text-[#171A26]">
+                          Backup Frequency
+                        </Label>
+                        <Select
+                          value={settings.backup_frequency}
+                          onValueChange={(value) => handleInputChange("backup_frequency", value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select backup frequency" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="daily">Daily</SelectItem>
+                            <SelectItem value="weekly">Weekly</SelectItem>
+                            <SelectItem value="monthly">Monthly</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="backup_retention" className="text-sm font-medium text-[#171A26]">
+                          Backup Retention (days) *
+                        </Label>
+                        <Input
+                          id="backup_retention"
+                          value={settings.backup_retention}
+                          onChange={(e) => handleInputChange("backup_retention", e.target.value)}
+                          className={errors.backup_retention ? "border-red-500" : ""}
+                          placeholder="30"
+                        />
+                        {errors.backup_retention && (
+                          <p className="mt-1 text-sm text-red-600">{errors.backup_retention}</p>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
-      </main>
+      </div>
     </div>
+  )
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[40vh] items-center justify-center text-sm text-[#64748B]">
+          Loading settings…
+        </div>
+      }
+    >
+      <SuperAdminSettingsPage />
+    </Suspense>
   )
 }

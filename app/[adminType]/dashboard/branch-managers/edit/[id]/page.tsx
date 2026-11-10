@@ -9,11 +9,18 @@ import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowLeft, Loader2 } from "lucide-react"
+import { ArrowLeft, Loader2, User, MapPin, Building, Phone } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
+import {
+  DashboardFormPageHeader,
+  DashboardSectionHeading,
+  cardContentClass,
+  dashboardFormCardClass,
+  primaryButtonClass,
+} from "@/components/dashboard/dashboardFormStyles"
 
 export default function EditBranchManagerPage() {
   const router = useRouter()
@@ -343,9 +350,9 @@ export default function EditBranchManagerPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-[#F5F6FA]">
         <main className="w-full p-4 lg:px-8">
-          <div className="max-w-4xl mx-auto">
+          <div className="w-full max-w-none">
             <div className="animate-pulse space-y-6">
               <div className="flex items-center space-x-4">
                 <div className="h-8 w-8 bg-gray-200 rounded"></div>
@@ -366,34 +373,23 @@ export default function EditBranchManagerPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#F5F6FA]">
       
-      <main className="w-full py-4 px-4 lg:px-8">
-        {/* Header with Back Button */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="ghost"
-              onClick={() => router.push(`${basePath}/branch-managers/${managerId}`)}
-              className="flex items-center space-x-2 hover:bg-gray-100"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="text-[#4F5077]">Back to Manager Details</span>
-            </Button>
-            <div className="w-px h-6 bg-gray-300"></div>
-            <h1 className="text-2xl font-bold text-[#4F5077]">Edit Branch Manager</h1>
-          </div>
-        </div>
+      <main className="w-full py-6 px-4 lg:px-8 xl:px-10">
+        <DashboardFormPageHeader
+          title="Edit Branch Manager"
+          subtitle="Update manager profile and branch assignment"
+          backLabel="Back to Manager Details"
+          onBack={() => router.push(`${basePath}/branch-managers/${managerId}`)}
+        />
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Personal Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <span className="text-[#4F5077]">Personal Information</span>
-              </CardTitle>
+          <Card className={dashboardFormCardClass}>
+            <CardHeader className="pb-2">
+              <DashboardSectionHeading icon={User} title="Personal Information" tone="violet" />
             </CardHeader>
-            <CardContent className="space-y-4 text-[#7D8592]">
+            <CardContent className={cardContentClass}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">First Name *</Label>
@@ -491,13 +487,11 @@ export default function EditBranchManagerPage() {
             </Card>
 
           {/* Address Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <span className="text-[#4F5077]">Address Information</span>
-              </CardTitle>
+          <Card className={dashboardFormCardClass}>
+            <CardHeader className="pb-2">
+              <DashboardSectionHeading icon={MapPin} title="Address Information" tone="blue" />
             </CardHeader>
-            <CardContent className="space-y-4 text-[#7D8592]">
+            <CardContent className={cardContentClass}>
                 <div className="space-y-2">
                   <Label htmlFor="address">Address</Label>
                   <Input
@@ -553,13 +547,11 @@ export default function EditBranchManagerPage() {
             </Card>
 
           {/* Professional Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <span className="text-[#4F5077]">Professional Information</span>
-              </CardTitle>
+          <Card className={dashboardFormCardClass}>
+            <CardHeader className="pb-2">
+              <DashboardSectionHeading icon={Building} title="Professional Information" tone="amber" />
             </CardHeader>
-            <CardContent className="space-y-4 text-[#7D8592]">
+            <CardContent className={cardContentClass}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="designation">Designation</Label>
@@ -632,13 +624,11 @@ export default function EditBranchManagerPage() {
             </Card>
 
           {/* Emergency Contact */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <span className="text-[#4F5077]">Emergency Contact</span>
-              </CardTitle>
+          <Card className={dashboardFormCardClass}>
+            <CardHeader className="pb-2">
+              <DashboardSectionHeading icon={Phone} title="Emergency Contact" tone="rose" />
             </CardHeader>
-            <CardContent className="space-y-4 text-[#7D8592]">
+            <CardContent className={cardContentClass}>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="emergencyContactName">Contact Name</Label>
@@ -674,11 +664,11 @@ export default function EditBranchManagerPage() {
             </Card>
 
           {/* Additional Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-[#4F5077]">Additional Information</CardTitle>
+          <Card className={dashboardFormCardClass}>
+            <CardHeader className="pb-2">
+              <DashboardSectionHeading icon={MapPin} title="Additional Information" tone="emerald" />
             </CardHeader>
-            <CardContent className="space-y-4 text-[#7D8592]">
+            <CardContent className={cardContentClass}>
                 <div className="space-y-2">
                   <Label htmlFor="notes">Notes</Label>
                   <Textarea
@@ -723,7 +713,7 @@ export default function EditBranchManagerPage() {
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="bg-yellow-400 hover:bg-yellow-500 text-black"
+                className={primaryButtonClass}
               >
                 {isSubmitting ? (
                   <>
@@ -752,7 +742,7 @@ export default function EditBranchManagerPage() {
                 <p className="text-gray-600 mb-4">The branch manager information has been updated successfully.</p>
                 <Button
                   onClick={() => router.push(`${basePath}/branch-managers/${managerId}`)}
-                  className="bg-yellow-400 hover:bg-yellow-500 text-black"
+                  className={primaryButtonClass}
                 >
                   View Manager Details
                 </Button>

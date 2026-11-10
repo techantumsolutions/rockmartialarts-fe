@@ -189,7 +189,7 @@ export default function CoachAssignedStudentsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="w-full max-w-none">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold text-[#4F5077]">Assigned Students</h1>

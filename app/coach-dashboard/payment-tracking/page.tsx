@@ -13,6 +13,7 @@ import CoachDashboardHeader from "@/components/coach-dashboard-header"
 import { checkCoachAuth } from "@/lib/coachAuth"
 import { useToast } from "@/hooks/use-toast"
 import paymentAPI from "@/lib/paymentAPI"
+import { getBackendApiUrl } from "@/lib/config"
 
 interface Payment {
   id: string
@@ -84,18 +85,15 @@ export default function CoachPaymentTrackingPage() {
           tokenPreview: authResult.token?.substring(0, 20) + '...'
         })
 
-        // Use the correct API base URL from environment
-        const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8003'
-
-        // Fetch payment stats and payments in parallel using coach-accessible endpoints
+        // Fetch payment stats and payments via Next→backend proxy (no hardcoded host)
         const [statsResponse, paymentsResponse] = await Promise.all([
-          fetch(`${apiBaseUrl}/api/payments/stats`, {
+          fetch(getBackendApiUrl("payments/stats"), {
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${authResult.token}`
             }
           }),
-          fetch(`${apiBaseUrl}/api/payments?limit=100&skip=0`, {
+          fetch(getBackendApiUrl("payments?limit=100&skip=0"), {
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${authResult.token}`
@@ -184,18 +182,14 @@ export default function CoachPaymentTrackingPage() {
         return
       }
 
-      // Use the correct API base URL from environment
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8003'
-
-      // Fetch fresh payment data
       const [statsResponse, paymentsResponse] = await Promise.all([
-        fetch(`${apiBaseUrl}/api/payments/stats`, {
+        fetch(getBackendApiUrl("payments/stats"), {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${authResult.token}`
           }
         }),
-        fetch(`${apiBaseUrl}/api/payments?limit=100&skip=0`, {
+        fetch(getBackendApiUrl("payments?limit=100&skip=0"), {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${authResult.token}`
@@ -320,21 +314,10 @@ export default function CoachPaymentTrackingPage() {
             </div>
           </div>
 
-          {/* Notice for sample data */}
-          {error && filteredPayments.length > 0 && (
+          {error && (
             <div className="mb-6">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-start">
-                  <div className="flex-shrink-0">
-                    <Eye className="w-5 h-5 text-blue-600 mt-0.5" />
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-blue-800">Demo Mode</h3>
-                    <p className="text-sm text-blue-700 mt-1">
-                      You're viewing sample payment data. Once payment access is configured for coaches, you'll see real payment information from your assigned students.
-                    </p>
-                  </div>
-                </div>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-sm text-red-800">{error}</p>
               </div>
             </div>
           )}

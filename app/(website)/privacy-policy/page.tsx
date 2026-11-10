@@ -109,7 +109,7 @@ export default function PrivacyPolicyPage() {
         style={{ backgroundImage: "url(/assets/img/banner.jpg)" }}
       >
         <div className="absolute inset-0 bg-black/60" />
-        <div className="container relative z-10 mx-auto px-4 max-w-7xl">
+        <div className="site-content relative z-10 px-0 sm:px-1">
           <div className="max-w-2xl">
             <h1 className="text-4xl md:text-5xl font-bold text-white uppercase mb-4">
               Privacy Policy

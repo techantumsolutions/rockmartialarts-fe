@@ -1,7 +1,18 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Loader2, Plus, Save, Trash2, Lock, AlertTriangle } from "lucide-react"
+import {
+  Loader2,
+  Plus,
+  Save,
+  Trash2,
+  Lock,
+  AlertTriangle,
+  MapPin,
+  Calendar,
+  FileText,
+  CheckCircle2,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -50,6 +61,10 @@ type Props = {
   coachId?: string
   title?: string
   subtitle?: string
+  /** When false, page header block is hidden (e.g. admin list editor view). */
+  showHeader?: boolean
+  /** If set, Discard uses this instead of reloading from the server. */
+  onDiscard?: () => void
 }
 
 function emptySlot(): WeeklySlot {
@@ -62,10 +77,14 @@ function emptySlot(): WeeklySlot {
   }
 }
 
+const BRAND_YELLOW = "bg-[#E1BB33] hover:bg-[#c9a82e] text-gray-900"
+
 export default function CoachAvailabilityEditor({
   coachId,
   title = "Weekly availability",
   subtitle = "Set the days, times, and service locations when you are available.",
+  showHeader = true,
+  onDiscard,
 }: Props) {
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
@@ -304,6 +323,11 @@ export default function CoachAvailabilityEditor({
     }
   }
 
+  const handleDiscard = () => {
+    if (onDiscard) onDiscard()
+    else void load()
+  }
+
   const handleSave = async () => {
     setSaveError(null)
     if (!allocatedBranchId) {
@@ -405,55 +429,100 @@ export default function CoachAvailabilityEditor({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold text-[#4F5077]">{title}</h2>
-          <p className="text-sm text-[#6B7A99] mt-1">{subtitle}</p>
-          {updatedAt && (
-            <p className="text-xs text-gray-400 mt-1">
-              Last updated {new Date(updatedAt).toLocaleString()}
-            </p>
-          )}
-          {saveError && <p className="text-sm text-red-600 mt-2">{saveError}</p>}
+      {showHeader ? (
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold text-[#4F5077]">{title}</h2>
+            <p className="mt-1 text-sm text-[#6B7A99]">{subtitle}</p>
+            {updatedAt && (
+              <p className="mt-1 text-xs text-gray-400">
+                Last updated {new Date(updatedAt).toLocaleString()}
+              </p>
+            )}
+            {saveError && <p className="mt-2 text-sm text-red-600">{saveError}</p>}
+          </div>
         </div>
-        <Button onClick={handleSave} disabled={saving} className="gap-2 bg-[#4F5077] hover:bg-[#3d3e5c]">
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Save availability
-        </Button>
-      </div>
+      ) : (
+        saveError && <p className="text-sm text-red-600">{saveError}</p>
+      )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base text-[#4F5077]">Service location</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {allocatedBranchId ? (
-            <div className="max-w-md space-y-1">
-              <Label className="text-xs text-[#6B7A99]">Allocated branch</Label>
-              <div className="rounded-md border bg-gray-50 px-3 py-2 text-sm font-medium text-[#4F5077]">
-                {allocatedBranchName}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="rounded-2xl border-gray-200/80 shadow-sm lg:col-span-1">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base text-[#4F5077]">
+              <MapPin className="h-4 w-4 text-violet-600" />
+              Service Location
+            </CardTitle>
+            <p className="text-xs text-[#6B7A99]">
+              Set the branch where this coach will be available.
+            </p>
+          </CardHeader>
+          <CardContent>
+            {allocatedBranchId ? (
+              <div className="space-y-2">
+                <Label className="text-xs text-[#6B7A99]">Allocated Branch</Label>
+                <Select value={allocatedBranchId} disabled>
+                  <SelectTrigger className="h-11 rounded-xl border-gray-200 bg-gray-50">
+                    <SelectValue>{allocatedBranchName}</SelectValue>
+                  </SelectTrigger>
+                </Select>
+                <p className="text-xs text-gray-500">
+                  Branch is set on the coach profile and cannot be changed here.
+                </p>
               </div>
-              <p className="text-xs text-gray-500">
-                Branch is set on the coach profile and cannot be changed here.
+            ) : (
+              <p className="text-sm text-amber-700">
+                No branch is allocated to this coach. Assign a branch on the coach profile first.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border-gray-200/80 shadow-sm lg:col-span-2">
+          <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base text-[#4F5077]">
+                <Calendar className="h-4 w-4 text-violet-600" />
+                Weekly Time Slots
+              </CardTitle>
+              <p className="mt-1 text-xs text-[#6B7A99]">
+                Add and manage the coach&apos;s availability by day.
               </p>
             </div>
-          ) : (
-            <p className="text-sm text-amber-700">
-              No branch is allocated to this coach. Assign a branch on the coach profile first.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base text-[#4F5077]">Weekly time slots</CardTitle>
-          <Button variant="outline" size="sm" onClick={addSlot} className="gap-1">
-            <Plus className="w-4 h-4" />
-            Add slot
-          </Button>
-        </CardHeader>
-        <CardContent className="space-y-4">
+            <Button variant="outline" size="sm" onClick={addSlot} className="shrink-0 gap-1 rounded-xl">
+              <Plus className="h-4 w-4" />
+              Add Slot
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+              {WEEKDAYS.map((d) => {
+                const daySlots = slotsByDay[d.value] || []
+                const active = daySlots.length > 0
+                return (
+                  <div
+                    key={d.value}
+                    className={`relative rounded-xl border px-2 py-3 text-center text-xs ${
+                      active
+                        ? "border-emerald-200 bg-emerald-50"
+                        : "border-gray-200 bg-white"
+                    }`}
+                  >
+                    {active ? (
+                      <CheckCircle2 className="absolute right-1.5 top-1.5 h-3.5 w-3.5 text-emerald-600" />
+                    ) : null}
+                    <div className="font-semibold text-[#4F5077]">{d.label.slice(0, 3)}</div>
+                    {active ? (
+                      <p className="mt-1 font-medium text-emerald-700">
+                        {daySlots.length} Slot{daySlots.length === 1 ? "" : "s"}
+                      </p>
+                    ) : (
+                      <span className="mt-1 text-gray-400">—</span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           {conflictWarning && (
             <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
@@ -541,41 +610,43 @@ export default function CoachAvailabilityEditor({
               )
             })
           )}
-
-          {/* Week overview */}
-          <div className="pt-2 border-t">
-            <p className="text-xs font-medium text-[#6B7A99] mb-2">Week overview</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 text-xs">
-              {WEEKDAYS.map((d) => (
-                <div key={d.value} className="rounded border bg-gray-50 px-2 py-2">
-                  <div className="font-medium text-[#4F5077] mb-1">{d.label}</div>
-                  {(slotsByDay[d.value] || []).length === 0 ? (
-                    <span className="text-gray-400">—</span>
-                  ) : (
-                    (slotsByDay[d.value] || []).map((s, i) => (
-                      <div key={i} className="text-[#6B7A99]">
-                        {s.start_time}–{s.end_time}
-                      </div>
-                    ))
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
         </CardContent>
       </Card>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base text-[#4F5077]">Notes</CardTitle>
+      <Card className="rounded-2xl border-gray-200/80 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base text-[#4F5077]">
+            <FileText className="h-4 w-4 text-violet-600" />
+            Notes
+          </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <Textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Optional notes about your availability…"
-            rows={3}
+            placeholder="Enter notes (e.g., vacation, special schedule, temporary unavailability, etc.)."
+            rows={4}
+            className="min-h-[100px] rounded-xl border-gray-200"
           />
+          <div className="flex flex-wrap justify-end gap-2 border-t border-gray-100 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleDiscard}
+              className="h-10 rounded-xl border-gray-300 px-5"
+            >
+              Discard
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              className={`h-10 gap-2 rounded-xl px-5 font-semibold ${BRAND_YELLOW}`}
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Save Availability
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

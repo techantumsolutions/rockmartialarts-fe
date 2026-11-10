@@ -512,10 +512,14 @@ export default function CoachTrainingRequestsPage() {
           <div className="space-y-4">
             {requests.map((req) => {
               const details = (req.details || {}) as Record<string, any>
-              const isPending =
-                !req.coach_assignment_status || req.coach_assignment_status === "pending"
-              const isAccepted = req.coach_assignment_status === "accepted"
-              const isRejected = req.coach_assignment_status === "rejected"
+              const inboxStatus =
+                req.coach_inbox_status || req.coach_assignment_status || "pending"
+              const isTaken =
+                inboxStatus === "notified_taken" ||
+                req.coach_assignment_status === "notified_taken"
+              const isPending = inboxStatus === "pending"
+              const isAccepted = inboxStatus === "accepted"
+              const isRejected = inboxStatus === "rejected"
               const isProcessing = actingId === req.id
 
               // Organization/School/College info
@@ -576,6 +580,12 @@ export default function CoachTrainingRequestsPage() {
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-900 border border-red-300">
                             <XCircle className="w-3.5 h-3.5 text-red-700" />
                             Declined by You
+                          </span>
+                        )}
+                        {isTaken && (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-300">
+                            <AlertCircle className="w-3.5 h-3.5 text-slate-600" />
+                            Already accepted by another coach
                           </span>
                         )}
                       </div>
@@ -743,7 +753,15 @@ export default function CoachTrainingRequestsPage() {
                     )}
 
                     {/* Action Controls for Pending Requests */}
-                    {isPending && (
+                    {isTaken && (
+                      <div className="text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700">
+                        This request was accepted by{" "}
+                        <b>{req.assigned_coach_name || "another coach"}</b>. Accept and decline
+                        actions are no longer available.
+                      </div>
+                    )}
+
+                    {isPending && !isTaken && (
                       <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-3 border-t border-gray-100">
                         <Button
                           type="button"

@@ -17,11 +17,11 @@ export function ScrollZoom({ children, className = "" }: ScrollZoomProps) {
   useEffect(() => {
     // Ensure AOS is initialized; safe to call multiple times on client
     AOS.init({
-      duration: 900,
+      duration: 1000,
       easing: "ease-out-cubic",
       once: false,
       mirror: true,
-      offset: 120,
+      offset: 80,
     })
     AOS.refresh()
   }, [])
@@ -30,11 +30,11 @@ export function ScrollZoom({ children, className = "" }: ScrollZoomProps) {
     <div
       className={`scroll-zoom ${className}`}
       data-aos="zoom-in"
-      data-aos-duration="900"
+      data-aos-duration="1000"
       data-aos-easing="ease-out-cubic"
       data-aos-once="false"
       data-aos-mirror="true"
-      data-aos-offset="120"
+      data-aos-offset="80"
     >
       {children}
     </div>

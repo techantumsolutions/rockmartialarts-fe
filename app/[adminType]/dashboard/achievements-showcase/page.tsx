@@ -47,6 +47,12 @@ export default function ManageShowcaseAchievementsPage() {
   const isPartnerAdmin = adminType === "partner-admin"
   const canManage = isSuperAdmin || isPartnerAdmin
   const { toast } = useToast()
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      router.replace(`/${adminType}/dashboard`)
+    }
+  }, [adminType, isSuperAdmin, router])
   const [loading, setLoading] = useState(true)
   const [rows, setRows] = useState<Row[]>([])
   const [search, setSearch] = useState("")
@@ -195,7 +201,7 @@ export default function ManageShowcaseAchievementsPage() {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-6 w-full max-w-none space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">

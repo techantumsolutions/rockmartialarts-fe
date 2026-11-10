@@ -36,7 +36,7 @@ import {
 } from "@/lib/trainingRequestAPI"
 import { formatRegisteredDateTime } from "@/lib/formatRegisteredDate"
 
-type CoachOpt = { id: string; name: string }
+type CoachOpt = { id: string; name: string; training_mode?: string | null }
 type BranchOpt = { id: string; name: string }
 type Summary = {
   total: number
@@ -103,7 +103,7 @@ export default function TrainingRequestsAdminPage() {
   const [statusNote, setStatusNote] = useState("")
   const [nextStatus, setNextStatus] = useState<string>("")
   const [coaches, setCoaches] = useState<CoachOpt[]>([])
-  const [coachId, setCoachId] = useState("")
+  const [coachIds, setCoachIds] = useState<string[]>([])
   const [coachNote, setCoachNote] = useState("")
 
   const ensureAuth = () => {
@@ -172,13 +172,22 @@ export default function TrainingRequestsAdminPage() {
     fetchAllCoaches(token, { activeOnly: true })
       .then((list) => {
         setCoaches(
-          (list || []).map((c: { id: string; full_name?: string; first_name?: string; last_name?: string }) => ({
-            id: c.id,
-            name:
-              c.full_name ||
-              `${c.first_name || ""} ${c.last_name || ""}`.trim() ||
-              c.id,
-          }))
+          (list || []).map(
+            (c: {
+              id: string
+              full_name?: string
+              first_name?: string
+              last_name?: string
+              training_mode?: string | null
+            }) => ({
+              id: c.id,
+              name:
+                c.full_name ||
+                `${c.first_name || ""} ${c.last_name || ""}`.trim() ||
+                c.id,
+              training_mode: c.training_mode || null,
+            })
+          )
         )
       })
       .catch(() => setCoaches([]))
@@ -204,13 +213,19 @@ export default function TrainingRequestsAdminPage() {
     setDetailLoading(true)
     setStatusNote("")
     setCoachNote("")
-    setCoachId("")
+    setCoachIds([])
     setNextStatus("")
     try {
       const data = await trainingRequestAPI.get(id)
       setDetail(data.request)
       setHistory(data.status_history || [])
-      setCoachId(data.request.assigned_coach_id || "")
+      setCoachIds(
+        (data.request.notified_coach_ids?.length
+          ? data.request.notified_coach_ids
+          : data.request.assigned_coach_id
+            ? [data.request.assigned_coach_id]
+            : []) as string[]
+      )
     } catch (e) {
       toast({
         title: "Failed to load detail",
@@ -231,7 +246,13 @@ export default function TrainingRequestsAdminPage() {
     const data = await trainingRequestAPI.get(id)
     setDetail(data.request)
     setHistory(data.status_history || [])
-    setCoachId(data.request.assigned_coach_id || "")
+    setCoachIds(
+      (data.request.notified_coach_ids?.length
+        ? data.request.notified_coach_ids
+        : data.request.assigned_coach_id
+          ? [data.request.assigned_coach_id]
+          : []) as string[]
+    )
   }
 
   const onUpdateStatus = async () => {
@@ -259,17 +280,25 @@ export default function TrainingRequestsAdminPage() {
     }
   }
 
+  const toggleAssignCoach = (id: string) => {
+    setCoachIds((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
+    )
+  }
+
   const onAssignCoach = async () => {
-    if (!detail || !coachId) return
+    if (!detail || coachIds.length === 0) return
     setSavingCoach(true)
     try {
-      await trainingRequestAPI.assignCoach(
-        detail.id,
-        coachId,
-        coachNote.trim() || undefined
-      )
-      toast({ title: "Coach assigned" })
+      await trainingRequestAPI.assignCoach(detail.id, {
+        coach_ids: coachIds,
+        note: coachNote.trim() || undefined,
+      })
+      toast({
+        title: coachIds.length > 1 ? "Coaches notified" : "Coach assigned",
+      })
       setCoachNote("")
+      setCoachIds([])
       await refreshDetail(detail.id)
       await load()
     } catch (e) {
@@ -291,7 +320,7 @@ export default function TrainingRequestsAdminPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 lg:px-8">
-      <div className="mx-auto max-w-7xl space-y-6">
+      <div className="w-full max-w-none space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Training requests</h1>
@@ -831,6 +860,14 @@ export default function TrainingRequestsAdminPage() {
                             Pending Response
                           </Badge>
                         )}
+                        {detail.coach_assignment_status === "pending_multi" && (
+                          <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-300 text-xs">
+                            Awaiting first acceptance (
+                            {(detail.notified_coach_ids || []).length ||
+                              (detail.notified_coaches || []).length}{" "}
+                            coaches)
+                          </Badge>
+                        )}
                       </div>
 
                       {detail.coach_assignment_status === "rejected" && (
@@ -861,19 +898,37 @@ export default function TrainingRequestsAdminPage() {
                         </div>
                       )}
                       <div className="space-y-1">
-                        <Label>Coach</Label>
-                        <Select value={coachId || undefined} onValueChange={setCoachId}>
-                          <SelectTrigger className="bg-white">
-                            <SelectValue placeholder="Select coach" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {coaches.map((c) => (
-                              <SelectItem key={c.id} value={c.id}>
-                                {c.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Label>Coaches (select one or more)</Label>
+                        <p className="text-xs text-gray-500">
+                          Multiple coaches are notified; the first to accept wins the assignment.
+                        </p>
+                        <div className="max-h-48 overflow-y-auto rounded-md border border-gray-200 bg-white p-2 space-y-1">
+                          {coaches.length === 0 ? (
+                            <p className="text-sm text-gray-500 px-1">No coaches available</p>
+                          ) : (
+                            coaches.map((c) => (
+                              <label
+                                key={c.id}
+                                className="flex items-center gap-2 text-sm py-1 px-1 rounded hover:bg-gray-50 cursor-pointer"
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4 rounded border-gray-300"
+                                  checked={coachIds.includes(c.id)}
+                                  onChange={() => toggleAssignCoach(c.id)}
+                                />
+                                <span className="flex-1">
+                                  {c.name}
+                                  {c.training_mode ? (
+                                    <span className="ml-2 text-xs text-gray-500 capitalize">
+                                      ({c.training_mode})
+                                    </span>
+                                  ) : null}
+                                </span>
+                              </label>
+                            ))
+                          )}
+                        </div>
                       </div>
                       <div className="space-y-1">
                         <Label>Note (optional)</Label>
@@ -885,11 +940,15 @@ export default function TrainingRequestsAdminPage() {
                       </div>
                       <Button
                         type="button"
-                        disabled={savingCoach || !coachId}
+                        disabled={savingCoach || coachIds.length === 0}
                         className="bg-yellow-400 hover:bg-yellow-500 text-white"
                         onClick={onAssignCoach}
                       >
-                        {savingCoach ? "Saving…" : "Assign coach"}
+                        {savingCoach
+                          ? "Saving…"
+                          : coachIds.length > 1
+                            ? "Notify coaches"
+                            : "Assign coach"}
                       </Button>
                     </div>
                   )}

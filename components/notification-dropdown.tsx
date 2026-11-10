@@ -5,11 +5,15 @@ import { Bell, DollarSign, User, Clock, Check, MessageCircle, Mail } from "lucid
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { notificationAPI, PaymentNotification, MessageNotification } from "@/lib/notificationAPI"
+import {
+  notificationAPI,
+  type InAppNotification,
+} from "@/lib/notificationAPI"
 import { useRouter, usePathname } from "next/navigation"
 import {
   getAllNotificationsPath,
   getNotificationTargetPath,
+  isLeadNotification,
   isMessageNotification,
   isPaymentNotification,
 } from "@/lib/notificationNavigation"
@@ -21,7 +25,7 @@ interface NotificationDropdownProps {
 export default function NotificationDropdown({ className = "" }: NotificationDropdownProps) {
   const router = useRouter()
   const pathname = usePathname() ?? ""
-  const [notifications, setNotifications] = useState<(PaymentNotification | MessageNotification)[]>([])
+  const [notifications, setNotifications] = useState<InAppNotification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
@@ -44,9 +48,12 @@ export default function NotificationDropdown({ className = "" }: NotificationDro
   }
 
   // Mark notification as read
-  const markAsRead = async (notificationId: string) => {
+  const markAsRead = async (notificationId: string, notificationType?: string) => {
     try {
-      await notificationAPI.markNotificationAsRead(notificationId)
+      await notificationAPI.markNotificationAsRead(
+        notificationId,
+        notificationType
+      )
       setNotifications(prev => 
         prev.map(n => 
           n.id === notificationId 
@@ -123,6 +130,8 @@ export default function NotificationDropdown({ className = "" }: NotificationDro
         return <Mail className="w-4 h-4 text-blue-600" />
       case 'message_reply':
         return <MessageCircle className="w-4 h-4 text-green-600" />
+      case 'new_lead':
+        return <User className="w-4 h-4 text-amber-600" />
       default:
         return <Bell className="w-4 h-4 text-gray-600" />
     }
@@ -130,17 +139,23 @@ export default function NotificationDropdown({ className = "" }: NotificationDro
 
   // Check if notification is a payment notification
   const isPaymentNotificationType = (
-    notification: PaymentNotification | MessageNotification
-  ): notification is PaymentNotification => isPaymentNotification(notification)
+    notification: InAppNotification
+  ): notification is import("@/lib/notificationAPI").PaymentNotification =>
+    isPaymentNotification(notification)
 
-  // Check if notification is a message notification
   const isMessageNotificationType = (
-    notification: PaymentNotification | MessageNotification
-  ): notification is MessageNotification => isMessageNotification(notification)
+    notification: InAppNotification
+  ): notification is import("@/lib/notificationAPI").MessageNotification =>
+    isMessageNotification(notification)
 
-  const handleNotificationClick = (notification: PaymentNotification | MessageNotification) => {
+  const isLeadNotificationType = (
+    notification: InAppNotification
+  ): notification is import("@/lib/notificationAPI").LeadNotification =>
+    isLeadNotification(notification)
+
+  const handleNotificationClick = (notification: InAppNotification) => {
     if (!notification.is_read) {
-      void markAsRead(notification.id)
+      void markAsRead(notification.id, notification.notification_type)
     }
     router.push(getNotificationTargetPath(notification, pathname))
     setIsOpen(false)
@@ -234,6 +249,11 @@ export default function NotificationDropdown({ className = "" }: NotificationDro
                       {isMessageNotificationType(notification) && (
                         <span className="text-xs text-gray-500">
                           From: {notification.sender_name}
+                        </span>
+                      )}
+                      {isLeadNotificationType(notification) && notification.lead_name && (
+                        <span className="text-xs text-gray-500 truncate max-w-[8rem]">
+                          {notification.lead_name}
                         </span>
                       )}
                     </div>

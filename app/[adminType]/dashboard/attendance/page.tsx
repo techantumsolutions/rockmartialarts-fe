@@ -39,10 +39,19 @@ import {
   ArrowRight,
   Eye,
   BarChart3,
-  PieChart as PieChartIcon
+  PieChart as PieChartIcon,
+  GraduationCap,
+  Plus,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  AdminCard,
+  AdminKpiCard,
+  AdminKpiGrid,
+  AdminPageHeader,
+  AdminPageShell,
+  AdminTableShell,
+} from "@/components/dashboard/AdminPageShell"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -332,14 +341,6 @@ export default function AttendanceOverviewPage() {
     fetchAttendanceOverview()
   }, [selectedDate])
 
-  // Chart data (present / absent only — late folded into present)
-  const getAttendanceChartData = () => [
-    { name: 'Students Present', value: stats.student_present_today, fill: '#10B981' },
-    { name: 'Students Absent', value: stats.student_absent_today, fill: '#EF4444' },
-    { name: 'Coaches Present', value: stats.coach_present_today, fill: '#3B82F6' },
-    { name: 'Coaches Absent', value: stats.coach_absent_today, fill: '#DC2626' },
-  ]
-
   const getTrendData = () => {
     // Mock trend data - in real app, this would come from API
     return [
@@ -353,406 +354,395 @@ export default function AttendanceOverviewPage() {
     ]
   }
 
+  const studentNotMarked = Math.max(
+    0,
+    stats.total_students - stats.student_present_today - stats.student_absent_today
+  )
+
+  const studentDistributionData = [
+    { name: "Present", value: stats.student_present_today, fill: "#1F9D57" },
+    { name: "Absent", value: stats.student_absent_today, fill: "#E11D48" },
+    { name: "Not Marked", value: studentNotMarked, fill: "#9CA3AF" },
+  ]
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="pt-4">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Attendance Overview</h1>
-          <p className="text-gray-600">Comprehensive attendance management across all branches</p>
-        </div>
+    <AdminPageShell>
+      <AdminPageHeader
+        icon={Calendar}
+        title="Attendance Overview"
+        subtitle="Comprehensive attendance management across all branches"
+        actions={
+          <>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="btn-admin-outline h-10 font-normal">
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {format(selectedDate, "MMM d, yyyy")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <CalendarComponent
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => date && setSelectedDate(date)}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+            <Button
+              type="button"
+              variant="outline"
+              className="btn-admin-outline h-10"
+              onClick={fetchAttendanceOverview}
+              disabled={loading}
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="btn-admin-outline h-10"
+              onClick={() => router.push(`${basePath}/attendance/students`)}
+            >
+              <Users className="mr-2 h-4 w-4" />
+              Manage Students
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="btn-admin-outline h-10"
+              onClick={() => router.push(`${basePath}/attendance/coaches`)}
+            >
+              <Award className="mr-2 h-4 w-4" />
+              Manage Coaches
+            </Button>
+            <Button
+              type="button"
+              className="btn-admin-primary h-10"
+              onClick={() => router.push(`${basePath}/attendance/students`)}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Mark Attendance
+            </Button>
+          </>
+        }
+      />
 
-        {/* Error Alert */}
-        {error && (
-          <Alert className="mb-6 border-red-200 bg-red-50">
-            <AlertCircle className="h-4 w-4 text-red-600" />
-            <AlertDescription className="text-red-800">{error}</AlertDescription>
-          </Alert>
-        )}
+      {error && (
+        <Alert className="border-red-200 bg-red-50">
+          <AlertCircle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800">{error}</AlertDescription>
+        </Alert>
+      )}
 
-        {/* Empty State Info */}
-        {!loading && !error && stats.total_students === 0 && stats.total_coaches === 0 && (
-          <Alert className="mb-6 border-blue-200 bg-blue-50">
-            <AlertCircle className="h-4 w-4 text-blue-600" />
-            <AlertDescription className="text-blue-800">
-              <strong>No attendance data available.</strong> This could be because:
-              <ul className="mt-2 ml-4 list-disc">
-                <li>No students are enrolled in courses</li>
-                <li>No attendance records have been created yet</li>
-                <li>No coaches are assigned to branches</li>
-              </ul>
-              <p className="mt-2">
-                To get started, ensure students are enrolled in courses and attendance is being tracked.
-              </p>
-            </AlertDescription>
-          </Alert>
-        )}
+      {!loading && !error && stats.total_students === 0 && stats.total_coaches === 0 && (
+        <Alert className="border-blue-200 bg-blue-50">
+          <AlertCircle className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-800">
+            <strong>No attendance data available.</strong> This could be because:
+            <ul className="mt-2 ml-4 list-disc">
+              <li>No students are enrolled in courses</li>
+              <li>No attendance records have been created yet</li>
+              <li>No coaches are assigned to branches</li>
+            </ul>
+            <p className="mt-2">
+              To get started, ensure students are enrolled in courses and attendance is being tracked.
+            </p>
+          </AlertDescription>
+        </Alert>
+      )}
 
-        {/* Date Selector and Actions */}
-        <Card className="mb-8">
-          <CardContent className="p-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div className="flex items-center gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-2">Select Date</label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="justify-start text-left font-normal">
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {format(selectedDate, "PPP")}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <CalendarComponent
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={(date) => date && setSelectedDate(date)}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+      <AdminKpiGrid cols={4}>
+        <AdminKpiCard
+          icon={Users}
+          label="Total Students"
+          value={stats.total_students}
+          tone="blue"
+          hint={`${stats.student_present_today} present today`}
+        />
+        <AdminKpiCard
+          icon={Award}
+          label="Total Coaches"
+          value={stats.total_coaches}
+          tone="green"
+          hint={`${stats.coach_present_today} present today`}
+        />
+        <AdminKpiCard
+          icon={TrendingUp}
+          label="Student Attendance"
+          value={`${stats.student_attendance_rate.toFixed(1)}%`}
+          tone="purple"
+          hint={`${stats.student_present_today} of ${stats.total_students}`}
+        />
+        <AdminKpiCard
+          icon={BarChart3}
+          label="Coach Attendance"
+          value={`${stats.coach_attendance_rate.toFixed(1)}%`}
+          tone="amber"
+          hint={`${stats.coach_present_today} of ${stats.total_coaches}`}
+        />
+      </AdminKpiGrid>
+
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <div
+          role="button"
+          tabIndex={0}
+          className="cursor-pointer rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E1BB33]/50"
+          onClick={() => router.push(`${basePath}/attendance/students`)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault()
+              router.push(`${basePath}/attendance/students`)
+            }
+          }}
+        >
+        <AdminCard className="transition-shadow hover:shadow-md">
+          <div className="relative block lg:flex lg:items-center lg:justify-between">
+            <div>
+              <div className="mb-2 flex items-center gap-2">
+                <div className="admin-icon-tile admin-icon-tile--blue">
+                  <GraduationCap className="h-5 w-5" />
                 </div>
+                <h3 className="text-base font-semibold text-[#4F5077]">Student Attendance</h3>
               </div>
-              
-              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto min-w-0">
-                <Button
-                  onClick={fetchAttendanceOverview}
-                  variant="outline"
-                  disabled={loading}
-                  className="w-full sm:w-auto"
-                >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                  Refresh
-                </Button>
-                <Button
-                  onClick={() => router.push(`${basePath}/attendance/students`)}
-                  className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
-                >
-                  <Users className="h-4 w-4 mr-2" />
-                  Manage Students
-                </Button>
-                <Button
-                  onClick={() => router.push(`${basePath}/attendance/coaches`)}
-                  className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
-                >
-                  <Award className="h-4 w-4 mr-2" />
-                  Manage Coaches
-                </Button>
+              <p className="mb-4 text-sm text-[#6B7A99]">
+                Manage attendance for all students across branches
+              </p>
+              <div className="flex flex-wrap items-center gap-4 pr-8 lg:pr-0">
+                <div className="flex items-center text-sm text-[#1F9D57]">
+                  <CheckCircle className="mr-1 h-4 w-4" />
+                  {stats.student_present_today} Present
+                </div>
+                <div className="flex items-center text-sm text-[#E11D48]">
+                  <XCircle className="mr-1 h-4 w-4" />
+                  {stats.student_absent_today} Absent
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Overview Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <Users className="h-8 w-8 text-blue-600" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Students</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.total_students}</p>
-                  <p className="text-xs text-green-600">
-                    {stats.student_present_today} present today
-                  </p>
-                  {stats.total_students === 0 && (
-                    <p className="text-xs text-gray-400 mt-1">No enrolled students</p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <Award className="h-8 w-8 text-green-600" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Coaches</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.total_coaches}</p>
-                  <p className="text-xs text-green-600">
-                    {stats.coach_present_today} present today
-                  </p>
-                  {stats.total_coaches === 0 && (
-                    <p className="text-xs text-gray-400 mt-1">No active coaches</p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <TrendingUp className="h-8 w-8 text-purple-600" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Student Attendance</p>
-                  <p className="text-2xl font-bold text-purple-600">
-                    {stats.student_attendance_rate.toFixed(1)}%
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {stats.student_present_today} of {stats.total_students}
-                  </p>
-                  {stats.total_students === 0 && (
-                    <p className="text-xs text-gray-400 mt-1">No data available</p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <BarChart3 className="h-8 w-8 text-orange-600" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Coach Attendance</p>
-                  <p className="text-2xl font-bold text-orange-600">
-                    {stats.coach_attendance_rate.toFixed(1)}%
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {stats.coach_present_today} of {stats.total_coaches}
-                  </p>
-                  {stats.total_coaches === 0 && (
-                    <p className="text-xs text-gray-400 mt-1">No data available</p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            <ArrowRight className="absolute bottom-0 right-0 h-6 w-6 shrink-0 text-[#9593A8] lg:static" />
+          </div>
+        </AdminCard>
         </div>
 
-        {/* Quick Action Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow"
-                onClick={() => router.push(`${basePath}/attendance/students`)}>
-            <CardContent className="p-6">
-              {/* Mobile + tablet: arrow bottom-right; desktop (lg+) unchanged */}
-              <div className="relative block lg:flex lg:items-center lg:justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Student Attendance</h3>
-                  <p className="text-gray-600 mb-4">Manage attendance for all students across branches</p>
-                  <div className="flex items-center space-x-4 pr-8 lg:pr-0">
-                    <div className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-600 mr-1" />
-                      <span className="text-sm text-green-600">{stats.student_present_today} Present</span>
-                    </div>
-                    <div className="flex items-center">
-                      <XCircle className="h-4 w-4 text-red-600 mr-1" />
-                      <span className="text-sm text-red-600">{stats.student_absent_today} Absent</span>
-                    </div>
-                  </div>
+        <div
+          role="button"
+          tabIndex={0}
+          className="cursor-pointer rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E1BB33]/50"
+          onClick={() => router.push(`${basePath}/attendance/coaches`)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault()
+              router.push(`${basePath}/attendance/coaches`)
+            }
+          }}
+        >
+        <AdminCard className="transition-shadow hover:shadow-md">
+          <div className="relative block lg:flex lg:items-center lg:justify-between">
+            <div>
+              <div className="mb-2 flex items-center gap-2">
+                <div className="admin-icon-tile admin-icon-tile--purple">
+                  <User className="h-5 w-5" />
                 </div>
-                <ArrowRight className="h-6 w-6 text-gray-400 shrink-0 absolute right-0 bottom-0 lg:static" />
+                <h3 className="text-base font-semibold text-[#4F5077]">Coach Attendance</h3>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow"
-                onClick={() => router.push(`${basePath}/attendance/coaches`)}>
-            <CardContent className="p-6">
-              {/* Mobile + tablet: arrow bottom-right; desktop (lg+) unchanged */}
-              <div className="relative block lg:flex lg:items-center lg:justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Coach Attendance</h3>
-                  <p className="text-gray-600 mb-4">Manage attendance for all coaches across branches</p>
-                  <div className="flex items-center space-x-4 pr-8 lg:pr-0">
-                    <div className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-600 mr-1" />
-                      <span className="text-sm text-green-600">{stats.coach_present_today} Present</span>
-                    </div>
-                    <div className="flex items-center">
-                      <XCircle className="h-4 w-4 text-red-600 mr-1" />
-                      <span className="text-sm text-red-600">{stats.coach_absent_today} Absent</span>
-                    </div>
-                  </div>
+              <p className="mb-4 text-sm text-[#6B7A99]">
+                Manage attendance for all coaches across branches
+              </p>
+              <div className="flex flex-wrap items-center gap-4 pr-8 lg:pr-0">
+                <div className="flex items-center text-sm text-[#1F9D57]">
+                  <CheckCircle className="mr-1 h-4 w-4" />
+                  {stats.coach_present_today} Present
                 </div>
-                <ArrowRight className="h-6 w-6 text-gray-400 shrink-0 absolute right-0 bottom-0 lg:static" />
+                <div className="flex items-center text-sm text-[#E11D48]">
+                  <XCircle className="mr-1 h-4 w-4" />
+                  {stats.coach_absent_today} Absent
+                </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+            <ArrowRight className="absolute bottom-0 right-0 h-6 w-6 shrink-0 text-[#9593A8] lg:static" />
+          </div>
+        </AdminCard>
         </div>
-
-        {/* Charts and Analytics */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* Attendance Distribution */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <PieChartIcon className="h-5 w-5 mr-2" />
-                Today's Attendance Distribution
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="flex justify-center items-center h-64">
-                  <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
-                </div>
-              ) : (
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={getAttendanceChartData().filter(item => item.value > 0)}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={100}
-                        paddingAngle={5}
-                        dataKey="value"
-                      >
-                        {getAttendanceChartData().map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Attendance Trends */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <TrendingUp className="h-5 w-5 mr-2" />
-                7-Day Attendance Trend
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={getTrendData()}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Line
-                      type="monotone"
-                      dataKey="students"
-                      stroke="#3B82F6"
-                      strokeWidth={2}
-                      name="Student Attendance %"
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="coaches"
-                      stroke="#10B981"
-                      strokeWidth={2}
-                      name="Coach Attendance %"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Branch-wise Statistics */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <MapPin className="h-5 w-5 mr-2" />
-              Branch-wise Attendance Overview
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex justify-center items-center py-12">
-                <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
-                <span className="ml-3 text-gray-600">Loading branch statistics...</span>
-              </div>
-            ) : branchStats.length === 0 ? (
-              <div className="text-center py-12">
-                <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No branch data available</h3>
-                <p className="text-gray-500">Branch statistics will appear here once data is loaded.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Branch
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Total Students
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Students Present
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Total Coaches
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Coaches Present
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Attendance Rate
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {branchStats.map((branch) => (
-                      <tr key={branch.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <MapPin className="h-4 w-4 text-gray-400 mr-2" />
-                            <span className="text-sm font-medium text-gray-900">{branch.name}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {branch.total_students}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">
-                          {branch.student_present}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {branch.total_coaches}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">
-                          {branch.coach_present}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="flex-1 bg-gray-200 rounded-full h-2 mr-2">
-                              <div
-                                className="bg-blue-600 h-2 rounded-full"
-                                style={{ width: `${branch.attendance_rate}%` }}
-                              ></div>
-                            </div>
-                            <span className="text-sm font-medium text-gray-900">
-                              {branch.attendance_rate.toFixed(1)}%
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => router.push(`${basePath}/attendance/students?branch=${branch.id}`)}
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            View Details
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </div>
-    </div>
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <AdminCard>
+          <div className="mb-4 flex items-center gap-2">
+            <PieChartIcon className="h-5 w-5 text-[#6D28D9]" />
+            <h2 className="text-[15px] font-semibold text-[#4F5077]">Today&apos;s Attendance Distribution</h2>
+          </div>
+          {loading ? (
+            <div className="flex h-64 items-center justify-center">
+              <RefreshCw className="h-8 w-8 animate-spin text-[#4F5077]" />
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
+              <div className="relative h-56 w-56 shrink-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={
+                        studentDistributionData.some((d) => d.value > 0)
+                          ? studentDistributionData.filter((d) => d.value > 0)
+                          : [{ name: "Empty", value: 1, fill: "#E5E7EB" }]
+                      }
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={58}
+                      outerRadius={88}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {studentDistributionData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-xl font-bold text-[#4F5077]">{stats.total_students}</span>
+                  <span className="text-xs text-[#6B7A99]">Total Students</span>
+                </div>
+              </div>
+              <div className="min-w-[10rem] space-y-2 text-sm">
+                {studentDistributionData.map((row) => {
+                  const pct =
+                    stats.total_students > 0
+                      ? ((row.value / stats.total_students) * 100).toFixed(1)
+                      : "0.0"
+                  return (
+                    <div key={row.name} className="flex items-center justify-between gap-3">
+                      <span className="flex items-center gap-2 text-[#6B7A99]">
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ background: row.fill }} />
+                        {row.name}
+                      </span>
+                      <span className="font-medium text-[#4F5077]">
+                        {row.value} ({pct}%)
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </AdminCard>
+
+        <AdminCard>
+          <div className="mb-4 flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-[#2563EB]" />
+            <h2 className="text-[15px] font-semibold text-[#4F5077]">7-Day Attendance Trend</h2>
+          </div>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={getTrendData()}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#EEF0F4" />
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#6B7A99" }} />
+                <YAxis tick={{ fontSize: 11, fill: "#6B7A99" }} domain={[0, 100]} />
+                <Tooltip />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="students"
+                  stroke="#2563EB"
+                  strokeWidth={2}
+                  name="Student Attendance %"
+                  dot={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="coaches"
+                  stroke="#1F9D57"
+                  strokeWidth={2}
+                  name="Coach Attendance %"
+                  dot={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </AdminCard>
+      </div>
+
+      <AdminCard padding={false}>
+        <div className="border-b border-gray-100 px-5 py-4">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-[#6D28D9]" />
+            <h2 className="text-[15px] font-semibold text-[#4F5077]">Branch-wise Attendance Overview</h2>
+          </div>
+        </div>
+        {loading ? (
+          <div className="flex items-center justify-center gap-3 py-12 text-[#6B7A99]">
+            <RefreshCw className="h-8 w-8 animate-spin" />
+            Loading branch statistics…
+          </div>
+        ) : branchStats.length === 0 ? (
+          <div className="py-12 text-center">
+            <MapPin className="mx-auto mb-4 h-12 w-12 text-[#9593A8]" />
+            <h3 className="mb-2 text-lg font-medium text-[#4F5077]">No branch data available</h3>
+            <p className="text-sm text-[#6B7A99]">Branch statistics will appear here once data is loaded.</p>
+          </div>
+        ) : (
+          <AdminTableShell>
+            <table>
+              <thead>
+                <tr>
+                  <th>Branch</th>
+                  <th>Total Students</th>
+                  <th>Students Present</th>
+                  <th>Total Coaches</th>
+                  <th>Coaches Present</th>
+                  <th>Attendance Rate</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {branchStats.map((branch) => (
+                  <tr key={branch.id}>
+                    <td>
+                      <div className="flex items-center gap-2 font-medium">
+                        <MapPin className="h-4 w-4 text-[#9593A8]" />
+                        {branch.name}
+                      </div>
+                    </td>
+                    <td>{branch.total_students}</td>
+                    <td className="font-medium text-[#1F9D57]">{branch.student_present}</td>
+                    <td>{branch.total_coaches}</td>
+                    <td className="font-medium text-[#1F9D57]">{branch.coach_present}</td>
+                    <td className="min-w-[140px]">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100">
+                          <div
+                            className="h-full rounded-full bg-[#E1BB33]"
+                            style={{ width: `${Math.min(100, branch.attendance_rate)}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-medium text-[#4F5077]">
+                          {branch.attendance_rate.toFixed(1)}%
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="btn-admin-outline h-8"
+                        onClick={() =>
+                          router.push(`${basePath}/attendance/students?branch=${branch.id}`)
+                        }
+                      >
+                        <Eye className="mr-1 h-4 w-4" />
+                        View Details
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </AdminTableShell>
+        )}
+      </AdminCard>
+    </AdminPageShell>
   )
 }

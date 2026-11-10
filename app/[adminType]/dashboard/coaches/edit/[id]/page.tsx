@@ -56,6 +56,13 @@ import {
   type AvailabilityWindow,
 } from "@/lib/batchCoachAssignment"
 import BranchSelectionField from "@/components/layout/BranchSelectionField"
+import {
+  DashboardFormPageHeader,
+  DashboardSectionHeading,
+  cardContentClass,
+  dashboardFormCardClass,
+  primaryButtonClass,
+} from "@/components/dashboard/dashboardFormStyles"
 
 // Interface definitions for API data
 interface Branch {
@@ -782,49 +789,16 @@ export default function EditCoachPage() {
         //   coachData.professional_info.certifications = uploadedUrls
         // }
 
-        // Get authentication token
-        let token = TokenManager.getToken()
-
-        // If no token, try to get one using superadmin credentials for testing
+        const token = TokenManager.getToken()
         if (!token) {
-          console.log('No token found, attempting to get superadmin token...')
-          try {
-            const loginResponse = await fetch(getBackendApiUrl('superadmin/login'), {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                email: "pittisunilkumar3@gmail.com",
-                password: "StrongPassword@123"
-              })
-            })
-
-            if (loginResponse.ok) {
-              const loginData = await loginResponse.json()
-              console.log('✅ Got superadmin token for branches')
-
-              // Store the token using TokenManager
-              TokenManager.storeAuthData(loginData)
-              token = TokenManager.getToken()
-            } else {
-              console.error('Failed to get superadmin token:', loginResponse.statusText)
-              toast({
-                title: "Authentication Error",
-                description: "Unable to authenticate. Please login manually.",
-                variant: "destructive",
-              })
-              setIsLoadingBranches(false)
-              return
-            }
-          } catch (error) {
-            console.error('Error getting superadmin token:', error)
-            toast({
-              title: "Authentication Error",
-              description: "Please login to access branch data.",
-              variant: "destructive",
-            })
-            setIsLoadingBranches(false)
-            return
-          }
+          toast({
+            title: "Authentication Error",
+            description: "Please login to continue",
+            variant: "destructive",
+          })
+          router.push("/login")
+          setIsLoadingBranches(false)
+          return
         }
 
         // Call real backend API
@@ -1525,7 +1499,7 @@ export default function EditCoachPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-[#F5F6FA]">
         <div className="flex items-center justify-center h-96">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
@@ -1537,35 +1511,23 @@ export default function EditCoachPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#F5F6FA]">
 
-      <main className="w-full py-4 px-4 lg:px-8">
-        {/* Header with Back Button */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="ghost"
-              onClick={() => router.push(`${basePath}/coaches`)}
-              className="flex items-center space-x-2 hover:bg-gray-100"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="text-[#4F5077]">Back to Coaches</span>
-            </Button>
-            <div className="w-px h-6 bg-gray-300"></div>
-            <h1 className="text-2xl font-bold text-[#4F5077]">Edit Coach</h1>
-          </div>
-        </div>
+      <main className="w-full py-6 px-4 lg:px-8 xl:px-10">
+        <DashboardFormPageHeader
+          title="Edit Coach"
+          subtitle="Update coach profile, assignments, and availability"
+          backLabel="Back to Coaches"
+          onBack={() => router.push(`${basePath}/coaches`)}
+        />
 
         <form onSubmit={handleSubmit} className="space-y-6 ">
           {/* Personal Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-
-                <span className="text-[#4F5077]">Personal Information</span>
-              </CardTitle>
+          <Card className={dashboardFormCardClass}>
+            <CardHeader className="pb-2">
+              <DashboardSectionHeading icon={User} title="Personal Information" tone="violet" />
             </CardHeader>
-            <CardContent className="space-y-4 text-[#7D8592]">
+            <CardContent className={cardContentClass}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">First Name *</Label>
@@ -1741,11 +1703,11 @@ export default function EditCoachPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-[#4F5077]">Profile photo &amp; website</CardTitle>
+          <Card className={dashboardFormCardClass}>
+            <CardHeader className="pb-2">
+              <DashboardSectionHeading icon={User} title="Profile photo & website" tone="sky" />
             </CardHeader>
-            <CardContent className="space-y-4 text-[#7D8592]">
+            <CardContent className={cardContentClass}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label>Coach photo (JPG, PNG or WEBP, max 2MB)</Label>
@@ -1873,14 +1835,11 @@ export default function EditCoachPage() {
           </Card>
 
           {/* Professional Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-
-                <span className="text-[#4F5077]">Professional Information</span>
-              </CardTitle>
+          <Card className={dashboardFormCardClass}>
+            <CardHeader className="pb-2">
+              <DashboardSectionHeading icon={Award} title="Professional Information" tone="amber" />
             </CardHeader>
-            <CardContent className="space-y-4 text-[#7D8592]">
+            <CardContent className={cardContentClass}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="designation">Designation *</Label>
@@ -2098,13 +2057,11 @@ export default function EditCoachPage() {
           </Card>
 
           {/* Assignment Details */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <span className="text-[#4F5077]">Assignment Details</span>
-              </CardTitle>
+          <Card className={dashboardFormCardClass}>
+            <CardHeader className="pb-2">
+              <DashboardSectionHeading icon={Building2} title="Assignment Details" tone="indigo" />
             </CardHeader>
-            <CardContent className="space-y-4 text-[#7D8592]">
+            <CardContent className={cardContentClass}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="branch">Assign to Branch</Label>
@@ -2383,13 +2340,11 @@ export default function EditCoachPage() {
           </Card>
 
           {/* Emergency Contact */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <span className="text-[#4F5077]">Emergency Contact</span>
-              </CardTitle>
+          <Card className={dashboardFormCardClass}>
+            <CardHeader className="pb-2">
+              <DashboardSectionHeading icon={Phone} title="Emergency Contact" tone="rose" />
             </CardHeader>
-            <CardContent className="space-y-4 text-[#7D8592]">
+            <CardContent className={cardContentClass}>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="emergencyContactName">Contact Name</Label>
@@ -2434,11 +2389,11 @@ export default function EditCoachPage() {
           </Card>
 
           {/* Availability */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-[#4F5077]">Availability</CardTitle>
+          <Card className={dashboardFormCardClass}>
+            <CardHeader className="pb-2">
+              <DashboardSectionHeading icon={Clock} title="Availability" tone="blue" />
             </CardHeader>
-            <CardContent className="space-y-3 text-[#7D8592]">
+            <CardContent className={`${cardContentClass} space-y-3`}>
               <p className="text-sm">Days and times this coach can be assigned to a batch.</p>
               {(() => {
                 const conflict = getBatchConflictForSlots(assignedBatches, availabilitySlots)
@@ -2579,11 +2534,11 @@ export default function EditCoachPage() {
           </Card>
 
           {/* Additional Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-[#4F5077]">Additional Information</CardTitle>
+          <Card className={dashboardFormCardClass}>
+            <CardHeader className="pb-2">
+              <DashboardSectionHeading icon={Award} title="Additional Information" tone="emerald" />
             </CardHeader>
-            <CardContent className="space-y-4 text-[#7D8592]">
+            <CardContent className={cardContentClass}>
               <div className="space-y-2">
                 <Label htmlFor="achievements">Achievements & Awards</Label>
                 <Textarea
@@ -2620,7 +2575,7 @@ export default function EditCoachPage() {
             </Button>
             <Button
               type="submit"
-              className="bg-yellow-400 hover:bg-yellow-500 text-white"
+              className={primaryButtonClass}
               disabled={isSubmitting}
             >
               {isSubmitting ? (

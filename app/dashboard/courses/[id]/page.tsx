@@ -31,6 +31,7 @@ import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
 import { getBackendApiUrl } from "@/lib/config"
 import { loadCourseEnrollmentsForAdmin, mapPageContentReviews } from "@/lib/courseAdminDetail"
+import { parseCourseModulesFromApi } from "@/lib/courseModulesFromApi"
 
 interface CourseDetails {
   id: string
@@ -204,54 +205,16 @@ export default function CourseDetailPage() {
       setCourse(mappedCourse)
 
       setCourseReviews(mapPageContentReviews(courseData as Record<string, unknown>))
-      await Promise.all([
-        loadCourseEnrollmentsForAdmin(courseId, token).then(setEnrolledStudents),
-        fetchCourseModules(token),
-      ])
+      setCourseModules(
+        parseCourseModulesFromApi(courseData as Record<string, unknown>)
+      )
+      await loadCourseEnrollmentsForAdmin(courseId, token).then(setEnrolledStudents)
 
     } catch (err: any) {
       console.error('Error fetching course details:', err)
       setError(err.message || 'Failed to load course details')
     } finally {
       setLoading(false)
-    }
-  }
-
-  const fetchCourseModules = async (token: string) => {
-    try {
-      // Mock course modules - in real app, this would be an API call
-      const mockModules: CourseModule[] = [
-        {
-          id: 'module-1',
-          title: 'Introduction to Basics',
-          description: 'Learn the fundamental concepts and principles',
-          duration_minutes: 60,
-          order: 1,
-          is_completed: true,
-          resources: ['Video Tutorial', 'Practice Guide', 'Assessment']
-        },
-        {
-          id: 'module-2',
-          title: 'Intermediate Techniques',
-          description: 'Build upon basic skills with intermediate techniques',
-          duration_minutes: 90,
-          order: 2,
-          is_completed: true,
-          resources: ['Video Tutorial', 'Hands-on Practice']
-        },
-        {
-          id: 'module-3',
-          title: 'Advanced Applications',
-          description: 'Apply advanced techniques in real-world scenarios',
-          duration_minutes: 120,
-          order: 3,
-          is_completed: false,
-          resources: ['Video Tutorial', 'Case Studies', 'Final Project']
-        }
-      ]
-      setCourseModules(mockModules)
-    } catch (err) {
-      console.error('Error fetching course modules:', err)
     }
   }
 

@@ -1,12 +1,28 @@
 import { getBackendApiUrl } from "@/lib/config"
 
+export type CoachRegistrationSource = "admin" | "self"
+
+export function isOnlineEnrolledCoach(coach: { registration_source?: string | null }): boolean {
+  return String(coach?.registration_source || "").toLowerCase() === "self"
+}
+
+export function isInHouseCoach(coach: { registration_source?: string | null }): boolean {
+  return !isOnlineEnrolledCoach(coach)
+}
+
 /** Fetch all coaches with pagination (includes inactive by default). */
 export async function fetchAllCoaches(
   token: string,
-  options?: { activeOnly?: boolean; branchId?: string }
+  options?: {
+    activeOnly?: boolean
+    branchId?: string
+    /** admin = in-house coaches; self = online enrolled coaches */
+    registrationSource?: CoachRegistrationSource
+  }
 ): Promise<any[]> {
   const activeOnly = options?.activeOnly ?? false
   const branchId = (options?.branchId || "").trim()
+  const registrationSource = options?.registrationSource
   const headers = {
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
@@ -14,20 +30,28 @@ export async function fetchAllCoaches(
 
   const all: any[] = []
   for (let skip = 0; skip < 1000; skip += 100) {
-    const branchQuery = branchId
-      ? `&branch_id=${encodeURIComponent(branchId)}`
-      : ""
-    const res = await fetch(
-      getBackendApiUrl(
-        `coaches?active_only=${activeOnly}&limit=100&skip=${skip}${branchQuery}`
-      ),
-      { headers }
-    )
+    const params = new URLSearchParams({
+      active_only: String(activeOnly),
+      limit: "100",
+      skip: String(skip),
+    })
+    if (branchId) params.set("branch_id", branchId)
+    if (registrationSource) params.set("registration_source", registrationSource)
+
+    const res = await fetch(getBackendApiUrl(`coaches?${params.toString()}`), { headers })
     if (!res.ok) break
     const data = await res.json()
     const batch = data.coaches || []
     all.push(...batch)
     if (batch.length < 100) break
+  }
+
+  // Client-side safety net if an older API ignores registration_source
+  if (registrationSource === "self") {
+    return all.filter(isOnlineEnrolledCoach)
+  }
+  if (registrationSource === "admin") {
+    return all.filter(isInHouseCoach)
   }
   return all
 }

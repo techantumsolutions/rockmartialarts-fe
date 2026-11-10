@@ -21,7 +21,12 @@ export function usePartnerPublicMeta(slug: string) {
         const meta = await partnerOrgAPI.publicBySlug(slug)
         if (cancelled) return
         setPartnerName(meta.name || slug)
-        setDisabled(meta.is_active === false || meta.status === "disabled")
+        setDisabled(
+          meta.is_active === false ||
+            meta.status === "disabled" ||
+            meta.effective_status === "expired" ||
+            meta.effective_status === "deactivated"
+        )
       } catch {
         if (!cancelled) {
           setPartnerName("")

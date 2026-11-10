@@ -165,7 +165,7 @@ export default function LearningCourseSubmissionsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 lg:px-8">
-      <div className="mx-auto max-w-7xl space-y-6">
+      <div className="w-full max-w-none space-y-6">
         {/* Top Breadcrumb & Action bar */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">

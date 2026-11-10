@@ -23,6 +23,11 @@ import { useToast } from "@/hooks/use-toast"
 import paymentAPI from "@/lib/paymentAPI"
 import { getActiveBranchId, useActiveBranch } from "@/lib/activeBranch"
 import BranchSelectionField from "@/components/layout/BranchSelectionField"
+import {
+  DashboardFormPageHeader,
+  dashboardFormCardClass,
+  primaryButtonClass,
+} from "@/components/dashboard/dashboardFormStyles"
 
 const DEFAULT_DURATION_OPTIONS: Array<{ id: string; name: string; code?: string }> = [
   { id: "1-month", name: "1 Month", code: "1-month" },
@@ -829,22 +834,15 @@ export default function EditStudent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#F5F6FA]">
 
-      <main className="w-full mx-auto p-4 sm:p-6 lg:px-8">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-8 text-[#4F5077]">
-          <div className="mb-4 sm:mb-0">
-            <h1 className="text-2xl sm:text-3xl font-bold mb-2">Edit Student</h1>
-            <p className="text-[#7D8592] text-sm sm:text-base">Update the details for the student.</p>
-          </div>
-          <Button
-            variant="outline"
-            onClick={() => router.push(studentsListUrl)}
-            className="flex items-center space-x-2 px-4 py-2 border-gray-300 hover:bg-gray-50"
-          >
-            <span>← Back to Students</span>
-          </Button>
-        </div>
+      <main className="w-full py-6 px-4 lg:px-8 xl:px-10">
+        <DashboardFormPageHeader
+          title="Edit Student"
+          subtitle="Update the details for the student"
+          backLabel="Back to Students"
+          onBack={() => router.push(studentsListUrl)}
+        />
 
         {isLoading ? (
           <div className="bg-white rounded-2xl shadow-sm border p-8 text-center">
@@ -852,9 +850,9 @@ export default function EditStudent() {
             <p className="mt-4 text-gray-600">Loading student data...</p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200">
+          <div className={dashboardFormCardClass}>
 
-            <form onSubmit={handleSubmit} noValidate className="p-6 sm:p-8 space-y-8">
+            <form onSubmit={handleSubmit} noValidate className="p-6 sm:p-8 space-y-8 [&_input]:rounded-lg [&_input]:border-gray-200">
               {errors.submit && (
                 <div className="bg-red-50 border border-red-200 rounded-xl p-4">
                   <p className="text-red-600 font-medium">{errors.submit}</p>
@@ -1359,7 +1357,7 @@ export default function EditStudent() {
                   <Button 
                     type="submit" 
                     disabled={isSubmitting}
-                    className="w-full sm:w-auto h-12 bg-yellow-400 hover:bg-yellow-500 text-white font-semibold px-8 rounded-xl"
+                    className={`w-full sm:w-auto ${primaryButtonClass}`}
                   >
                     {isSubmitting ? (
                       <div className="flex items-center">

@@ -40,31 +40,6 @@ export interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// Mock login response data for development
-const MOCK_AUTH_DATA = {
-  access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzMTA5ZWNhYi00OTUwLTQ3NzQtOWMzYS00NjE0MjUyNDA5ZTYiLCJleHAiOjE3NTcxNjU0NjN9.iFRveglEjN8spBNfgBof90-9g7btu6_Ul4OG9n3Pljk",
-  token_type: "bearer",
-  user: {
-    id: "3109ecab-4950-4774-9c3a-4614252409e6",
-    email: "pittisunilkumar3@gmail.com",
-    role: "super_admin",
-    first_name: "Fresh",
-    last_name: "Test",
-    full_name: "Fresh Test",
-    date_of_birth: "1995-05-15",
-    gender: "male",
-    course: {
-      category_id: "fresh-cat-123",
-      course_id: "fresh-course-456",
-      duration: "8-months"
-    },
-    branch: {
-      location_id: "fresh-loc-789",
-      branch_id: "fresh-branch-101"
-    }
-  }
-}
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>({
     access_token: null,
@@ -74,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isLoading: true
   })
 
-  // Load auth data from localStorage on mount
+  // Load auth data from localStorage on mount (no mock/auto-login)
   useEffect(() => {
     try {
       const storedAuth = localStorage.getItem('auth_data')
@@ -86,13 +61,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           isAuthenticated: !!parsedAuth.access_token,
           isLoading: false
         })
-      } else if (process.env.NODE_ENV === 'development') {
-        setAuthState({
-          ...MOCK_AUTH_DATA,
-          isAuthenticated: true,
-          isLoading: false
-        })
-        localStorage.setItem('auth_data', JSON.stringify(MOCK_AUTH_DATA))
       } else {
         setAuthState({
           access_token: null,

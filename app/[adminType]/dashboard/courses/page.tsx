@@ -181,7 +181,7 @@ export default function CourseListPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="w-full">
 
       <main className="w-full p-4 lg:px-8 lg:py-6">
         <div className="flex justify-between items-center mb-6">

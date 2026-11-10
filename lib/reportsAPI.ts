@@ -786,9 +786,18 @@ class ReportsAPI extends BaseAPI {
    */
   async getOperationalReports(
     token: string,
-    reportType: 'enrollments' | 'renewals' | 'leads' | 'events',
-    filters: { branch_id?: string; start_date?: string; end_date?: string; skip?: number; limit?: number } = {}
-  ): Promise<{ rows: any[]; total: number; skip: number; limit: number }> {
+    reportType: 'enrollments' | 'renewals' | 'leads' | 'events' | 'attendance',
+    filters: {
+      branch_id?: string
+      course_id?: string
+      start_date?: string
+      end_date?: string
+      status?: string
+      record_type?: string
+      skip?: number
+      limit?: number
+    } = {}
+  ): Promise<{ rows: any[]; total: number; skip: number; limit: number; summary?: Record<string, number> }> {
     const params = new URLSearchParams()
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
@@ -800,6 +809,112 @@ class ReportsAPI extends BaseAPI {
       method: 'GET',
       token
     })
+  }
+
+  /** M23-S05: operational export via backend (sync file or async job). */
+  async exportOperationalReport(
+    token: string,
+    reportType: 'enrollments' | 'renewals' | 'leads' | 'events' | 'attendance',
+    filters: {
+      branch_id?: string
+      course_id?: string
+      start_date?: string
+      end_date?: string
+      format?: 'csv' | 'excel'
+    } = {}
+  ): Promise<{
+    async?: boolean
+    job_id?: string
+    status?: string
+    estimated_rows?: number
+    content?: string
+    filename?: string
+    row_count?: number
+    content_type?: string
+  }> {
+    const params = new URLSearchParams()
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        params.append(key, String(value))
+      }
+    })
+    if (!params.has('format')) {
+      params.append('format', 'csv')
+    }
+    const response = await fetch(
+      getBackendApiUrl(`reports/${reportType}/export?${params.toString()}`),
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+        },
+        cache: 'no-store',
+      }
+    )
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      const detail =
+        typeof errorData.detail === 'string'
+          ? errorData.detail
+          : `Export failed: ${response.status}`
+      throw new Error(detail)
+    }
+    return await response.json()
+  }
+
+  async getExportJob(
+    token: string,
+    jobId: string
+  ): Promise<{
+    id: string
+    status?: string
+    filename?: string
+    row_count?: number
+    format?: string
+    report_type?: string
+    filters?: Record<string, unknown>
+    error?: string
+    created_at?: string
+    completed_at?: string
+    expires_at?: string
+  }> {
+    return await this.makeRequest(`/api/reports/exports/${encodeURIComponent(jobId)}`, {
+      method: 'GET',
+      token,
+    })
+  }
+
+  async downloadExportJob(token: string, jobId: string, filenameHint?: string): Promise<void> {
+    const response = await fetch(getBackendApiUrl(`reports/exports/${encodeURIComponent(jobId)}/download`), {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Cache-Control': 'no-cache',
+      },
+      cache: 'no-store',
+    })
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      const detail =
+        typeof errorData.detail === 'string'
+          ? errorData.detail
+          : `Download failed: ${response.status}`
+      throw new Error(detail)
+    }
+    const blob = await response.blob()
+    const disposition = response.headers.get('Content-Disposition') || ''
+    const match = disposition.match(/filename="([^"]+)"/)
+    const filename = match?.[1] || filenameHint || `export-${jobId.slice(0, 8)}.csv`
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
   }
 
   /**
@@ -861,6 +976,114 @@ class ReportsAPI extends BaseAPI {
       total: Number(data.total || 0),
       filename: data.filename || 'student_report.csv',
     }
+  }
+
+  /**
+   * M23-S05: operational export via backend (sync or async job).
+   */
+  async exportOperationalReport(
+    token: string,
+    reportType: 'enrollments' | 'renewals' | 'leads' | 'events' | 'attendance',
+    filters: {
+      branch_id?: string
+      course_id?: string
+      start_date?: string
+      end_date?: string
+      format?: 'csv' | 'excel'
+    } = {}
+  ): Promise<{
+    async?: boolean
+    job_id?: string
+    status?: string
+    estimated_rows?: number
+    content?: string
+    filename?: string
+    row_count?: number
+    content_type?: string
+  }> {
+    const params = new URLSearchParams()
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        params.append(key, String(value))
+      }
+    })
+    if (!params.has('format')) {
+      params.append('format', 'csv')
+    }
+    const response = await fetch(
+      getBackendApiUrl(`reports/${reportType}/export?${params.toString()}`),
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+        },
+        cache: 'no-store',
+      }
+    )
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      const detail =
+        typeof errorData.detail === 'string'
+          ? errorData.detail
+          : `Export failed: ${response.status}`
+      throw new Error(detail)
+    }
+    return await response.json()
+  }
+
+  async getExportJob(
+    token: string,
+    jobId: string
+  ): Promise<{
+    id: string
+    status?: string
+    filename?: string
+    row_count?: number
+    format?: string
+    report_type?: string
+    filters?: Record<string, unknown>
+    error?: string
+    created_at?: string
+    completed_at?: string
+    expires_at?: string
+  }> {
+    return await this.makeRequest(`/api/reports/exports/${encodeURIComponent(jobId)}`, {
+      method: 'GET',
+      token,
+    })
+  }
+
+  async downloadExportJob(token: string, jobId: string, filenameHint?: string): Promise<void> {
+    const response = await fetch(getBackendApiUrl(`reports/exports/${encodeURIComponent(jobId)}/download`), {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Cache-Control': 'no-cache',
+      },
+      cache: 'no-store',
+    })
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      const detail =
+        typeof errorData.detail === 'string'
+          ? errorData.detail
+          : `Download failed: ${response.status}`
+      throw new Error(detail)
+    }
+    const blob = await response.blob()
+    const disposition = response.headers.get('Content-Disposition') || ''
+    const match = disposition.match(/filename="([^"]+)"/)
+    const filename = match?.[1] || filenameHint || `export-${jobId.slice(0, 8)}.csv`
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
   }
 
   /**

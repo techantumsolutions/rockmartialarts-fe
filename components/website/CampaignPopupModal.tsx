@@ -14,7 +14,7 @@ import {
   fetchActiveCampaignPopup,
 } from "@/lib/campaignPopupAPI"
 
-const LEAD_STORAGE_KEY = "rock_lead_captured"
+const VISITOR_VERIFIED_KEY = "rock_visitor_otp_verified_v2"
 
 function dismissKey(id: string) {
   return `rock_campaign_popup_dismissed_${id}`
@@ -23,7 +23,10 @@ function dismissKey(id: string) {
 function isLeadGateClear(leadEnabled: boolean): boolean {
   if (typeof window === "undefined") return false
   if (!leadEnabled) return true
-  return Boolean(window.localStorage.getItem(LEAD_STORAGE_KEY))
+  const raw = window.localStorage.getItem(VISITOR_VERIFIED_KEY) || ""
+  // Must match LeadCaptureModal verified|<10digit>|<iso>
+  const parts = raw.split("|")
+  return parts.length >= 3 && parts[0] === "verified" && /^\d{10}$/.test(parts[1] || "")
 }
 
 function formatDateRange(start?: string, end?: string): string {

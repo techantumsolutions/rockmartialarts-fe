@@ -12,6 +12,7 @@ import { PasswordInput } from "@/components/ui/password-input"
 import { PartnerAuthLinks } from "@/components/partner/PartnerAuthLinks"
 import { usePartnerPublicMeta } from "@/hooks/usePartnerPublicMeta"
 import { partnerOrgAPI } from "@/lib/partnerOrgAPI"
+import { PARTNER_FEATURE_STORAGE_KEY } from "@/lib/partnerFeaturePermissions"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
 
@@ -50,6 +51,12 @@ export default function PartnerWhiteLabelLoginPage() {
       if (typeof window !== "undefined") {
         localStorage.setItem("partner_slug", data.partner?.slug || slug)
         localStorage.setItem("partner_name", data.partner?.name || partnerName)
+        if (data.partner?.feature_permissions) {
+          localStorage.setItem(
+            PARTNER_FEATURE_STORAGE_KEY,
+            JSON.stringify(data.partner.feature_permissions)
+          )
+        }
       }
       toast({ title: "Welcome", description: `Signed in to ${data.partner?.name || partnerName}` })
       router.replace(`/partners/${slug}/dashboard`)

@@ -1,4 +1,9 @@
-import type { MessageNotification, PaymentNotification } from "@/lib/notificationAPI"
+import type {
+  InAppNotification,
+  LeadNotification,
+  MessageNotification,
+  PaymentNotification,
+} from "@/lib/notificationAPI"
 
 export function getDashboardBasePath(pathname: string): string {
   const adminMatch = pathname.match(/^\/(super-admin|branch-admin)\/dashboard/)
@@ -11,22 +16,37 @@ export function getDashboardBasePath(pathname: string): string {
 }
 
 export function isPaymentNotification(
-  notification: PaymentNotification | MessageNotification
+  notification: InAppNotification
 ): notification is PaymentNotification {
   return "payment_id" in notification
 }
 
 export function isMessageNotification(
-  notification: PaymentNotification | MessageNotification
+  notification: InAppNotification
 ): notification is MessageNotification {
   return "message_id" in notification
 }
 
+export function isLeadNotification(
+  notification: InAppNotification
+): notification is LeadNotification {
+  return "lead_id" in notification && !("payment_id" in notification)
+}
+
 /** Resolve the page a notification should open when clicked. */
 export function getNotificationTargetPath(
-  notification: PaymentNotification | MessageNotification,
+  notification: InAppNotification,
   pathname: string
 ): string {
+  if (isLeadNotification(notification)) {
+    const base = getDashboardBasePath(pathname)
+    const link = (notification.link || "").trim()
+    if (link.startsWith("/")) {
+      return `${base}${link}`
+    }
+    return `${base}/leads?leadId=${encodeURIComponent(notification.lead_id)}`
+  }
+
   if (isMessageNotification(notification)) {
     const thread = encodeURIComponent(notification.thread_id)
     if (pathname.startsWith("/student-dashboard")) {

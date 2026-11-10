@@ -14,6 +14,11 @@ import {
   type ActiveBranch,
 } from "@/lib/activeBranch"
 import DashboardLayoutClient from "./DashboardLayoutClient"
+import {
+  partnerDashboardPathFeatureKey,
+  PARTNER_FEATURE_STORAGE_KEY,
+  isPartnerFeatureEnabled,
+} from "@/lib/partnerFeaturePermissions"
 
 const BRANCH_ADMIN_BLOCKED_PREFIXES = [
   "/branch-admin/dashboard/enrollments",
@@ -40,16 +45,35 @@ function isBlockedBranchAdminPath(pathname: string) {
   )
 }
 
-function isBlockedPartnerAdminPath(pathname: string) {
+function isBlockedPartnerAdminPath(
+  pathname: string,
+  permissions?: Record<string, boolean> | null
+) {
   const normalized = pathname || ""
   const onPartnerDashboard =
     normalized.startsWith("/partner-admin/dashboard") ||
     /^\/partners\/[^/]+\/dashboard/.test(normalized)
   if (!onPartnerDashboard) return false
-  return PARTNER_ADMIN_BLOCKED_SUFFIXES.some(
-    (suffix) =>
-      normalized.endsWith(suffix) || normalized.includes(`${suffix}/`)
-  )
+  if (
+    PARTNER_ADMIN_BLOCKED_SUFFIXES.some(
+      (suffix) => normalized.endsWith(suffix) || normalized.includes(`${suffix}/`)
+    )
+  ) {
+    return true
+  }
+  try {
+    let perms = permissions || null
+    if (!perms) {
+      const raw = localStorage.getItem(PARTNER_FEATURE_STORAGE_KEY)
+      perms = raw ? (JSON.parse(raw) as Record<string, boolean>) : null
+    }
+    const featureKey = partnerDashboardPathFeatureKey(normalized)
+    // Only block when we have real DB-backed permissions and the feature is off.
+    if (perms && featureKey && !isPartnerFeatureEnabled(perms, featureKey)) return true
+  } catch {
+    /* ignore */
+  }
+  return false
 }
 
 /**
@@ -75,6 +99,8 @@ export default function PathBasedDashboardResolver({
     setActiveBranchState(branch)
   }
 
+  // Resolve auth once per adminType — do NOT re-run on every pathname change
+  // (that flashed MartialArtsRouteLoader / spinner and interrupted soft navigations).
   useEffect(() => {
     let cancelled = false
     const resolve = async () => {
@@ -99,13 +125,14 @@ export default function PathBasedDashboardResolver({
 
     if (isPartnerAdminPath) {
       if (isPartnerAdmin) {
-        if (pathname && isBlockedPartnerAdminPath(pathname)) {
-          const slug =
-            (typeof window !== "undefined" && localStorage.getItem("partner_slug")) || ""
-          router.replace(
-            slug ? `/partners/${slug}/dashboard/attendance` : "/partner-admin/dashboard/attendance"
-          )
-          return
+        let apiPerms: Record<string, boolean> | null = null
+        try {
+          const { partnerOrgAPI } = await import("@/lib/partnerOrgAPI")
+          const data = await partnerOrgAPI.getMyFeaturePermissions()
+          apiPerms = data.feature_permissions || {}
+          localStorage.setItem(PARTNER_FEATURE_STORAGE_KEY, JSON.stringify(apiPerms))
+        } catch {
+          /* fall back to cached permissions */
         }
         setRole("partner_super_admin")
         return
@@ -118,10 +145,6 @@ export default function PathBasedDashboardResolver({
 
     if (isBranchAdminPath) {
       if (isBranchManager) {
-        if (pathname && isBlockedBranchAdminPath(pathname)) {
-          router.replace("/branch-admin/dashboard")
-          return
-        }
         const token = BranchManagerAuth.getToken()
         let branches: ActiveBranch[] = []
         if (token) {
@@ -163,14 +186,25 @@ export default function PathBasedDashboardResolver({
     return () => {
       cancelled = true
     }
-  }, [adminType, pathname, router])
+  }, [adminType, router])
 
-  const blockedForBranchAdmin =
-    role === "branch_admin" && !!pathname && isBlockedBranchAdminPath(pathname)
-  const blockedForPartnerAdmin =
-    role === "partner_super_admin" && !!pathname && isBlockedPartnerAdminPath(pathname)
+  // Redirect blocked routes without tearing down the whole shell on every click
+  useEffect(() => {
+    if (!pathname || role === null) return
+    if (role === "branch_admin" && isBlockedBranchAdminPath(pathname)) {
+      router.replace("/branch-admin/dashboard")
+      return
+    }
+    if (role === "partner_super_admin" && isBlockedPartnerAdminPath(pathname)) {
+      const slug =
+        (typeof window !== "undefined" && localStorage.getItem("partner_slug")) || ""
+      router.replace(slug ? `/partners/${slug}/dashboard` : "/partner-admin/dashboard")
+    }
+  }, [pathname, role, router])
 
-  if (role === null || blockedForBranchAdmin || blockedForPartnerAdmin) {
+  // Only block the first paint before role resolves. Never replace the shell with a
+  // full-page loader on later navigations — that caused "click → loader → same page".
+  if (role === null) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#E1BB33]" />

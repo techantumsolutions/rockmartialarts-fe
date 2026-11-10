@@ -9,23 +9,26 @@ import {
   ToggleLeft,
   ToggleRight,
   XCircle,
-  User,
-  Mail,
-  Phone,
-  MapPin,
-  Briefcase,
-  Award,
-  CreditCard,
-  Calendar,
+  UserCheck,
   AlertTriangle,
-  FileText,
-  X,
+  Clock,
+  Users,
+  Power,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  AdminPageShell,
+  AdminPageHeader,
+  AdminKpiGrid,
+  AdminKpiCard,
+  AdminFilterBar,
+  AdminCard,
+  AdminTableShell,
+  AdminStatusPill,
+} from "@/components/dashboard/AdminPageShell"
 import {
   Select,
   SelectContent,
@@ -99,7 +102,7 @@ export default function CoachApprovalsAdminPage() {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("pending")
   const [activeFilter, setActiveFilter] = useState("all")
-  const [sourceFilter, setSourceFilter] = useState("all")
+  const [sourceFilter, setSourceFilter] = useState("self")
   const [summary, setSummary] = useState<ApprovalSummary | null>(null)
   const limit = 25
 
@@ -310,153 +313,154 @@ export default function CoachApprovalsAdminPage() {
   const canReject = detailStatus === "pending" || detailStatus === "approved"
   const canToggleActive = detailStatus === "approved"
 
+  const approvalPillStatus = (st: string): "pending" | "approved" | "rejected" | undefined => {
+    if (st === "pending") return "pending"
+    if (st === "approved") return "approved"
+    if (st === "rejected") return "rejected"
+    return undefined
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <main className="w-full p-4 lg:px-8 lg:py-6 space-y-6">
-        {/* Page Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-[#4F5077]">Coach Approvals</h1>
-            <p className="text-sm text-[#6B7A99] mt-1">
-              Review self-registered coaches, approve or reject applications, and manage active status.
-            </p>
-          </div>
+    <AdminPageShell className="admin-stack">
+      <AdminPageHeader
+        icon={UserCheck}
+        title="Online Coach Approvals"
+        subtitle="Review online coach enrollments only. In-house coaches are managed under Coaches."
+        actions={
           <Button
+            type="button"
             variant="outline"
-            onClick={() => load()}
+            className="btn-admin-outline h-10"
+            onClick={() => void load()}
             disabled={loading}
-            className="gap-2"
           >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
-        </div>
+        }
+      />
 
-        {/* Summary Metric Cards */}
-        {summary && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {[
-              { label: "Pending", value: summary.pending, color: "text-amber-600" },
-              { label: "Approved", value: summary.approved, color: "text-green-600" },
-              { label: "Rejected", value: summary.rejected, color: "text-red-600" },
-              { label: "Active", value: summary.active, color: "text-[#4F5077]" },
-              { label: "Inactive", value: summary.inactive, color: "text-gray-500" },
-            ].map((s) => (
-              <Card key={s.label}>
-                <CardContent className="py-4 px-4">
-                  <p className="text-xs text-[#6B7A99]">{s.label}</p>
-                  <p className={`text-xl font-semibold mt-1 ${s.color}`}>{s.value}</p>
-                </CardContent>
-              </Card>
-            ))}
+      {summary ? (
+        <AdminKpiGrid cols={5}>
+          <AdminKpiCard icon={Clock} label="Pending" value={summary.pending} tone="amber" />
+          <AdminKpiCard icon={CheckCircle2} label="Approved" value={summary.approved} tone="green" />
+          <AdminKpiCard icon={XCircle} label="Rejected" value={summary.rejected} tone="rose" />
+          <AdminKpiCard icon={Users} label="Active" value={summary.active} tone="blue" />
+          <AdminKpiCard icon={Power} label="Inactive" value={summary.inactive} tone="purple" />
+        </AdminKpiGrid>
+      ) : null}
+
+      <AdminFilterBar>
+        <form
+          className="flex w-full flex-col flex-wrap gap-2 lg:flex-row lg:items-center"
+          onSubmit={(e) => {
+            e.preventDefault()
+            setSkip(0)
+            setSearch(searchInput)
+          }}
+        >
+          <div className="relative min-w-0 flex-1 lg:min-w-[240px]">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Input
+              placeholder="Search by name, email, phone…"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="h-11 pl-10"
+            />
           </div>
-        )}
+          <Select
+            value={statusFilter}
+            onValueChange={(v) => {
+              setSkip(0)
+              setStatusFilter(v)
+            }}
+          >
+            <SelectTrigger className="h-11 w-full bg-white sm:w-[160px]">
+              <SelectValue placeholder="Approval" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All approvals</SelectItem>
+              {COACH_APPROVAL_STATUSES.map((s) => (
+                <SelectItem key={s.value} value={s.value}>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={activeFilter}
+            onValueChange={(v) => {
+              setSkip(0)
+              setActiveFilter(v)
+            }}
+          >
+            <SelectTrigger className="h-11 w-full bg-white sm:w-[140px]">
+              <SelectValue placeholder="Active" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All active</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value="self" disabled>
+            <SelectTrigger className="h-11 w-full bg-gray-50 sm:w-[180px]">
+              <SelectValue placeholder="Source" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="self">Online enrollment</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button type="submit" className="h-11 bg-[#E1BB33] font-semibold text-[#3d3e5c] hover:bg-[#d4ae2a]">
+            Search
+          </Button>
+        </form>
+      </AdminFilterBar>
 
-        {/* Search & Filter Controls */}
-        <Card>
-          <CardContent className="pt-6 space-y-4">
-            <div className="flex flex-wrap gap-3 items-end">
-              <div className="relative flex-1 min-w-[200px] max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  placeholder="Search by name, email, phone…"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      setSkip(0)
-                      setSearch(searchInput)
-                    }
-                  }}
-                  className="pl-10"
-                />
-              </div>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setSkip(0)
-                  setSearch(searchInput)
-                }}
-              >
-                Search
-              </Button>
-              <div className="w-40">
-                <Label className="text-xs text-[#6B7A99]">Approval</Label>
-                <Select
-                  value={statusFilter}
-                  onValueChange={(v) => {
-                    setSkip(0)
-                    setStatusFilter(v)
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    {COACH_APPROVAL_STATUSES.map((s) => (
-                      <SelectItem key={s.value} value={s.value}>
-                        {s.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="w-36">
-                <Label className="text-xs text-[#6B7A99]">Active</Label>
-                <Select
-                  value={activeFilter}
-                  onValueChange={(v) => {
-                    setSkip(0)
-                    setActiveFilter(v)
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="w-36">
-                <Label className="text-xs text-[#6B7A99]">Source</Label>
-                <Select
-                  value={sourceFilter}
-                  onValueChange={(v) => {
-                    setSkip(0)
-                    setSourceFilter(v)
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="self">Self-registered</SelectItem>
-                    <SelectItem value="admin">Admin-created</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+      {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-            {error && <p className="text-sm text-red-600">{error}</p>}
-
-            {/* Coaches Table */}
-            <div className="overflow-x-auto border rounded-lg">
+      <AdminCard padding={false}>
+        <AdminTableShell
+          className="border-0 shadow-none"
+          footer={
+            <>
+              <span>
+                Showing {rows.length ? skip + 1 : 0}–{skip + rows.length} of {total}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={skip <= 0 || loading}
+                  onClick={() => setSkip(Math.max(0, skip - limit))}
+                >
+                  Previous
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={skip + limit >= total || loading}
+                  onClick={() => setSkip(skip + limit)}
+                >
+                  Next
+                </Button>
+              </div>
+            </>
+          }
+        >
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b">
+                <thead>
                   <tr>
-                    <th className="text-left py-3 px-4 font-medium text-[#6B7A99]">Coach</th>
-                    <th className="text-left py-3 px-4 font-medium text-[#6B7A99]">Contact</th>
-                    <th className="text-left py-3 px-4 font-medium text-[#6B7A99]">Approval</th>
-                    <th className="text-left py-3 px-4 font-medium text-[#6B7A99]">Payment</th>
-                    <th className="text-left py-3 px-4 font-medium text-[#6B7A99]">Active</th>
-                    <th className="text-left py-3 px-4 font-medium text-[#6B7A99]">Source</th>
-                    <th className="text-left py-3 px-4 font-medium text-[#6B7A99]">Submitted</th>
-                    <th className="text-left py-3 px-4 font-medium text-[#6B7A99]">Actions</th>
+                    <th>Coach</th>
+                    <th>Contact</th>
+                    <th>Approval</th>
+                    <th>Payment</th>
+                    <th>Active</th>
+                    <th>Source</th>
+                    <th>Submitted</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -499,9 +503,9 @@ export default function CoachApprovalsAdminPage() {
                             <div className="text-xs">{displayPhone(c)}</div>
                           </td>
                           <td className="py-3 px-4">
-                            <Badge variant="outline" className={STATUS_BADGE[st] || ""}>
+                            <AdminStatusPill status={approvalPillStatus(st)}>
                               {approvalStatusLabel(st)}
-                            </Badge>
+                            </AdminStatusPill>
                           </td>
                           <td className="py-3 px-4">
                             {hasPaid ? (
@@ -576,34 +580,8 @@ export default function CoachApprovalsAdminPage() {
                   )}
                 </tbody>
               </table>
-            </div>
-
-            {/* Pagination Controls */}
-            <div className="flex items-center justify-between text-sm text-[#6B7A99]">
-              <span>
-                Showing {rows.length ? skip + 1 : 0}–{skip + rows.length} of {total}
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={skip <= 0 || loading}
-                  onClick={() => setSkip(Math.max(0, skip - limit))}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={skip + limit >= total || loading}
-                  onClick={() => setSkip(skip + limit)}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        </AdminTableShell>
+      </AdminCard>
 
         {/* 1. COACH DETAILS MODAL POPUP (Replaces bottom card) */}
         <Dialog open={!!detail} onOpenChange={(open) => !open && setDetail(null)}>
@@ -985,7 +963,6 @@ export default function CoachApprovalsAdminPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </main>
-    </div>
+    </AdminPageShell>
   )
 }

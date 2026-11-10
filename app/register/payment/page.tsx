@@ -359,6 +359,7 @@ export default function PaymentPage() {
               paymentMethod: "razorpay",
               amount: total,
               orderId: response.razorpay_order_id,
+              signature: response.razorpay_signature,
             })
             router.replace("/register/payment-confirmation")
           } catch (e) {

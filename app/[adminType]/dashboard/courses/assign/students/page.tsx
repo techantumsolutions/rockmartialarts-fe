@@ -265,7 +265,7 @@ export default function CourseAssignmentPage() {
         </div>
 
         {/* Assignment Form */}
-        <Card className="max-w-4xl mx-auto">
+        <Card className="w-full max-w-none">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <Users className="w-5 h-5 text-blue-500" />

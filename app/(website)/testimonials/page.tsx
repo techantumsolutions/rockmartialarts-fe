@@ -82,7 +82,7 @@ export default async function TestimonialsPage() {
 
   return (
     <main className="min-h-screen bg-[#171A26]">
-      <div className="container mx-auto px-6 sm:px-8 py-16 md:py-20 lg:py-24 max-w-7xl">
+      <div className="site-content px-0 sm:px-1 py-16 md:py-20 lg:py-24">
         <div className="mb-12 md:mb-14">
           <Link
             href="/"

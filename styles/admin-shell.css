@@ -1,0 +1,813 @@
+/**
+ * Skillora Alpha admin design system
+ * Applied under [data-admin-shell] so public marketing pages stay unchanged.
+ *
+ * Source of truth from product mockups (content only — not top/side nav):
+ * - Canvas #F7F8FC, white cards, 15–20px content padding
+ * - Primary action yellow #E1BB33, navy titles #4F5077 / #2F3153
+ * - rounded-xl fields & buttons, rounded-2xl cards, soft shadows
+ * - Pastel KPI accents, pill status badges, light table headers
+ */
+
+/* Lock document scroll for admin shell — only main pane scrolls */
+html:has([data-admin-shell]),
+body:has([data-admin-shell]) {
+  height: 100%;
+  overflow: hidden;
+}
+
+[data-admin-shell] {
+  /* Core tokens */
+  --admin-bg: #f7f8fc;
+  --admin-surface: #ffffff;
+  --admin-title: #4f5077;
+  --admin-title-alt: #2f3153;
+  --admin-muted: #6b7a99;
+  --admin-muted-soft: #9593a8;
+  --admin-border: #e5e7eb;
+  --admin-border-soft: rgba(229, 231, 235, 0.8);
+  --admin-primary: #e1bb33;
+  --admin-primary-hover: #d4ae2a;
+  --admin-primary-fg: #3d3e5c;
+  --admin-focus: rgba(225, 187, 51, 0.35);
+  --admin-radius-field: 0.75rem;
+  --admin-radius-card: 1rem;
+  --admin-radius-btn: 0.75rem;
+  --admin-field-h: 2.75rem;
+  --admin-content-max: none;
+  --admin-content-pad: 15px;
+  --admin-content-pad-lg: 20px;
+  --admin-gap: 1.25rem;
+  --admin-shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.04);
+  --admin-shadow-card: 0 1px 3px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04);
+
+  /* Pastel accents (KPI / section icons) */
+  --admin-tone-blue: #e8f1ff;
+  --admin-tone-blue-fg: #2563eb;
+  --admin-tone-green: #eaf8f0;
+  --admin-tone-green-fg: #1f9d57;
+  --admin-tone-amber: #fff8e1;
+  --admin-tone-amber-fg: #c9971a;
+  --admin-tone-purple: #f1ebff;
+  --admin-tone-purple-fg: #6d28d9;
+  --admin-tone-rose: #ffe8e8;
+  --admin-tone-rose-fg: #e11d48;
+  --admin-tone-teal: #e6faf7;
+  --admin-tone-teal-fg: #0d9488;
+
+  /* Remap shadcn primary inside admin → brand yellow */
+  --primary: #e1bb33;
+  --primary-foreground: #3d3e5c;
+  --ring: rgba(225, 187, 51, 0.45);
+  --brand-gold: #e1bb33;
+  --brand-dark: #4f5077;
+  --brand-muted: #9593a8;
+  --brand-muted-alt: #6b7a99;
+
+  font-family: var(--font-poppins), "Poppins", system-ui, -apple-system, sans-serif;
+  color: var(--admin-title);
+  -webkit-font-smoothing: antialiased;
+  background-color: var(--admin-bg);
+}
+
+/* ─── Content frame (full width, 15–20px pad; nav excluded) ─── */
+[data-admin-shell] .admin-content-frame {
+  width: 100%;
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+  padding: var(--admin-content-pad);
+  box-sizing: border-box;
+}
+
+@media (min-width: 1024px) {
+  [data-admin-shell] .admin-content-frame {
+    padding: var(--admin-content-pad-lg);
+  }
+}
+
+[data-admin-shell] .admin-content-frame > .min-h-screen,
+[data-admin-shell] .admin-content-frame > main.min-h-screen {
+  min-height: 0 !important;
+  background: transparent !important;
+}
+
+[data-admin-shell] .admin-content-frame > main,
+[data-admin-shell] .admin-content-frame > div > main,
+[data-admin-shell] .admin-content-frame main.w-full {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  padding-top: 0 !important;
+  max-width: none !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+/*
+ * Force FULL WIDTH on every admin page.
+ * Many legacy screens wrap content in max-w-7xl / max-w-6xl / mx-auto + extra padding.
+ * Dialogs / sheets / toasts keep their own max-width (excluded below).
+ */
+[data-admin-shell] .admin-content-frame :is(.max-w-7xl, .max-w-6xl, .max-w-5xl, .max-w-4xl, .max-w-3xl):not([role="dialog"]):not([data-radix-dialog-content]):not([data-radix-popper-content-wrapper] *):not(.sm\:max-w-lg):not(.sm\:max-w-md):not(.sm\:max-w-sm) {
+  max-width: none !important;
+  width: 100% !important;
+}
+
+[data-admin-shell] .admin-content-frame :is(.max-w-7xl, .max-w-6xl, .max-w-5xl, .max-w-4xl, .max-w-3xl).mx-auto:not([role="dialog"]):not([data-radix-dialog-content]) {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* Strip duplicate page padding — frame already provides 15–20px */
+[data-admin-shell] .admin-content-frame > .min-h-screen,
+[data-admin-shell] .admin-content-frame > .p-4,
+[data-admin-shell] .admin-content-frame > .p-5,
+[data-admin-shell] .admin-content-frame > .p-6,
+[data-admin-shell] .admin-content-frame > .p-8,
+[data-admin-shell] .admin-content-frame > [class*="px-4"],
+[data-admin-shell] .admin-content-frame > [class*="px-6"],
+[data-admin-shell] .admin-content-frame > [class*="px-8"],
+[data-admin-shell] .admin-content-frame > main.p-4,
+[data-admin-shell] .admin-content-frame > main.p-6,
+[data-admin-shell] .admin-content-frame > main[class*="px-4"],
+[data-admin-shell] .admin-content-frame > main[class*="px-6"],
+[data-admin-shell] .admin-content-frame > main[class*="px-8"],
+[data-admin-shell] .admin-content-frame > div > main.p-4,
+[data-admin-shell] .admin-content-frame > div > main.p-6,
+[data-admin-shell] .admin-content-frame > div > main[class*="px-4"],
+[data-admin-shell] .admin-content-frame > div > main[class*="lg:px-8"] {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  padding-top: 0 !important;
+}
+
+/* Nested legacy page shells that still add their own horizontal padding */
+[data-admin-shell] .admin-content-frame main.w-full.p-4,
+[data-admin-shell] .admin-content-frame main[class*="max-w-"],
+[data-admin-shell] .admin-content-frame div[class*="max-w-7xl"],
+[data-admin-shell] .admin-content-frame div[class*="max-w-6xl"],
+[data-admin-shell] .admin-content-frame div[class*="max-w-5xl"].space-y-6,
+[data-admin-shell] .admin-content-frame div.p-6[class*="max-w-"],
+[data-admin-shell] .admin-content-frame div.p-4[class*="max-w-"] {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+[data-admin-shell] .admin-page {
+  width: 100%;
+  max-width: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--admin-gap);
+}
+
+/* Soft page backgrounds from older screens — unify to admin canvas */
+[data-admin-shell] .min-h-screen.bg-gray-50,
+[data-admin-shell] .min-h-screen.bg-\[\#F5F6FA\],
+[data-admin-shell] .min-h-screen.bg-\[\#F7F8FC\],
+[data-admin-shell] .min-h-screen.bg-\[\#F8F9FC\],
+[data-admin-shell] .min-h-screen.bg-\[\#F9FAFB\] {
+  background: transparent !important;
+  min-height: 0 !important;
+}
+
+/* ─── Typography ─── */
+[data-admin-shell] h1 {
+  color: var(--admin-title);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+[data-admin-shell] h2,
+[data-admin-shell] h3 {
+  color: var(--admin-title);
+  font-weight: 600;
+}
+
+[data-admin-shell] .text-muted,
+[data-admin-shell] .text-gray-500,
+[data-admin-shell] .text-gray-600,
+[data-admin-shell] .text-slate-500,
+[data-admin-shell] .text-slate-600 {
+  color: var(--admin-muted) !important;
+}
+
+[data-admin-shell] .admin-page-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--admin-title);
+  line-height: 1.25;
+}
+
+@media (min-width: 640px) {
+  [data-admin-shell] .admin-page-title {
+    font-size: 1.875rem;
+  }
+}
+
+[data-admin-shell] .admin-page-subtitle {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: var(--admin-muted);
+}
+
+/* ─── Form controls ─── */
+[data-admin-shell] input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not([type="range"]):not([type="color"]),
+[data-admin-shell] textarea,
+[data-admin-shell] select,
+[data-admin-shell] [data-slot="select-trigger"],
+[data-admin-shell] [data-radix-select-trigger],
+[data-admin-shell] button[role="combobox"] {
+  min-height: var(--admin-field-h);
+  border-radius: var(--admin-radius-field) !important;
+  border-color: var(--admin-border) !important;
+  background-color: var(--admin-surface) !important;
+  color: var(--admin-title);
+  font-size: 0.875rem;
+  box-shadow: var(--admin-shadow-sm);
+}
+
+[data-admin-shell] textarea {
+  min-height: 5.5rem;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+[data-admin-shell] input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+[data-admin-shell] input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus-visible,
+[data-admin-shell] textarea:focus,
+[data-admin-shell] textarea:focus-visible,
+[data-admin-shell] select:focus,
+[data-admin-shell] [data-slot="select-trigger"]:focus,
+[data-admin-shell] [data-slot="select-trigger"]:focus-visible,
+[data-admin-shell] button[role="combobox"]:focus {
+  border-color: var(--admin-primary) !important;
+  outline: none;
+  box-shadow: 0 0 0 3px var(--admin-focus) !important;
+}
+
+[data-admin-shell] label,
+[data-admin-shell] [data-slot="label"] {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+[data-admin-shell] label .text-red-500,
+[data-admin-shell] label .text-destructive,
+[data-admin-shell] .required-asterisk {
+  color: #e11d48;
+}
+
+/* ─── Cards / panels ─── */
+[data-admin-shell] [data-slot="card"],
+[data-admin-shell] .admin-card,
+[data-admin-shell] .rounded-lg.border.bg-white,
+[data-admin-shell] .rounded-xl.border.bg-white,
+[data-admin-shell] .rounded-2xl.border.bg-white {
+  border-radius: var(--admin-radius-card) !important;
+  border-color: var(--admin-border-soft) !important;
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-card);
+}
+
+[data-admin-shell] [data-slot="card-header"] {
+  padding: 1.25rem 1.25rem 0.75rem;
+}
+
+[data-admin-shell] [data-slot="card-content"] {
+  padding: 1.25rem;
+}
+
+[data-admin-shell] .admin-section {
+  border-radius: var(--admin-radius-card);
+  border: 1px solid var(--admin-border-soft);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-card);
+  padding: 1.25rem;
+}
+
+[data-admin-shell] .admin-kpi-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 768px) {
+  [data-admin-shell] .admin-kpi-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+  }
+}
+
+[data-admin-shell] .admin-kpi-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--admin-radius-card);
+  border: 1px solid var(--admin-border-soft);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-sm);
+  padding: 1rem 1.125rem;
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+[data-admin-shell] .admin-kpi-icon {
+  display: inline-flex;
+  height: 2.5rem;
+  width: 2.5rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+}
+
+[data-admin-shell] .admin-kpi-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--admin-title-alt);
+  line-height: 1.1;
+}
+
+[data-admin-shell] .admin-kpi-label {
+  margin-top: 0.125rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--admin-muted);
+}
+
+[data-admin-shell] .admin-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  border-radius: var(--admin-radius-card);
+  border: 1px solid var(--admin-border-soft);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-sm);
+  padding: 1rem;
+}
+
+/* ─── Tables ─── */
+[data-admin-shell] table {
+  width: 100%;
+  font-size: 0.875rem;
+  border-collapse: collapse;
+}
+
+[data-admin-shell] thead th {
+  color: var(--admin-muted) !important;
+  font-weight: 600 !important;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  background: #f8f9fc !important;
+  border-bottom: 1px solid var(--admin-border);
+  padding: 0.875rem 1rem !important;
+  white-space: nowrap;
+}
+
+[data-admin-shell] tbody td {
+  color: var(--admin-title);
+  border-bottom: 1px solid #f3f4f6;
+  padding: 0.875rem 1rem !important;
+  vertical-align: middle;
+}
+
+[data-admin-shell] tbody tr:hover {
+  background: rgba(247, 248, 252, 0.9);
+}
+
+[data-admin-shell] tbody tr:last-child td {
+  border-bottom: none;
+}
+
+[data-admin-shell] .admin-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--admin-radius-card);
+  border: 1px solid var(--admin-border-soft);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-card);
+}
+
+/* ─── Buttons ─── */
+[data-admin-shell] button,
+[data-admin-shell] a[role="button"],
+[data-admin-shell] [data-slot="button"] {
+  border-radius: var(--admin-radius-btn);
+}
+
+[data-admin-shell] button.bg-primary,
+[data-admin-shell] a.bg-primary,
+[data-admin-shell] .bg-primary:is(button, a),
+[data-admin-shell] button.bg-yellow-400,
+[data-admin-shell] button.bg-yellow-500,
+[data-admin-shell] a.bg-yellow-400,
+[data-admin-shell] a.bg-yellow-500,
+[data-admin-shell] button.bg-amber-500,
+[data-admin-shell] button.bg-amber-400,
+[data-admin-shell] a.bg-amber-500,
+[data-admin-shell] button[class*="bg-[#E1BB33]"],
+[data-admin-shell] a[class*="bg-[#E1BB33]"],
+[data-admin-shell] button[class*="bg-[#FFB70F]"],
+[data-admin-shell] a[class*="bg-[#FFB70F]"],
+[data-admin-shell] button[class*="bg-[#FFC107]"],
+[data-admin-shell] button[class*="bg-[#FFB800]"] {
+  background-color: var(--admin-primary) !important;
+  color: var(--admin-primary-fg) !important;
+  font-weight: 600;
+  font-size: 0.875rem;
+  border-color: transparent !important;
+  box-shadow: var(--admin-shadow-sm);
+}
+
+[data-admin-shell] button.bg-primary:hover,
+[data-admin-shell] a.bg-primary:hover,
+[data-admin-shell] .bg-primary:is(button, a):hover,
+[data-admin-shell] button.bg-yellow-400:hover,
+[data-admin-shell] button.bg-yellow-500:hover,
+[data-admin-shell] a.bg-yellow-400:hover,
+[data-admin-shell] a.bg-yellow-500:hover,
+[data-admin-shell] button.bg-amber-500:hover,
+[data-admin-shell] button.bg-amber-400:hover,
+[data-admin-shell] button[class*="bg-[#E1BB33]"]:hover,
+[data-admin-shell] a[class*="bg-[#E1BB33]"]:hover,
+[data-admin-shell] button[class*="bg-[#FFB70F]"]:hover,
+[data-admin-shell] a[class*="bg-[#FFB70F]"]:hover {
+  background-color: var(--admin-primary-hover) !important;
+}
+
+/* Legacy navy CTAs → keep navy but unify radius/weight (secondary emphasis) */
+[data-admin-shell] button[class*="bg-[#4F5077]"],
+[data-admin-shell] button[class*="bg-[#2F3153]"],
+[data-admin-shell] button[class*="bg-slate-"],
+[data-admin-shell] button[class*="bg-[#1e293b]"] {
+  border-radius: var(--admin-radius-btn);
+  font-weight: 600;
+}
+
+[data-admin-shell] button.border,
+[data-admin-shell] a.border,
+[data-admin-shell] button[class*="border-gray"],
+[data-admin-shell] a[class*="border-gray"],
+[data-admin-shell] button[data-variant="outline"],
+[data-admin-shell] a[data-variant="outline"] {
+  border-radius: var(--admin-radius-btn);
+}
+
+[data-admin-shell] .btn-admin-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2.5rem;
+  padding: 0 1rem;
+  border-radius: var(--admin-radius-btn);
+  background: var(--admin-primary);
+  color: var(--admin-primary-fg);
+  font-weight: 600;
+  font-size: 0.875rem;
+  box-shadow: var(--admin-shadow-sm);
+  border: none;
+  cursor: pointer;
+}
+
+[data-admin-shell] .btn-admin-primary:hover {
+  background: var(--admin-primary-hover);
+}
+
+[data-admin-shell] .btn-admin-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2.5rem;
+  padding: 0 1rem;
+  border-radius: var(--admin-radius-btn);
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+  color: var(--admin-title);
+  font-weight: 500;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+[data-admin-shell] .btn-admin-outline:hover {
+  background: #f9fafb;
+}
+
+/* ─── Badges / status pills ─── */
+[data-admin-shell] [data-slot="badge"],
+[data-admin-shell] .admin-badge {
+  border-radius: 9999px;
+  font-weight: 500;
+  font-size: 0.75rem;
+  line-height: 1.25;
+}
+
+[data-admin-shell] .admin-status-active,
+[data-admin-shell] .admin-status-approved,
+[data-admin-shell] .admin-status-paid {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 9999px;
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+  padding: 0.2rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+[data-admin-shell] .admin-status-pending,
+[data-admin-shell] .admin-status-draft {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 9999px;
+  border: 1px solid #fde68a;
+  background: #fffbeb;
+  color: #92400e;
+  padding: 0.2rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+[data-admin-shell] .admin-status-inactive,
+[data-admin-shell] .admin-status-rejected,
+[data-admin-shell] .admin-status-cancelled {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 9999px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 0.2rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* ─── Tabs (opt-in pill style via .admin-tabs) ─── */
+[data-admin-shell] .admin-tabs [role="tablist"] {
+  gap: 0.25rem;
+}
+
+[data-admin-shell] .admin-tabs [role="tab"] {
+  border-radius: 0.75rem;
+  color: var(--admin-muted);
+}
+
+[data-admin-shell] .admin-tabs [role="tab"][data-state="active"] {
+  background: var(--admin-primary) !important;
+  color: var(--admin-primary-fg) !important;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+/* ─── Switch (enable/disable) ─── */
+[data-admin-shell] button[role="switch"],
+[data-admin-shell] [data-slot="switch"] {
+  height: 1.5rem !important;
+  width: 2.75rem !important;
+  border-radius: 9999px !important;
+}
+[data-admin-shell] button[role="switch"][data-state="checked"],
+[data-admin-shell] [data-slot="switch"][data-state="checked"] {
+  background-color: var(--admin-primary) !important;
+}
+[data-admin-shell] button[role="switch"][data-state="unchecked"],
+[data-admin-shell] [data-slot="switch"][data-state="unchecked"] {
+  background-color: #cbd5e1 !important;
+}
+
+/* ─── Typography scale (admin content) ─── */
+[data-admin-shell] h1 {
+  font-family: var(--font-poppins), Poppins, system-ui, sans-serif;
+  font-weight: 700;
+  color: var(--admin-title);
+  letter-spacing: -0.01em;
+}
+[data-admin-shell] h2,
+[data-admin-shell] h3 {
+  font-family: var(--font-poppins), Poppins, system-ui, sans-serif;
+  font-weight: 600;
+  color: var(--admin-title);
+}
+[data-admin-shell] label,
+[data-admin-shell] [data-slot="label"] {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--admin-title);
+}
+[data-admin-shell] .text-muted-foreground,
+[data-admin-shell] .text-gray-500,
+[data-admin-shell] .text-gray-600 {
+  color: var(--admin-muted) !important;
+}
+
+/* ─── Pagination active ─── */
+[data-admin-shell] .admin-pagination [aria-current="page"],
+[data-admin-shell] nav[aria-label*="agination"] [aria-current="page"],
+[data-admin-shell] .pagination [data-active="true"] {
+  background: var(--admin-primary) !important;
+  color: var(--admin-primary-fg) !important;
+  border-color: var(--admin-primary) !important;
+  border-radius: 0.5rem;
+  font-weight: 600;
+}
+
+/* ─── Dialogs / sheets inside admin ─── */
+[data-admin-shell] [role="dialog"],
+[data-admin-shell] [data-radix-dialog-content] {
+  border-radius: var(--admin-radius-card) !important;
+}
+
+/* ─── Utility: icon tile used in section headers ─── */
+[data-admin-shell] .admin-icon-tile {
+  display: inline-flex;
+  height: 2.75rem;
+  width: 2.75rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+}
+
+[data-admin-shell] .admin-icon-tile--violet {
+  background: var(--admin-tone-purple);
+  color: var(--admin-tone-purple-fg);
+}
+[data-admin-shell] .admin-icon-tile--blue {
+  background: var(--admin-tone-blue);
+  color: var(--admin-tone-blue-fg);
+}
+[data-admin-shell] .admin-icon-tile--green {
+  background: var(--admin-tone-green);
+  color: var(--admin-tone-green-fg);
+}
+[data-admin-shell] .admin-icon-tile--amber {
+  background: var(--admin-tone-amber);
+  color: var(--admin-tone-amber-fg);
+}
+[data-admin-shell] .admin-icon-tile--rose {
+  background: var(--admin-tone-rose);
+  color: var(--admin-tone-rose-fg);
+}
+[data-admin-shell] .admin-icon-tile--teal {
+  background: var(--admin-tone-teal);
+  color: var(--admin-tone-teal-fg);
+}
+
+/* ─── Detail layout helpers ─── */
+[data-admin-shell] .admin-detail-grid {
+  display: grid;
+  gap: var(--admin-gap);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 1024px) {
+  [data-admin-shell] .admin-detail-grid {
+    grid-template-columns: minmax(0, 1fr) 20rem;
+    align-items: start;
+  }
+
+  [data-admin-shell] .admin-detail-grid--wide-side {
+    grid-template-columns: minmax(0, 1fr) 22rem;
+  }
+}
+
+[data-admin-shell] .admin-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--admin-gap);
+}
+
+[data-admin-shell] .admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Count / metric pills used in list tables */
+[data-admin-shell] .admin-count-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 0.5rem;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+[data-admin-shell] .admin-count-pill--blue {
+  background: #e8f1ff;
+  color: #2563eb;
+}
+[data-admin-shell] .admin-count-pill--green {
+  background: #eaf8f0;
+  color: #1f9d57;
+}
+[data-admin-shell] .admin-count-pill--purple {
+  background: #f1ebff;
+  color: #6d28d9;
+}
+[data-admin-shell] .admin-count-pill--amber {
+  background: #fff8e1;
+  color: #c9971a;
+}
+[data-admin-shell] .admin-count-pill--rose {
+  background: #ffe8e8;
+  color: #e11d48;
+}
+
+/* Avatar initials fallback */
+[data-admin-shell] .admin-avatar {
+  display: inline-flex;
+  height: 2.5rem;
+  width: 2.5rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* Form section split (Create Partner / Create Plan style) */
+[data-admin-shell] .admin-form-section {
+  display: grid;
+  gap: 1.25rem;
+  padding: 1.25rem 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+@media (min-width: 768px) {
+  [data-admin-shell] .admin-form-section {
+    grid-template-columns: 14rem minmax(0, 1fr);
+    gap: 2rem;
+  }
+}
+[data-admin-shell] .admin-form-section:last-child {
+  border-bottom: none;
+}
+
+/* Soft KPI wave decoration */
+[data-admin-shell] .admin-kpi-card::after {
+  content: "";
+  position: absolute;
+  right: -0.5rem;
+  bottom: -0.75rem;
+  width: 5rem;
+  height: 3rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle at center, rgba(99, 102, 241, 0.08), transparent 70%);
+  pointer-events: none;
+}
+
+/* Breadcrumb */
+[data-admin-shell] .admin-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--admin-muted);
+  margin-bottom: 0.75rem;
+}
+[data-admin-shell] .admin-breadcrumb a {
+  color: var(--admin-muted);
+  text-decoration: none;
+}
+[data-admin-shell] .admin-breadcrumb a:hover {
+  color: var(--admin-title);
+}
+[data-admin-shell] .admin-breadcrumb-sep {
+  opacity: 0.5;
+}
+
+/* Quick action rows (detail sidebars) */
+[data-admin-shell] .admin-quick-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid var(--admin-border);
+  background: #fff;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--admin-title);
+  text-align: left;
+  cursor: pointer;
+}
+[data-admin-shell] .admin-quick-action:hover {
+  background: #f8f9fc;
+}

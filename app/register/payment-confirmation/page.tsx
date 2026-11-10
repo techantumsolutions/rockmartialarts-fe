@@ -151,7 +151,11 @@ export default function PaymentConfirmationPage() {
         duration_months: registrationData.duration_months || undefined,
         duration_name: registrationData.duration_name || undefined,
         batch_ref: registrationData.batch_ref?.trim() || undefined,
-        payment_method: 'digital_wallet',
+        payment_method: 'razorpay',
+        razorpay_payment_id: registrationData.paymentId,
+        razorpay_order_id: registrationData.orderId,
+        razorpay_signature: registrationData.signature || registrationData.razorpay_signature || undefined,
+        // legacy aliases retained for older backends
         payment_id: registrationData.paymentId,
         order_id: registrationData.orderId,
         family_students: isFamily

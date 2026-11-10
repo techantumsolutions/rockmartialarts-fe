@@ -11,6 +11,7 @@ export function useDashboardBasePath(): string {
   const pathname = usePathname() ?? ""
   const partnerMatch = pathname.match(/^\/partners\/([^/]+)\/dashboard/)
   if (partnerMatch) return `/partners/${partnerMatch[1]}/dashboard`
+  if (pathname.startsWith("/branch-manager-dashboard")) return "/branch-manager-dashboard"
   const match = pathname.match(/^\/(super-admin|branch-admin|partner-admin)\/dashboard/)
   return match ? match[0] : "/super-admin/dashboard"
 }

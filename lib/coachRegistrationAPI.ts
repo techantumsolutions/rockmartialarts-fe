@@ -28,6 +28,7 @@ export type CoachRegistrationPayload = {
   razorpay_payment_id?: string
   razorpay_order_id?: string
   razorpay_signature?: string
+  training_mode?: "online" | "offline" | string
 }
 
 async function parseError(res: Response): Promise<string> {

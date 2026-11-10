@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type ElementType, type ReactNode } from "react"
 import { Label } from "@/components/ui/label"
-import { Upload, X } from "lucide-react"
+import { Image as ImageIcon, Upload, Video, X } from "lucide-react"
 import { uploadFile } from "@/lib/upload"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import {
@@ -20,13 +20,14 @@ export type CourseMediaValues = {
 type CourseMediaResourcesFieldsProps = {
   value: CourseMediaValues
   onChange: (patch: Partial<CourseMediaValues>) => void
+  hideTitle?: boolean
 }
 
 function UploadButton({
   accept,
   uploading,
   onFile,
-  label = "Upload",
+  label = "Choose File",
 }: {
   accept: string
   uploading: boolean
@@ -46,7 +47,7 @@ function UploadButton({
           if (file) onFile(file)
         }}
       />
-      <span className="inline-flex items-center gap-1 rounded-md border px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800">
+      <span className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-[#4F5077] shadow-sm hover:bg-gray-50">
         <Upload className="w-4 h-4" />
         {uploading ? "Uploading…" : label}
       </span>
@@ -67,7 +68,7 @@ function RemoveButton({
       onClick={() => {
         if (window.confirm(confirmMessage)) onClick()
       }}
-      className="inline-flex items-center gap-1 rounded-md border px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+      className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-red-600 hover:bg-red-50"
     >
       <X className="w-4 h-4" />
       Remove
@@ -75,7 +76,58 @@ function RemoveButton({
   )
 }
 
-export function CourseMediaResourcesFields({ value, onChange }: CourseMediaResourcesFieldsProps) {
+function MediaZone({
+  title,
+  hint,
+  tone,
+  icon: Icon,
+  preview,
+  actions,
+}: {
+  title: string
+  hint?: string
+  tone: "violet" | "sky" | "emerald"
+  icon: ElementType
+  preview?: ReactNode
+  actions: ReactNode
+}) {
+  const tones = {
+    violet: {
+      wrap: "border-violet-100 bg-violet-50/70",
+      icon: "bg-violet-100 text-violet-700",
+    },
+    sky: {
+      wrap: "border-sky-100 bg-sky-50/70",
+      icon: "bg-sky-100 text-sky-700",
+    },
+    emerald: {
+      wrap: "border-emerald-100 bg-emerald-50/70",
+      icon: "bg-emerald-100 text-emerald-700",
+    },
+  }[tone]
+
+  return (
+    <div className={`rounded-xl border p-4 ${tones.wrap}`}>
+      <div className="mb-3 flex items-center gap-2">
+        <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${tones.icon}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <div>
+          <Label className="text-sm font-medium text-[#2F3153]">{title}</Label>
+          {hint ? <p className="text-xs text-gray-500">{hint}</p> : null}
+        </div>
+      </div>
+      {preview ? <div className="mb-3">{preview}</div> : null}
+      <div className="flex flex-wrap items-center gap-2">{actions}</div>
+    </div>
+  )
+}
+
+export function CourseMediaResourcesFields({
+  value,
+  onChange,
+  hideTitle = false,
+}: CourseMediaResourcesFieldsProps) {
   const [uploading, setUploading] = useState<"image" | "video" | "poster" | null>(null)
   const maxMb = getCoursePromoVideoMaxMb()
   const maxBytes = getCoursePromoVideoMaxBytes()
@@ -117,85 +169,107 @@ export function CourseMediaResourcesFields({ value, onChange }: CourseMediaResou
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-[#4F5077]">Media & Resources</h3>
+      {!hideTitle ? (
+        <h3 className="text-lg font-semibold text-[#4F5077]">Media & Resources</h3>
+      ) : null}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Course Image</Label>
-          {imageSrc ? (
-            <img
-              src={imageSrc}
-              alt="Course"
-              className="w-32 h-24 object-cover rounded border"
-            />
-          ) : null}
-          <div className="flex flex-wrap items-center gap-2">
-            <UploadButton
-              accept="image/*"
-              uploading={uploading === "image"}
-              onFile={(file) => void runUpload("image", file)}
-            />
-            {value.imageUrl ? (
-              <RemoveButton
-                confirmMessage="Remove this course image?"
-                onClick={() => onChange({ imageUrl: "" })}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <MediaZone
+          title="Course Image"
+          hint="Recommended 1200×800"
+          tone="violet"
+          icon={ImageIcon}
+          preview={
+            imageSrc ? (
+              <img
+                src={imageSrc}
+                alt="Course"
+                className="h-28 w-full rounded-lg border border-white object-cover shadow-sm"
               />
-            ) : null}
-          </div>
-        </div>
+            ) : undefined
+          }
+          actions={
+            <>
+              <UploadButton
+                accept="image/*"
+                uploading={uploading === "image"}
+                onFile={(file) => void runUpload("image", file)}
+              />
+              {value.imageUrl ? (
+                <RemoveButton
+                  confirmMessage="Remove this course image?"
+                  onClick={() => onChange({ imageUrl: "" })}
+                />
+              ) : null}
+            </>
+          }
+        />
 
-        <div className="space-y-2">
-          <Label>Promotional Video</Label>
-          <p className="text-xs text-muted-foreground">Max {maxMb} MB, .mp4 only</p>
-          {isUploadedMp4 ? (
-            <video
-              src={videoSrc}
-              controls
-              playsInline
-              preload="metadata"
-              className="w-full max-w-md rounded border bg-black aspect-video object-contain"
-            />
-          ) : value.videoUrl ? (
-            <p className="text-xs text-gray-600 break-all line-clamp-2">{value.videoUrl}</p>
-          ) : null}
-          <div className="flex flex-wrap items-center gap-2">
-            <UploadButton
-              accept="video/mp4,.mp4"
-              uploading={uploading === "video"}
-              onFile={onPromoVideo}
-            />
-            {value.videoUrl ? (
-              <RemoveButton
-                confirmMessage="Remove this promotional video?"
-                onClick={() => onChange({ videoUrl: "" })}
+        <MediaZone
+          title="Promotional Video"
+          hint={`Max ${maxMb} MB · .mp4 only`}
+          tone="sky"
+          icon={Video}
+          preview={
+            isUploadedMp4 ? (
+              <video
+                src={videoSrc}
+                controls
+                playsInline
+                preload="metadata"
+                className="aspect-video w-full rounded-lg border border-white bg-black object-contain shadow-sm"
               />
-            ) : null}
-          </div>
-        </div>
+            ) : value.videoUrl ? (
+              <p className="line-clamp-2 break-all text-xs text-gray-600">{value.videoUrl}</p>
+            ) : undefined
+          }
+          actions={
+            <>
+              <UploadButton
+                accept="video/mp4,.mp4"
+                uploading={uploading === "video"}
+                onFile={onPromoVideo}
+              />
+              {value.videoUrl ? (
+                <RemoveButton
+                  confirmMessage="Remove this promotional video?"
+                  onClick={() => onChange({ videoUrl: "" })}
+                />
+              ) : null}
+            </>
+          }
+        />
 
-        <div className="space-y-2 md:col-span-2">
-          <Label>Video Poster</Label>
-          {posterSrc ? (
-            <img
-              src={posterSrc}
-              alt="Video poster"
-              className="w-32 h-24 object-cover rounded border"
-            />
-          ) : null}
-          <div className="flex flex-wrap items-center gap-2">
-            <UploadButton
-              accept="image/*"
-              uploading={uploading === "poster"}
-              onFile={(file) => void runUpload("poster", file)}
-            />
-            {value.videoPosterUrl ? (
-              <RemoveButton
-                confirmMessage="Remove this video poster?"
-                onClick={() => onChange({ videoPosterUrl: "" })}
+        <MediaZone
+          title="Video Poster"
+          hint="Shown before playback"
+          tone="emerald"
+          icon={ImageIcon}
+          preview={
+            posterSrc ? (
+              <img
+                src={posterSrc}
+                alt="Video poster"
+                className="h-28 w-full rounded-lg border border-white object-cover shadow-sm"
               />
-            ) : null}
-          </div>
-        </div>
+            ) : undefined
+          }
+          actions={
+            <>
+              <UploadButton
+                accept="image/*"
+                uploading={uploading === "poster"}
+                onFile={(file) => void runUpload("poster", file)}
+              />
+              {value.videoPosterUrl ? (
+                <RemoveButton
+                  confirmMessage="Remove this video poster?"
+                  onClick={() => onChange({ videoPosterUrl: "" })}
+                />
+              ) : null}
+            </>
+          }
+        />
       </div>
     </div>
   )

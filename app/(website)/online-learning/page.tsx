@@ -49,7 +49,7 @@ export default function OnlineLearningCataloguePage() {
         style={{ backgroundImage: "url(/assets/img/banner.jpg)" }}
       >
         <div className="absolute inset-0 bg-black/60" />
-        <div className="container relative z-10 mx-auto px-4 max-w-7xl">
+        <div className="site-content relative z-10 px-0 sm:px-1">
           <div className="max-w-2xl">
             <h1 className="text-4xl md:text-5xl font-bold text-white uppercase mb-4">
               Online Learning
@@ -62,7 +62,7 @@ export default function OnlineLearningCataloguePage() {
       </section>
 
       <section className="pt-6 pb-12 sm:pt-10 sm:pb-16 bg-[#171A26]">
-        <div className="container mx-auto px-4 max-w-7xl space-y-6 sm:space-y-8">
+        <div className="site-content px-0 sm:px-1 space-y-6 sm:space-y-8">
           <form
             className="flex flex-col sm:flex-row gap-3 sm:gap-2.5 max-w-xl"
             onSubmit={(e) => {

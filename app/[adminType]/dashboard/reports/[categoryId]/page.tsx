@@ -104,6 +104,10 @@ const OPERATIONAL_CATEGORY_META: Record<string, { name: string; description: str
   renewals: { name: "Renewal Reports", description: "Payment renewals operational report" },
   leads: { name: "Lead Reports", description: "CRM leads operational report" },
   events: { name: "Event Reports", description: "Event registrations operational report" },
+  attendance: {
+    name: "Attendance Reports",
+    description: "Operational attendance listings and exports (full filters in Attendance module)",
+  },
 }
 
 // Up to 5 page numbers around the current page, with 1 and last always shown.
@@ -269,6 +273,8 @@ function CategoryReportsPageContent() {
   // Student search specific state
   const [searchLoading, setSearchLoading] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
+  const [exportJobStatus, setExportJobStatus] = useState<string | null>(null)
+  const [exportJobId, setExportJobId] = useState<string | null>(null)
   const [studentResults, setStudentResults] = useState<any[]>([])
   const [studentTotal, setStudentTotal] = useState(0)
   const [studentPage, setStudentPage] = useState(1)
@@ -790,6 +796,8 @@ function CategoryReportsPageContent() {
     }
 
     setExportLoading(true)
+    setExportJobStatus(null)
+    setExportJobId(null)
     try {
       let count: number
       if (categoryId === 'financial') {
@@ -797,14 +805,19 @@ function CategoryReportsPageContent() {
       } else if (categoryId === 'branch') {
         count = await exportBranchReport(token, buildBranchApiFilters())
       } else if (isOperationalReportType(categoryId)) {
-        count = await exportOperationalReport(token, categoryId, buildOperationalApiFilters())
+        count = await exportOperationalReport(token, categoryId, buildOperationalApiFilters(), (status, jobId) => {
+          setExportJobStatus(status)
+          if (jobId) setExportJobId(jobId)
+        })
       } else {
         toast.info('Download is not available for this report')
         return
       }
+      setExportJobStatus('ready')
       toast.success(count > 0 ? `Downloaded ${count} record${count === 1 ? '' : 's'}` : 'Downloaded empty report')
     } catch (error: any) {
       console.error('Report export error:', error)
+      setExportJobStatus('failed')
       toast.error(error?.message || 'Failed to download report')
     } finally {
       setExportLoading(false)
@@ -1220,6 +1233,16 @@ function CategoryReportsPageContent() {
           </div>
         </div>
 
+        {exportJobStatus && isOperationalReportType(categoryId) && (
+          <Card className="mb-4 border-blue-200 bg-blue-50">
+            <CardContent className="py-3 text-sm text-blue-900">
+              Export status: <span className="font-medium capitalize">{exportJobStatus}</span>
+              {exportJobId ? <span className="ml-2 font-mono text-xs text-blue-700">job {exportJobId.slice(0, 8)}…</span> : null}
+              {exportLoading ? <span className="ml-2 text-blue-700">(working…)</span> : null}
+            </CardContent>
+          </Card>
+        )}
+
         {!isKnownCategory && (
           <Card className="mb-6">
             <CardContent className="py-12">
@@ -1251,6 +1274,16 @@ function CategoryReportsPageContent() {
               <Card className="mb-6">
                 <CardHeader>
                   <CardTitle className="text-lg font-semibold text-gray-900">Search {pageTitle}</CardTitle>
+                  {categoryId === "attendance" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2 w-fit"
+                      onClick={() => router.push(`${basePath}/attendance/reports`)}
+                    >
+                      Open full Attendance Reports
+                    </Button>
+                  )}
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">

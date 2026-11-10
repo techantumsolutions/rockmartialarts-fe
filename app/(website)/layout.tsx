@@ -9,12 +9,12 @@ export default function WebsiteLayout({
   children: React.ReactNode
 }) {
   return (
-    <>
+    <div className="site-shell w-full min-h-screen">
       <WebsitePageLoader />
       {children}
       <LeadCaptureModal />
       <CampaignPopupModal />
       <WebsiteFooter />
-    </>
+    </div>
   )
 }

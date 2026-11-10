@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Select,
   SelectContent,
@@ -11,17 +10,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import { RefreshCw, Search } from "lucide-react"
+import { RefreshCw, Search, CalendarClock } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import {
   SESSION_STATUSES,
   coachSessionBookingAPI,
-  sessionStatusLabel,
   type SessionBooking,
 } from "@/lib/coachSessionBookingAPI"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { TokenManager } from "@/lib/tokenManager"
+import {
+  AdminPageShell,
+  AdminPageHeader,
+  AdminCard,
+  AdminKpiGrid,
+  AdminKpiCard,
+  AdminFilterBar,
+  AdminTableShell,
+} from "@/components/dashboard/AdminPageShell"
 
 const STATUS_CLASS: Record<string, string> = {
   scheduled: "bg-blue-50 text-blue-800 border-blue-200",
@@ -107,51 +113,46 @@ export default function CoachSessionBookingsAdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 lg:px-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Coach sessions</h1>
-            <p className="text-gray-600 text-sm">
-              Lead consultation bookings with assigned coaches.
-            </p>
-          </div>
-          <Button type="button" variant="outline" onClick={() => void Promise.all([load(), loadSummary()])} disabled={loading}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+    <AdminPageShell>
+      <AdminPageHeader
+        icon={CalendarClock}
+        title="Online Coach Sessions"
+        subtitle="Lead consultation bookings with online-enrolled coaches."
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            className="btn-admin-outline h-10"
+            onClick={() => void Promise.all([load(), loadSummary()])}
+            disabled={loading}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
-        </div>
+        }
+      />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Card>
-            <CardContent className="pt-5">
-              <p className="text-xs uppercase tracking-wide text-gray-500">Total</p>
-              <p className="text-2xl font-semibold">{summary.total}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-5">
-              <p className="text-xs uppercase tracking-wide text-gray-500">Upcoming</p>
-              <p className="text-2xl font-semibold text-blue-700">{summary.upcoming}</p>
-            </CardContent>
-          </Card>
-        </div>
+      <AdminKpiGrid cols={4}>
+        <AdminKpiCard label="Total" value={summary.total} tone="blue" icon={CalendarClock} />
+        <AdminKpiCard label="Upcoming" value={summary.upcoming} tone="purple" icon={CalendarClock} />
+      </AdminKpiGrid>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Bookings</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+      <AdminCard padding={false}>
+        <div className="border-b border-gray-100 px-5 py-4">
+          <h2 className="text-[15px] font-semibold text-[#2F3158]">Bookings</h2>
+        </div>
+        <div className="space-y-4 p-5">
+          <AdminFilterBar className="border-0 bg-transparent p-0 shadow-none">
             <form
-              className="flex flex-col sm:flex-row gap-2 flex-wrap"
+              className="flex w-full flex-col flex-wrap gap-2 sm:flex-row"
               onSubmit={(e) => {
                 e.preventDefault()
                 setSkip(0)
                 setSearch(searchInput)
               }}
             >
-              <div className="relative flex-1 min-w-[180px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <div className="relative min-w-[180px] flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                 <Input
                   placeholder="Search name, phone, coach…"
                   value={searchInput}
@@ -166,7 +167,7 @@ export default function CoachSessionBookingsAdminPage() {
                   setStatusFilter(v)
                 }}
               >
-                <SelectTrigger className="h-10 w-full sm:w-[160px] bg-white">
+                <SelectTrigger className="h-11 w-full bg-white sm:w-[160px]">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -178,101 +179,107 @@ export default function CoachSessionBookingsAdminPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <Button type="submit" className="bg-yellow-400 hover:bg-yellow-500 text-white">
+              <Button type="submit" className="h-11 bg-[#E1BB33] font-semibold text-[#3d3e5c] hover:bg-[#d4ae2a]">
                 Search
               </Button>
             </form>
+          </AdminFilterBar>
 
-            {error && <p className="text-sm text-red-600">{error}</p>}
+          {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-            {loading ? (
-              <p className="text-gray-500 text-sm py-8 text-center">Loading…</p>
-            ) : rows.length === 0 ? (
-              <p className="text-gray-500 text-sm py-8 text-center">No bookings found.</p>
-            ) : (
-              <div className="overflow-x-auto border rounded-lg">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-gray-100 text-gray-700">
-                    <tr>
-                      <th className="px-3 py-2 font-semibold">When</th>
-                      <th className="px-3 py-2 font-semibold">Participant</th>
-                      <th className="px-3 py-2 font-semibold">Coach</th>
-                      <th className="px-3 py-2 font-semibold">Branch</th>
-                      <th className="px-3 py-2 font-semibold">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((row) => (
-                      <tr key={row.id} className="border-t hover:bg-gray-50/80">
-                        <td className="px-3 py-2 whitespace-nowrap">
-                          {row.session_date}
-                          <div className="text-xs text-gray-500">
-                            {row.start_time}–{row.end_time}
-                          </div>
-                        </td>
-                        <td className="px-3 py-2">
-                          <div>{row.participant_name || "—"}</div>
-                          <div className="text-xs text-gray-500">{row.participant_phone}</div>
-                        </td>
-                        <td className="px-3 py-2">{row.coach_name || "—"}</td>
-                        <td className="px-3 py-2">{row.branch_name || "—"}</td>
-                        <td className="px-3 py-2 min-w-[150px]">
-                          <Select
-                            value={row.status}
-                            disabled={savingId === row.id || row.status === "completed" || row.status === "cancelled"}
-                            onValueChange={(v) => void updateStatus(row.id, v)}
+          {loading ? (
+            <p className="py-10 text-center text-sm text-[#6B7A99]">Loading…</p>
+          ) : rows.length === 0 ? (
+            <p className="py-10 text-center text-sm text-[#6B7A99]">No bookings found.</p>
+          ) : (
+            <AdminTableShell
+              footer={
+                total > limit ? (
+                  <>
+                    <span>
+                      Showing {skip + 1}–{Math.min(skip + limit, total)} of {total}
+                    </span>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={skip === 0 || loading}
+                        onClick={() => setSkip((s) => Math.max(0, s - limit))}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={skip + limit >= total || loading}
+                        onClick={() => setSkip((s) => s + limit)}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </>
+                ) : undefined
+              }
+            >
+              <table>
+                <thead>
+                  <tr>
+                    <th>When</th>
+                    <th>Participant</th>
+                    <th>Coach</th>
+                    <th>Branch</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr key={row.id}>
+                      <td className="whitespace-nowrap">
+                        {row.session_date}
+                        <div className="text-xs text-[#9593A8]">
+                          {row.start_time}–{row.end_time}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="font-medium">{row.participant_name || "—"}</div>
+                        <div className="text-xs text-[#9593A8]">{row.participant_phone}</div>
+                      </td>
+                      <td>{row.coach_name || "—"}</td>
+                      <td>{row.branch_name || "—"}</td>
+                      <td className="min-w-[150px]">
+                        <Select
+                          value={row.status}
+                          disabled={
+                            savingId === row.id ||
+                            row.status === "completed" ||
+                            row.status === "cancelled"
+                          }
+                          onValueChange={(v) => void updateStatus(row.id, v)}
+                        >
+                          <SelectTrigger
+                            className={`h-8 text-xs border ${STATUS_CLASS[row.status] || ""}`}
                           >
-                            <SelectTrigger
-                              className={`h-8 text-xs border ${STATUS_CLASS[row.status] || ""}`}
-                            >
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {SESSION_STATUSES.map((s) => (
-                                <SelectItem key={s.value} value={s.value}>
-                                  {s.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {total > limit && (
-              <div className="flex items-center justify-between text-sm text-gray-600">
-                <span>
-                  Showing {skip + 1}–{Math.min(skip + limit, total)} of {total}
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={skip === 0 || loading}
-                    onClick={() => setSkip((s) => Math.max(0, s - limit))}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={skip + limit >= total || loading}
-                    onClick={() => setSkip((s) => s + limit)}
-                  >
-                    Next
-                  </Button>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SESSION_STATUSES.map((s) => (
+                              <SelectItem key={s.value} value={s.value}>
+                                {s.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </AdminTableShell>
+          )}
+        </div>
+      </AdminCard>
+    </AdminPageShell>
   )
 }

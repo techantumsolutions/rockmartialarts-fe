@@ -3,31 +3,43 @@
 import { useState, useEffect, useRef } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { 
-  ArrowLeft, 
-  User, 
-  Phone, 
-  Mail, 
-  MapPin, 
-  Calendar, 
-  BookOpen, 
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import {
+  ArrowLeft,
+  User,
+  Phone,
+  Mail,
+  Calendar,
+  BookOpen,
   TrendingUp,
   Users,
   Clock,
-  Award,
   Edit,
   Building2,
   Star,
   Target,
-  GraduationCap,
-  Briefcase
+  ChevronRight,
+  Plus,
+  Eye,
+  Activity,
 } from "lucide-react"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
 import { coachAvailabilityAPI, type WeeklySlot } from "@/lib/coachAvailabilityAPI"
+import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
+import {
+  AdminPageShell,
+  AdminKpiGrid,
+  AdminKpiCard,
+  AdminCard,
+  AdminDetailLayout,
+  AdminStatusPill,
+  adminPrimaryBtnClass,
+  adminOutlineBtnClass,
+} from "@/components/dashboard/AdminPageShell"
 
 interface CoachDetails {
   id: string
@@ -53,11 +65,20 @@ interface CoachDetails {
   experience_years?: number
   created_at: string
   updated_at: string
+  profile_image_url?: string
+  professional_info?: {
+    designation_id?: string
+    designation?: string
+  }
+  approval_status?: string | null
+  registration_source?: string | null
   // Performance metrics
   total_students?: number
   active_courses?: number
   student_satisfaction?: number
+  average_rating?: number
   retention_rate?: number
+  total_sessions?: number
 }
 
 interface CoachBatch {
@@ -110,6 +131,53 @@ function formatBatchTiming(start: string, end: string) {
   return startLabel || endLabel || "Not set"
 }
 
+const DAY_CHIP_STYLES: Record<string, string> = {
+  monday: "bg-sky-100 text-sky-800 border-sky-200",
+  tuesday: "bg-violet-100 text-violet-800 border-violet-200",
+  wednesday: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  thursday: "bg-amber-100 text-amber-800 border-amber-200",
+  friday: "bg-rose-100 text-rose-800 border-rose-200",
+  saturday: "bg-indigo-100 text-indigo-800 border-indigo-200",
+  sunday: "bg-orange-100 text-orange-800 border-orange-200",
+}
+
+const EXPERTISE_TAG_LIMIT = 4
+
+function coachInitials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (!parts.length) return "CO"
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase()
+}
+
+function formatDetailDate(value?: string) {
+  if (!value) return "—"
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return "—"
+  return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
+}
+
+function formatCourseScheduleColumn(course: CourseAssignment) {
+  if (course.batches.length > 0) {
+    const first = course.batches[0]
+    const days = formatBatchDays(first.days)
+    const timing = formatBatchTiming(first.start_time, first.end_time)
+    const extra = course.batches.length > 1 ? ` (+${course.batches.length - 1})` : ""
+    return `${days} · ${timing}${extra}`
+  }
+  return course.schedule || "—"
+}
+
+function coachLocationLabel(coach: CoachDetails) {
+  if (coach.branch_assignments?.length) {
+    return coach.branch_assignments.join(", ")
+  }
+  const addr = coach.contact_info.address
+  if (!addr) return "—"
+  const line = [addr.city, addr.state].filter(Boolean).join(", ")
+  return line || addr.street || "—"
+}
+
 interface StudentAssignment {
   id: string
   student_name: string
@@ -138,6 +206,7 @@ export default function CoachDetailPage() {
   const [coursesLoading, setCoursesLoading] = useState(true)
   const [studentsLoading, setStudentsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState("courses")
   const [courseNameById, setCourseNameById] = useState<Record<string, string>>({})
   const lookedUpCourseIds = useRef<Set<string>>(new Set())
   const uniqueStudentCount = new Set(studentAssignments.map((s) => s.id)).size
@@ -360,63 +429,40 @@ export default function CoachDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="mb-6">
-            <Skeleton className="h-8 w-48 mb-2" />
-            <Skeleton className="h-4 w-96" />
-          </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              <Card>
-                <CardHeader>
-                  <Skeleton className="h-6 w-32" />
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                </CardContent>
-              </Card>
-            </div>
-            
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <Skeleton className="h-6 w-24" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-16 w-full" />
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </div>
-      </div>
+      <AdminPageShell>
+        <Skeleton className="mb-4 h-4 w-64" />
+        <Skeleton className="h-40 w-full rounded-2xl" />
+        <AdminKpiGrid>
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-24 rounded-2xl" />
+          ))}
+        </AdminKpiGrid>
+        <AdminDetailLayout
+          main={<Skeleton className="h-96 rounded-2xl" />}
+          side={<Skeleton className="h-96 rounded-2xl" />}
+        />
+      </AdminPageShell>
     )
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="text-center py-12">
-            <User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-semibold text-gray-900 mb-2">Coach Not Found</h2>
-            <p className="text-gray-600 mb-6">{error}</p>
-            <div className="space-x-4">
-              <Button onClick={handleBack} variant="outline">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                {backLabel}
-              </Button>
-              <Button onClick={() => window.location.reload()}>
-                Try Again
-              </Button>
-            </div>
+      <AdminPageShell>
+        <div className="py-12 text-center">
+          <User className="mx-auto mb-4 h-16 w-16 text-[#6B7A99]" />
+          <h2 className="mb-2 text-2xl font-semibold text-[#4F5077]">Coach Not Found</h2>
+          <p className="mb-6 text-[#6B7A99]">{error}</p>
+          <div className="flex flex-wrap justify-center gap-3">
+            <Button type="button" onClick={handleBack} variant="outline" className={adminOutlineBtnClass}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              {backLabel}
+            </Button>
+            <Button type="button" onClick={() => window.location.reload()} className={adminPrimaryBtnClass}>
+              Try Again
+            </Button>
           </div>
         </div>
-      </div>
+      </AdminPageShell>
     )
   }
 
@@ -424,575 +470,559 @@ export default function CoachDetailPage() {
     return null
   }
 
+  const listCrumbLabel = fromCoachReports ? "Coach Reports" : "Coaches"
+  const designation =
+    coach.professional_info?.designation_id || coach.professional_info?.designation || "Coach"
+  const profileSrc = coach.profile_image_url
+    ? resolvePublicAssetUrl(coach.profile_image_url)
+    : ""
+  const expertiseLabels = (coach.areas_of_expertise || []).map(
+    (id) => courseNameById[id] || id
+  )
+  const visibleExpertise = expertiseLabels.slice(0, EXPERTISE_TAG_LIMIT)
+  const expertiseOverflow = Math.max(0, expertiseLabels.length - EXPERTISE_TAG_LIMIT)
+  const coursesAssignedCount = coursesLoading
+    ? "—"
+    : courseAssignments.length
+  const studentsStat = studentsLoading
+    ? "—"
+    : coach.total_students ?? uniqueStudentCount
+  const sessionsStat =
+    coach.total_sessions != null && coach.total_sessions !== undefined
+      ? coach.total_sessions
+      : "—"
+  const avgRating =
+    coach.student_satisfaction ?? coach.average_rating
+  const avgRatingDisplay =
+    avgRating != null && !Number.isNaN(Number(avgRating)) ? Number(avgRating).toFixed(1) : "—"
+  const weekdayOrder = Object.keys(WEEKDAY_SHORT)
+  const sortedAvailability = [...availabilitySlots].sort((a, b) => {
+    const ai = weekdayOrder.indexOf((a.weekday || "").toLowerCase())
+    const bi = weekdayOrder.indexOf((b.weekday || "").toLowerCase())
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
+  })
+
+  const coachCode = `CCH-${coach.id.replace(/-/g, "").slice(-4).toUpperCase()}`
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      
-      <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div className="flex flex-row gap-2 items-center text-[#4F5077]">
-              <div className="flex items-center space-x-4 border-r border-gray-300 pr-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleBack}
-                  className=" hover:text-gray-900"
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  {backLabel}
-                </Button>
-                {/* <div className="text-sm text-gray-500">
-                  Dashboard &gt; Coaches &gt; {coach.full_name}
-                </div> */}
-              </div>
-              <div className="flex items-center space-x-4 ml-4">
-                <h1 className="text-3xl font-bold uppercase">
+    <AdminPageShell>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2 text-sm text-[#6B7A99]">
+          <button type="button" onClick={handleBack} className="hover:text-[#4F5077]">
+            Home
+          </button>
+          <ChevronRight className="h-3.5 w-3.5" />
+          <button type="button" onClick={handleBack} className="hover:text-[#4F5077]">
+            {listCrumbLabel}
+          </button>
+          <ChevronRight className="h-3.5 w-3.5" />
+          <span className="max-w-full truncate font-medium text-[#4F5077]">{coach.full_name}</span>
+        </div>
+        <Button type="button" onClick={handleEdit} className={adminPrimaryBtnClass}>
+          <Edit className="mr-2 h-4 w-4" />
+          Edit Coach
+        </Button>
+      </div>
+
+      <AdminCard className="!p-0">
+          <div className="flex flex-col gap-6 p-5 sm:p-6 lg:flex-row lg:items-start">
+            <Avatar className="h-24 w-24 shrink-0 border-4 border-[#F5F6FA] shadow-sm">
+              {profileSrc ? <AvatarImage src={profileSrc} alt={coach.full_name} /> : null}
+              <AvatarFallback className="bg-violet-100 text-xl font-semibold text-violet-700">
+                {coachInitials(coach.full_name)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl font-bold tracking-tight text-[#2F3153] sm:text-3xl">
                   {coach.full_name}
                 </h1>
-                <Badge 
-                  variant={coach.is_active ? "default" : "secondary"}
-                  className={coach.is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
-                >
+                <AdminStatusPill status={coach.is_active ? "active" : "inactive"}>
                   {coach.is_active ? "Active" : "Inactive"}
-                </Badge>
-                {coach.experience_years && (
-                  <Badge variant="outline">
-                    {coach.experience_years} years experience
-                  </Badge>
-                )}
+                </AdminStatusPill>
+              </div>
+              <p className="mt-1 text-sm font-medium text-[#6B7A99]">{designation}</p>
+              {coach.bio ? (
+                <p className="mt-3 max-w-3xl text-sm leading-relaxed text-[#5B6475]">{coach.bio}</p>
+              ) : null}
+              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {[
+                  { label: "Phone", value: coach.contact_info.phone || "—", icon: Phone },
+                  { label: "Email", value: coach.contact_info.email || "—", icon: Mail },
+                  { label: "Branch / Location", value: coachLocationLabel(coach), icon: Building2 },
+                  {
+                    label: "Join Date",
+                    value: formatDetailDate(coach.hire_date || coach.created_at),
+                    icon: Calendar,
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-xl border border-gray-100 bg-[#FAFBFC] p-3"
+                  >
+                    <div className="mb-1 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-gray-400">
+                      <item.icon className="h-3.5 w-3.5 text-violet-500" />
+                      {item.label}
+                    </div>
+                    <p className="break-all text-sm font-medium text-[#2F3153]">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400">
+                  Specialties
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {expertiseLabels.length === 0 ? (
+                    <span className="text-sm text-gray-400">No specialties listed</span>
+                  ) : (
+                    <>
+                      {visibleExpertise.map((label, index) => (
+                        <Badge
+                          key={`${label}-${index}`}
+                          className="rounded-full border-amber-200 bg-[#FFF8E1] text-[#8B6914] hover:bg-[#FFF8E1]"
+                        >
+                          {label}
+                        </Badge>
+                      ))}
+                      {expertiseOverflow > 0 ? (
+                        <Badge variant="outline" className="rounded-full text-gray-600">
+                          +{expertiseOverflow}
+                        </Badge>
+                      ) : null}
+                    </>
+                  )}
+                </div>
               </div>
             </div>
-            
-            <Button onClick={handleEdit} className="bg-yellow-400 hover:bg-yellow-500 text-white">
-              <Edit className="w-4 h-4 mr-2" />
-              Edit Coach
-            </Button>
           </div>
-        </div>
+        </AdminCard>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Professional Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center font-bold text-[#4F5077]">
-                  Professional Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6 text-[#7D8592]">
-                {/* Contact Info */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="text-sm font-medium mb-2 flex items-center">
-                      <Mail className="w-4 h-4 mr-2" />
-                      Email
-                    </h3>
-                    <p className="text-sm ">{coach.contact_info.email}</p>
-                  </div>
+      <AdminKpiGrid>
+        <AdminKpiCard icon={BookOpen} label="Courses Assigned" value={coursesAssignedCount} tone="blue" />
+        <AdminKpiCard icon={Users} label="Students" value={studentsStat} tone="purple" />
+        <AdminKpiCard icon={Clock} label="Total Sessions" value={sessionsStat} tone="green" />
+        <AdminKpiCard icon={Star} label="Avg. Rating" value={avgRatingDisplay} tone="amber" />
+      </AdminKpiGrid>
 
-                  <div>
-                    <h3 className="text-sm font-medium mb-2 flex items-center">
-                      <Phone className="w-4 h-4 mr-2" />
-                      Phone
-                    </h3>
-                    <p className="text-sm ">{coach.contact_info.phone}</p>
-                  </div>
-
-                  {coach.hire_date && (
-                    <div>
-                      <h3 className="text-sm font-medium mb-2 flex items-center">
-                        <Calendar className="w-4 h-4 mr-2" />
-                        Hire Date
-                      </h3>
-                      <p className="text-sm ">
-                        {new Date(coach.hire_date).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
-                      </p>
-                    </div>
-                  )}
-
-                  {coach.experience_years && (
-                    <div>
-                      <h3 className="text-sm font-medium mb-1">Experience</h3>
-                      <p className="text-sm ">{coach.experience_years} years</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Areas of Expertise */}
-                <div>
-                  <h3 className="text-sm font-medium mb-2 flex items-center">
-                    <Target className="w-4 h-4 mr-2" />
-                    Areas of Expertise
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {coach.areas_of_expertise && coach.areas_of_expertise.length > 0 ? (
-                      coach.areas_of_expertise.map((expertise, index) => (
-                        <Badge key={index} variant="secondary" className="bg-blue-100 text-blue-800">
-                          {courseNameById[expertise] || expertise}
-                        </Badge>
-                      ))
-                    ) : (
-                      <span className="text-sm text-gray-400">No expertise listed</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Qualifications */}
-                {coach.qualifications && coach.qualifications.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-medium mb-2 flex items-center">
-                      <GraduationCap className="w-4 h-4 mr-2" />
-                      Qualifications
-                    </h3>
-                    <ul className="text-sm  space-y-1">
-                      {coach.qualifications.map((qualification, index) => (
-                        <li key={index} className="flex items-start">
-                          <span className="w-2 h-2 bg-gray-400 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                          {qualification}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Certifications */}
-                {coach.certifications && coach.certifications.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-medium mb-2 flex items-center">
-                      <Award className="w-4 h-4 mr-2" />
-                      Certifications
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {coach.certifications.map((certification, index) => (
-                        <Badge key={index} variant="outline" className="text-xs">
-                          {certification}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Bio */}
-                {coach.bio && (
-                  <div>
-                    <h3 className="text-sm font-medium mb-2">Biography</h3>
-                    <p className="text-sm  leading-relaxed">{coach.bio}</p>
-                  </div>
-                )}
-
-                {/* Address */}
-                {coach.contact_info.address && (
-                  <div>
-                    <h3 className="text-sm font-medium mb-2 flex items-center">
-                      <MapPin className="w-4 h-4 mr-2" />
-                      Address
-                    </h3>
-                    <div className="text-sm ">
-                      {coach.contact_info.address.street && <p>{coach.contact_info.address.street}</p>}
-                      {(coach.contact_info.address.city || coach.contact_info.address.state || coach.contact_info.address.postal_code) && (
-                        <p>
-                          {[coach.contact_info.address.city, coach.contact_info.address.state, coach.contact_info.address.postal_code]
-                            .filter(Boolean)
-                            .join(', ')}
-                        </p>
-                      )}
-                      {coach.contact_info.address.country && <p>{coach.contact_info.address.country}</p>}
-                    </div>
-                  </div>
-                )}
-
-                {/* Timestamps */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
-                  <div>
-                    <h3 className="text-sm font-medium mb-1">Joined</h3>
-                    <p className="text-sm ">
-                      {new Date(coach.created_at).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
-                    </p>
-                  </div>
-
-                  <div>
-                    <h3 className="text-sm font-medium mb-1">Last Updated</h3>
-                    <p className="text-sm ">
-                      {new Date(coach.updated_at).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Course Assignments */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center font-bold text-[#4F5077]">
-                  Course Assignments ({coursesLoading ? '...' : courseAssignments.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-[#7D8592]">
-                {coursesLoading ? (
-                  <div className="space-y-4">
-                    {[1, 2].map((i) => (
-                      <div key={i} className="p-4 bg-gray-50 rounded-lg">
-                        <Skeleton className="h-6 w-3/4 mb-2" />
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <Skeleton className="h-4 w-full" />
-                          <Skeleton className="h-4 w-full" />
-                          <Skeleton className="h-4 w-full" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : courseAssignments.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <BookOpen className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                    <p>No courses assigned to this coach</p>
-                    <p className="text-sm mt-2">Course assignments will appear here once they are created.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {courseAssignments.map((course) => (
-                      <div key={course.id} className="p-4 bg-gray-50 rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium">{course.course_name}</h4>
-                          <Badge
-                            variant="secondary"
-                            className={`text-xs ${getStatusColor(course.status)}`}
-                          >
-                            {course.status}
-                          </Badge>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm ">
-                          <div>
-                            <span className="font-medium">Level:</span> {course.difficulty_level}
-                          </div>
-                          <div>
-                            <span className="font-medium">Students:</span> {course.enrolled_students}
-                          </div>
-                          {course.branch_name && (
-                            <div>
-                              <span className="font-medium">Branch:</span> {course.branch_name}
-                            </div>
-                          )}
-                        </div>
-
-                        {course.batches.length > 0 ? (
-                          <div className="mt-3 max-h-64 space-y-2 overflow-y-auto">
-                            {course.batches.map((batch, index) => (
-                              <div
-                                key={`${course.id}-${batch.batch_name}-${index}`}
-                                className="rounded-md bg-white px-3 py-2 text-sm"
-                              >
-                                <p className="font-medium text-[#4F5077]">{batch.batch_name}</p>
-                                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                                  <span>
-                                    <span className="font-medium">Days:</span> {formatBatchDays(batch.days)}
-                                  </span>
-                                  <span>
-                                    <span className="font-medium">Timing:</span> {formatBatchTiming(batch.start_time, batch.end_time)}
-                                  </span>
-                                  {batch.branch_name && batch.branch_name !== course.branch_name && (
-                                    <span>
-                                      <span className="font-medium">Branch:</span> {batch.branch_name}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : course.schedule ? (
-                          <div className="mt-2 text-sm ">
-                            <span className="font-medium">Schedule:</span> {course.schedule}
-                          </div>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center font-bold text-[#4F5077]">
-                  <Clock className="w-5 h-5 mr-2" />
+      <AdminDetailLayout
+        wideSide
+        main={
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="admin-tabs gap-4">
+              <TabsList className="h-auto w-full flex-wrap justify-start gap-1 rounded-xl border border-gray-200/80 bg-white p-1 shadow-sm">
+                <TabsTrigger
+                  value="courses"
+                >
+                  <BookOpen className="mr-1.5 h-4 w-4" />
+                  Course Assignments ({coursesLoading ? "…" : courseAssignments.length})
+                </TabsTrigger>
+                <TabsTrigger value="availability">
+                  <Clock className="mr-1.5 h-4 w-4" />
                   Availability
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-[#7D8592]">
-                {availabilityLoading ? (
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-1/2" />
-                    <Skeleton className="h-4 w-1/3" />
-                  </div>
-                ) : availabilitySlots.length === 0 ? (
-                  <p className="text-sm text-gray-500">Availability is not set.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {availabilitySlots.map((slot, index) => {
-                      const dayName = slot.weekday
-                        ? slot.weekday.charAt(0).toUpperCase() + slot.weekday.slice(1).toLowerCase()
-                        : "Day"
-                      return (
-                        <div key={`${slot.weekday}-${slot.start_time}-${index}`} className="rounded-md bg-gray-50 px-3 py-2 text-sm">
-                          <span className="font-medium text-[#4F5077]">{dayName}</span>
-                          <span className="ml-3">{formatBatchTiming(slot.start_time, slot.end_time)}</span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                </TabsTrigger>
+                <TabsTrigger value="students">
+                  <Users className="mr-1.5 h-4 w-4" />
+                  Student Assignments ({studentsLoading ? "…" : uniqueStudentCount})
+                </TabsTrigger>
+              </TabsList>
 
-            {/* Student Assignments */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center font-bold text-[#4F5077]">
-                  <Users className="w-5 h-5 mr-2" />
-                  Student Assignments ({studentsLoading ? '...' : uniqueStudentCount})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-[#7D8592]">
-                {studentsLoading ? (
-                  <div className="space-y-4">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="p-4 bg-gray-50 rounded-lg">
-                        <Skeleton className="h-6 w-3/4 mb-2" />
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <Skeleton className="h-4 w-full" />
-                          <Skeleton className="h-4 w-full" />
-                          <Skeleton className="h-4 w-full" />
-                        </div>
-                        <Skeleton className="h-2 w-full mt-2" />
-                      </div>
-                    ))}
-                  </div>
-                ) : studentAssignments.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                    <p>No students enrolled in this coach's courses</p>
-                    <p className="text-sm mt-2">Student enrollments will appear here once students join the courses.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {studentAssignments.slice(0, studentsVisibleCount).map((student) => (
-                      <div key={`${student.id}-${student.course_name}-${student.enrollment_date}`} className="p-4 bg-gray-50 rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium">{student.student_name}</h4>
-                          <Badge
-                            variant="secondary"
-                            className={`text-xs ${getStatusColor(student.status)}`}
-                          >
-                            {student.status}
-                          </Badge>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm  mb-3">
-                          <div>
-                            <span className="font-medium">Course:</span> {student.course_name}
-                          </div>
-                          <div>
-                            <span className="font-medium">Enrolled:</span> {' '}
-                            {new Date(student.enrollment_date).toLocaleDateString()}
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="">Progress</span>
-                            <span className="font-medium">{student.progress}%</span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                              style={{ width: `${student.progress}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    {studentAssignments.length > studentsVisibleCount && (
-                      <div className="flex justify-center pt-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            setStudentsVisibleCount((prev) =>
-                              Math.min(prev + 10, studentAssignments.length)
-                            )
-                          }
-                        >
-                          Load more ({studentAssignments.length - studentsVisibleCount} remaining)
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Performance Metrics */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center font-bold text-[#4F5077]">
-                  Performance Metrics
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 text-[#7D8592]">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <Users className="w-4 h-4 mr-2" />
-                    <span className="text-sm ">Total Students</span>
-                  </div>
-                  <span className="font-semibold">{uniqueStudentCount}</span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <BookOpen className="w-4 h-4 mr-2" />
-                    <span className="text-sm">Active Courses</span>
-                  </div>
-                  <span className="font-semibold">{coach.active_courses || courseAssignments.filter(c => c.status === 'active').length}</span>
-                </div>
-
-                {coach.student_satisfaction && (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <Star className="w-4 h-4 mr-2 text-yellow-600" />
-                      <span className="text-sm text-gray-600">Satisfaction</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <span className="font-semibold">{coach.student_satisfaction.toFixed(1)}</span>
-                      <Star className="w-3 h-3 text-yellow-500 fill-current" />
-                    </div>
-                  </div>
-                )}
-
-                {coach.retention_rate && (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <Target className="w-4 h-4 mr-2 text-purple-600" />
-                      <span className="text-sm text-gray-600">Retention Rate</span>
-                    </div>
-                    <span className="font-semibold">{coach.retention_rate}%</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Coach Status */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="font-bold text-[#4F5077]">Coach Status</CardTitle>
-              </CardHeader>
-              <CardContent className="text-[#7D8592]">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Status</span>
-                    <Badge
-                      variant={coach.is_active ? "default" : "secondary"}
-                      className={coach.is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
+              <TabsContent value="courses" className="mt-0">
+                <AdminCard padding={false}>
+                  <div className="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                    <h2 className="text-lg font-semibold text-[#4F5077]">
+                      Course Assignments ({coursesLoading ? "…" : courseAssignments.length})
+                    </h2>
+                    <Button
+                      type="button"
+                      className={adminPrimaryBtnClass}
+                      onClick={() => router.push(`${basePath}/courses?coach_id=${coachId}`)}
                     >
-                      {coach.is_active ? "Active" : "Inactive"}
-                    </Badge>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Assign Course
+                    </Button>
                   </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm ">Coach ID</span>
-                    <span className="text-sm font-mono">{coach.id}</span>
-                  </div>
-
-                  {coach.branch_assignments && coach.branch_assignments.length > 0 && (
-                    <div>
-                      <span className="text-sm block mb-2">Branch Assignments</span>
-                      <div className="space-y-1">
-                        {coach.branch_assignments.map((branch, index) => (
-                          <Badge key={index} variant="outline" className="text-xs mr-1">
-                            {branch}
-                          </Badge>
-                        ))}
-                      </div>
+                  {coursesLoading ? (
+                    <div className="space-y-3 p-5">
+                      <Skeleton className="h-10 w-full" />
+                      <Skeleton className="h-10 w-full" />
+                    </div>
+                  ) : courseAssignments.length === 0 ? (
+                    <div className="px-5 py-12 text-center text-sm text-gray-500">
+                      <BookOpen className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+                      No courses assigned to this coach
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[720px]">
+                        <thead>
+                          <tr className="border-b border-gray-100 bg-[#FAFBFC] text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            <th className="px-5 py-3">Course</th>
+                            <th className="px-5 py-3">Students</th>
+                            <th className="px-5 py-3">Schedule</th>
+                            <th className="px-5 py-3">Branch</th>
+                            <th className="px-5 py-3">Status</th>
+                            <th className="px-5 py-3">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {courseAssignments.map((course) => (
+                            <tr
+                              key={course.id}
+                              className="border-b border-gray-50 text-sm text-[#5B6475] last:border-0"
+                            >
+                              <td className="px-5 py-4 font-medium text-[#2F3153]">
+                                {course.course_name}
+                              </td>
+                              <td className="px-5 py-4">{course.enrolled_students}</td>
+                              <td className="max-w-xs px-5 py-4 text-gray-600">
+                                {formatCourseScheduleColumn(course)}
+                              </td>
+                              <td className="px-5 py-4">{course.branch_name || "—"}</td>
+                              <td className="px-5 py-4">
+                                <Badge
+                                  className={`rounded-full text-xs capitalize ${getStatusColor(course.status)}`}
+                                >
+                                  {course.status}
+                                </Badge>
+                              </td>
+                              <td className="px-5 py-4">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 rounded-lg text-violet-700 hover:bg-violet-50"
+                                  onClick={() => router.push(`${basePath}/courses/${course.id}`)}
+                                >
+                                  <Eye className="mr-1 h-4 w-4" />
+                                  View
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   )}
-                </div>
-              </CardContent>
-            </Card>
+                </AdminCard>
+              </TabsContent>
 
-            {/* Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="font-bold text-[#4F5077]">Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-[#7D8592]">
+              <TabsContent value="availability" className="mt-0">
+                <AdminCard padding={false}>
+                  <div className="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                    <h2 className="text-lg font-semibold text-[#4F5077]">Availability</h2>
+                    {String(coach.registration_source || "admin").toLowerCase() === "self" ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl"
+                        onClick={() =>
+                          router.push(`${basePath}/coach-availability?coachId=${coach.id}`)
+                        }
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Manage Online Availability
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        className={adminPrimaryBtnClass}
+                        onClick={() => router.push(`${basePath}/coaches/edit/${coach.id}`)}
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Availability
+                      </Button>
+                    )}
+                  </div>
+                  {availabilityLoading ? (
+                    <div className="space-y-3 p-5">
+                      <Skeleton className="h-12 w-full" />
+                      <Skeleton className="h-12 w-full" />
+                    </div>
+                  ) : sortedAvailability.length === 0 ? (
+                    <div className="px-5 py-12 text-center text-sm text-gray-500">
+                      <Clock className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+                      Availability is not set.
+                    </div>
+                  ) : (
+                    <ul className="divide-y divide-gray-100">
+                      {sortedAvailability.map((slot, index) => {
+                        const dayKey = (slot.weekday || "").toLowerCase()
+                        const dayShort = WEEKDAY_SHORT[dayKey] || slot.weekday || "Day"
+                        const chipClass =
+                          DAY_CHIP_STYLES[dayKey] || "bg-gray-100 text-gray-800 border-gray-200"
+                        return (
+                          <li
+                            key={`${slot.weekday}-${slot.start_time}-${index}`}
+                            className="flex flex-wrap items-center gap-3 px-5 py-4 sm:px-6"
+                          >
+                            <span
+                              className={`inline-flex min-w-[3.25rem] items-center justify-center rounded-lg border px-2.5 py-1 text-xs font-semibold ${chipClass}`}
+                            >
+                              {dayShort}
+                            </span>
+                            <span className="text-sm font-medium text-[#2F3153]">
+                              {formatBatchTiming(slot.start_time, slot.end_time)}
+                            </span>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                </AdminCard>
+              </TabsContent>
+
+              <TabsContent value="students" className="mt-0">
+                <AdminCard padding={false}>
+                  <div className="flex flex-col gap-2 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                    <h2 className="text-lg font-semibold text-[#4F5077]">
+                      Student Assignments ({studentsLoading ? "…" : uniqueStudentCount})
+                    </h2>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="text-[#6B7A99] hover:text-[#4F5077]"
+                      onClick={() => router.push(`${basePath}/coaches/${coachId}/students`)}
+                    >
+                      View All
+                      <ChevronRight className="ml-1 h-4 w-4" />
+                    </Button>
+                  </div>
+                  {studentsLoading ? (
+                    <div className="space-y-3 p-5">
+                      <Skeleton className="h-14 w-full" />
+                      <Skeleton className="h-14 w-full" />
+                    </div>
+                  ) : studentAssignments.length === 0 ? (
+                    <div className="px-5 py-12 text-center text-sm text-gray-500">
+                      <Users className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+                      No students enrolled in this coach&apos;s courses
+                    </div>
+                  ) : (
+                    <>
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-[720px]">
+                          <thead>
+                            <tr className="border-b border-gray-100 bg-[#FAFBFC] text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                              <th className="px-5 py-3">Student</th>
+                              <th className="px-5 py-3">Course</th>
+                              <th className="px-5 py-3">Enrolled</th>
+                              <th className="px-5 py-3">Progress</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {studentAssignments.slice(0, studentsVisibleCount).map((student) => (
+                              <tr
+                                key={`${student.id}-${student.course_name}-${student.enrollment_date}`}
+                                className="border-b border-gray-50 text-sm last:border-0"
+                              >
+                                <td className="px-5 py-4">
+                                  <div className="flex items-center gap-3">
+                                    <Avatar className="h-9 w-9">
+                                      <AvatarFallback className="bg-sky-100 text-xs font-semibold text-sky-800">
+                                        {coachInitials(student.student_name)}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span className="font-medium text-[#2F3153]">
+                                      {student.student_name}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="px-5 py-4 text-[#5B6475]">{student.course_name}</td>
+                                <td className="px-5 py-4 text-[#5B6475]">
+                                  {formatDetailDate(student.enrollment_date)}
+                                </td>
+                                <td className="min-w-[140px] px-5 py-4">
+                                  {student.progress > 0 ? (
+                                    <div className="space-y-1">
+                                      <div className="flex justify-between text-xs text-gray-500">
+                                        <span>Progress</span>
+                                        <span className="font-medium text-[#2F3153]">
+                                          {student.progress}%
+                                        </span>
+                                      </div>
+                                      <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                                        <div
+                                          className="h-full rounded-full bg-violet-600 transition-all"
+                                          style={{ width: `${Math.min(100, student.progress)}%` }}
+                                        />
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <span className="text-gray-400">—</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {studentAssignments.length > studentsVisibleCount ? (
+                        <div className="flex justify-center border-t border-gray-100 px-5 py-4">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="rounded-xl"
+                            onClick={() =>
+                              setStudentsVisibleCount((prev) =>
+                                Math.min(prev + 10, studentAssignments.length)
+                              )
+                            }
+                          >
+                            Load more ({studentAssignments.length - studentsVisibleCount}{" "}
+                            remaining)
+                          </Button>
+                        </div>
+                      ) : null}
+                    </>
+                  )}
+                </AdminCard>
+              </TabsContent>
+            </Tabs>
+        }
+        side={
+          <>
+            <AdminCard>
+              <div className="mb-4 flex items-center justify-between gap-2">
+                <h3 className="text-base font-semibold text-[#4F5077]">Coach Status</h3>
+                <AdminStatusPill status={coach.is_active ? "active" : "inactive"}>
+                  {coach.is_active ? "Active" : "Inactive"}
+                </AdminStatusPill>
+              </div>
+              <dl className="space-y-3 text-sm">
+                <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-2">
+                  <dt className="text-[#6B7A99]">Coach ID</dt>
+                  <dd className="font-mono text-xs font-medium text-[#4F5077]">{coachCode}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-2">
+                  <dt className="text-[#6B7A99]">Type</dt>
+                  <dd className="font-medium text-[#4F5077]">In-house coach</dd>
+                </div>
+                <div className="flex items-start justify-between gap-3">
+                  <dt className="text-[#6B7A99]">Last updated</dt>
+                  <dd className="text-right font-medium text-[#4F5077]">
+                    {formatDetailDate(coach.updated_at)}
+                  </dd>
+                </div>
+              </dl>
+            </AdminCard>
+
+            <AdminCard>
+              <h3 className="mb-4 text-base font-semibold text-[#4F5077]">Coach Statistics</h3>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  {
+                    label: "Students",
+                    value: uniqueStudentCount,
+                    icon: Users,
+                    tone: "bg-sky-50 text-sky-600",
+                  },
+                  {
+                    label: "Courses",
+                    value: coach.active_courses || courseAssignments.filter((c) => c.status === "active").length,
+                    icon: BookOpen,
+                    tone: "bg-violet-50 text-violet-600",
+                  },
+                  {
+                    label: "Retention",
+                    value: coach.retention_rate != null ? `${coach.retention_rate}%` : "—",
+                    icon: Target,
+                    tone: "bg-emerald-50 text-emerald-600",
+                  },
+                  {
+                    label: "Rating",
+                    value: avgRatingDisplay,
+                    icon: Star,
+                    tone: "bg-amber-50 text-amber-600",
+                  },
+                ].map((stat) => (
+                  <div
+                    key={stat.label}
+                    className="rounded-xl border border-gray-100 bg-[#FAFBFC] p-3"
+                  >
+                    <div
+                      className={`mb-2 inline-flex h-8 w-8 items-center justify-center rounded-lg ${stat.tone}`}
+                    >
+                      <stat.icon className="h-4 w-4" />
+                    </div>
+                    <p className="text-xs text-gray-500">{stat.label}</p>
+                    <p className="mt-1 text-lg font-bold text-[#2F3153]">{stat.value}</p>
+                  </div>
+                ))}
+              </div>
+            </AdminCard>
+
+            <AdminCard>
+              <h3 className="mb-4 text-base font-semibold text-[#4F5077]">Quick Actions</h3>
+              <div className="space-y-2">
                 <Button
+                  type="button"
                   variant="outline"
-                  className="w-full justify-start"
+                  className={`${adminOutlineBtnClass} w-full justify-start`}
                   onClick={() => router.push(`${basePath}/coaches/edit/${coachId}`)}
                 >
-                  <Edit className="w-4 h-4 mr-2" />
+                  <Edit className="mr-2 h-4 w-4" />
                   Edit Coach Details
                 </Button>
-
                 <Button
+                  type="button"
                   variant="outline"
-                  className="w-full justify-start"
+                  className={`${adminOutlineBtnClass} w-full justify-start`}
                   onClick={() => router.push(`${basePath}/courses?coach_id=${coachId}`)}
                 >
-                  <BookOpen className="w-4 h-4 mr-2" />
+                  <BookOpen className="mr-2 h-4 w-4" />
                   Manage Course Assignments
                 </Button>
-
                 <Button
+                  type="button"
                   variant="outline"
-                  className="w-full justify-start"
+                  className={`${adminOutlineBtnClass} w-full justify-start`}
+                  onClick={() => router.push(`${basePath}/coaches/edit/${coachId}`)}
+                >
+                  <Clock className="mr-2 h-4 w-4" />
+                  Manage Availability
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={`${adminOutlineBtnClass} w-full justify-start`}
                   onClick={() => router.push(`${basePath}/coaches/${coachId}/students`)}
                 >
-                  <Users className="w-4 h-4 mr-2" />
+                  <Users className="mr-2 h-4 w-4" />
                   View Assigned Students
                 </Button>
-
-                {/* Routes /schedule and /performance are not implemented yet — 404.
                 <Button
+                  type="button"
                   variant="outline"
-                  className="w-full justify-start"
+                  className={`${adminOutlineBtnClass} w-full justify-start`}
                   onClick={() => router.push(`${basePath}/schedule?coach_id=${coachId}`)}
                 >
-                  <Clock className="w-4 h-4 mr-2" />
+                  <Clock className="mr-2 h-4 w-4" />
                   View Schedule
                 </Button>
-
                 <Button
+                  type="button"
                   variant="outline"
-                  className="w-full justify-start"
+                  className={`${adminOutlineBtnClass} w-full justify-start`}
                   onClick={() => router.push(`${basePath}/performance?coach_id=${coachId}`)}
                 >
-                  <TrendingUp className="w-4 h-4 mr-2" />
+                  <TrendingUp className="mr-2 h-4 w-4" />
                   Performance Reports
                 </Button>
-                */}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-    </div>
+              </div>
+            </AdminCard>
+
+            <AdminCard>
+              <h3 className="mb-4 flex items-center gap-2 text-base font-semibold text-[#4F5077]">
+                <Activity className="h-4 w-4 text-[#6B7A99]" />
+                Recent Activity
+              </h3>
+              <p className="text-sm text-[#6B7A99]">No recent activity</p>
+            </AdminCard>
+          </>
+        }
+      />
+    </AdminPageShell>
   )
 }

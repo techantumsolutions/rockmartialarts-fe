@@ -51,6 +51,7 @@ type FormState = {
   designation: string
   specializations: string[]
   service_location_ids: string[]
+  training_mode: string
   profile_image_url: string
   about_short: string
 }
@@ -74,6 +75,7 @@ const INITIAL: FormState = {
   designation: "",
   specializations: [],
   service_location_ids: [],
+  training_mode: "",
   profile_image_url: "",
   about_short: "",
 }
@@ -199,6 +201,7 @@ export default function CoachRegistrationPublicForm() {
         designation: form.designation.trim() || "Coach",
         specializations: form.specializations,
         service_location_ids: form.service_location_ids,
+        training_mode: form.training_mode,
         profile_image_url: form.profile_image_url || undefined,
         about_short: form.about_short.trim() || undefined,
         razorpay_payment_id: paymentDetails?.razorpay_payment_id,
@@ -289,6 +292,10 @@ export default function CoachRegistrationPublicForm() {
     }
     if (form.service_location_ids.length === 0) {
       setError("Select at least one service location (branch)")
+      return
+    }
+    if (!form.training_mode) {
+      setError("Training mode is required")
       return
     }
 
@@ -717,6 +724,21 @@ export default function CoachRegistrationPublicForm() {
             {fieldErrors.specializations ? (
               <p className="text-xs text-red-400">{fieldErrors.specializations}</p>
             ) : null}
+          </div>
+          <div className="space-y-1">
+            <Label className="text-gray-300">Training mode *</Label>
+            <Select
+              value={form.training_mode || undefined}
+              onValueChange={(v) => setForm((f) => ({ ...f, training_mode: v }))}
+            >
+              <SelectTrigger className={fieldClass}>
+                <SelectValue placeholder="Online or offline coaching" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="online">Online</SelectItem>
+                <SelectItem value="offline">Offline (in-person)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="sm:col-span-2 space-y-2">
             <Label className="text-gray-300">Service locations (branches) *</Label>

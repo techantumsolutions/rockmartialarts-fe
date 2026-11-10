@@ -215,7 +215,7 @@ export default function PartnerOrgLandingClient() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[#171A26] via-[#171A26]/70 to-black/30" />
         </div>
-        <div className="relative container mx-auto max-w-7xl px-4 pb-16 pt-28">
+        <div className="relative site-content px-4 pb-16 pt-28">
           <Link
             href="/partner-orgs"
             className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-[#FFB70F] mb-6"

@@ -305,10 +305,12 @@ export default function ForgotPasswordPage() {
               </div>
               <Button
                 type="submit"
-                disabled={!canSubmitMobile || loading}
+                loading={loading || sendBusy}
+                loadingText="Sending…"
+                disabled={!canSubmitMobile}
                 className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-4 h-14 rounded-xl"
               >
-                {loading || sendBusy ? "Sending…" : "Send OTP"}
+                Send OTP
               </Button>
             </form>
           )}
@@ -392,14 +394,15 @@ export default function ForgotPasswordPage() {
               />
               <Button
                 type="submit"
+                loading={loading}
+                loadingText="Saving…"
                 disabled={
-                  loading ||
                   password.length < PASSWORD_MIN ||
                   password !== confirmPassword
                 }
                 className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold h-14 rounded-xl"
               >
-                {loading ? "Saving…" : "Save new password"}
+                Save new password
               </Button>
               <button
                 type="button"

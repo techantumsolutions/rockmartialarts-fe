@@ -5,13 +5,28 @@ import type React from "react"
 import { getBackendApiUrl } from "@/lib/config"
 import { useState, useEffect, useMemo, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Upload, Plus, X, Loader2 } from "lucide-react"
+import {
+  ArrowLeft,
+  BookOpen,
+  CheckCircle2,
+  Clock,
+  FileText,
+  GraduationCap,
+  Image as ImageIcon,
+  Info,
+  Layers,
+  Layout,
+  Loader2,
+  Plus,
+  Search,
+  Sparkles,
+  Users,
+  X,
+} from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useRouter, useParams, usePathname } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
@@ -100,6 +115,9 @@ export default function EditCoursePage() {
     meta_keywords: "",
     og_image: ""
   })
+  // UI-only publish chrome (does not change submit payload / API behavior)
+  const [uiPublishStatus, setUiPublishStatus] = useState<"draft" | "publish">("draft")
+  const [uiVisibility, setUiVisibility] = useState("public")
 
   /** Selected course duration (from master data); used to limit add-tenure options to <= this duration. */
   const selectedCourseDuration = masterDurations.find((d) => d.id === formData.duration)
@@ -905,12 +923,58 @@ export default function EditCoursePage() {
     router.push(`${coursesBasePath}/courses`)
   }
 
+  const fieldLabel = "text-sm font-medium text-[#4F5077]"
+  const inputClass =
+    "h-11 rounded-lg border-gray-200 bg-white shadow-sm focus-visible:ring-[#4F5077]/30"
+  const sectionCard = "rounded-2xl border border-gray-200/80 bg-white shadow-sm overflow-hidden"
+  const categoryName =
+    categories.find((cat) => cat.id === formData.category)?.name || "—"
+  const durationLabel =
+    courseDurations.find((d) => d.value === formData.duration)?.label || "—"
+
+  const SectionHeading = ({
+    icon: Icon,
+    title,
+    subtitle,
+    tone = "violet",
+  }: {
+    icon: React.ElementType
+    title: string
+    subtitle?: string
+    tone?: "violet" | "blue" | "emerald" | "amber" | "rose" | "indigo"
+  }) => {
+    const tones: Record<string, string> = {
+      violet: "bg-violet-100 text-violet-700",
+      blue: "bg-sky-100 text-sky-700",
+      emerald: "bg-emerald-100 text-emerald-700",
+      amber: "bg-amber-100 text-amber-700",
+      rose: "bg-rose-100 text-rose-700",
+      indigo: "bg-indigo-100 text-indigo-700",
+    }
+    return (
+      <div className="flex items-start gap-3 mb-5">
+        <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tones[tone]}`}>
+          <Icon className="h-5 w-5" />
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-[#2F3153]">{title}</h2>
+          {subtitle ? <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p> : null}
+        </div>
+      </div>
+    )
+  }
+
+  const requestEditFormSubmit = () => {
+    const form = document.getElementById("edit-course-form") as HTMLFormElement | null
+    form?.requestSubmit()
+  }
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="flex items-center justify-center h-96">
+      <div className="min-h-screen bg-[#F5F6FA]">
+        <div className="flex h-96 items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
+            <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-[#2F3153]" />
             <p className="text-gray-600">Loading course data...</p>
           </div>
         </div>
@@ -919,161 +983,205 @@ export default function EditCoursePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <main className="w-full py-4 px-4 lg:px-8">
-        <div className="flex justify-between items-center mb-8">
+    <div className="min-h-screen bg-[#F5F6FA]">
+      <main className="w-full py-6 px-4 lg:px-8 xl:px-10">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-[#4F5077]">
+            <h1 className="text-3xl font-bold tracking-tight text-[#2F3153]">
               {isBranchFeeOnly ? "Branch course fees" : "Edit Course"}
             </h1>
-            {isBranchFeeOnly && (
-              <p className="text-sm text-muted-foreground mt-1">
-                Edit fees for your branch only. Other course details are managed by a super admin.
-              </p>
-            )}
+            <p className="mt-1 text-sm text-gray-500">
+              {isBranchFeeOnly
+                ? "Edit fees for your branch only. Other course details are managed by a super admin."
+                : "Update course details, requirements, media, and the public page layout."}
+            </p>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => router.push(`${coursesBasePath}/courses`)}
-            className="flex items-center space-x-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="text-[#4F5077]">Back to Courses</span>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push(`${coursesBasePath}/courses`)}
+              className="h-10 rounded-lg border-gray-200 bg-white text-[#4F5077] hover:bg-gray-50"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Courses
+            </Button>
+            {!isBranchFeeOnly ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isSubmitting}
+                  onClick={requestEditFormSubmit}
+                  className="h-10 rounded-lg border-gray-200 bg-white text-[#4F5077] hover:bg-gray-50"
+                >
+                  Save Draft
+                </Button>
+                <Button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={requestEditFormSubmit}
+                  className="h-10 rounded-lg bg-[#2F3153] px-4 text-white hover:bg-[#3d3f6a]"
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : null}
+                  Save
+                </Button>
+              </>
+            ) : null}
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-6">
-          <div>
-            {isBranchFeeOnly ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-[#4F5077]">Course information (read-only)</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 text-sm text-[#7D8592]">
+        {isBranchFeeOnly ? (
+          <div className="max-w-3xl">
+            <div className={`${sectionCard} p-5 sm:p-6`}>
+              <SectionHeading
+                icon={BookOpen}
+                title="Course information (read-only)"
+                subtitle="Managed by a super admin"
+                tone="violet"
+              />
+              <div className="space-y-4 text-sm text-[#7D8592]">
+                <div>
+                  <p className="text-xs text-gray-500">Title</p>
+                  <p className="font-medium text-[#2F3153]">{formData.courseTitle || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Code</p>
+                  <p className="font-medium text-[#2F3153]">{formData.courseCode || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Description</p>
+                  <p className="whitespace-pre-wrap">{formData.description || "—"}</p>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <p className="text-xs text-muted-foreground">Title</p>
-                    <p className="font-medium text-gray-900">{formData.courseTitle || "—"}</p>
+                    <p className="text-xs text-gray-500">Category</p>
+                    <p className="font-medium text-[#2F3153]">
+                      {categories.find((c) => c.id === formData.category)?.name || "—"}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Code</p>
-                    <p className="font-medium text-gray-900">{formData.courseCode || "—"}</p>
+                    <p className="text-xs text-gray-500">Difficulty</p>
+                    <p className="font-medium text-[#2F3153]">{formData.difficultyLevel || "—"}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Description</p>
-                    <p className="whitespace-pre-wrap">{formData.description || "—"}</p>
+                    <p className="text-xs text-gray-500">Duration</p>
+                    <p className="font-medium text-[#2F3153]">
+                      {courseDurations.find((d) => d.value === formData.duration)?.label || "—"}
+                    </p>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Category</p>
-                      <p className="font-medium">{categories.find((c) => c.id === formData.category)?.name || "—"}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <form id="edit-course-form" onSubmit={handleSubmit}>
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+              <div className="space-y-5 xl:col-span-8">
+                <div className={`${sectionCard} p-5 sm:p-6`}>
+                  <SectionHeading
+                    icon={BookOpen}
+                    title="Course Information"
+                    subtitle="Basic details that identify this course"
+                    tone="violet"
+                  />
+                  <div className="space-y-4 text-[#7D8592]">
+                    <div className="space-y-2">
+                      <Label htmlFor="courseTitle" className={fieldLabel}>
+                        Course Title <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="courseTitle"
+                        value={formData.courseTitle}
+                        onChange={(e) => setFormData({ ...formData, courseTitle: e.target.value })}
+                        placeholder="e.g., Advanced Kung Fu Training"
+                        required
+                        className={inputClass}
+                      />
                     </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Difficulty</p>
-                      <p className="font-medium">{formData.difficultyLevel || "—"}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Duration</p>
-                      <p className="font-medium">
-                        {courseDurations.find((d) => d.value === formData.duration)?.label || "—"}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <span className="text-[#4F5077]">Course Information</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6 text-[#7D8592]">
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div className="space-y-2">
-                        <Label htmlFor="courseTitle">Course Title *</Label>
-                        <Input
-                          id="courseTitle"
-                          value={formData.courseTitle}
-                          onChange={(e) => setFormData({ ...formData, courseTitle: e.target.value })}
-                          placeholder="Enter course title"
-                          className="placeholder:text-muted-foreground"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="courseCode">Course Code *</Label>
+                        <Label htmlFor="courseCode" className={fieldLabel}>
+                          Course Code <span className="text-red-500">*</span>
+                        </Label>
                         <Input
                           id="courseCode"
                           value={formData.courseCode}
                           readOnly
-                          className="bg-gray-100"
-                          placeholder="Enter course code"
+                          className={`${inputClass} bg-gray-50 text-gray-600`}
+                          placeholder="Auto-generated from title"
                           required
                         />
                       </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="description">Course Description *</Label>
-                      <Textarea
-                        id="description"
-                        value={formData.description}
-                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                        placeholder="Enter course description"
-                        className="placeholder:text-muted-foreground"
-                        rows={4}
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="category">Category *</Label>
-                      <Select
-                        value={formData.category}
-                        onValueChange={(value) => setFormData({ ...formData, category: value, subcategory: "" })}
-                      >
-                        <SelectTrigger className="h-10 px-3 w-full">
-                          <SelectValue placeholder="Enter category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categories.map((cat) => (
-                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="space-y-2">
+                        <Label htmlFor="category" className={fieldLabel}>
+                          Category <span className="text-red-500">*</span>
+                        </Label>
+                        <Select
+                          value={formData.category}
+                          onValueChange={(value) =>
+                            setFormData({ ...formData, category: value, subcategory: "" })
+                          }
+                        >
+                          <SelectTrigger className={`${inputClass} w-full`}>
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categories.map((cat) => (
+                              <SelectItem key={cat.id} value={cat.id}>
+                                {cat.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
 
                     {childCategories.length > 0 && (
                       <div className="space-y-2">
-                        <Label htmlFor="subcategory">Subcategory (optional)</Label>
+                        <Label htmlFor="subcategory" className={fieldLabel}>
+                          Subcategory (optional)
+                        </Label>
                         <Select
                           value={formData.subcategory || "none"}
-                          onValueChange={(value) => setFormData({ ...formData, subcategory: value === "none" ? "" : value })}
+                          onValueChange={(value) =>
+                            setFormData({
+                              ...formData,
+                              subcategory: value === "none" ? "" : value,
+                            })
+                          }
                         >
-                          <SelectTrigger className="h-10 px-3 w-full">
+                          <SelectTrigger className={`${inputClass} w-full`}>
                             <SelectValue placeholder="Select subcategory (optional)" />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">None</SelectItem>
                             {childCategories.map((cat) => (
-                              <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                              <SelectItem key={cat.id} value={cat.id}>
+                                {cat.name}
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div className="space-y-2">
-                        <Label htmlFor="difficultyLevel">Difficulty Level *</Label>
+                        <Label htmlFor="difficultyLevel" className={fieldLabel}>
+                          Difficulty Level <span className="text-red-500">*</span>
+                        </Label>
                         <Select
                           value={formData.difficultyLevel}
-                          onValueChange={(value) => setFormData({ ...formData, difficultyLevel: value })}
+                          onValueChange={(value) =>
+                            setFormData({ ...formData, difficultyLevel: value })
+                          }
                         >
-                          <SelectTrigger className="h-10 px-3 w-full">
-                            <SelectValue placeholder="Enter difficulty level" />
+                          <SelectTrigger className={`${inputClass} w-full`}>
+                            <SelectValue placeholder="Select difficulty level" />
                           </SelectTrigger>
                           <SelectContent>
                             {difficultyLevels.length > 0 ? (
@@ -1093,15 +1201,16 @@ export default function EditCoursePage() {
                           </SelectContent>
                         </Select>
                       </div>
-
                       <div className="space-y-2">
-                        <Label htmlFor="duration">Course Duration *</Label>
+                        <Label htmlFor="duration" className={fieldLabel}>
+                          Duration <span className="text-red-500">*</span>
+                        </Label>
                         <Select
                           value={formData.duration}
                           onValueChange={(value) => setFormData({ ...formData, duration: value })}
                         >
-                          <SelectTrigger className="h-10 px-3 w-full">
-                            <SelectValue placeholder="Enter course duration" />
+                          <SelectTrigger className={`${inputClass} w-full`}>
+                            <SelectValue placeholder="Select course duration" />
                           </SelectTrigger>
                           <SelectContent>
                             {courseDurations.length > 0 ? (
@@ -1122,106 +1231,158 @@ export default function EditCoursePage() {
                           </SelectContent>
                         </Select>
                       </div>
-
-                    </div>
-                  </div>
-
-                  <div className="space-y-4 text-[#7d8592]">
-                    <h3 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
-                      <span className="text-[#4F5077]">Student Requirements</span>
-                    </h3>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[#7D8592]">
-                      <div className="space-y-2">
-                        <Label htmlFor="minAge">Minimum Age</Label>
-                        <Input
-                          id="minAge"
-                          type="number"
-                          value={formData.minAge}
-                          onChange={(e) => setFormData({ ...formData, minAge: e.target.value })}
-                          placeholder="Enter minimum age"
-                          className="placeholder:text-muted-foreground"
-                          min="3"
-                          max="100"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="maxAge">Maximum Age</Label>
-                        <Input
-                          id="maxAge"
-                          type="number"
-                          value={formData.maxAge}
-                          onChange={(e) => setFormData({ ...formData, maxAge: e.target.value })}
-                          placeholder="Enter maximum age"
-                          className="placeholder:text-muted-foreground"
-                          min="3"
-                          max="100"
-                        />
-                      </div>
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-[#4F5077]">Prerequisites</Label>
-                      <div className="flex space-x-2 text-[#7D8592]">
-                        <Input
-                          value={newPrerequisite}
-                          onChange={(e) => setNewPrerequisite(e.target.value)}
-                          placeholder="Enter prerequisite"
-                          className="placeholder:text-muted-foreground"
-                          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addPrerequisite())}
-                        />
-                        <Button type="button" onClick={addPrerequisite} size="sm">
-                          <Plus className="w-4 h-4" />
-                        </Button>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="description" className={fieldLabel}>
+                          Course Description <span className="text-red-500">*</span>
+                        </Label>
+                        <span className="text-xs text-gray-400">
+                          {formData.description.length}/1000
+                        </span>
                       </div>
-                      <div className="flex flex-wrap gap-2 mt-2 text-[#7d8592]">
+                      <Textarea
+                        id="description"
+                        value={formData.description}
+                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        placeholder="Provide a detailed description of the course, what students will learn, and benefits..."
+                        rows={4}
+                        required
+                        className="rounded-lg border-gray-200 bg-white shadow-sm focus-visible:ring-[#4F5077]/30"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className={`${sectionCard} p-5 sm:p-6`}>
+                  <SectionHeading
+                    icon={Users}
+                    title="Student Requirements"
+                    subtitle="Age range and prerequisites for enrollment"
+                    tone="blue"
+                  />
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="minAge" className={fieldLabel}>
+                        Minimum Age
+                      </Label>
+                      <Input
+                        id="minAge"
+                        type="number"
+                        value={formData.minAge}
+                        onChange={(e) => setFormData({ ...formData, minAge: e.target.value })}
+                        placeholder="6"
+                        min="3"
+                        max="100"
+                        className={inputClass}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="maxAge" className={fieldLabel}>
+                        Maximum Age
+                      </Label>
+                      <Input
+                        id="maxAge"
+                        type="number"
+                        value={formData.maxAge}
+                        onChange={(e) => setFormData({ ...formData, maxAge: e.target.value })}
+                        placeholder="65"
+                        min="3"
+                        max="100"
+                        className={inputClass}
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    <Label className={fieldLabel}>Prerequisites</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={newPrerequisite}
+                        onChange={(e) => setNewPrerequisite(e.target.value)}
+                        placeholder="Add a prerequisite (e.g., Basic fitness level)"
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && (e.preventDefault(), addPrerequisite())
+                        }
+                        className={inputClass}
+                      />
+                      <Button
+                        type="button"
+                        onClick={addPrerequisite}
+                        className="h-11 shrink-0 rounded-lg bg-[#2F3153] px-3 text-white hover:bg-[#3d3f6a]"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {prerequisites.length > 0 ? (
+                      <div className="mt-2 flex flex-wrap gap-2">
                         {prerequisites.map((prereq, index) => (
-                          <Badge key={index} variant="secondary" className="flex items-center space-x-1">
+                          <Badge
+                            key={index}
+                            variant="secondary"
+                            className="flex items-center gap-1 rounded-full bg-sky-50 px-3 py-1 text-sky-800 hover:bg-sky-50"
+                          >
                             <span>{prereq}</span>
                             <button
                               type="button"
                               onClick={() => removePrerequisite(index)}
-                              className="ml-1 hover:text-red-500"
+                              className="ml-0.5 hover:text-red-500"
                             >
-                              <X className="w-3 h-3" />
+                              <X className="h-3 w-3" />
                             </button>
                           </Badge>
                         ))}
                       </div>
-                    </div>
+                    ) : null}
                   </div>
+                </div>
 
+                <div className={`${sectionCard} p-5 sm:p-6`}>
+                  <SectionHeading
+                    icon={FileText}
+                    title="Course Content"
+                    subtitle="Syllabus outline and equipment students need"
+                    tone="emerald"
+                  />
                   <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-[#4F5077]">Course Content</h3>
-                    
-                    <div className="space-y-4">
-                      <div className="space-y-2 text-[#7d8592]">
-                        <Label htmlFor="syllabus">Course Syllabus</Label>
-                        <Textarea
-                          id="syllabus"
-                          value={formData.syllabus}
-                          onChange={(e) => setFormData({ ...formData, syllabus: e.target.value })}
-                          placeholder="Enter syllabus"
-                        className="placeholder:text-muted-foreground"
-                          rows={4}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="equipmentRequired">Equipment Required</Label>
-                        <Textarea
-                          id="equipmentRequired"
-                          value={formData.equipmentRequired}
-                          onChange={(e) => setFormData({ ...formData, equipmentRequired: e.target.value })}
-                          placeholder="Enter equipment required"
-                        className="placeholder:text-muted-foreground"
-                          rows={3}
-                        />
-                      </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="syllabus" className={fieldLabel}>
+                        Syllabus
+                      </Label>
+                      <Textarea
+                        id="syllabus"
+                        value={formData.syllabus}
+                        onChange={(e) => setFormData({ ...formData, syllabus: e.target.value })}
+                        placeholder="Outline the course curriculum, modules, techniques to be taught..."
+                        rows={4}
+                        className="rounded-lg border-gray-200 bg-white shadow-sm focus-visible:ring-[#4F5077]/30"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="equipmentRequired" className={fieldLabel}>
+                        Equipment Required
+                      </Label>
+                      <Textarea
+                        id="equipmentRequired"
+                        value={formData.equipmentRequired}
+                        onChange={(e) =>
+                          setFormData({ ...formData, equipmentRequired: e.target.value })
+                        }
+                        placeholder="List any equipment students need to bring or purchase..."
+                        rows={3}
+                        className="rounded-lg border-gray-200 bg-white shadow-sm focus-visible:ring-[#4F5077]/30"
+                      />
                     </div>
                   </div>
+                </div>
 
+                <div className={`${sectionCard} p-5 sm:p-6`}>
+                  <SectionHeading
+                    icon={ImageIcon}
+                    title="Media & Resources"
+                    subtitle="Course image, promo video, and poster"
+                    tone="indigo"
+                  />
                   <CourseMediaResourcesFields
                     value={{
                       imageUrl: formData.imageUrl,
@@ -1229,149 +1390,271 @@ export default function EditCoursePage() {
                       videoPosterUrl: formData.videoPosterUrl,
                     }}
                     onChange={(patch) => setFormData((prev) => ({ ...prev, ...patch }))}
+                    hideTitle
                   />
+                </div>
 
-                  {/* SEO Settings */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-[#4F5077]">SEO Settings</h3>
-                    <p className="text-sm text-gray-500">Configure search engine optimization for this course page.</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="seo_meta_title">Meta Title</Label>
-                        <Input
-                          id="seo_meta_title"
-                          value={seoData.meta_title}
-                          onChange={(e) => setSeoData({ ...seoData, meta_title: e.target.value })}
-                          placeholder="Course page meta title"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="seo_meta_keywords">Meta Keywords</Label>
-                        <Input
-                          id="seo_meta_keywords"
-                          value={seoData.meta_keywords}
-                          onChange={(e) => setSeoData({ ...seoData, meta_keywords: e.target.value })}
-                          placeholder="keyword1, keyword2, keyword3"
-                        />
-                      </div>
-                    </div>
+                <div className={`${sectionCard} p-5 sm:p-6`}>
+                  <SectionHeading
+                    icon={Search}
+                    title="SEO Settings"
+                    subtitle="Search and social sharing metadata"
+                    tone="amber"
+                  />
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="seo_meta_description">Meta Description</Label>
-                      <Textarea
-                        id="seo_meta_description"
-                        value={seoData.meta_description}
-                        onChange={(e) => setSeoData({ ...seoData, meta_description: e.target.value })}
-                        placeholder="Course page meta description"
-                        rows={2}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="seo_og_image">OG Image URL</Label>
+                      <Label htmlFor="seo_meta_title" className={fieldLabel}>
+                        Meta Title
+                      </Label>
                       <Input
-                        id="seo_og_image"
-                        value={seoData.og_image}
-                        onChange={(e) => setSeoData({ ...seoData, og_image: e.target.value })}
-                        placeholder="https://example.com/og-image.jpg"
+                        id="seo_meta_title"
+                        value={seoData.meta_title}
+                        onChange={(e) => setSeoData({ ...seoData, meta_title: e.target.value })}
+                        placeholder="Course page meta title"
+                        className={inputClass}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="seo_meta_keywords" className={fieldLabel}>
+                        Meta Keywords
+                      </Label>
+                      <Input
+                        id="seo_meta_keywords"
+                        value={seoData.meta_keywords}
+                        onChange={(e) => setSeoData({ ...seoData, meta_keywords: e.target.value })}
+                        placeholder="keyword1, keyword2, keyword3"
+                        className={inputClass}
                       />
                     </div>
                   </div>
-
-                  {/* Page Content Sections */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-[#4F5077]">Course Page Sections</h3>
-                    <p className="text-sm text-gray-500">Configure the sections that appear on the public course detail page.</p>
-                    <CourseFormSections value={pageContent} onChange={setPageContent} />
+                  <div className="mt-4 space-y-2">
+                    <Label htmlFor="seo_meta_description" className={fieldLabel}>
+                      Meta Description
+                    </Label>
+                    <Textarea
+                      id="seo_meta_description"
+                      value={seoData.meta_description}
+                      onChange={(e) => setSeoData({ ...seoData, meta_description: e.target.value })}
+                      placeholder="Course page meta description"
+                      rows={2}
+                      className="rounded-lg border-gray-200 bg-white shadow-sm focus-visible:ring-[#4F5077]/30"
+                    />
                   </div>
-                  <div className="pt-6 border-t">
-                    <div className="flex space-x-4">
-                      <Button 
-                        type="submit" 
-                        className="bg-yellow-400 hover:bg-yellow-500 text-white px-8"
-                        disabled={isSubmitting}
-                      >
-                        {isSubmitting ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Saving...
-                          </>
-                        ) : (
-                          'Save'
-                        )}
-                      </Button>
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        onClick={() => router.push(`${coursesBasePath}/courses`)}
-                        disabled={isSubmitting}
-                      >
-                        Cancel
-                      </Button>
+                  <div className="mt-4 space-y-2">
+                    <Label htmlFor="seo_og_image" className={fieldLabel}>
+                      OG Image URL
+                    </Label>
+                    <Input
+                      id="seo_og_image"
+                      value={seoData.og_image}
+                      onChange={(e) => setSeoData({ ...seoData, og_image: e.target.value })}
+                      placeholder="https://example.com/og-image.jpg"
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+
+                <div className={`${sectionCard} p-5 sm:p-6`}>
+                  <SectionHeading
+                    icon={Layout}
+                    title="Public Course Page"
+                    subtitle="Toggle sections and build content for the public course page"
+                    tone="rose"
+                  />
+                  <CourseFormSections value={pageContent} onChange={setPageContent} />
+                </div>
+
+                <div className="flex flex-wrap items-center justify-end gap-3 pb-8 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => router.push(`${coursesBasePath}/courses`)}
+                    disabled={isSubmitting}
+                    className="h-11 rounded-lg border-gray-200 bg-white px-6 text-[#4F5077]"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="h-11 rounded-lg bg-[#F5C518] px-8 font-semibold text-[#2F3153] hover:bg-[#e6b800]"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save"
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <aside className="space-y-4 xl:col-span-4">
+                <div className="xl:sticky xl:top-6 space-y-4">
+                  <div className={`${sectionCard} p-5`}>
+                    <div className="mb-4 flex items-center gap-2">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
+                        <Layers className="h-4 w-4" />
+                      </div>
+                      <h3 className="text-base font-semibold text-[#2F3153]">Course Overview</h3>
+                    </div>
+                    <dl className="space-y-3 text-sm">
+                      {[
+                        ["Title", formData.courseTitle || "—"],
+                        ["Code", formData.courseCode || "—"],
+                        ["Category", categoryName],
+                        ["Difficulty", formData.difficultyLevel || "—"],
+                        ["Duration", durationLabel],
+                        [
+                          "Age Range",
+                          `${formData.minAge || "—"} – ${formData.maxAge || "—"} yrs`,
+                        ],
+                        [
+                          "Prerequisites",
+                          `${prerequisites.length} item${prerequisites.length === 1 ? "" : "s"}`,
+                        ],
+                      ].map(([label, value]) => (
+                        <div
+                          key={label as string}
+                          className="flex items-start justify-between gap-3 border-b border-gray-100 pb-2 last:border-0 last:pb-0"
+                        >
+                          <dt className="text-gray-500">{label}</dt>
+                          <dd className="max-w-[60%] break-words text-right font-medium text-[#2F3153]">
+                            {value}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                    <p className="mt-4 text-xs text-gray-400">
+                      Pricing is managed from Branch → Course Assignments.
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                    <div className="flex gap-3">
+                      <Info className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                      <div>
+                        <p className="text-sm font-semibold text-amber-900">Publishing note</p>
+                        <p className="mt-1 text-xs leading-relaxed text-amber-800">
+                          Changes save to the course record immediately. Use the overview and tips
+                          below to keep details clear before updating the public site.
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </form>
-              </CardContent>
-            </Card>
-            )}
-          </div>
 
-        </div>
+                  <div className={`${sectionCard} p-5`}>
+                    <div className="mb-4 flex items-center gap-2">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-100 text-sky-700">
+                        <Sparkles className="h-4 w-4" />
+                      </div>
+                      <h3 className="text-base font-semibold text-[#2F3153]">Publish & Visibility</h3>
+                    </div>
+                    <div className="space-y-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                        Status
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {(
+                          [
+                            ["draft", "Draft"],
+                            ["publish", "Publish"],
+                          ] as const
+                        ).map(([value, label]) => (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => setUiPublishStatus(value)}
+                            className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
+                              uiPublishStatus === value
+                                ? "border-[#2F3153] bg-[#2F3153] text-white"
+                                : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="space-y-2 pt-1">
+                        <Label className={fieldLabel}>Visibility</Label>
+                        <Select value={uiVisibility} onValueChange={setUiVisibility}>
+                          <SelectTrigger className={`${inputClass} w-full`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="public">Public</SelectItem>
+                            <SelectItem value="private">Private</SelectItem>
+                            <SelectItem value="unlisted">Unlisted</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
 
-        {/* Course Overview — full width */}
-        {!isBranchFeeOnly && (
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="text-[#4F5077]">Course Overview</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-[#7D8592]">
-              <div className="text-sm">
-                <span className="text-gray-600 block">Course Title</span>
-                <span className="font-medium">{formData.courseTitle || '—'}</span>
-              </div>
-              <div className="text-sm">
-                <span className="text-gray-600 block">Course Code</span>
-                <span className="font-medium">{formData.courseCode || '—'}</span>
-              </div>
-              <div className="text-sm">
-                <span className="text-gray-600 block">Category</span>
-                <span className="font-medium">{categories.find(cat => cat.id === formData.category)?.name || '—'}</span>
-              </div>
-              <div className="text-sm">
-                <span className="text-gray-600 block">Difficulty Level</span>
-                <span className="font-medium">{formData.difficultyLevel || '—'}</span>
-              </div>
-              <div className="text-sm">
-                <span className="text-gray-600 block">Duration</span>
-                <span className="font-medium">{courseDurations.find(d => d.value === formData.duration)?.label || '—'}</span>
-              </div>
-              <div className="text-sm">
-                <span className="text-gray-600 block">Age Range</span>
-                <span className="font-medium">{formData.minAge || '—'} - {formData.maxAge || '—'} years</span>
-              </div>
-              <div className="text-sm">
-                <span className="text-gray-600 block">Prerequisites</span>
-                <span className="font-medium">{prerequisites.length} items</span>
-              </div>
+                  <div className={`${sectionCard} p-5`}>
+                    <div className="mb-4 flex items-center gap-2">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                        <GraduationCap className="h-4 w-4" />
+                      </div>
+                      <h3 className="text-base font-semibold text-[#2F3153]">Quick Tips</h3>
+                    </div>
+                    <ul className="space-y-3">
+                      {[
+                        "Use a clear and descriptive course title",
+                        "Add a compelling description students will understand",
+                        "Upload a high-quality course image",
+                        "Fill SEO fields for better discoverability",
+                        "Enable only the public page sections you need",
+                      ].map((tip) => (
+                        <li key={tip} className="flex items-start gap-2 text-sm text-gray-600">
+                          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                          <span>{tip}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="hidden items-center gap-2 rounded-2xl border border-dashed border-gray-200 bg-white/60 px-4 py-3 text-xs text-gray-400 xl:flex">
+                    <Clock className="h-3.5 w-3.5" />
+                    Overview updates as you fill the form
+                  </div>
+                </div>
+              </aside>
             </div>
-            <p className="text-xs text-muted-foreground mt-4">Pricing is managed from Branch → Course Assignments.</p>
-          </CardContent>
-        </Card>
+          </form>
         )}
       </main>
 
       {showSuccessPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-md rounded-2xl bg-white p-8 shadow-xl">
             <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+                <svg
+                  className="h-8 w-8 text-green-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M5 13l4 4L19 7"
+                  ></path>
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Course Updated Successfully!</h3>
-              <p className="text-gray-600 mb-6">Your course has been updated successfully.</p>
+              <h3 className="mb-2 text-lg font-semibold text-gray-900">
+                Course Updated Successfully!
+              </h3>
+              <p className="mb-6 text-gray-600">Your course has been updated successfully.</p>
               <div className="flex space-x-3">
-                <Button onClick={handleSuccessOk} className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black">
+                <Button
+                  onClick={handleSuccessOk}
+                  className="flex-1 bg-[#F5C518] text-[#2F3153] hover:bg-[#e6b800]"
+                >
                   OK
                 </Button>
                 <Button onClick={handleSuccessOk} variant="outline" className="flex-1 bg-transparent">

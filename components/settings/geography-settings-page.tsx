@@ -23,7 +23,12 @@ function sortByName<T extends { name?: string }>(items: T[]): T[] {
   )
 }
 
-export default function GeographySettingsPage() {
+type GeographySettingsPageProps = {
+  /** When true, hide standalone chrome (header / back link) for System Settings embed. */
+  embedded?: boolean
+}
+
+export default function GeographySettingsPage({ embedded = false }: GeographySettingsPageProps) {
   const router = useRouter()
   const basePath = useDashboardBasePath()
   const { toast } = useToast()
@@ -252,16 +257,14 @@ export default function GeographySettingsPage() {
     }
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 pt-6">
-      <DashboardHeader currentPage="Geography" />
-      <main className="w-full p-4 lg:px-8">
-        <div className="mx-auto space-y-6">
+  const body = (
+        <div className={embedded ? "space-y-6" : "mx-auto space-y-6"}>
+          {!embedded && (
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="flex items-center space-x-4">
               <Button
                 variant="ghost"
-                onClick={() => router.push(`${basePath}/settings`)}
+                onClick={() => router.push(`${basePath}/settings?section=geography`)}
                 className="flex items-center space-x-2 hover:bg-gray-100"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -279,6 +282,7 @@ export default function GeographySettingsPage() {
               </div>
             </div>
           </div>
+          )}
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <p className="text-sm text-blue-800">
@@ -488,7 +492,14 @@ export default function GeographySettingsPage() {
             </TabsContent>
           </Tabs>
         </div>
-      </main>
+  )
+
+  if (embedded) return body
+
+  return (
+    <div className="min-h-screen bg-gray-50 pt-6">
+      <DashboardHeader currentPage="Geography" />
+      <main className="w-full p-4 lg:px-8">{body}</main>
     </div>
   )
 }

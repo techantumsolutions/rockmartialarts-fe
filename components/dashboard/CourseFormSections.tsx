@@ -208,45 +208,66 @@ export default function CourseFormSections({ value, onChange }: Props) {
   const setEnabled = (key: keyof NonNullable<PageContent["section_visibility"]>, on: boolean) =>
     set("section_visibility", { ...(visibility || {}), [key]: on })
 
-  return (
-    <Accordion type="multiple" className="w-full space-y-2" defaultValue={["visibility", "hero"]}>
-      {/* ---- 0. Section Visibility ---- */}
-      <AccordionItem value="visibility" className="border rounded-lg px-4">
-        <AccordionTrigger className="text-[#4F5077] font-semibold">
-          <span className="flex items-center gap-2"><Info className="h-4 w-4" /> Section Visibility (Show/Hide)</span>
-        </AccordionTrigger>
-        <AccordionContent className="space-y-4 pb-4">
-          <p className="text-sm text-gray-500">
-            Toggle sections on the public course detail page. If a section is disabled, it will be hidden even if it has content.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {([
-              ["hero", "Hero section"],
-              ["info_bar", "Info bar (location/duration/price/timings)"],
-              ["about", "About course"],
-              ["cta", "CTA banner (Ready to Start Your Journey?)"],
-              ["course_info_sections", "Course info sections (alternating blocks)"],
-              ["course_content", "Course content (syllabus/equipment)"],
-              ["benefits", "Benefits"],
-              ["learning", "What you will learn / Video"],
-              ["gallery", "Gallery"],
-              ["instructors", "Instructors"],
-              ["testimonials", "Testimonials"],
-              ["attachments", "Downloads / PDF attachments"],
-            ] as const).map(([key, label]) => (
-              <div key={key} className="flex items-center justify-between rounded-lg border p-3">
-                <div className="text-sm font-medium text-[#4F5077]">{label}</div>
-                <Switch checked={enabled(key)} onCheckedChange={(v) => setEnabled(key, v)} />
-              </div>
-            ))}
-          </div>
-        </AccordionContent>
-      </AccordionItem>
+  const VisibilityBadge = ({ on }: { on: boolean }) => (
+    <span
+      className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+        on ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"
+      }`}
+    >
+      {on ? "Visible" : "Hidden"}
+    </span>
+  )
 
+  return (
+    <div className="space-y-5">
+      {/* Section visibility grid (mockup-style) */}
+      <div className="rounded-xl border border-gray-100 bg-[#FAFBFC] p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <Info className="h-4 w-4 text-[#4F5077]" />
+          <h4 className="text-sm font-semibold text-[#2F3153]">Section Visibility</h4>
+        </div>
+        <p className="mb-3 text-xs text-gray-500">
+          Toggle sections on the public course detail page. Disabled sections stay hidden even if they have content.
+        </p>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {([
+            ["hero", "Hero Section"],
+            ["info_bar", "Info Bar"],
+            ["about", "About Course"],
+            ["cta", "CTA Banner"],
+            ["course_info_sections", "Course Info Blocks"],
+            ["course_content", "Course Content"],
+            ["benefits", "Benefits"],
+            ["learning", "What You Will Learn"],
+            ["gallery", "Gallery"],
+            ["instructors", "Instructors"],
+            ["testimonials", "Testimonials"],
+            ["attachments", "Downloads / PDFs"],
+          ] as const).map(([key, label]) => (
+            <div
+              key={key}
+              className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-2.5 shadow-sm"
+            >
+              <div className="text-sm font-medium text-[#4F5077]">{label}</div>
+              <Switch checked={enabled(key)} onCheckedChange={(v) => setEnabled(key, v)} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h4 className="mb-2 text-sm font-semibold text-[#2F3153]">Content Builder</h4>
+        <p className="mb-3 text-xs text-gray-500">Customize copy and media for each public page section.</p>
+      </div>
+
+    <Accordion type="multiple" className="w-full space-y-2" defaultValue={["hero"]}>
       {/* ---- 1. Hero Section ---- */}
-      <AccordionItem value="hero" className="border rounded-lg px-4">
-        <AccordionTrigger className="text-[#4F5077] font-semibold">
-          <span className="flex items-center gap-2"><Layout className="h-4 w-4" /> Hero Section</span>
+      <AccordionItem value="hero" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
+        <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
+          <span className="flex items-center gap-2">
+            <Layout className="h-4 w-4" /> Hero Section
+            <VisibilityBadge on={enabled("hero")} />
+          </span>
         </AccordionTrigger>
         <AccordionContent className="space-y-3 pb-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -278,9 +299,12 @@ export default function CourseFormSections({ value, onChange }: Props) {
       </AccordionItem>
 
       {/* ---- 3. About Section ---- */}
-      <AccordionItem value="about" className="border rounded-lg px-4">
-        <AccordionTrigger className="text-[#4F5077] font-semibold">
-          <span className="flex items-center gap-2"><BookOpen className="h-4 w-4" /> About Course Section</span>
+      <AccordionItem value="about" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
+        <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
+          <span className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4" /> About Course
+            <VisibilityBadge on={enabled("about")} />
+          </span>
         </AccordionTrigger>
         <AccordionContent className="space-y-3 pb-4">
           <div className="space-y-1">
@@ -322,9 +346,12 @@ export default function CourseFormSections({ value, onChange }: Props) {
       </AccordionItem>
 
       {/* ---- 3a. Course Info Sections (60-40 / 40-60 alternating) ---- */}
-      <AccordionItem value="courseInfoSections" className="border rounded-lg px-4">
-        <AccordionTrigger className="text-[#4F5077] font-semibold">
-          <span className="flex items-center gap-2"><Layout className="h-4 w-4" /> Course Info Sections ({courseInfoSections.length})</span>
+      <AccordionItem value="courseInfoSections" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
+        <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
+          <span className="flex items-center gap-2">
+            <Layout className="h-4 w-4" /> Course Info Sections ({courseInfoSections.length})
+            <VisibilityBadge on={enabled("course_info_sections")} />
+          </span>
         </AccordionTrigger>
         <AccordionContent className="space-y-3 pb-4">
           <p className="text-sm text-gray-500">These blocks appear on the course detail page with alternating image left/right layout (60% text, 40% image).</p>
@@ -374,9 +401,12 @@ export default function CourseFormSections({ value, onChange }: Props) {
       </AccordionItem>
 
       {/* ---- 4. Benefits ---- */}
-      <AccordionItem value="benefits" className="border rounded-lg px-4">
-        <AccordionTrigger className="text-[#4F5077] font-semibold">
-          <span className="flex items-center gap-2"><Star className="h-4 w-4" /> Benefits ({benefits.length})</span>
+      <AccordionItem value="benefits" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
+        <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
+          <span className="flex items-center gap-2">
+            <Star className="h-4 w-4" /> Benefits ({benefits.length})
+            <VisibilityBadge on={enabled("benefits")} />
+          </span>
         </AccordionTrigger>
         <AccordionContent className="space-y-3 pb-4">
           {benefits.map((b, i) => (
@@ -407,9 +437,12 @@ export default function CourseFormSections({ value, onChange }: Props) {
       </AccordionItem>
 
       {/* ---- 5. Learning Section ---- */}
-      <AccordionItem value="learning" className="border rounded-lg px-4">
-        <AccordionTrigger className="text-[#4F5077] font-semibold">
-          <span className="flex items-center gap-2"><GraduationCap className="h-4 w-4" /> What You Will Learn</span>
+      <AccordionItem value="learning" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
+        <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
+          <span className="flex items-center gap-2">
+            <GraduationCap className="h-4 w-4" /> What You Will Learn
+            <VisibilityBadge on={enabled("learning")} />
+          </span>
         </AccordionTrigger>
         <AccordionContent className="space-y-3 pb-4">
           <div className="space-y-1">
@@ -429,9 +462,12 @@ export default function CourseFormSections({ value, onChange }: Props) {
       </AccordionItem>
 
       {/* ---- 6. Gallery ---- */}
-      <AccordionItem value="gallery" className="border rounded-lg px-4">
-        <AccordionTrigger className="text-[#4F5077] font-semibold">
-          <span className="flex items-center gap-2"><ImageIcon className="h-4 w-4" /> Gallery ({gallery.length} images)</span>
+      <AccordionItem value="gallery" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
+        <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
+          <span className="flex items-center gap-2">
+            <ImageIcon className="h-4 w-4" /> Gallery ({gallery.length})
+            <VisibilityBadge on={enabled("gallery")} />
+          </span>
         </AccordionTrigger>
         <AccordionContent className="space-y-3 pb-4">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -449,9 +485,12 @@ export default function CourseFormSections({ value, onChange }: Props) {
       </AccordionItem>
 
       {/* ---- 7. Instructors ---- */}
-      <AccordionItem value="instructors" className="border rounded-lg px-4">
-        <AccordionTrigger className="text-[#4F5077] font-semibold">
-          <span className="flex items-center gap-2"><Users className="h-4 w-4" /> Instructors ({instructors.length})</span>
+      <AccordionItem value="instructors" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
+        <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
+          <span className="flex items-center gap-2">
+            <Users className="h-4 w-4" /> Instructors ({instructors.length})
+            <VisibilityBadge on={enabled("instructors")} />
+          </span>
         </AccordionTrigger>
         <AccordionContent className="space-y-3 pb-4">
           {instructors.map((inst, i) => (
@@ -483,9 +522,12 @@ export default function CourseFormSections({ value, onChange }: Props) {
       </AccordionItem>
 
       {/* ---- 8. Testimonials ---- */}
-      <AccordionItem value="testimonials" className="border rounded-lg px-4">
-        <AccordionTrigger className="text-[#4F5077] font-semibold">
-          <span className="flex items-center gap-2"><Star className="h-4 w-4" /> Success Stories / Testimonials ({testimonials.length})</span>
+      <AccordionItem value="testimonials" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
+        <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
+          <span className="flex items-center gap-2">
+            <Star className="h-4 w-4" /> Testimonials ({testimonials.length})
+            <VisibilityBadge on={enabled("testimonials")} />
+          </span>
         </AccordionTrigger>
         <AccordionContent className="space-y-3 pb-4">
           {testimonials.map((t, i) => (
@@ -517,9 +559,12 @@ export default function CourseFormSections({ value, onChange }: Props) {
       </AccordionItem>
 
       {/* ---- 9. PDF Attachments ---- */}
-      <AccordionItem value="attachments" className="border rounded-lg px-4">
-        <AccordionTrigger className="text-[#4F5077] font-semibold">
-          <span className="flex items-center gap-2"><Paperclip className="h-4 w-4" /> PDF Attachments ({attachments.length})</span>
+      <AccordionItem value="attachments" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
+        <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
+          <span className="flex items-center gap-2">
+            <Paperclip className="h-4 w-4" /> PDF Attachments ({attachments.length})
+            <VisibilityBadge on={enabled("attachments")} />
+          </span>
         </AccordionTrigger>
         <AccordionContent className="space-y-3 pb-4">
           {attachments.map((a, i) => (
@@ -540,5 +585,6 @@ export default function CourseFormSections({ value, onChange }: Props) {
         </AccordionContent>
       </AccordionItem>
     </Accordion>
+    </div>
   )
 }

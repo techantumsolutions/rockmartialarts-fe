@@ -176,7 +176,15 @@ export type TrainingRequest = {
   assigned_coach_name?: string | null
   assigned_at?: string | null
   assigned_by?: string | null
-  coach_assignment_status?: "pending" | "accepted" | "rejected" | string | null
+  coach_assignment_status?: "pending" | "accepted" | "rejected" | "notified_taken" | string | null
+  coach_inbox_status?: "pending" | "accepted" | "rejected" | "notified_taken" | string | null
+  notified_coach_ids?: string[] | null
+  notified_coaches?: Array<{
+    coach_id: string
+    coach_name?: string | null
+    notified_at?: string | null
+    status?: string | null
+  }> | null
   coach_rejection_reason?: string | null
   coach_response_note?: string | null
   coach_responded_at?: string | null
@@ -529,13 +537,27 @@ class TrainingRequestAPI {
     return res.json() as Promise<{ message: string; request: TrainingRequest }>
   }
 
-  async assignCoach(id: string, coach_id: string, note?: string) {
+  async assignCoach(
+    id: string,
+    payload: { coach_id?: string; coach_ids?: string[]; note?: string }
+  ) {
+    const body: { coach_id?: string; coach_ids?: string[]; note?: string | null } = {
+      note: payload.note || null,
+    }
+    if (payload.coach_ids && payload.coach_ids.length > 0) {
+      body.coach_ids = payload.coach_ids
+      if (payload.coach_ids.length === 1) {
+        body.coach_id = payload.coach_ids[0]
+      }
+    } else if (payload.coach_id) {
+      body.coach_id = payload.coach_id
+    }
     const res = await fetch(
       getBackendApiUrl(`training-requests/${encodeURIComponent(id)}/coach`),
       {
         method: "PATCH",
         headers: authHeaders(true),
-        body: JSON.stringify({ coach_id, note: note || null }),
+        body: JSON.stringify(body),
       }
     )
     if (!res.ok) throw new Error(await parseError(res))

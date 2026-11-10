@@ -128,7 +128,7 @@ export default function PartnerOrgCourseDetailPage() {
           <img src={cover} alt="" className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-t from-[#171A26] via-[#171A26]/75 to-black/40" />
         </div>
-        <div className="relative container mx-auto max-w-7xl px-4 pb-12 pt-28">
+        <div className="relative site-content px-4 pb-12 pt-28">
           <Link
             href={`/partner-orgs/${orgPath}/branches/${branchPath}`}
             className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-[#FFB70F] mb-6"
@@ -146,7 +146,7 @@ export default function PartnerOrgCourseDetailPage() {
       </section>
 
       <section className="px-4 -mt-6 relative z-10">
-        <div className="container mx-auto max-w-7xl">
+        <div className="site-content">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="rounded-xl border border-gray-800 bg-gray-900/80 p-4 flex items-center gap-3">
               <IndianRupee className="w-5 h-5 text-[#FFB70F]" />
@@ -174,7 +174,7 @@ export default function PartnerOrgCourseDetailPage() {
       </section>
 
       <section className="py-14 px-4">
-        <div className="container mx-auto max-w-7xl grid lg:grid-cols-3 gap-10">
+        <div className="site-content grid lg:grid-cols-3 gap-10">
           <div className="lg:col-span-2 space-y-10">
             {longDescription ? (
               <div>

@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ChevronDown, MoreVertical, Settings, User, LogOut, FileText, MapPin } from "lucide-react"
+import { ChevronDown, MoreVertical, Settings, User, LogOut, FileText } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,12 +30,17 @@ import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { TokenManager } from "@/lib/tokenManager"
 import { useActiveBranch } from "@/lib/activeBranch"
 import { usePermissions } from "@/hooks/use-permissions"
+import { usePartnerFeaturePermissions } from "@/hooks/usePartnerFeaturePermissions"
+import { filterPartnerNavByFeatures } from "@/lib/partnerFeaturePermissions"
 
 interface NavbarProps {
   role: DashboardRole
+  /** When "sidebar", hide desktop horizontal nav — used with DashboardLayout sidebar shell */
+  variant?: "topnav" | "sidebar"
 }
 
-export default function Navbar({ role }: NavbarProps) {
+export default function Navbar({ role, variant = "topnav" }: NavbarProps) {
+  const useSidebarShell = variant === "sidebar"
   const router = useRouter()
   const pathname = usePathname()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -44,6 +49,7 @@ export default function Navbar({ role }: NavbarProps) {
   const navMenuCloseTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hoveredNavMenu = useRef<string | null>(null)
   const { hasPermission } = usePermissions(role)
+  const { permissions: partnerFeaturePermissions } = usePartnerFeaturePermissions(role)
   const { branches: assignedBranches, active: activeBranch, setActive: setActiveBranch } = useActiveBranch()
 
   const { cms } = useCMS()
@@ -60,22 +66,28 @@ export default function Navbar({ role }: NavbarProps) {
     [partnerBranchManager]
   )
 
-  const menuItems = useMemo(
-    () =>
-      filterNavItemsByPermission(getMainNavItems(role, basePath, menuOptions), {
-        role,
-        hasPermission,
-      }),
-    [role, hasPermission, basePath, menuOptions]
-  )
-  const overflowNavItems = useMemo(
-    () =>
-      filterNavItemsByPermission(getOverflowNavItems(role, basePath, menuOptions), {
-        role,
-        hasPermission,
-      }),
-    [role, hasPermission, basePath, menuOptions]
-  )
+  const menuItems = useMemo(() => {
+    if (useSidebarShell) return []
+    const base = filterNavItemsByPermission(getMainNavItems(role, basePath, menuOptions), {
+      role,
+      hasPermission,
+    })
+    return role === "partner_super_admin"
+      ? filterPartnerNavByFeatures(base, partnerFeaturePermissions)
+      : base
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hasPermission stabilized via useCallback; omit identity churn
+  }, [role, basePath, menuOptions, partnerFeaturePermissions, useSidebarShell])
+  const overflowNavItems = useMemo(() => {
+    if (useSidebarShell) return []
+    const base = filterNavItemsByPermission(getOverflowNavItems(role, basePath, menuOptions), {
+      role,
+      hasPermission,
+    })
+    return role === "partner_super_admin"
+      ? filterPartnerNavByFeatures(base, partnerFeaturePermissions)
+      : base
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role, basePath, menuOptions, partnerFeaturePermissions, useSidebarShell])
   const primaryNavItems = useMemo(
     () => menuItems.filter((item) => item.label !== "Settings"),
     [menuItems]
@@ -122,8 +134,9 @@ export default function Navbar({ role }: NavbarProps) {
     }
   }
 
-  const handleMobileNav = (path: string) => {
-    router.push(path)
+  const handleMobileNav = (_path: string) => {
+    // Links in Sidebar perform navigation; only close the drawer here.
+    // Calling router.push here previously double-fired navigations and stuck the martial-arts route loader.
     setIsMobileMenuOpen(false)
   }
 
@@ -170,45 +183,86 @@ export default function Navbar({ role }: NavbarProps) {
   )
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-gray-200/80 backdrop-blur-sm min-w-0">
+    <header
+      className={`${
+        useSidebarShell
+          ? "relative z-40 w-full bg-transparent"
+          : "fixed top-0 left-0 right-0 z-50 border-b border-gray-200/80 bg-white shadow-sm backdrop-blur-sm"
+      } min-w-0`}
+    >
       <div className="w-full px-3 sm:px-4 lg:px-6 py-2 sm:py-2.5">
         <div className="flex justify-between items-center gap-2 sm:gap-4 min-h-[48px] sm:min-h-[56px]">
           <div className="flex items-center gap-2 flex-shrink-0 min-w-0">
-            <div className="flex-shrink-0">
-              <img
-                src={resolvePublicAssetUrl(cms?.branding?.navbar_logo) || "/logo.png"}
-                alt="Logo"
-                className="h-8 w-auto sm:h-9 xl:h-10 max-w-[95px] object-contain"
-              />
-            </div>
-            <MobileSidebar role={role} onNavigate={handleMobileNav} open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen} />
+            {!useSidebarShell && (
+              <div className="flex-shrink-0">
+                <img
+                  src={resolvePublicAssetUrl(cms?.branding?.navbar_logo) || "/logo.png"}
+                  alt="Logo"
+                  className="h-8 w-auto sm:h-9 xl:h-10 max-w-[95px] object-contain"
+                />
+              </div>
+            )}
+            <MobileSidebar
+              role={role}
+              onNavigate={handleMobileNav}
+              open={isMobileMenuOpen}
+              onOpenChange={setIsMobileMenuOpen}
+            />
+            {useSidebarShell && (
+              <div className="hidden sm:flex flex-col min-w-0 lg:hidden">
+                <span className="text-sm font-bold text-[#4F5077] truncate">SKILLORA ALPHA</span>
+                <span className="text-[10px] uppercase tracking-wider text-gray-400">
+                  Learn · Practice · Advance
+                </span>
+              </div>
+            )}
+            {useSidebarShell && (
+              <div className="hidden md:flex items-center flex-1 max-w-md ml-2">
+                <div className="relative w-full">
+                  <input
+                    type="search"
+                    placeholder="Search…"
+                    className="w-full h-10 rounded-xl border border-gray-200 bg-gray-50/80 px-4 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#E1BB33]/40 focus:border-[#E1BB33]"
+                    readOnly
+                    onFocus={(e) => e.currentTarget.blur()}
+                    aria-label="Search"
+                  />
+                  <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 hidden lg:inline-flex items-center rounded-md border border-gray-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-gray-400">
+                    Ctrl + K
+                  </kbd>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-1 sm:gap-2 lg:gap-3 ml-auto flex-shrink-0">
+            {/* Sidebar shell: never render horizontal menu — navigation lives in the left sidebar only */}
+            {!useSidebarShell && (
             <nav className="hidden lg:flex items-center gap-2 xl:gap-3 2xl:gap-4">
               {visibleNavItems.map((item) => {
                 const Icon = item.icon
                 return item.children ? (
                   <DropdownMenu
-                    key={item.path}
+                    key={item.id || item.path + item.label}
                     modal={false}
-                    open={openNavMenu === item.path}
+                    open={openNavMenu === (item.id || item.path)}
                     onOpenChange={(open) => {
-                      if (open) openNavDropdown(item.path)
-                      else scheduleNavDropdownClose(item.path)
+                      const key = item.id || item.path
+                      if (open) openNavDropdown(key)
+                      else scheduleNavDropdownClose(key)
                     }}
                   >
                     <DropdownMenuTrigger asChild>
                       <button
                         className={`${navButtonClass(item)} flex items-center ${role === "branch_admin" ? "group" : ""}`}
-                        onMouseEnter={() => openNavDropdown(item.path)}
-                        onMouseLeave={() => scheduleNavDropdownClose(item.path, true)}
+                        onMouseEnter={() => openNavDropdown(item.id || item.path)}
+                        onMouseLeave={() => scheduleNavDropdownClose(item.id || item.path, true)}
                       >
                         {Icon && <Icon className="w-4 h-4 mr-1" />}
                         {item.label}
                         <ChevronDown
                           className={`w-3 h-3 ml-1 transition-transform duration-200 ${
-                            openNavMenu === item.path ? "rotate-180" : ""
+                            openNavMenu === (item.id || item.path) ? "rotate-180" : ""
                           }`}
                         />
                       </button>
@@ -218,14 +272,29 @@ export default function Navbar({ role }: NavbarProps) {
                         align="start"
                         className="w-56 z-[1000] bg-white/95 backdrop-blur-md border border-gray-200/50 shadow-xl rounded-lg p-2"
                         sideOffset={8}
-                        onMouseEnter={() => openNavDropdown(item.path)}
-                        onMouseLeave={() => scheduleNavDropdownClose(item.path, true)}
+                        onMouseEnter={() => openNavDropdown(item.id || item.path)}
+                        onMouseLeave={() => scheduleNavDropdownClose(item.id || item.path, true)}
                       >
                         {item.children.map((child) => {
                           const ChildIcon = child.icon
+                          if (child.children?.length) {
+                            return child.children.map((nested) => {
+                              const NestedIcon = nested.icon
+                              return (
+                                <DropdownMenuItem
+                                  key={nested.id || nested.path + nested.label}
+                                  onClick={() => router.push(nested.path)}
+                                  className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200 flex items-center gap-2"
+                                >
+                                  {NestedIcon && <NestedIcon className="w-4 h-4" />}
+                                  {nested.label}
+                                </DropdownMenuItem>
+                              )
+                            })
+                          }
                           return (
                             <DropdownMenuItem
-                              key={child.path}
+                              key={child.id || child.path + child.label}
                               onClick={() => router.push(child.path)}
                               className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200 flex items-center gap-2"
                             >
@@ -238,7 +307,7 @@ export default function Navbar({ role }: NavbarProps) {
                     </DropdownMenuPortal>
                   </DropdownMenu>
                 ) : (
-                  <button key={item.path} onClick={() => router.push(item.path)} className={navButtonClass(item) + " flex items-center"}>
+                  <button key={item.id || item.path + item.label} onClick={() => router.push(item.path)} className={navButtonClass(item) + " flex items-center"}>
                     {Icon && <Icon className="w-4 h-4 mr-1" />}
                     {item.label}
                   </button>
@@ -274,11 +343,26 @@ export default function Navbar({ role }: NavbarProps) {
                       {moreNavItems.map((item) => {
                         const Icon = item.icon
                         if (item.children && item.children.length > 0) {
-                          return item.children.map((child) => {
+                          return item.children.flatMap((child) => {
+                            if (child.children?.length) {
+                              return child.children.map((nested) => {
+                                const NestedIcon = nested.icon
+                                return (
+                                  <DropdownMenuItem
+                                    key={nested.id || nested.path + nested.label}
+                                    onClick={() => router.push(nested.path)}
+                                    className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200 flex items-center gap-2"
+                                  >
+                                    {NestedIcon && <NestedIcon className="w-4 h-4" />}
+                                    {nested.label}
+                                  </DropdownMenuItem>
+                                )
+                              })
+                            }
                             const ChildIcon = child.icon
                             return (
                               <DropdownMenuItem
-                                key={child.path}
+                                key={child.id || child.path + child.label}
                                 onClick={() => router.push(child.path)}
                                 className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200 flex items-center gap-2"
                               >
@@ -290,7 +374,7 @@ export default function Navbar({ role }: NavbarProps) {
                         }
                         return (
                           <DropdownMenuItem
-                            key={item.path}
+                            key={item.id || item.path + item.label}
                             onClick={() => router.push(item.path)}
                             className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200 flex items-center gap-2"
                           >
@@ -325,6 +409,7 @@ export default function Navbar({ role }: NavbarProps) {
                 </DropdownMenu>
               )}
             </nav>
+            )}
 
             {role === "branch_admin" && assignedBranches.length > 1 && activeBranch && (
               <DropdownMenu>
@@ -380,12 +465,6 @@ export default function Navbar({ role }: NavbarProps) {
                     <DropdownMenuItem onClick={() => router.push(settingsPath)} className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200 flex items-center gap-2">
                       <Settings className="w-4 h-4" />
                       Settings
-                    </DropdownMenuItem>
-                  )}
-                  {(role === "super_admin" || role === "partner_super_admin") && (
-                    <DropdownMenuItem onClick={() => router.push(`${basePath}/settings/geography`)} className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200 flex items-center gap-2">
-                      <MapPin className="w-4 h-4" />
-                      State & City
                     </DropdownMenuItem>
                   )}
                   {role === "super_admin" && (

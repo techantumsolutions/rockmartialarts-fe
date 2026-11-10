@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Building2, Loader2, MapPin, Search } from "lucide-react"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import { partnerOrgAPI, type PartnerOrgDirectoryItem } from "@/lib/partnerOrgAPI"
+import { AnimatedStaggerGrid } from "@/components/animations/AnimatedStaggerGrid"
 
 export default function PartnerOrgsDirectoryPage() {
   const [searchInput, setSearchInput] = useState("")
@@ -44,7 +45,7 @@ export default function PartnerOrgsDirectoryPage() {
   return (
     <main className="min-h-screen bg-[#171A26] text-white">
       <section className="relative pt-28 pb-12 px-4">
-        <div className="container mx-auto max-w-7xl">
+        <div className="site-content">
           <p className="text-[#FFB70F] uppercase tracking-[0.2em] text-xs mb-3">
             Partner Network
           </p>
@@ -68,7 +69,7 @@ export default function PartnerOrgsDirectoryPage() {
       </section>
 
       <section className="pb-20 px-4">
-        <div className="container mx-auto max-w-7xl">
+        <div className="site-content">
           {loading ? (
             <div className="flex justify-center py-20 text-gray-400">
               <Loader2 className="w-8 h-8 animate-spin text-[#FFB70F]" />
@@ -85,7 +86,10 @@ export default function PartnerOrgsDirectoryPage() {
                 {total > partners.length ? ` of ${total}` : ""} partner
                 {partners.length === 1 ? "" : "s"}
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <AnimatedStaggerGrid
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+                staggerDelay={0.08}
+              >
                 {partners.map((p) => {
                   const href =
                     p.landing_path ||
@@ -133,7 +137,7 @@ export default function PartnerOrgsDirectoryPage() {
                     </Link>
                   )
                 })}
-              </div>
+              </AnimatedStaggerGrid>
             </>
           )}
         </div>

@@ -88,6 +88,8 @@ interface RegistrationData {
   paymentId: string
   paymentStatus: string
   orderId: string
+  /** Razorpay checkout signature — required for LMS process-registration verify */
+  signature: string
   amount: number
   cardNumber: string
   expiryDate: string
@@ -151,6 +153,7 @@ const defaultRegistrationData: RegistrationData = {
   paymentId: '',
   paymentStatus: '',
   orderId: '',
+  signature: '',
   amount: 0,
   cardNumber: '',
   expiryDate: '',

@@ -4,9 +4,11 @@ import { useCMS } from "@/contexts/CMSContext"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import { useEffect, useMemo, useState } from "react"
 
-/** Built-in default when CMS has no loader — timer never waits on CMS/API */
+/** Built-in default when CMS has no loader — never blocks on CMS/API */
 const BUILTIN_LOADER = "/assets/img/site-loader.png"
-const FADE_MS = 320
+const FADE_MS = 220
+const MIN_MS = 180
+const MAX_MS = 900
 
 function buildLoaderSrcChain(cmsUrl: string): string[] {
   const resolved = cmsUrl.trim()
@@ -16,8 +18,8 @@ function buildLoaderSrcChain(cmsUrl: string): string[] {
 }
 
 /**
- * Full-screen loader on every visit: visible from the first paint (~3–4s), independent of load/API.
- * Opacity starts at 1 so SSR/hydration still shows the overlay; then fade out.
+ * Fast first-paint loader: shows briefly then dismisses on window load
+ * (or after MAX_MS). No artificial 3–4s delay.
  */
 export function WebsitePageLoader() {
   const { cms } = useCMS()
@@ -40,21 +42,37 @@ export function WebsitePageLoader() {
     document.body.style.overflow = "hidden"
     root.classList.add("website-loader-active")
 
-    const delayMs = 3000 + Math.floor(Math.random() * 1001)
-    const hideTimer = window.setTimeout(() => setOpacity(0), delayMs)
-    const finishTimer = window.setTimeout(() => {
-      setDone(true)
-      document.body.style.overflow = prevOverflow
-      root.classList.remove("website-loader-active")
-    }, delayMs + FADE_MS)
+    const started = performance.now()
+    let finished = false
+
+    const finish = () => {
+      if (finished) return
+      finished = true
+      const elapsed = performance.now() - started
+      const wait = Math.max(0, MIN_MS - elapsed)
+      window.setTimeout(() => {
+        setOpacity(0)
+        window.setTimeout(() => {
+          setDone(true)
+          document.body.style.overflow = prevOverflow
+          root.classList.remove("website-loader-active")
+        }, FADE_MS)
+      }, wait)
+    }
+
+    if (document.readyState === "complete") {
+      finish()
+    } else {
+      window.addEventListener("load", finish, { once: true })
+    }
+    const maxTimer = window.setTimeout(finish, MAX_MS)
 
     return () => {
-      window.clearTimeout(hideTimer)
-      window.clearTimeout(finishTimer)
+      window.clearTimeout(maxTimer)
+      window.removeEventListener("load", finish)
       document.body.style.overflow = prevOverflow
       root.classList.remove("website-loader-active")
     }
-    // Only once per full page load — CMS updates must not reset the fixed delay / scroll lock
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -62,27 +80,32 @@ export function WebsitePageLoader() {
 
   return (
     <div
-      className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-black motion-reduce:transition-none transition-opacity duration-300 ease-out"
+      className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-black motion-reduce:transition-none transition-opacity duration-200 ease-out"
       style={{ opacity }}
       aria-busy="true"
       aria-live="polite"
       aria-label="Loading site"
     >
-      <img
-        src={imgSrc}
-        alt=""
-        width={140}
-        height={140}
-        className="w-[140px] max-w-[140px] h-auto max-h-[140px] object-contain select-none"
-        decoding="async"
-        fetchPriority="high"
-        onError={() =>
-          setSrcIndex((i) => {
-            const max = Math.max(srcChain.length - 1, 0)
-            return i < max ? i + 1 : i
-          })
-        }
-      />
+      <div className="relative flex flex-col items-center gap-4">
+        <img
+          src={imgSrc}
+          alt=""
+          width={120}
+          height={120}
+          className="w-[120px] max-w-[120px] h-auto max-h-[120px] object-contain select-none martial-loader-kick"
+          decoding="async"
+          fetchPriority="high"
+          onError={() =>
+            setSrcIndex((i) => {
+              const max = Math.max(srcChain.length - 1, 0)
+              return i < max ? i + 1 : i
+            })
+          }
+        />
+        <div className="h-1 w-24 overflow-hidden rounded-full bg-white/10">
+          <div className="h-full w-1/2 rounded-full bg-[#E1BB33] martial-loader-bar" />
+        </div>
+      </div>
       <span className="sr-only">Loading…</span>
     </div>
   )

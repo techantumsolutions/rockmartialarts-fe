@@ -1,21 +1,58 @@
 "use client"
 
 import { getBackendApiUrl } from "@/lib/config"
-import { fetchAllCoaches } from "@/lib/coachFetch"
-import { useState, useEffect } from "react"
+import { coachDisplayInfo, fetchAllCoaches } from "@/lib/coachFetch"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Search, Edit, ToggleLeft, ToggleRight, Eye, Mail, Loader2 } from "lucide-react"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Search,
+  Edit,
+  Eye,
+  Mail,
+  Loader2,
+  Users,
+  UserCheck,
+  UserX,
+  Phone,
+  Building2,
+  Briefcase,
+  RefreshCw,
+  MoreVertical,
+  Target,
+  Plus,
+} from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import { useRouter } from "next/navigation"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { useToast } from "@/hooks/use-toast"
+import {
+  AdminPageShell,
+  AdminPageHeader,
+  AdminKpiGrid,
+  AdminKpiCard,
+  AdminFilterBar,
+  AdminTableShell,
+  AdminStatusPill,
+  adminPrimaryBtnClass,
+} from "@/components/dashboard/AdminPageShell"
 
 interface Coach {
   id: string
@@ -40,13 +77,74 @@ interface Coach {
   is_active: boolean
   approval_status?: string | null
   created_at: string
+  branch_name?: string
+  profile_image_url?: string
+}
+
+const ITEMS_PER_PAGE = 15
+
+const AVATAR_TONES = [
+  "bg-violet-100 text-violet-700",
+  "bg-sky-100 text-sky-800",
+  "bg-emerald-100 text-emerald-800",
+  "bg-amber-100 text-amber-900",
+  "bg-rose-100 text-rose-800",
+  "bg-indigo-100 text-indigo-800",
+]
+
+function coachInitials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (!parts.length) return "CO"
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return `${parts[0][0] || ""}${parts[parts.length - 1][0] || ""}`.toUpperCase()
+}
+
+function avatarToneClass(name: string) {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = (hash + name.charCodeAt(i)) % AVATAR_TONES.length
+  return AVATAR_TONES[hash]
+}
+
+function getCoachBranchName(coach: Coach & Record<string, unknown>): string {
+  const fromName = String(coach?.branch_name || "").trim()
+  if (fromName) return fromName
+  const raw = coach as Record<string, unknown>
+  const branches = raw.branches as Array<Record<string, unknown>> | undefined
+  if (branches?.length) {
+    const b = branches[0]
+    return String(b?.branch?.name || b?.name || "").trim() || "—"
+  }
+  const assignments = raw.branch_assignments as unknown[] | undefined
+  if (assignments?.length) {
+    const a = assignments[0]
+    if (typeof a === "string") return a.trim() || "—"
+    if (a && typeof a === "object") {
+      const o = a as Record<string, unknown>
+      return String(o.branch_name || o.name || "").trim() || "—"
+    }
+  }
+  return "—"
+}
+
+function formatCoachPhone(coach: Coach) {
+  const cc = (coach as { contact_info?: { country_code?: string } }).contact_info?.country_code || ""
+  const local = coachDisplayInfo(coach).phone || coach.contact_info?.phone || ""
+  const combined = `${cc} ${local}`.trim()
+  return combined || "—"
+}
+
+function designationPillClass(designation: string) {
+  const key = designation.toLowerCase()
+  if (key.includes("founder")) return "border-sky-200 bg-sky-50 text-sky-800"
+  if (key.includes("assistant")) return "border-violet-200 bg-violet-50 text-violet-800"
+  if (key.includes("senior")) return "border-amber-200 bg-amber-50 text-amber-900"
+  return "border-gray-200 bg-gray-50 text-[#4F5077]"
 }
 
 export default function CoachesListPage() {
   const router = useRouter()
   const basePath = useDashboardBasePath()
   const isBranchAdmin = basePath.includes("branch-admin")
-  const isPartnerAdmin = basePath.includes("partner-admin") || basePath.startsWith("/partners/")
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [showSendCredentialsPopup, setShowSendCredentialsPopup] = useState(false)
@@ -55,9 +153,10 @@ export default function CoachesListPage() {
   const [coaches, setCoaches] = useState<Coach[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-// Pagination state
-const [currentPage, setCurrentPage] = useState(1)
-const itemsPerPage = 15
+  const [currentPage, setCurrentPage] = useState(1)
+  const [branchFilter, setBranchFilter] = useState("all")
+  const [designationFilter, setDesignationFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
 
   const authToken = () => {
     if (isBranchAdmin) {
@@ -81,7 +180,11 @@ const itemsPerPage = 15
         // Branch admin: the API keeps coaches whose branch_id is a branch this
         // login manages (branches.manager_id). Do not send branch_assignment.branch_id;
         // that field can still point at a different branch.
-        const coachesData = await fetchAllCoaches(token, { activeOnly: false })
+        // In-house coaches only — online enrollments live under Online Coaches
+        const coachesData = await fetchAllCoaches(token, {
+          activeOnly: false,
+          registrationSource: "admin",
+        })
         setCoaches(coachesData)
 
       } catch (error) {
@@ -204,272 +307,412 @@ const itemsPerPage = 15
     }
   }
 
-  // Enhanced search functionality - filter coaches based on search term
-  const filteredCoaches = coaches.filter((coach) => {
-    if (!searchTerm) return true
+  const branchOptions = useMemo(() => {
+    const names = coaches
+      .map((c) => getCoachBranchName(c as Coach & Record<string, unknown>))
+      .filter((n) => n && n !== "—")
+    return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b))
+  }, [coaches])
 
-    const searchLower = searchTerm.toLowerCase()
-    return (
-      coach.full_name?.toLowerCase().includes(searchLower) ||
-      coach.id?.toLowerCase().includes(searchLower) ||
-      coach.contact_info?.email?.toLowerCase().includes(searchLower) ||
-      coach.contact_info?.phone?.toLowerCase().includes(searchLower) ||
-      coach.personal_info?.gender?.toLowerCase().includes(searchLower) ||
-      coach.professional_info?.designation_id?.toLowerCase().includes(searchLower) ||
-      coach.areas_of_expertise?.some(expertise =>
-        expertise.toLowerCase().includes(searchLower)
+  const designationOptions = useMemo(() => {
+    const values = coaches
+      .map((c) => c.professional_info?.designation_id || "")
+      .filter(Boolean)
+    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b))
+  }, [coaches])
+
+  const kpis = useMemo(() => {
+    const total = coaches.length
+    const active = coaches.filter((c) => c.is_active).length
+    const inactive = total - active
+    return { total, active, inactive }
+  }, [coaches])
+
+  const filteredCoaches = useMemo(() => {
+    const searchLower = searchTerm.trim().toLowerCase()
+    return coaches.filter((coach) => {
+      if (branchFilter !== "all") {
+        const branch = getCoachBranchName(coach as Coach & Record<string, unknown>)
+        if (branch !== branchFilter) return false
+      }
+      if (designationFilter !== "all") {
+        const d = coach.professional_info?.designation_id || ""
+        if (d !== designationFilter) return false
+      }
+      if (statusFilter === "active" && !coach.is_active) return false
+      if (statusFilter === "inactive" && coach.is_active) return false
+      if (!searchLower) return true
+      return (
+        coach.full_name?.toLowerCase().includes(searchLower) ||
+        coach.id?.toLowerCase().includes(searchLower) ||
+        coach.contact_info?.email?.toLowerCase().includes(searchLower) ||
+        coach.contact_info?.phone?.toLowerCase().includes(searchLower) ||
+        coach.professional_info?.designation_id?.toLowerCase().includes(searchLower) ||
+        coach.areas_of_expertise?.some((expertise) =>
+          expertise.toLowerCase().includes(searchLower)
+        )
       )
-    )
-  })
+    })
+  }, [coaches, searchTerm, branchFilter, designationFilter, statusFilter])
 
-    // Calculate total pages
-const totalPages = Math.ceil(filteredCoaches.length / itemsPerPage)
+  const totalPages = Math.ceil(filteredCoaches.length / ITEMS_PER_PAGE) || 1
   useEffect(() => {
     setCurrentPage((page) => Math.min(page, Math.max(totalPages, 1)))
   }, [totalPages])
-  // Slice coaches for current page
-const paginatedCoaches = filteredCoaches.slice(
-  (currentPage - 1) * itemsPerPage,
-  currentPage * itemsPerPage
-)
+
+  const paginatedCoaches = filteredCoaches.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  )
+
+  const showingFrom =
+    filteredCoaches.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1
+  const showingTo = Math.min(currentPage * ITEMS_PER_PAGE, filteredCoaches.length)
+
+  const resetFilters = () => {
+    setSearchTerm("")
+    setBranchFilter("all")
+    setDesignationFilter("all")
+    setStatusFilter("all")
+    setCurrentPage(1)
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <AdminPageShell>
+      <AdminPageHeader
+        icon={Users}
+        title="Coach List"
+        subtitle="Manage and monitor in-house coaches across branches."
+        actions={
+          <Button
+            type="button"
+            onClick={() => router.push(`${basePath}/add-coach`)}
+            className={adminPrimaryBtnClass}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Coach
+          </Button>
+        }
+      />
 
-      <main className="w-full p-4 lg:px-8 lg:py-6">
-        {/* Page Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-[#4F5077]">Coach list</h1>
-          <div className="flex space-x-3">
-            {!isBranchAdmin && !isPartnerAdmin && (
-              <Button
-                onClick={() => router.push(`${basePath}/coach-approvals`)}
-                variant="outline"
-                className="border-[#4F5077] text-[#4F5077] px-4 py-2 rounded-lg font-medium"
-              >
-                Coach Approvals
-              </Button>
-            )}
-            <Button
-              onClick={() => router.push(`${basePath}/coach-availability`)}
-              variant="outline"
-              className="border-[#4F5077] text-[#4F5077] px-4 py-2 rounded-lg font-medium"
-            >
-              Availability
-            </Button>
-            <Button
-              onClick={() => router.push(`${basePath}/add-coach`)}
-              className="bg-yellow-400 hover:bg-yellow-500 text-white px-6 py-2 rounded-lg font-medium"
-            >
-              + Add Coach
-            </Button>
-          </div>
-        </div>
+      <AdminKpiGrid cols={3}>
+        <AdminKpiCard
+          icon={Users}
+          label="Total Coaches"
+          value={loading ? "—" : kpis.total}
+          tone="blue"
+        />
+        <AdminKpiCard
+          icon={UserCheck}
+          label="Active"
+          value={loading ? "—" : kpis.active}
+          tone="green"
+        />
+        <AdminKpiCard
+          icon={UserX}
+          label="Inactive"
+          value={loading ? "—" : kpis.inactive}
+          tone="purple"
+        />
+      </AdminKpiGrid>
 
-        {/* Search Bar */}
-        <div className="mb-6">
-          <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-black w-4 h-4" />
+      <AdminFilterBar>
+        <div className="relative min-w-0 flex-1 lg:min-w-[260px]">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7A99]" />
           <Input
-            placeholder="Search by name, ID, location"
+            placeholder="Search by coach name, phone or email…"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+            onChange={(e) => {
+              setSearchTerm(e.target.value)
+              setCurrentPage(1)
+            }}
+            className="h-11 rounded-xl border-gray-200 pl-10"
           />
-          </div>
         </div>
+        <Select
+          value={branchFilter}
+          onValueChange={(v) => {
+            setBranchFilter(v)
+            setCurrentPage(1)
+          }}
+        >
+          <SelectTrigger className="h-11 w-full rounded-xl border-gray-200 sm:w-[170px]">
+            <span className="flex items-center gap-2 truncate">
+              <Building2 className="h-4 w-4 shrink-0 text-[#6B7A99]" />
+              <SelectValue placeholder="All Branches" />
+            </span>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Branches</SelectItem>
+            {branchOptions.map((b) => (
+              <SelectItem key={b} value={b}>
+                {b}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={designationFilter}
+          onValueChange={(v) => {
+            setDesignationFilter(v)
+            setCurrentPage(1)
+          }}
+        >
+          <SelectTrigger className="h-11 w-full rounded-xl border-gray-200 sm:w-[180px]">
+            <span className="flex items-center gap-2 truncate">
+              <Briefcase className="h-4 w-4 shrink-0 text-[#6B7A99]" />
+              <SelectValue placeholder="All Designations" />
+            </span>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Designations</SelectItem>
+            {designationOptions.map((d) => (
+              <SelectItem key={d} value={d}>
+                {d}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={statusFilter}
+          onValueChange={(v) => {
+            setStatusFilter(v)
+            setCurrentPage(1)
+          }}
+        >
+          <SelectTrigger className="h-11 w-full rounded-xl border-gray-200 sm:w-[150px]">
+            <span className="flex items-center gap-2 truncate">
+              <Target className="h-4 w-4 shrink-0 text-[#6B7A99]" />
+              <SelectValue placeholder="All Status" />
+            </span>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="inactive">Inactive</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button type="button" variant="outline" className="btn-admin-outline h-11" onClick={resetFilters}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Reset
+        </Button>
+      </AdminFilterBar>
 
-        {/* Coaches Table */}
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="text-left py-4 px-4 font-medium text-[#6B7A99] text-sm">Coach Name</th>
-                    <th className="text-left py-4 px-4 font-medium text-[#6B7A99] text-sm">Designation</th>
-                    <th className="text-left py-4 px-4 font-medium text-[#6B7A99] text-sm">Phone Number</th>
-                    <th className="text-left py-4 px-4 font-medium text-[#6B7A99] text-sm">Approval</th>
-                    <th className="text-center py-4 px-4 font-medium text-[#6B7A99] text-sm">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <tr>
-                      <td colSpan={5} className="py-8 px-6 text-center text-gray-500">
-                        Loading coaches...
-                      </td>
-                    </tr>
-                  ) : error ? (
-                    <tr>
-                      <td colSpan={5} className="py-8 px-6 text-center text-red-500">
-                        Error: {error}
-                      </td>
-                    </tr>
-                  ) : filteredCoaches.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="py-8 px-6 text-center text-gray-500">
-                        {searchTerm ? `No coaches found matching "${searchTerm}"` : 'No coaches found'}
-                      </td>
-                    </tr>
-                  ) : (
-                    paginatedCoaches.map((coach) => (
-                      <tr key={coach.id} className="border-b hover:bg-gray-50 text-[#6B7A99] text-xs">
-                        <td className="py-4 px-6 ">{coach.full_name}</td>
-                        <td className="py-4 px-6">{coach.professional_info.designation_id}</td>
-                        <td className="py-4 px-6">{coach.contact_info.phone}</td>
-                        <td className="py-4 px-6">
-                          <Badge
-                            variant="outline"
-                            className={
-                              (coach.approval_status || "approved") === "pending"
-                                ? "bg-amber-50 text-amber-900 border-amber-200"
-                                : (coach.approval_status || "approved") === "rejected"
-                                  ? "bg-red-50 text-red-800 border-red-200"
-                                  : "bg-green-50 text-green-800 border-green-200"
-                            }
-                          >
-                            {(coach.approval_status || "approved").replace(/^\w/, (c) =>
-                              c.toUpperCase()
-                            )}
-                          </Badge>
-                        </td>
-                        <td className="py-4 px-6">
-                          <div className="flex items-center justify-center space-x-2">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleViewClick(coach.id)}
-                                  className="p-1 h-8 w-8"
-                                  aria-label="View Details"
-                                >
-                                  <Eye className="w-4 h-4 text-blue-600" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>View Details</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleEditClick(coach.id)}
-                                  className="p-1 h-8 w-8"
-                                  aria-label="Edit Coach"
-                                >
-                                  <Edit className="w-4 h-4 text-gray-600" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Edit Coach</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleSendCredentialsClick(coach)}
-                                  className="p-1 h-8 w-8"
-                                  aria-label="Send Credentials via Email"
-                                >
-                                  <Mail className="w-4 h-4 text-green-600" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Send Credentials via Email</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => toggleCoachStatus(coach.id)}
-                                  className="p-1 h-8 w-8"
-                                  aria-label={coach.is_active ? "Deactivate Coach" : "Activate Coach"}
-                                >
-                                  {coach.is_active ? (
-                                    <ToggleRight className="w-4 h-4 text-green-600" />
-                                  ) : (
-                                    <ToggleLeft className="w-4 h-4 text-gray-400" />
-                                  )}
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                {coach.is_active ? "Deactivate Coach" : "Activate Coach"}
-                              </TooltipContent>
-                            </Tooltip>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-           {/* Pagination — keep Prev/Next pinned so they stay visible when page numbers wrap */}
-            {totalPages > 0 && (
-              <div className="flex flex-wrap items-center justify-center gap-2 border-t px-3 py-4">
+      <AdminTableShell
+        footer={
+          totalPages > 0 ? (
+            <>
+              <span>
+                Showing {showingFrom} – {showingTo} of {filteredCoaches.length} coach
+                {filteredCoaches.length === 1 ? "" : "es"}
+              </span>
+              <div className="admin-pagination flex flex-wrap items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="shrink-0 bg-gray-200 text-gray-800 hover:bg-gray-300 hover:text-gray-900"
                   disabled={currentPage <= 1}
                   onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                 >
                   Previous
                 </Button>
-
-                <div className="flex max-w-full flex-wrap items-center justify-center gap-2">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <Button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={
-                        currentPage === page
-                          ? "bg-yellow-400 text-black hover:bg-yellow-500"
-                          : "bg-transparent text-gray-800"
-                      }
-                      variant={currentPage === page ? "default" : "outline"}
-                      size="sm"
-                    >
-                      {page}
-                    </Button>
-                  ))}
-                </div>
-
+                {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i + 1).map((page) => (
+                  <Button
+                    key={page}
+                    size="sm"
+                    variant={currentPage === page ? "default" : "outline"}
+                    className={currentPage === page ? adminPrimaryBtnClass : undefined}
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </Button>
+                ))}
                 <Button
                   variant="outline"
                   size="sm"
-                  className="shrink-0 bg-gray-200 text-gray-800 hover:bg-gray-300 hover:text-gray-900"
                   disabled={currentPage >= totalPages}
                   onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
                 >
                   Next
                 </Button>
               </div>
+            </>
+          ) : undefined
+        }
+      >
+        <table className="min-w-[960px]">
+          <thead>
+            <tr>
+              <th>Coach</th>
+              <th>Designation</th>
+              <th>Branch</th>
+              <th>Phone</th>
+              <th>Status</th>
+              <th className="text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={6} className="py-12 text-center text-[#6B7A99]">
+                  <Loader2 className="mr-2 inline h-5 w-5 animate-spin" />
+                  Loading coaches…
+                </td>
+              </tr>
+            ) : error ? (
+              <tr>
+                <td colSpan={6} className="py-12 text-center text-red-600">
+                  {error}
+                </td>
+              </tr>
+            ) : filteredCoaches.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="py-12 text-center text-[#6B7A99]">
+                  {searchTerm || branchFilter !== "all" || designationFilter !== "all" || statusFilter !== "all"
+                    ? "No coaches match your filters."
+                    : "No coaches found."}
+                </td>
+              </tr>
+            ) : (
+              paginatedCoaches.map((coach) => {
+                const designation = coach.professional_info?.designation_id || "—"
+                const branch = getCoachBranchName(coach as Coach & Record<string, unknown>)
+                const profileSrc = coach.profile_image_url
+                  ? resolvePublicAssetUrl(coach.profile_image_url)
+                  : ""
+                return (
+                  <tr key={coach.id}>
+                    <td>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-10 w-10 border border-gray-100">
+                          {profileSrc ? (
+                            <AvatarImage src={profileSrc} alt={coach.full_name} />
+                          ) : null}
+                          <AvatarFallback
+                            className={`text-xs font-semibold ${avatarToneClass(coach.full_name)}`}
+                          >
+                            {coachInitials(coach.full_name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-[#4F5077]">{coach.full_name}</p>
+                          <p className="truncate text-xs text-[#6B7A99]">{coach.contact_info?.email}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span
+                        className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium ${designationPillClass(designation)}`}
+                      >
+                        {designation}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="flex items-center gap-1.5 text-sm text-[#4F5077]">
+                        <Building2 className="h-4 w-4 shrink-0 text-[#6B7A99]" />
+                        <span className="truncate">{branch}</span>
+                      </span>
+                    </td>
+                    <td>
+                      <span className="flex items-center gap-1.5 text-sm text-[#4F5077]">
+                        <Phone className="h-4 w-4 shrink-0 text-[#6B7A99]" />
+                        {formatCoachPhone(coach)}
+                      </span>
+                    </td>
+                    <td>
+                      <AdminStatusPill status={coach.is_active ? "active" : "inactive"}>
+                        {coach.is_active ? "Active" : "Inactive"}
+                      </AdminStatusPill>
+                    </td>
+                    <td>
+                      <div className="flex items-center justify-center gap-0.5">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewClick(coach.id)}
+                              className="h-9 w-9 rounded-lg p-0 text-[#6B7A99] hover:text-[#4F5077]"
+                              aria-label="View coach"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>View Details</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditClick(coach.id)}
+                              className="h-9 w-9 rounded-lg p-0 text-[#6B7A99] hover:text-[#4F5077]"
+                              aria-label="Edit coach"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Edit Coach</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleSendCredentialsClick(coach)}
+                              className="h-9 w-9 rounded-lg p-0 text-[#6B7A99] hover:text-[#4F5077]"
+                              aria-label="Send credentials"
+                            >
+                              <Mail className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Send Credentials</TooltipContent>
+                        </Tooltip>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-9 w-9 rounded-lg p-0 text-[#6B7A99]"
+                              aria-label="More actions"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => toggleCoachStatus(coach.id)}>
+                              {coach.is_active ? "Deactivate coach" : "Activate coach"}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })
             )}
+          </tbody>
+        </table>
+      </AdminTableShell>
 
-          </CardContent>
-        </Card>
-      </main>
-
-      {/* Send Credentials Confirmation Popup */}
-      {showSendCredentialsPopup && selectedCoachForCredentials && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+      {showSendCredentialsPopup && selectedCoachForCredentials ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-lg">
             <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Mail className="w-8 h-8 text-green-600" />
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+                <Mail className="h-8 w-8 text-green-600" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Send Login Credentials</h3>
-              <p className="text-gray-600 mb-2">
+              <h3 className="mb-2 text-lg font-semibold text-[#2F3158]">Send Login Credentials</h3>
+              <p className="mb-2 text-[#6B7A99]">
                 Send login credentials to <strong>{selectedCoachForCredentials.full_name}</strong>?
               </p>
-              <p className="text-sm text-gray-500 mb-6">
+              <p className="mb-6 text-sm text-[#9593A8]">
                 Email will be sent to: <strong>{selectedCoachForCredentials.contact_info.email}</strong>
               </p>
-              <div className="flex space-x-3">
+              <div className="flex gap-3">
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -483,23 +726,23 @@ const paginatedCoaches = filteredCoaches.slice(
                 </Button>
                 <Button
                   onClick={handleSendCredentialsConfirm}
-                  className="bg-green-600 hover:bg-green-700 text-white flex-1"
+                  className={`${adminPrimaryBtnClass} flex-1`}
                   disabled={isSendingCredentials}
                 >
                   {isSendingCredentials ? (
                     <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Sending...
                     </>
                   ) : (
-                    'Send Credentials'
+                    "Send Credentials"
                   )}
                 </Button>
               </div>
             </div>
           </div>
         </div>
-      )}
-    </div>
+      ) : null}
+    </AdminPageShell>
   )
 }

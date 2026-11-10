@@ -65,7 +65,7 @@ export default function PartnersDirectoryPage() {
   return (
     <main className="min-h-screen bg-[#171A26] text-white">
       <section className="relative pt-28 pb-12 px-4">
-        <div className="container mx-auto max-w-7xl">
+        <div className="site-content">
           <p className="text-[#FFB70F] uppercase tracking-[0.2em] text-xs mb-3">
             Collaboration
           </p>
@@ -89,7 +89,7 @@ export default function PartnersDirectoryPage() {
       </section>
 
       <section className="pb-20 px-4">
-        <div className="container mx-auto max-w-7xl">
+        <div className="site-content">
           {loading ? (
             <div className="flex justify-center py-20 text-gray-400">
               <Loader2 className="w-8 h-8 animate-spin text-[#FFB70F]" />

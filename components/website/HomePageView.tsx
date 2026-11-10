@@ -21,6 +21,7 @@ import {
   type ShowcaseAchievementItem,
 } from "@/components/testimonials"
 import { SafeImage, DEFAULT_IMAGE_PLACEHOLDER } from "@/components/ui/safe-image"
+import { LazySection } from "@/components/ui/LazySection"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 /* ---------- Types (mirror server data shape; no API change) ---------- */
 
@@ -254,10 +255,12 @@ export default function HomePageView({
         actions={heroActions}
         media={
           resolvedHeroImage && !heroVideo ? (
-            <img
+            <SafeImage
               src={resolvedHeroImage}
               alt="Hero"
+              resolveUrl={false}
               className="absolute inset-0 w-full h-full object-cover"
+              wrapperClassName="absolute inset-0"
             />
           ) : (
             <video
@@ -276,7 +279,7 @@ export default function HomePageView({
 
       {/* Tagline - scroll reveal */}
       <AnimatedSection variant="fadeSlideUp" className="py-10 md:py-14 bg-[#171A26] relative z-10">
-        <div className="mx-auto w-full max-w-7xl px-4">
+        <div className="site-content px-0 sm:px-1">
           <h1 className="text-center text-white text-xl md:text-2xl lg:text-3xl font-medium">
             {ctaTitle}
           </h1>
@@ -291,7 +294,7 @@ export default function HomePageView({
         id="courses"
         className="py-12 md:py-16 bg-[#171A26] scroll-mt-24 relative z-10"
       >
-        <div className="mx-auto w-full max-w-7xl px-4">
+        <div className="site-content px-0 sm:px-1">
           <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
             <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
             <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">
@@ -309,7 +312,7 @@ export default function HomePageView({
               <ScrollZoomContinuous key={c.id ?? c.name}>
                 <AnimatedCard scrollReveal={false} className="h-full">
                   <div className="mb-4 overflow-hidden rounded-lg aspect-[4/3] bg-gray-800">
-                    <img
+                    <SafeImage
                       src={c.img}
                       alt={c.name}
                       loading="lazy"
@@ -337,7 +340,7 @@ export default function HomePageView({
           id="media"
           className="py-12 md:py-16 bg-[#171A26] scroll-mt-24 relative z-10"
         >
-          <div className="mx-auto w-full max-w-7xl px-4">
+          <div className="site-content px-0 sm:px-1">
             <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
               <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
               {(mediaSectionSubtitle || "").trim() ? (
@@ -384,16 +387,17 @@ export default function HomePageView({
         variant="fadeSlideUp"
         className="py-12 md:py-16 bg-[#171A26] relative z-10"
       >
-        <div className="mx-auto w-full max-w-7xl px-4">
+        <div className="site-content px-0 sm:px-1">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start lg:items-center">
             <div className="overflow-hidden rounded-lg">
-              <img
+              <SafeImage
                 src={
                   aboutImage
                     ? resolveUploadUrl(aboutImage)
                     : "/assets/img/courses/tr_yourself.png"
                 }
                 alt={aboutTitle || "About"}
+                resolveUrl={false}
                 className="w-full h-auto object-cover"
               />
             </div>
@@ -406,43 +410,50 @@ export default function HomePageView({
                     className="max-w-none text-gray-300 space-y-4 leading-relaxed [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-[#FFB70F] [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-[#FFB70F] [&_h3]:text-lg [&_h3]:text-[#FFB70F] [&_p]:text-gray-300 [&_a]:text-[#FFB70F] [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5 [&_strong]:text-white"
                     dangerouslySetInnerHTML={{ __html: safeAboutHtml }}
                   />
-                ) : (
+                ) : physicalBenefits.length || mentalBenefits.length ? (
                   <div className="space-y-6">
-                    <div className="flex gap-4">
-                      <img
-                        src="/assets/img/courses/icon1.png"
-                        alt=""
-                        className="w-12 h-12 flex-shrink-0"
-                      />
-                      <ul className="list-disc list-inside text-gray-300 space-y-2">
-                        {physicalBenefits.map((b) => (
-                          <li key={b}>{b}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div className="flex gap-4 items-center">
-                      <img
-                        src="/assets/img/courses/icon2.png"
-                        alt=""
-                        className="w-12 h-12 flex-shrink-0"
-                      />
-                      <h3 className="text-2xl font-bold text-[#FFB70F]">Mental Benefits</h3>
-                    </div>
-                    <ul className="list-disc list-inside text-gray-300 space-y-2 ml-16">
-                      {mentalBenefits.map((b) => (
-                        <li key={b}>{b}</li>
-                      ))}
-                    </ul>
+                    {physicalBenefits.length > 0 ? (
+                      <div className="flex gap-4">
+                        <img
+                          src="/assets/img/courses/icon1.png"
+                          alt=""
+                          className="w-12 h-12 flex-shrink-0"
+                        />
+                        <ul className="list-disc list-inside text-gray-300 space-y-2">
+                          {physicalBenefits.map((b) => (
+                            <li key={b}>{b}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    {mentalBenefits.length > 0 ? (
+                      <>
+                        <div className="flex gap-4 items-center">
+                          <img
+                            src="/assets/img/courses/icon2.png"
+                            alt=""
+                            className="w-12 h-12 flex-shrink-0"
+                          />
+                          <h3 className="text-2xl font-bold text-[#FFB70F]">Mental Benefits</h3>
+                        </div>
+                        <ul className="list-disc list-inside text-gray-300 space-y-2 ml-16">
+                          {mentalBenefits.map((b) => (
+                            <li key={b}>{b}</li>
+                          ))}
+                        </ul>
+                      </>
+                    ) : null}
                   </div>
-                )}
+                ) : null}
               </div>
           </div>
         </div>
       </AnimatedSection>
 
       {/* Our Expert Masters — up to 8 coaches; desktop 4 / tablet 2 / mobile 1 */}
-      <section className="py-16 md:py-20 bg-[#171A26] relative z-10">
-        <div className="mx-auto w-full max-w-7xl px-4">
+      <LazySection className="py-16 md:py-20 bg-[#171A26] relative z-10" minHeight={420} rootMargin="280px">
+      <section>
+        <div className="site-content px-0 sm:px-1">
           <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
             <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
             <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">Our Members</p>
@@ -502,11 +513,13 @@ export default function HomePageView({
           </AnimatedStaggerGrid>
         </div>
       </section>
+      </LazySection>
 
       {/* Student testimonials (MongoDB marketing) — carousel, max 6 */}
       {testimonialsEnabled && (
-      <section className="py-16 md:py-20 bg-[#171A26] relative z-10">
-        <div className="mx-auto w-full max-w-7xl px-4">
+      <LazySection className="py-16 md:py-20 bg-[#171A26] relative z-10" minHeight={480} rootMargin="280px">
+      <section>
+        <div className="site-content px-0 sm:px-1">
           <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
             <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
             <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">{testimonialsSubtitle}</p>
@@ -556,7 +569,7 @@ export default function HomePageView({
                         className="w-8 h-8 mb-2 opacity-80"
                       />
                       <p className="text-gray-300 text-sm leading-relaxed mb-4 flex-1">
-                        {t.quote || defaultTestimonialQuote}
+                        {t.quote || defaultTestimonialQuote || ""}
                       </p>
                       <h3 className="text-[#FFB70F] font-semibold">{t.name}</h3>
                       {t.achievement?.trim() ? (
@@ -581,11 +594,13 @@ export default function HomePageView({
           )}
         </div>
       </section>
+      </LazySection>
       )}
 
       {/* Student achievements showcase (MongoDB) */}
-      <section className="py-16 md:py-20 bg-[#171A26] relative z-10 border-t border-gray-800/80">
-        <div className="mx-auto w-full max-w-7xl px-4">
+      <LazySection className="py-16 md:py-20 bg-[#171A26] relative z-10 border-t border-gray-800/80" minHeight={400} rootMargin="280px">
+      <section>
+        <div className="site-content px-0 sm:px-1">
           <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
             <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
             <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">Celebrate</p>
@@ -594,24 +609,28 @@ export default function HomePageView({
           {showcaseAchievements.length === 0 ? (
             <p className="text-center text-gray-500 py-12 text-sm">No achievements yet</p>
           ) : (
-            <Carousel className="px-2 md:px-8">
-              {showcaseAchievements.slice(0, 12).map((a, i) => (
-                <ShowcaseAchievementCard key={a.id || i} item={a} />
+            <AnimatedStaggerGrid
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6"
+              staggerDelay={0.08}
+              childClassName="h-full min-w-0"
+            >
+              {showcaseAchievements.slice(0, 9).map((a, i) => (
+                <div key={a.id || i} className="h-full min-w-0 max-w-full">
+                  <ShowcaseAchievementCard item={a} />
+                </div>
               ))}
-            </Carousel>
+            </AnimatedStaggerGrid>
           )}
         </div>
       </section>
+      </LazySection>
 
-      {/* CTA section — scroll reveal, single prominent CTA */}
+      {/* CTA section — only when CMS provides bottom CTA copy */}
+      {bottomCtaTitle?.trim() ? (
       <AnimatedSection variant="fadeSlideUp" className="py-16 md:py-24 bg-[#171A26] relative z-10">
-        <div className="mx-auto w-full max-w-7xl px-4 text-center">
-          <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
-            {bottomCtaTitle || "Start your martial arts journey today"}
-          </h2>
-          <p className="text-gray-400 mb-8">
-            {bottomCtaSubtitle || "Join Rock Martial Arts Academy and train with expert masters in a supportive community."}
-          </p>
+        <div className="site-content px-0 sm:px-1 text-center">
+          <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">{bottomCtaTitle}</h2>
+          {bottomCtaSubtitle ? <p className="text-gray-400 mb-8">{bottomCtaSubtitle}</p> : null}
           {!shouldReduceMotion ? (
             <motion.div
               whileHover={{ scale: 1.05 }}
@@ -635,6 +654,7 @@ export default function HomePageView({
           )}
         </div>
       </AnimatedSection>
+      ) : null}
     </main>
   )
 }

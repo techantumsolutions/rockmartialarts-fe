@@ -17,6 +17,10 @@ export type PartnerOrg = {
   invite_email_sent_at?: string | null
   created_at?: string
   activated_at?: string | null
+  valid_from?: string | null
+  valid_until?: string | null
+  effective_status?: "active" | "expired" | "deactivated" | string
+  feature_permissions?: Record<string, boolean>
 }
 
 export type PartnerOrgCreateBody = {
@@ -120,6 +124,71 @@ class PartnerOrgAPI {
       message?: string
       invite_email_sent?: boolean
       partner?: PartnerOrg
+    }>
+  }
+
+  async updateValidity(
+    partnerOrgId: string,
+    body: { valid_from?: string | null; valid_until?: string | null }
+  ) {
+    const res = await fetch(
+      getBackendApiUrl(`partner-organizations/${encodeURIComponent(partnerOrgId)}/validity`),
+      {
+        method: "PATCH",
+        headers: authHeaders(true),
+        body: JSON.stringify(body),
+      }
+    )
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{ message?: string; partner?: PartnerOrg }>
+  }
+
+  async getFeaturePermissions(partnerOrgId: string) {
+    const res = await fetch(
+      getBackendApiUrl(
+        `partner-organizations/${encodeURIComponent(partnerOrgId)}/feature-permissions`
+      ),
+      { headers: authHeaders(), cache: "no-store" }
+    )
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{
+      partner_org_id: string
+      feature_permissions: Record<string, boolean>
+      partner?: PartnerOrg
+    }>
+  }
+
+  async patchFeaturePermissions(
+    partnerOrgId: string,
+    feature_permissions: Record<string, boolean>
+  ) {
+    const res = await fetch(
+      getBackendApiUrl(
+        `partner-organizations/${encodeURIComponent(partnerOrgId)}/feature-permissions`
+      ),
+      {
+        method: "PATCH",
+        headers: authHeaders(true),
+        body: JSON.stringify({ feature_permissions }),
+      }
+    )
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{
+      message?: string
+      feature_permissions: Record<string, boolean>
+      partner?: PartnerOrg
+    }>
+  }
+
+  async getMyFeaturePermissions() {
+    const res = await fetch(getBackendApiUrl("partner-organizations/me/feature-permissions"), {
+      headers: authHeaders(),
+      cache: "no-store",
+    })
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{
+      partner_org_id: string
+      feature_permissions: Record<string, boolean>
     }>
   }
 

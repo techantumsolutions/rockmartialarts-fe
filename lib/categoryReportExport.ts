@@ -1,8 +1,14 @@
 import { reportsAPI } from "@/lib/reportsAPI"
 
-export type OperationalReportType = "enrollments" | "renewals" | "leads" | "events"
+export type OperationalReportType = "enrollments" | "renewals" | "leads" | "events" | "attendance"
 
-export const OPERATIONAL_REPORT_TYPES: OperationalReportType[] = ["enrollments", "renewals", "leads", "events"]
+export const OPERATIONAL_REPORT_TYPES: OperationalReportType[] = [
+  "enrollments",
+  "renewals",
+  "leads",
+  "events",
+  "attendance",
+]
 
 export function isOperationalReportType(value: string): value is OperationalReportType {
   return (OPERATIONAL_REPORT_TYPES as string[]).includes(value)
@@ -13,7 +19,6 @@ type BranchExportFilters = Record<string, string | undefined>
 type OperationalExportFilters = { branch_id?: string; start_date?: string; end_date?: string }
 
 const PAGE_SIZE = 100 // backend max for /reports/financial and /reports/branches
-const OPERATIONAL_PAGE_SIZE = 1000 // backend max for operational reports
 const MAX_PAGES = 100
 
 const HIDDEN_OPERATIONAL_KEYS = new Set(["_id", "password", "password_hash"])
@@ -71,6 +76,20 @@ const RENEWAL_COLUMN_ORDER = [
   "created_at",
 ]
 
+const ATTENDANCE_COLUMN_ORDER = [
+  "attendance_date",
+  "record_type",
+  "student_name",
+  "course_name",
+  "branch_name",
+  "status",
+  "is_present",
+  "check_in_time",
+  "check_out_time",
+  "method",
+  "notes",
+]
+
 function fileStamp(): string {
   return new Date().toISOString().slice(0, 10)
 }
@@ -93,6 +112,46 @@ async function writeWorkbook(sheetName: string, fileBase: string, columns: strin
   const book = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(book, sheet, sheetName.slice(0, 31))
   XLSX.writeFile(book, `${fileBase}-${fileStamp()}.xlsx`)
+}
+
+function downloadExportContent(data: {
+  content?: string
+  filename?: string
+  content_type?: string
+}) {
+  if (!data.content) {
+    throw new Error("Export returned no file content")
+  }
+  const blob = new Blob([data.content], { type: data.content_type || "text/csv" })
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = url
+  link.download = data.filename || "report.csv"
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  window.URL.revokeObjectURL(url)
+}
+
+async function waitForExportJob(
+  token: string,
+  jobId: string,
+  onStatus?: (status: string, jobId: string) => void
+): Promise<{ row_count?: number; filename?: string }> {
+  const maxAttempts = 90
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const job = await reportsAPI.getExportJob(token, jobId)
+    const status = job.status || "pending"
+    onStatus?.(status, jobId)
+    if (status === "ready") {
+      return { row_count: job.row_count, filename: job.filename }
+    }
+    if (status === "failed") {
+      throw new Error(job.error || "Background export failed")
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+  }
+  throw new Error("Export timed out while waiting for the background job")
 }
 
 /** Columns for an operational report: every top-level field that holds a plain value in at least one row. */
@@ -126,11 +185,17 @@ export function operationalColumns(rows: any[]): string[] {
       presentKeys.has("student_id") ||
       (presentKeys.has("enrollment_date") && presentKeys.has("course_id")))
 
-  const preferredOrder = looksLikeRenewals
-    ? RENEWAL_COLUMN_ORDER
-    : looksLikeEnrollments
-      ? ENROLLMENT_COLUMN_ORDER
-      : null
+  const looksLikeAttendance =
+    presentKeys.has("attendance_date") &&
+    (presentKeys.has("is_present") || presentKeys.has("check_in_time"))
+
+  const preferredOrder = looksLikeAttendance
+    ? ATTENDANCE_COLUMN_ORDER
+    : looksLikeRenewals
+      ? RENEWAL_COLUMN_ORDER
+      : looksLikeEnrollments
+        ? ENROLLMENT_COLUMN_ORDER
+        : null
 
   if (preferredOrder) {
     const ordered: string[] = []
@@ -167,6 +232,12 @@ export function operationalColumnLabel(key: string): string {
     end_date: "End Date",
     next_due_date: "Next Due Date",
     created_at: "Created At",
+    attendance_date: "Date",
+    check_in_time: "Check In",
+    check_out_time: "Check Out",
+    is_present: "Present",
+    record_type: "Type",
+    method: "Method",
   }
   return labels[key] || titleCase(key)
 }
@@ -308,27 +379,29 @@ export async function exportTableReport(
   doc.save(`${fileBase}-${fileStamp()}.pdf`)
 }
 
-/** Downloads every operational row matching the filters. Returns the number of rows exported. */
+/**
+ * M23-S05: server-side operational export (immediate file or async job with audit).
+ */
 export async function exportOperationalReport(
   token: string,
   reportType: OperationalReportType,
-  filters: OperationalExportFilters = {}
+  filters: OperationalExportFilters = {},
+  onStatus?: (status: string, jobId?: string) => void
 ): Promise<number> {
-  const all: any[] = []
-  for (let page = 0; page < MAX_PAGES; page++) {
-    const response = await reportsAPI.getOperationalReports(token, reportType, {
-      ...filters,
-      skip: page * OPERATIONAL_PAGE_SIZE,
-      limit: OPERATIONAL_PAGE_SIZE,
-    })
-    const rows = response.rows || []
-    all.push(...rows)
-    const total = typeof response.total === "number" ? response.total : all.length
-    if (rows.length === 0 || all.length >= total) break
+  onStatus?.("starting")
+  const payload = await reportsAPI.exportOperationalReport(token, reportType, {
+    ...filters,
+    format: "csv",
+  })
+
+  if (payload.async && payload.job_id) {
+    onStatus?.(payload.status || "pending", payload.job_id)
+    const jobMeta = await waitForExportJob(token, payload.job_id, onStatus)
+    await reportsAPI.downloadExportJob(token, payload.job_id, jobMeta.filename)
+    return jobMeta.row_count ?? payload.estimated_rows ?? 0
   }
 
-  const keys = operationalColumns(all)
-  const rows = all.map((row) => keys.map((key) => formatOperationalValue(row?.[key])))
-  await writeWorkbook(`${titleCase(reportType)} Report`, `${reportType}-report`, keys.map(operationalColumnLabel), rows)
-  return rows.length
+  downloadExportContent(payload)
+  onStatus?.("ready")
+  return payload.row_count ?? 0
 }

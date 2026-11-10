@@ -530,7 +530,7 @@ export default function BranchManagerCategoryReportsPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => alert('Export PDF functionality coming soon!')}
+              onClick={() => alert('PDF export is not available yet.')}
               disabled={loading}
               className="flex items-center gap-2"
             >
@@ -540,7 +540,7 @@ export default function BranchManagerCategoryReportsPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => alert('Export Excel functionality coming soon!')}
+              onClick={() => alert('Excel export is not available yet.')}
               disabled={loading}
               className="flex items-center gap-2"
             >

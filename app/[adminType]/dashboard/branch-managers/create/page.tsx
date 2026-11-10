@@ -16,6 +16,13 @@ import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
 import { dropdownAPI } from "@/lib/dropdownAPI"
+import {
+  DashboardFormPageHeader,
+  DashboardSectionHeading,
+  cardContentClass,
+  dashboardFormCardClass,
+  primaryButtonClass,
+} from "@/components/dashboard/dashboardFormStyles"
 
 // Interface definitions for API data
 interface Branch {
@@ -178,49 +185,16 @@ export default function CreateBranchManagerPage() {
       try {
         setIsLoadingBranches(true)
 
-        // Get authentication token
-        let token = TokenManager.getToken()
-
-        // If no token, try to get one using superadmin credentials for testing
+        const token = TokenManager.getToken()
         if (!token) {
-          console.log('No token found, attempting to get superadmin token...')
-          try {
-            const loginResponse = await fetch(getBackendApiUrl('superadmin/login'), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                email: "pittisunilkumar3@gmail.com",
-                password: "StrongPassword@123"
-              })
-            })
-
-            if (loginResponse.ok) {
-              const loginData = await loginResponse.json()
-              console.log('✅ Got superadmin token for branches')
-
-              // Store the token using TokenManager
-              TokenManager.storeAuthData(loginData)
-              token = TokenManager.getToken()
-            } else {
-              console.error('Failed to get superadmin token:', loginResponse.statusText)
-              toast({
-                title: "Authentication Error",
-                description: "Unable to authenticate. Please login manually.",
-                variant: "destructive",
-              })
-              setIsLoadingBranches(false)
-              return
-            }
-          } catch (error) {
-            console.error('Error getting superadmin token:', error)
-            toast({
-              title: "Authentication Error",
-              description: "Please login to access branch data.",
-              variant: "destructive",
-            })
-            setIsLoadingBranches(false)
-            return
-          }
+          toast({
+            title: "Authentication Error",
+            description: "Please login to continue",
+            variant: "destructive",
+          })
+          router.push("/login")
+          setIsLoadingBranches(false)
+          return
         }
 
         // Call real backend API
@@ -482,35 +456,23 @@ export default function CreateBranchManagerPage() {
 
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#F5F6FA]">
 
-      <main className="w-full py-4 px-4 lg:px-8">
-        {/* Header with Back Button */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="ghost"
-              onClick={() => router.push(`${basePath}/branch-managers`)}
-              className="flex items-center space-x-2 hover:bg-gray-100"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="text-[#4F5077]">Back to Branch Managers</span>
-            </Button>
-            <div className="w-px h-6 bg-gray-300"></div>
-            <h1 className="text-2xl font-bold text-[#4F5077]">Add New Branch Manager</h1>
-          </div>
-        </div>
+      <main className="w-full py-6 px-4 lg:px-8 xl:px-10">
+        <DashboardFormPageHeader
+          title="Add New Branch Manager"
+          subtitle="Create an account and profile for a branch manager"
+          backLabel="Back to Branch Managers"
+          onBack={() => router.push(`${basePath}/branch-managers`)}
+        />
 
         <form onSubmit={handleSubmit} className="space-y-6 ">
           {/* Personal Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-
-                <span className="text-[#4F5077]">Personal Information</span>
-              </CardTitle>
+          <Card className={dashboardFormCardClass}>
+            <CardHeader className="pb-2">
+              <DashboardSectionHeading icon={User} title="Personal Information" tone="violet" />
             </CardHeader>
-            <CardContent className="space-y-4 text-[#7D8592]">
+            <CardContent className={cardContentClass}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">First Name *</Label>
@@ -695,14 +657,11 @@ export default function CreateBranchManagerPage() {
 
 
           {/* Professional Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-
-                <span className="text-[#4F5077]">Professional Information</span>
-              </CardTitle>
+          <Card className={dashboardFormCardClass}>
+            <CardHeader className="pb-2">
+              <DashboardSectionHeading icon={Building} title="Professional Information" tone="amber" />
             </CardHeader>
-            <CardContent className="space-y-4 text-[#7D8592]">
+            <CardContent className={cardContentClass}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="experience">Experience</Label>
@@ -762,13 +721,11 @@ export default function CreateBranchManagerPage() {
 
 
           {/* Emergency Contact */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <span className="text-[#4F5077]">Emergency Contact</span>
-              </CardTitle>
+          <Card className={dashboardFormCardClass}>
+            <CardHeader className="pb-2">
+              <DashboardSectionHeading icon={Phone} title="Emergency Contact" tone="rose" />
             </CardHeader>
-            <CardContent className="space-y-4 text-[#7D8592]">
+            <CardContent className={cardContentClass}>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="emergencyContactName">Contact Name</Label>
@@ -823,11 +780,11 @@ export default function CreateBranchManagerPage() {
           </Card>
 
           {/* Additional Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-[#4F5077]">Additional Information</CardTitle>
+          <Card className={dashboardFormCardClass}>
+            <CardHeader className="pb-2">
+              <DashboardSectionHeading icon={MapPin} title="Additional Information" tone="emerald" />
             </CardHeader>
-            <CardContent className="space-y-4 text-[#7D8592]">
+            <CardContent className={cardContentClass}>
               <div className="space-y-2">
                 <Label htmlFor="notes">Additional Notes</Label>
                 <Textarea
@@ -853,7 +810,7 @@ export default function CreateBranchManagerPage() {
             </Button>
             <Button
               type="submit"
-              className="bg-yellow-400 hover:bg-yellow-500 text-white"
+              className={primaryButtonClass}
               disabled={isSubmitting}
             >
               {isSubmitting ? (

@@ -1379,8 +1379,10 @@ export default function CMSPage() {
               </div>
               <div className="flex items-center justify-between gap-4 rounded-lg border px-3 py-2">
                 <div>
-                  <Label htmlFor="popup-skip">Skip for now</Label>
-                  <p className="text-xs text-muted-foreground">When off, the skip link is hidden and the visitor must complete the form.</p>
+                  <Label htmlFor="popup-skip">Allow Skip</Label>
+                  <p className="text-xs text-muted-foreground">
+                    When on, visitors can skip the popup and browse without mobile OTP. When off, OTP verification is required before website access.
+                  </p>
                 </div>
                 <Switch
                   id="popup-skip"
@@ -1388,6 +1390,15 @@ export default function CMSPage() {
                   onCheckedChange={(v) => patchPopupForm({ skip_enabled: v })}
                 />
               </div>
+              {!popupForm.skip_enabled ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  Skip is currently disabled. Visitors must verify mobile OTP before website access.
+                </div>
+              ) : (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+                  Skip is enabled. Visitors can dismiss the popup without verifying OTP.
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

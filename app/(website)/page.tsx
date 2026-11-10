@@ -12,32 +12,6 @@ export const metadata = {
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
-/* ---------- static fallback only when API fails (e.g. backend down) ---------- */
-const staticClassesFallback = [
-  { name: "Shaolin Kung Fu", img: "/assets/img/courses/choose_img1.png", href: "/courses" },
-  { name: "Taekwondo", img: "/assets/img/courses/choose_img2.png", href: "/courses" },
-  { name: "Kick Boxing", img: "/assets/img/courses/choose_img3.png", href: "/courses" },
-  { name: "Kuchipudi", img: "/assets/img/courses/choose_img4.png", href: "/courses" },
-]
-
-const physicalBenefits = [
-  "Improved Physical Fitness",
-  "Cardiovascular Health",
-  "Weight Management",
-  "Self-Defense Skills",
-]
-
-const mentalBenefits = [
-  "Enhanced Focus and Concentration",
-  "Increased Self-Confidence",
-  "Stress Reduction",
-  "Improved Discipline and Self-Control",
-]
-
-const defaultTestimonialQuote =
-  "Kungfu at ROCK has improved my physical and mental strength, stamina, and speed. Self-defense skills have given me confidence to travel alone fearlessly. It's a life skill that I highly recommend for discipline, self-esteem, and fitness. Thank you ROCK team for the support."
-
-
 /* ---------- fetch CMS content at build / request time ---------- */
 /* Reads from FastAPI (same DB admin CMS writes to). Site-origin is fallback only. */
 
@@ -295,7 +269,6 @@ export default async function HomePage() {
   const homepage = cms?.homepage || {}
   const footer = cms?.footer || {}
 
-  /* Real courses from API when available; mock only when API request failed (backend down) */
   /* All active super-admin courses — newest last so existing cards keep their place */
   const activeCourses = [...apiCourses]
     .filter((c: any) => c.settings?.active !== false && c.enabled !== false)
@@ -314,7 +287,7 @@ export default async function HomePage() {
         }))
       : fromApi
         ? [{ id: "explore", name: "Explore our courses", img: "/assets/img/courses/choose_img1.png", href: "/courses" }]
-        : staticClassesFallback.map((c, i) => ({ ...c, id: `fallback-${i}` }))
+        : []
 
   /* Hero content from CMS — no hardcoded title/CTA fallbacks; show only when set in admin */
   const heroTitle = (homepage.hero_title || "").trim()
@@ -384,11 +357,19 @@ export default async function HomePage() {
       testimonialsSubtitle={testimonialsSubtitle}
       testimonialsEnabled={testimonialsEnabled}
       classCards={classCards}
-      physicalBenefits={physicalBenefits}
-      mentalBenefits={mentalBenefits}
+      physicalBenefits={
+        Array.isArray(homepage.physical_benefits)
+          ? homepage.physical_benefits.filter((x: any) => String(x || "").trim())
+          : []
+      }
+      mentalBenefits={
+        Array.isArray(homepage.mental_benefits)
+          ? homepage.mental_benefits.filter((x: any) => String(x || "").trim())
+          : []
+      }
       trainers={trainers}
       testimonials={testimonials}
-      defaultTestimonialQuote={defaultTestimonialQuote}
+      defaultTestimonialQuote={(homepage.default_testimonial_quote || "").trim()}
       showcaseTestimonials={showcaseTestimonials}
       showcaseAchievements={showcaseAchievements}
     />

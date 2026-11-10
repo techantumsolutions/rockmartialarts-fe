@@ -126,7 +126,7 @@ export default function CategoryLandingPage() {
         style={{ backgroundImage: "url(/assets/img/banner.jpg)" }}
       >
         <div className="absolute inset-0 bg-black/60" />
-        <div className="container relative z-10 mx-auto px-4 max-w-7xl">
+        <div className="site-content relative z-10 px-0 sm:px-1">
           <div className="flex flex-wrap items-center gap-2 text-sm text-gray-300 mb-4">
             <Link href="/courses" className="hover:text-[#FFB70F]">
               Courses
@@ -159,7 +159,7 @@ export default function CategoryLandingPage() {
 
       {hasSubcategories ? (
         <section className="py-10 md:py-12 bg-[#171A26] border-b border-gray-800">
-          <div className="container mx-auto px-4 max-w-7xl">
+          <div className="site-content px-0 sm:px-1">
             <h2 className="text-xl font-semibold text-white mb-4">Subcategories</h2>
             <div className="flex flex-wrap gap-3">
               {subcategories.map((sub) => (
@@ -177,7 +177,7 @@ export default function CategoryLandingPage() {
       ) : null}
 
       <section className="py-16 md:py-20 bg-[#171A26]">
-        <div className="container mx-auto px-4 max-w-7xl">
+        <div className="site-content px-0 sm:px-1">
           {!hasCourses ? (
             <div className="text-center py-16 text-gray-400">
               <p className="mb-4">

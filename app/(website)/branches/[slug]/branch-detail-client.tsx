@@ -281,7 +281,7 @@ export default function BranchDetailPage() {
     <main className="min-h-screen bg-[#171A26]">
       <BranchHero branch={branch} coverImageUrl={coverImage} />
       {isPartnerBranch ? (
-        <div className="container mx-auto px-4 max-w-7xl -mt-4 mb-6 relative z-20">
+        <div className="site-content px-0 sm:px-1 -mt-4 mb-6 relative z-20">
           <Link
             href={partnerLandingHref}
             className="inline-flex items-center gap-2 text-sm text-[#FFB70F] hover:text-white transition-colors"
@@ -292,7 +292,7 @@ export default function BranchDetailPage() {
       ) : null}
       <BranchCourses branch={branch} />
       <section className="py-8 md:py-10 bg-[#171A26] relative z-10">
-        <div className="container mx-auto px-4 max-w-7xl">
+        <div className="site-content px-0 sm:px-1">
           <div className="text-center mb-12" data-aos="fade-up">
             <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
             <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">{testimonialsSubtitle}</p>
@@ -353,7 +353,7 @@ export default function BranchDetailPage() {
       </section>
       {partnerTeam.length > 0 ? (
         <section className="py-8 md:py-10 bg-[#171A26] relative z-10">
-          <div className="container mx-auto px-4 max-w-7xl">
+          <div className="site-content px-0 sm:px-1">
             <div className="text-center mb-12" data-aos="fade-up">
               <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
               <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">

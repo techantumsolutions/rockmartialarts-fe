@@ -1,6 +1,7 @@
 import { getBackendApiUrl } from "./config"
 import { TokenManager } from "./tokenManager"
 import { BranchManagerAuth } from "./branchManagerAuth"
+import { checkCoachAuth } from "./coachAuth"
 
 export type AssessmentPeriodStatus = "draft" | "open" | "closed"
 
@@ -41,7 +42,12 @@ export interface AssessmentRow {
 }
 
 function authHeaders(): HeadersInit {
-  const token = BranchManagerAuth.getToken() || TokenManager.getToken()
+  const coachAuth = checkCoachAuth()
+  const token =
+    BranchManagerAuth.getToken() ||
+    TokenManager.getToken() ||
+    coachAuth.token ||
+    (typeof window !== "undefined" ? localStorage.getItem("access_token") : null)
   return {
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",

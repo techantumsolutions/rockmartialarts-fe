@@ -573,10 +573,12 @@ export default function RegisterPage() {
 
             <Button
               type="submit"
-              disabled={submitting || emailExists || phoneExists || !phoneOtpVerified}
+              loading={submitting}
+              loadingText="Verifying email & phone…"
+              disabled={emailExists || phoneExists || !phoneOtpVerified}
               className="w-full bg-yellow-400 hover:bg-yellow-500 text-[#ffffff] font-bold py-3 px-6 rounded-xl text-[12px] h-12 transition-all duration-200 shadow-md hover:shadow-lg mt-1 disabled:opacity-70"
             >
-              {submitting ? "Verifying email & phone..." : "NEXT STEP"}
+              NEXT STEP
             </Button>
           </form>
 

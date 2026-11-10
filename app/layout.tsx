@@ -10,6 +10,9 @@ import { FixedTopNavWrapper } from '@/components/FixedTopNavWrapper'
 import { TopNavSpacer } from '@/components/TopNavSpacer'
 import { RouteScrollToTop } from '@/components/layout/RouteScrollToTop'
 import { WhatsAppFloatButton } from '@/components/whatsapp-float-button'
+import { PageTransition } from '@/components/PageTransition'
+import { GlobalImageFallback } from '@/components/ui/GlobalImageFallback'
+import { ActionOverlayProvider } from '@/components/providers/ActionOverlayProvider'
 import './globals.css'
 
 // Poppins: preload false — multiple weights each get a preload hint; unused weights spam the console.
@@ -71,10 +74,15 @@ export default function RootLayout({
           <AuthProvider>
             <CMSProvider>
             <RegistrationProvider>
+              <ActionOverlayProvider>
+              <GlobalImageFallback />
               <RouteScrollToTop />
               <FixedTopNavWrapper />
-              <TopNavSpacer>{children}</TopNavSpacer>
+              <TopNavSpacer>
+                <PageTransition>{children}</PageTransition>
+              </TopNavSpacer>
               <WhatsAppFloatButton />
+              </ActionOverlayProvider>
             </RegistrationProvider>
             </CMSProvider>
           </AuthProvider>

@@ -145,6 +145,7 @@ export default function EditCoachPage() {
     courses: [] as string[],
     salary: "",
     joinDate: "",
+    trainingMode: "" as "" | "online" | "offline",
 
     // Emergency Contact
     emergencyContactName: "",
@@ -541,10 +542,14 @@ export default function EditCoachPage() {
           certifications: coach.professional_info?.certifications || '',
           category: coach.professional_info?.category || '',
           subCategory: coach.professional_info?.sub_category || '',
-          branch: coach.branches?.[0]?.id || '',
+          branch: coach.branches?.[0]?.id || coach.branch_id || '',
           courses: coach.courses?.map((c: any) => c.id) || [],
-          salary: coach.salary || '',
-          joinDate: coach.join_date || '',
+          salary: coach.salary || coach.assignment_details?.salary || '',
+          joinDate: coach.join_date || coach.assignment_details?.join_date || '',
+          trainingMode:
+            coach.training_mode === "online" || coach.training_mode === "offline"
+              ? coach.training_mode
+              : "",
           emergencyContactName: coach.emergency_contact?.name || '',
           emergencyContactPhone: coach.emergency_contact?.phone || '',
           emergencyContactRelation: coach.emergency_contact?.relation || '',
@@ -589,49 +594,16 @@ export default function EditCoachPage() {
       //   coachData.professional_info.certifications = uploadedUrls
       // }
 
-      // Get authentication token
-        let token = TokenManager.getToken()
-
-        // If no token, try to get one using superadmin credentials for testing
+      const token = TokenManager.getToken()
         if (!token) {
-          console.log('No token found, attempting to get superadmin token...')
-          try {
-            const loginResponse = await fetch(getBackendApiUrl('superadmin/login'), {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                email: "pittisunilkumar3@gmail.com",
-                password: "StrongPassword@123"
-              })
-            })
-
-            if (loginResponse.ok) {
-              const loginData = await loginResponse.json()
-              console.log('✅ Got superadmin token for branches')
-
-              // Store the token using TokenManager
-              TokenManager.storeAuthData(loginData)
-              token = TokenManager.getToken()
-            } else {
-              console.error('Failed to get superadmin token:', loginResponse.statusText)
-              toast({
-                title: "Authentication Error",
-                description: "Unable to authenticate. Please login manually.",
-                variant: "destructive",
-              })
-              setIsLoadingBranches(false)
-              return
-            }
-          } catch (error) {
-            console.error('Error getting superadmin token:', error)
-            toast({
-              title: "Authentication Error",
-              description: "Please login to access branch data.",
-              variant: "destructive",
-            })
-            setIsLoadingBranches(false)
-            return
-          }
+          toast({
+            title: "Authentication Error",
+            description: "Please login to continue",
+            variant: "destructive",
+          })
+          router.push("/login")
+          setIsLoadingBranches(false)
+          return
         }
 
         // Call real backend API
@@ -903,6 +875,7 @@ export default function EditCoachPage() {
         },
         areas_of_expertise: formData.courses || [],
         branch_id: formData.branch || null,  // Include branch assignment
+        training_mode: formData.trainingMode || null,
         assignment_details: {
           courses: formData.courses,  // Include course assignments
           salary: formData.salary ? parseFloat(formData.salary) : null,
@@ -1251,6 +1224,27 @@ export default function EditCoachPage() {
                     </SelectContent>
                   </Select>
                   {errors.experience && <p className="text-red-500 text-sm">{errors.experience}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="trainingMode">Training mode</Label>
+                  <Select
+                    value={formData.trainingMode || undefined}
+                    onValueChange={(value) =>
+                      setFormData({
+                        ...formData,
+                        trainingMode: value as "online" | "offline",
+                      })
+                    }
+                  >
+                    <SelectTrigger id="trainingMode">
+                      <SelectValue placeholder="Online or offline" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="online">Online</SelectItem>
+                      <SelectItem value="offline">Offline (in-person)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 

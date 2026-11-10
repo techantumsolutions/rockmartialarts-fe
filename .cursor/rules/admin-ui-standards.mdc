@@ -1,0 +1,33 @@
+---
+description: Skillora Alpha admin content UI standards — use global shell, do not restyle page-by-page
+globs: app/**/dashboard/**/*.{tsx,ts},components/dashboard/**/*.{tsx,ts},components/coaches/**/*.{tsx,ts},styles/admin-shell.css
+alwaysApply: false
+---
+
+# Admin UI standards (content only)
+
+Ignore top nav / side nav when matching mockups. Style **main content** only.
+
+## Source of truth
+
+- Global CSS: `styles/admin-shell.css` under `[data-admin-shell]`
+- Shared chrome: `components/dashboard/AdminPageShell.tsx`
+- Form utilities: `components/dashboard/dashboardFormStyles.tsx`
+- Layout padding: `DashboardLayout` → `.admin-content-frame` (15px / 20px lg, full width)
+
+## Do
+
+- Prefer CSS tokens / utility classes from admin-shell over one-off page styles
+- Use `AdminPageHeader`, `AdminCard`, `AdminKpiGrid` / `AdminKpiCard`, `AdminFilterBar`, `AdminTableShell`, `AdminStatusPill`, `AdminDetailLayout` for new or heavily edited screens
+- Primary actions: yellow `#E1BB33` (`btn-admin-primary` / `Button` default / `primaryButtonClass`)
+- Outline secondary: white + gray border (`btn-admin-outline` / `outlineButtonClass`)
+- Titles `#4F5077`, muted `#6B7A99`, cards white rounded-2xl, fields rounded-xl
+- Keep Coaches (in-house, `registration_source=admin`) separate from Online Coaches (`self`)
+
+## Don't
+
+- Don't restyle every page individually for the same look — extend `admin-shell.css` instead
+- Don't add max-width content wrappers (`max-w-7xl`, `max-w-6xl`, `mx-auto`) — content is full width under `.admin-content-frame`
+- Don't add extra page-level `p-4` / `lg:px-8` — frame already pads 15–20px
+- Don't mix Online Coach CTAs (Approvals / Availability / Subscriptions) into in-house Coaches pages
+- Don't change public/marketing pages (outside `[data-admin-shell]`)

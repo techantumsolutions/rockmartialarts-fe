@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { format } from "date-fns"
+import { format, subDays } from "date-fns"
 import {
   BarChart,
   Bar,
@@ -76,6 +76,12 @@ interface BranchStats {
   attendance_rate: number
 }
 
+interface AttendanceTrendPoint {
+  date: string
+  students: number
+  coaches: number
+}
+
 export default function AttendanceOverviewPage() {
   const router = useRouter()
   
@@ -97,6 +103,7 @@ export default function AttendanceOverviewPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [trendData, setTrendData] = useState<AttendanceTrendPoint[]>([])
 
   // Clear error after timeout
   useEffect(() => {
@@ -111,6 +118,7 @@ export default function AttendanceOverviewPage() {
     try {
       setLoading(true)
       setError(null)
+      setTrendData([])
 
       if (!TokenManager.isAuthenticated()) {
         setError("Authentication required")
@@ -277,6 +285,30 @@ export default function AttendanceOverviewPage() {
       }).filter(branch => branch.total_students > 0 || branch.total_coaches > 0)
 
       setBranchStats(branchStatsData)
+
+      const trendDays = Array.from({ length: 7 }, (_, i) => subDays(selectedDate, 6 - i))
+      const trendResults = await Promise.all(
+        trendDays.map(async (day) => {
+          const dayStr = format(day, "yyyy-MM-dd")
+          try {
+            const trendRes = await fetch(`/api/backend/attendance/stats?date=${dayStr}`, {
+              method: "GET",
+              headers,
+            })
+            if (!trendRes.ok) return null
+            const dayStats = await trendRes.json()
+            return {
+              date: format(day, "MMM d"),
+              students: Number(dayStats.student_attendance_rate) || 0,
+              coaches: Number(dayStats.coach_attendance_rate) || 0,
+            } satisfies AttendanceTrendPoint
+          } catch {
+            return null
+          }
+        })
+      )
+      setTrendData(trendResults.filter((p): p is AttendanceTrendPoint => p !== null))
+
       console.log("✅ Attendance overview data loaded successfully")
 
       // Show helpful message if no data
@@ -307,18 +339,7 @@ export default function AttendanceOverviewPage() {
     { name: 'Coaches Late', value: stats.coach_late_today, fill: '#D97706' }
   ]
 
-  const getTrendData = () => {
-    // Mock trend data - in real app, this would come from API
-    return [
-      { date: '2025-01-01', students: 85, coaches: 95 },
-      { date: '2025-01-02', students: 88, coaches: 92 },
-      { date: '2025-01-03', students: 82, coaches: 98 },
-      { date: '2025-01-04', students: 90, coaches: 94 },
-      { date: '2025-01-05', students: 87, coaches: 96 },
-      { date: '2025-01-06', students: 91, coaches: 93 },
-      { date: '2025-01-07', students: 89, coaches: 97 }
-    ]
-  }
+  const showTrendChart = trendData.length > 0
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -588,42 +609,43 @@ export default function AttendanceOverviewPage() {
             </CardContent>
           </Card>
 
-          {/* Attendance Trends */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <TrendingUp className="h-5 w-5 mr-2" />
-                7-Day Attendance Trend
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={getTrendData()}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Line
-                      type="monotone"
-                      dataKey="students"
-                      stroke="#3B82F6"
-                      strokeWidth={2}
-                      name="Student Attendance %"
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="coaches"
-                      stroke="#10B981"
-                      strokeWidth={2}
-                      name="Coach Attendance %"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
+          {showTrendChart && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <TrendingUp className="h-5 w-5 mr-2" />
+                  7-Day Attendance Trend
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={trendData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis domain={[0, 100]} />
+                      <Tooltip />
+                      <Legend />
+                      <Line
+                        type="monotone"
+                        dataKey="students"
+                        stroke="#3B82F6"
+                        strokeWidth={2}
+                        name="Student Attendance %"
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="coaches"
+                        stroke="#10B981"
+                        strokeWidth={2}
+                        name="Coach Attendance %"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Branch-wise Statistics */}

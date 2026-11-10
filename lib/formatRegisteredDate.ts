@@ -72,3 +72,25 @@ export function formatSessionDateLabelYmd(ymd: string | null | undefined): strin
   if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return ymd || "-"
   return formatRegisteredDateOnly(`${ymd}T00:00:00+05:30`)
 }
+
+/**
+ * Plan / enrollment calendar dates (start, end, due, enrolled).
+ * Uses the YYYY-MM-DD calendar day from the payload so midnight UTC values
+ * do not shift to the previous local day.
+ */
+export function formatPlanCalendarDate(iso: string | null | undefined): string {
+  if (iso == null || iso === "") return "—"
+  const m = String(iso).trim().match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (m) {
+    const y = Number(m[1])
+    const mo = Number(m[2]) - 1
+    const d = Number(m[3])
+    if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) return "—"
+    return new Intl.DateTimeFormat("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }).format(new Date(y, mo, d))
+  }
+  return formatRegisteredDateOnly(iso)
+}

@@ -24,6 +24,12 @@ import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import DashboardHeader from "@/components/dashboard-header"
 import { reportsAPI, ReportFilters, ReportFilterOptions } from "@/lib/reportsAPI"
+import {
+  transformApiData,
+  generateChartData,
+  generateTableData,
+  emptyReportPayload,
+} from "@/lib/individualReportTransforms"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
 
@@ -230,127 +236,13 @@ export default function IndividualReportPage() {
       setReportData(transformedData)
     } catch (error) {
       console.error('Error loading report data:', error)
-
-      // Fallback to mock data if API fails
-      const mockData: ReportPageData = {
-        reportName: report.name,
-        categoryName: category.name,
-        reportData: {
-          summary: {
-            totalRecords: 150,
-            activeRecords: 120,
-            percentage: 80
-          }
-        },
-        chartData: [
-          { name: 'Jan', value: 400 },
-          { name: 'Feb', value: 300 },
-          { name: 'Mar', value: 500 },
-          { name: 'Apr', value: 280 },
-          { name: 'May', value: 390 }
-        ],
-        tableData: [
-          { id: 1, name: 'Sample Data 1', value: 100, status: 'Active' },
-          { id: 2, name: 'Sample Data 2', value: 200, status: 'Inactive' },
-          { id: 3, name: 'Sample Data 3', value: 150, status: 'Active' }
-        ]
-      }
-
-      setReportData(mockData)
-      toast.warning('Using sample data - API connection failed')
+      const message =
+        error instanceof Error ? error.message : 'Failed to load report data'
+      setError(message)
+      setReportData(emptyReportPayload(report.name, category.name))
+      toast.error(message)
     } finally {
       setLoading(false)
-    }
-  }
-
-  // Helper function to transform API data based on category
-  const transformApiData = (apiData: any, categoryId: string) => {
-    switch (categoryId) {
-      case 'student':
-        return {
-          summary: {
-            totalRecords: apiData.student_reports?.enrollment_statistics?.length || 0,
-            activeRecords: apiData.student_reports?.students_by_branch?.reduce((sum: number, branch: any) => sum + branch.total_students, 0) || 0,
-            percentage: 85
-          }
-        }
-      case 'financial':
-        return {
-          summary: {
-            totalRecords: apiData.financial_reports?.total_balance_fees_statement?.total_amount || 0,
-            activeRecords: apiData.financial_reports?.daily_collection_report?.length || 0,
-            percentage: 92
-          }
-        }
-      case 'coach':
-        return {
-          summary: {
-            totalRecords: apiData.coach_reports?.coach_statistics?.length || 0,
-            activeRecords: apiData.coach_reports?.coaches_by_branch?.reduce((sum: number, branch: any) => sum + branch.total_coaches, 0) || 0,
-            percentage: 88
-          }
-        }
-      case 'branch':
-        return {
-          summary: {
-            totalRecords: apiData.branch_reports?.branch_statistics?.length || 0,
-            activeRecords: apiData.branch_reports?.active_branches || 0,
-            percentage: 95
-          }
-        }
-      case 'course':
-        return {
-          summary: {
-            totalRecords: apiData.course_reports?.course_statistics?.length || 0,
-            activeRecords: apiData.course_reports?.active_courses || 0,
-            percentage: 78
-          }
-        }
-      default:
-        return {
-          summary: {
-            totalRecords: 100,
-            activeRecords: 80,
-            percentage: 80
-          }
-        }
-    }
-  }
-
-  // Helper function to generate chart data
-  const generateChartData = (apiData: any, categoryId: string) => {
-    // Generate chart data based on API response and category
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
-    return months.map(month => ({
-      name: month,
-      value: Math.floor(Math.random() * 500) + 100 // Replace with actual data extraction
-    }))
-  }
-
-  // Helper function to generate table data
-  const generateTableData = (apiData: any, categoryId: string) => {
-    // Generate table data based on API response and category
-    switch (categoryId) {
-      case 'student':
-        return apiData.student_reports?.enrollment_statistics?.slice(0, 10).map((item: any, index: number) => ({
-          id: index + 1,
-          name: item.course_info?.title || `Student Record ${index + 1}`,
-          value: item.total_students || 0,
-          status: item.total_students > 0 ? 'Active' : 'Inactive'
-        })) || []
-      case 'financial':
-        return apiData.financial_reports?.daily_collection_report?.slice(0, 10).map((item: any, index: number) => ({
-          id: index + 1,
-          name: `Payment ${index + 1}`,
-          value: item.amount || 0,
-          status: item.status || 'Pending'
-        })) || []
-      default:
-        return [
-          { id: 1, name: 'Sample Data 1', value: 100, status: 'Active' },
-          { id: 2, name: 'Sample Data 2', value: 200, status: 'Inactive' },
-          { id: 3, name: 'Sample Data 3', value: 150, status: 'Active' }
-        ]
     }
   }
 
@@ -387,7 +279,11 @@ export default function IndividualReportPage() {
       toast.success('Report generated successfully!')
     } catch (error) {
       console.error('Error generating report:', error)
-      toast.error('Failed to generate report')
+      const message =
+        error instanceof Error ? error.message : 'Failed to generate report'
+      setError(message)
+      setReportData(emptyReportPayload(report.name, category.name))
+      toast.error(message)
     } finally {
       setLoading(false)
     }
@@ -723,7 +619,13 @@ export default function IndividualReportPage() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {reportData.tableData.map((row) => (
+                      {reportData.tableData.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-6 py-8 text-center text-sm text-gray-500">
+                            No report data available.
+                          </td>
+                        </tr>
+                      ) : reportData.tableData.map((row) => (
                         <tr key={row.id}>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {row.id}

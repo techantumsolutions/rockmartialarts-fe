@@ -140,6 +140,8 @@ class DashboardAPI extends BaseAPI {
     active_only?: boolean
     area_of_expertise?: string
     branch_id?: string
+    /** admin = in-house; self = online enrolled */
+    registration_source?: "admin" | "self"
   }): Promise<CoachesResponse> {
     let endpoint = '/api/coaches'
 

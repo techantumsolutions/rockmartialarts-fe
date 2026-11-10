@@ -194,6 +194,30 @@ export default function StudentPaymentsPage() {
   const [tenurePricesLoading, setTenurePricesLoading] = useState(false)
   const [batchOptions, setBatchOptions] = useState<BatchOption[]>([])
   const [selectedBatchRef, setSelectedBatchRef] = useState("")
+  const [retryPrompt, setRetryPrompt] = useState<{
+    enrollment: StudentEnrollment
+    isRenewal: boolean
+  } | null>(null)
+
+  const isRetryablePaymentStatus = (status: string | null | undefined) => {
+    const s = String(status || "").toLowerCase()
+    return s === "failed" || s === "processing" || s === "pending"
+  }
+
+  const retryCheckoutEnrollment = (enrollment: StudentEnrollment, isRenewal = false) => {
+    setRetryPrompt(null)
+    setError(null)
+    const pendingTotal =
+      Number(enrollment.fee_amount || 0) + Number(enrollment.admission_fee || 0)
+    if (enrollment.duration_id && pendingTotal > 0 && !isRenewal) {
+      void handlePayment(enrollment, false, {
+        months: enrollment.duration_months ?? 1,
+        id: enrollment.duration_id,
+      })
+    } else {
+      openTenureModal(enrollment, isRenewal)
+    }
+  }
 
   useEffect(() => {
     const token = requireStudentSession(router, pathname || "/student-dashboard/payments")
@@ -474,7 +498,9 @@ export default function StudentPaymentsPage() {
       paid: { variant: "default", className: "bg-green-100 text-green-800 border-green-200" },
       pending: { variant: "secondary", className: "bg-yellow-100 text-yellow-800 border-yellow-200" },
       overdue: { variant: "destructive", className: "bg-red-100 text-red-800 border-red-200" },
-      cancelled: { variant: "outline", className: "bg-gray-100 text-gray-800 border-gray-200" }
+      cancelled: { variant: "outline", className: "bg-gray-100 text-gray-800 border-gray-200" },
+      failed: { variant: "destructive", className: "bg-red-100 text-red-800 border-red-200" },
+      processing: { variant: "secondary", className: "bg-blue-100 text-blue-800 border-blue-200" },
     }
     const config = variants[status] || variants.pending
     return (
@@ -705,10 +731,8 @@ export default function StudentPaymentsPage() {
         customerEmail: enrollmentData.student_email,
         customerContact: enrollmentData.student_phone,
         onPaymentFailure: (msg) => {
-          if (preparedCheckoutId) {
-            void cancelPendingStudentCheckout(preparedCheckoutId, token)
-          }
-          setError(msg || "Payment failed, please try again")
+          setRetryPrompt({ enrollment, isRenewal })
+          setError(msg || "Payment did not complete. You can retry payment below.")
           setPaymentProcessingId(null)
           void loadPaymentData(token)
         },
@@ -930,7 +954,27 @@ export default function StudentPaymentsPage() {
         {error && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <span>{error}</span>
+              {retryPrompt ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="shrink-0 bg-white text-red-900 hover:bg-red-50"
+                  onClick={() =>
+                    retryCheckoutEnrollment(retryPrompt.enrollment, retryPrompt.isRenewal)
+                  }
+                  disabled={paymentProcessingId === retryPrompt.enrollment.id}
+                >
+                  {paymentProcessingId === retryPrompt.enrollment.id ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                  )}
+                  Retry payment
+                </Button>
+              ) : null}
+            </AlertDescription>
           </Alert>
         )}
 
@@ -1203,30 +1247,27 @@ export default function StudentPaymentsPage() {
                             </Button>
                           ) : effectivePaymentStatus !== 'paid' ? (
                             <Button 
-                              className="bg-yellow-600 hover:bg-yellow-700 w-full sm:w-auto"
-                              onClick={() => {
-                                const pendingTotal =
-                                  Number(enrollment.fee_amount || 0) +
-                                  Number(enrollment.admission_fee || 0)
-                                // Zero-fee pending rows need a tenure re-quote; direct Pay Now
-                                // hits create-order → Invalid checkout amount / stale 404.
-                                if (enrollment.duration_id && pendingTotal > 0) {
-                                  void handlePayment(enrollment, false, {
-                                    months: enrollment.duration_months ?? 1,
-                                    id: enrollment.duration_id,
-                                  })
-                                } else {
-                                  openTenureModal(enrollment, false)
-                                }
-                              }}
+                              className={
+                                effectivePaymentStatus === "failed"
+                                  ? "bg-red-600 hover:bg-red-700 w-full sm:w-auto"
+                                  : "bg-yellow-600 hover:bg-yellow-700 w-full sm:w-auto"
+                              }
+                              onClick={() => retryCheckoutEnrollment(enrollment, false)}
                               disabled={paymentProcessingId === enrollment.id}
                             >
                               {paymentProcessingId === enrollment.id ? (
                                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              ) : effectivePaymentStatus === "failed" ? (
+                                <RefreshCw className="h-4 w-4 mr-2" />
                               ) : (
                                 <CreditCard className="h-4 w-4 mr-2" />
                               )}
-                              {paymentProcessingId === enrollment.id ? "Processing…" : "Pay Now"}
+                              {paymentProcessingId === enrollment.id
+                                ? "Processing…"
+                                : effectivePaymentStatus === "failed" ||
+                                    effectivePaymentStatus === "processing"
+                                  ? "Retry payment"
+                                  : "Pay Now"}
                             </Button>
                           ) : (
                             <>
@@ -1468,7 +1509,8 @@ export default function StudentPaymentsPage() {
                       <th className="pb-3 pr-4 font-medium whitespace-nowrap">Course</th>
                       <th className="pb-3 pr-8 font-medium text-right whitespace-nowrap">Amount</th>
                       <th className="pb-3 pr-4 pl-2 font-medium whitespace-nowrap">Method</th>
-                      <th className="pb-3 font-medium whitespace-nowrap">Status</th>
+                      <th className="pb-3 pr-4 font-medium whitespace-nowrap">Status</th>
+                      <th className="pb-3 font-medium whitespace-nowrap">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1497,8 +1539,47 @@ export default function StudentPaymentsPage() {
                             </span>
                           </div>
                         </td>
-                        <td className="py-4 whitespace-nowrap">
+                        <td className="py-4 pr-4 whitespace-nowrap">
                           {getStatusBadge(payment.payment_status)}
+                        </td>
+                        <td className="py-4 whitespace-nowrap">
+                          {(() => {
+                            const st = String(payment.payment_status || "").toLowerCase()
+                            const enr =
+                              payment.enrollment_id &&
+                              enrollments.find((e) => e.id === payment.enrollment_id)
+                            if (
+                              (st === "failed" || st === "cancelled" || st === "canceled") &&
+                              enr &&
+                              !String(enr.status || "").toLowerCase().includes("cancel")
+                            ) {
+                              return (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-red-700 border-red-200 hover:bg-red-50"
+                                  onClick={() => retryCheckoutEnrollment(enr, false)}
+                                  disabled={paymentProcessingId === enr.id}
+                                >
+                                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                                  Retry payment
+                                </Button>
+                              )
+                            }
+                            if (isRetryablePaymentStatus(st) && enr) {
+                              return (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => retryCheckoutEnrollment(enr, false)}
+                                  disabled={paymentProcessingId === enr.id}
+                                >
+                                  Retry payment
+                                </Button>
+                              )
+                            }
+                            return <span className="text-muted-foreground text-sm">—</span>
+                          })()}
                         </td>
                       </tr>
                     ))}

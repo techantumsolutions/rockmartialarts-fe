@@ -1,7 +1,13 @@
 "use client"
 
 import { ReactNode, useRef } from "react"
-import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion"
+import {
+  motion,
+  useReducedMotion,
+  useScroll,
+  useSpring,
+  useTransform,
+} from "framer-motion"
 
 interface ScrollZoomContinuousProps {
   children: ReactNode
@@ -9,9 +15,8 @@ interface ScrollZoomContinuousProps {
 }
 
 /**
- * Scroll-linked zoom wrapper. While the element is in the visible area, scale stays 1.
- * As you scroll down and the next section comes into view, this element zooms out to scale 0.
- * Scroll back up and it zooms back in. Use per section, per card, or per column.
+ * Smooth scroll-linked zoom. Stays near full size in view; gently eases
+ * to a modest scale when scrolling past — never shrinks to near-zero.
  */
 export function ScrollZoomContinuous({ children, className = "" }: ScrollZoomContinuousProps) {
   const shouldReduceMotion = useReducedMotion()
@@ -25,20 +30,36 @@ export function ScrollZoomContinuous({ children, className = "" }: ScrollZoomCon
     )
   }
 
+  return <ScrollZoomContinuousMotion refEl={ref} className={className}>{children}</ScrollZoomContinuousMotion>
+}
+
+function ScrollZoomContinuousMotion({
+  children,
+  className,
+  refEl,
+}: {
+  children: ReactNode
+  className: string
+  refEl: React.MutableRefObject<HTMLDivElement | null>
+}) {
   const { scrollYProgress } = useScroll({
-    target: ref,
-    // Start progress when element reaches viewport center (earlier trigger)
-    offset: ["start center", "end start"],
+    target: refEl,
+    offset: ["start end", "end start"],
   })
 
-  // Hold at scale 1 around center, then shrink out as it approaches viewport top.
-  const scale = useTransform(scrollYProgress, [0, 0.2, 1], [1, 1, 0])
-  const opacity = useTransform(scrollYProgress, [0, 0.2, 1], [1, 1, 0])
+  // Enter slightly soft → full at mid-viewport → gentle zoom-out (min ~0.92)
+  const rawScale = useTransform(scrollYProgress, [0, 0.28, 0.55, 1], [0.96, 1, 1, 0.92])
+  const rawOpacity = useTransform(scrollYProgress, [0, 0.2, 0.75, 1], [0.88, 1, 1, 0.94])
+  const scale = useSpring(rawScale, { stiffness: 90, damping: 22, mass: 0.35 })
+  const opacity = useSpring(rawOpacity, { stiffness: 90, damping: 22, mass: 0.35 })
 
   return (
-    <motion.div ref={ref} style={{ scale, opacity }} className={className}>
+    <motion.div
+      ref={refEl}
+      style={{ scale, opacity, transformOrigin: "center center" }}
+      className={className}
+    >
       {children}
     </motion.div>
   )
 }
-

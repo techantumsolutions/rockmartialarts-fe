@@ -157,13 +157,16 @@ export function FixedTopNav() {
   )
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 px-4 py-2 bg-gradient-to-b from-black/70 via-black/30 to-transparent">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+    <header className="fixed top-0 left-0 right-0 z-50 w-full py-2 bg-gradient-to-b from-black/70 via-black/30 to-transparent">
+      <div className="site-content flex items-center justify-between gap-3 px-0 sm:px-1">
         <Link href="/" className="flex-shrink-0">
           <img
             src={navbarLogo}
             alt="Rock Martial Arts Academy"
-            className="h-12 w-auto max-h-14 max-w-[140px] object-contain sm:h-14 sm:max-h-16 sm:max-w-[160px]"
+            data-placeholder="/logo.png"
+            className="h-16 w-auto max-h-[4.5rem] max-w-[200px] object-contain sm:h-[4.75rem] sm:max-h-20 sm:max-w-[240px]"
+            width={240}
+            height={80}
           />
         </Link>
 

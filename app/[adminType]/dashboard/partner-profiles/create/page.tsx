@@ -1,20 +1,60 @@
 "use client"
 
+import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Loader2 } from "lucide-react"
+import {
+  ArrowLeft,
+  Building2,
+  CreditCard,
+  Globe,
+  Loader2,
+  Mail,
+  MapPin,
+  Users,
+  Banknote,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Switch } from "@/components/ui/switch"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { useToast } from "@/hooks/use-toast"
 import { partnerOrgAPI } from "@/lib/partnerOrgAPI"
 import { openRazorpayCheckout } from "@/lib/razorpay"
 import { TokenManager } from "@/lib/tokenManager"
+import { AdminCard, AdminPageHeader, AdminPageShell } from "@/components/dashboard/AdminPageShell"
+import {
+  DashboardSectionHeading,
+  fieldLabel,
+  inputClass,
+  outlineButtonClass,
+  primaryButtonClass,
+} from "@/components/dashboard/dashboardFormStyles"
 
 type PaymentMethod = "online" | "offline"
+
+function FormSection({
+  icon,
+  title,
+  subtitle,
+  tone,
+  children,
+}: {
+  icon: React.ElementType
+  title: string
+  subtitle?: string
+  tone?: "violet" | "blue" | "amber"
+  children: React.ReactNode
+}) {
+  return (
+    <div className="grid gap-6 border-b border-gray-100 py-6 last:border-0 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] lg:gap-10">
+      <DashboardSectionHeading icon={icon} title={title} subtitle={subtitle} tone={tone} />
+      <div className="min-w-0 space-y-4">{children}</div>
+    </div>
+  )
+}
 
 export default function CreatePartnerPage() {
   const router = useRouter()
@@ -26,6 +66,7 @@ export default function CreatePartnerPage() {
   const [phone, setPhone] = useState("")
   const [address, setAddress] = useState("")
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("offline")
+  const [sendInviteEmail, setSendInviteEmail] = useState(true)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -141,141 +182,178 @@ export default function CreatePartnerPage() {
   }
 
   return (
-    <div className="w-full p-4 lg:px-8 lg:py-4 lg:overflow-hidden">
-      <div className="flex items-center gap-3 mb-4 lg:mb-3">
-        <Button
-          type="button"
-          variant="ghost"
-          className="px-2 shrink-0"
-          onClick={() => router.push(`${basePath}/partner-profiles`)}
-        >
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          Back
-        </Button>
-        <div className="min-w-0">
-          <h1 className="text-xl lg:text-2xl font-bold text-[#4F5077]">Create Partner</h1>
-          <p className="text-sm text-muted-foreground truncate lg:whitespace-normal">
-            White-label partner admin — invite email, set password, isolated dashboard.
-          </p>
-        </div>
-      </div>
+    <AdminPageShell>
+      <Button
+        type="button"
+        variant="outline"
+        className={`${outlineButtonClass} mb-2 h-10 w-fit border-0 bg-transparent px-2 shadow-none hover:bg-white`}
+        onClick={() => router.push(`${basePath}/partner-profiles`)}
+      >
+        <ArrowLeft className="mr-2 h-4 w-4" />
+        Back
+      </Button>
 
-      <Card className="lg:max-h-[calc(100dvh-11rem)]">
-        <CardHeader className="pb-2 pt-4 lg:py-3">
-          <CardTitle className="text-base">Partner details</CardTitle>
-        </CardHeader>
-        <CardContent className="pb-4 lg:pb-3">
-          <form className="space-y-3 lg:space-y-3" onSubmit={handleSubmit}>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+      <AdminPageHeader
+        icon={Users}
+        title="Create Partner"
+        subtitle="White-label partner admin — invite email, set password, isolated dashboard."
+      />
+
+      <AdminCard className="p-0 sm:p-0">
+        <form onSubmit={handleSubmit} className="px-5 py-2 sm:px-8 sm:py-4">
+          <FormSection
+            icon={Building2}
+            title="Partner Information"
+            subtitle="Display name and login contact details"
+            tone="violet"
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="partnerName" className={fieldLabel}>
+                Partner Name <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="partnerName"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Academy / partner display name"
+                className={inputClass}
+                required
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="partnerName">Partner Name *</Label>
-                <Input
-                  id="partnerName"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Academy / partner display name"
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="partnerEmail">Email *</Label>
+                <Label htmlFor="partnerEmail" className={fieldLabel}>
+                  Email <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   id="partnerEmail"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="partner@example.com"
+                  className={inputClass}
                   required
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="partnerPhone">Mobile no *</Label>
+                <Label htmlFor="partnerPhone" className={fieldLabel}>
+                  Mobile no <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   id="partnerPhone"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="10-digit mobile"
+                  className={inputClass}
                   required
                 />
               </div>
             </div>
+          </FormSection>
 
+          <FormSection
+            icon={MapPin}
+            title="Contact & Address"
+            subtitle="Partner location and mailing address"
+            tone="blue"
+          >
             <div className="space-y-1.5">
-              <Label htmlFor="partnerAddress">Address *</Label>
+              <Label htmlFor="partnerAddress" className={fieldLabel}>
+                Address <span className="text-red-500">*</span>
+              </Label>
               <Textarea
                 id="partnerAddress"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 placeholder="Full address"
-                rows={2}
-                className="min-h-[64px] lg:min-h-[56px] resize-none"
+                rows={3}
+                className="min-h-[88px] resize-none rounded-xl border-gray-200 bg-white shadow-sm"
                 required
               />
             </div>
+          </FormSection>
 
-            <div className="space-y-1.5">
-              <Label>Payment *</Label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 lg:gap-3">
+          <FormSection
+            icon={CreditCard}
+            title="Payment & Access"
+            subtitle="How onboarding is paid and how the partner is invited"
+            tone="amber"
+          >
+            <div>
+              <Label className={fieldLabel}>Payment <span className="text-red-500">*</span></Label>
+              <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <button
                   type="button"
                   onClick={() => setPaymentMethod("online")}
-                  className={`rounded-lg border px-3 py-2.5 lg:py-2 text-left text-sm transition ${
+                  className={`rounded-xl border px-4 py-3.5 text-left transition ${
                     paymentMethod === "online"
-                      ? "border-amber-400 bg-amber-50"
+                      ? "border-[#E1BB33] bg-[#FFF8E1] ring-1 ring-[#E1BB33]/40"
                       : "border-gray-200 bg-white hover:bg-gray-50"
                   }`}
                 >
-                  <div className="font-medium text-gray-900">Online</div>
-                  <div className="text-xs text-gray-500 mt-0.5">
-                    Razorpay checkout, then create partner
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-[#C9971A]" />
+                    <span className="font-medium text-[#4F5077]">Online</span>
                   </div>
+                  <p className="mt-1.5 text-xs text-[#6B7A99]">Razorpay checkout, then create partner</p>
                 </button>
                 <button
                   type="button"
                   onClick={() => setPaymentMethod("offline")}
-                  className={`rounded-lg border px-3 py-2.5 lg:py-2 text-left text-sm transition ${
+                  className={`rounded-xl border px-4 py-3.5 text-left transition ${
                     paymentMethod === "offline"
-                      ? "border-amber-400 bg-amber-50"
+                      ? "border-[#E1BB33] bg-[#FFF8E1] ring-1 ring-[#E1BB33]/40"
                       : "border-gray-200 bg-white hover:bg-gray-50"
                   }`}
                 >
-                  <div className="font-medium text-gray-900">Offline (Hand Cash)</div>
-                  <div className="text-xs text-gray-500 mt-0.5">
-                    Create immediately and send invite email
+                  <div className="flex items-center gap-2">
+                    <Banknote className="h-4 w-4 text-[#C9971A]" />
+                    <span className="font-medium text-[#4F5077]">Offline (Hand Cash)</span>
                   </div>
+                  <p className="mt-1.5 text-xs text-[#6B7A99]">Create immediately and send invite email</p>
                 </button>
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-1">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={saving}
-                onClick={() => router.push(`${basePath}/partner-profiles`)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={saving}
-                className="bg-[#FFC403] text-[#1a2332] hover:bg-[#e6b003]"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Please wait…
-                  </>
-                ) : paymentMethod === "online" ? (
-                  "Pay & Create Partner"
-                ) : (
-                  "Create Partner"
-                )}
-              </Button>
+            <div className="flex flex-col gap-4 rounded-xl border border-[#E1BB33]/25 bg-[#FFFBEB] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-100 bg-white">
+                  <Mail className="h-4 w-4 text-[#6D28D9]" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-[#4F5077]">Send invite email</p>
+                  <p className="text-xs text-[#6B7A99]">Partner receives a set-password link after creation</p>
+                </div>
+              </div>
+              <Switch checked={sendInviteEmail} onCheckedChange={setSendInviteEmail} />
             </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+          </FormSection>
+
+          <div className="flex flex-col-reverse gap-2 border-t border-gray-100 py-6 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={saving}
+              className={outlineButtonClass}
+              onClick={() => router.push(`${basePath}/partner-profiles`)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving} className={primaryButtonClass}>
+              {saving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Please wait…
+                </>
+              ) : paymentMethod === "online" ? (
+                "Pay & Create Partner"
+              ) : (
+                "Create Partner"
+              )}
+            </Button>
+          </div>
+        </form>
+      </AdminCard>
+    </AdminPageShell>
   )
 }

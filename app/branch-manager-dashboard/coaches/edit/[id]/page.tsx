@@ -17,6 +17,7 @@ import Header from "@/components/layout/Header"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { getActiveBranchId } from "@/lib/activeBranch"
 import BranchSelectionField from "@/components/layout/BranchSelectionField"
+import { useToast } from "@/hooks/use-toast"
 
 export default function BranchManagerEditCoachPage() {
   const router = useRouter()
@@ -28,6 +29,7 @@ export default function BranchManagerEditCoachPage() {
     branchManager?.branch_id ||
     branchManager?.managed_branches?.[0] ||
     ""
+  const { toast } = useToast()
 
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -194,244 +196,223 @@ export default function BranchManagerEditCoachPage() {
     }
   }, [isLoading, isLoadingCourses, courses, formData.courses])
 
+  const loadDropdownOptions = async (
+    token: string,
+    category: "designations" | "specializations",
+    onSuccess: (values: string[]) => void,
+    onStart: () => void,
+    onEnd: () => void,
+    label: string
+  ) => {
+    onStart()
+    try {
+      const response = await fetch(getBackendApiUrl(`dropdown-settings/${category}`), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      })
+      if (!response.ok) {
+        throw new Error(`Failed to load ${label}`)
+      }
+      const data = await response.json()
+      onSuccess(
+        (Array.isArray(data) ? data : [])
+          .filter((opt: { is_active?: boolean }) => opt.is_active !== false)
+          .map((opt: { value: string }) => opt.value)
+      )
+    } catch (err) {
+      console.error(`Error loading ${label}:`, err)
+      onSuccess([])
+      toast({
+        title: "Error",
+        description: `Failed to load ${label}. Please try again.`,
+        variant: "destructive",
+      })
+    } finally {
+      onEnd()
+    }
+  }
+
   // Fetch coach data and dynamic options on component mount
   useEffect(() => {
     const fetchAllData = async () => {
       try {
         setIsLoading(true)
+        setErrors({})
 
         const token = BranchManagerAuth.getToken()
         if (!token) {
-          throw new Error("Authentication token not found. Please login again.")
+          toast({
+            title: "Authentication Error",
+            description: "Please login to continue",
+            variant: "destructive",
+          })
+          router.replace("/branch-manager/login")
+          return
         }
 
-        // Try to fetch data from API, but use fallback data if it fails
-        let coachData = null
-        let branchesData = null
-        let coursesData = null
+        void loadDropdownOptions(
+          token,
+          "designations",
+          setDesignations,
+          () => setIsLoadingDesignations(true),
+          () => setIsLoadingDesignations(false),
+          "designations"
+        )
+        void loadDropdownOptions(
+          token,
+          "specializations",
+          setSpecializations,
+          () => setIsLoadingSpecializations(true),
+          () => setIsLoadingSpecializations(false),
+          "specializations"
+        )
 
-        try {
-          // Fetch coach data
-          const coachResponse = await fetch(getBackendApiUrl(`coaches/${coachId}`), {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          })
+        const coachResponse = await fetch(getBackendApiUrl(`coaches/${coachId}`), {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        })
 
-          if (coachResponse.ok) {
-            coachData = await coachResponse.json()
-            console.log("Successfully loaded coach data from API:", coachData)
-          } else {
-            console.log("API call failed, using mock data for coach")
-          }
-        } catch (error) {
-          console.log("Error fetching coach data, using mock data:", error)
+        if (!coachResponse.ok) {
+          const body = await coachResponse.json().catch(() => ({}))
+          const detail = body?.detail || body?.message
+          throw new Error(
+            detail || `Failed to load coach (${coachResponse.status})`
+          )
         }
 
-        try {
-          // Fetch branches
-          const branchesResponse = await fetch(getBackendApiUrl('branches?active_only=true&limit=100'), {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          })
+        const coachData = await coachResponse.json()
+        setFormData({
+          firstName: coachData.personal_info?.first_name || "",
+          lastName: coachData.personal_info?.last_name || "",
+          email: coachData.contact_info?.email || "",
+          phone: coachData.contact_info?.phone || "",
+          password: "",
+          gender: coachData.personal_info?.gender || "",
+          dateOfBirth: coachData.personal_info?.date_of_birth?.split("T")[0] || "",
+          address: coachData.address_info?.address || "",
+          area: coachData.address_info?.area || "",
+          city: coachData.address_info?.city || "",
+          state: coachData.address_info?.state || "",
+          zipCode: coachData.address_info?.zip_code || "",
+          country: coachData.address_info?.country || "India",
+          designation: coachData.professional_info?.designation_id || "",
+          experience: coachData.professional_info?.professional_experience || "",
+          qualifications: coachData.professional_info?.education_qualification || "",
+          certifications: (coachData.professional_info?.certifications || []).join(", "),
+          specializations: coachData.areas_of_expertise || [],
+          branch: coachData.branch_id || "",
+          courses: coachData.assignment_details?.courses || [],
+          salary: coachData.assignment_details?.salary?.toString() || "",
+          joinDate: coachData.assignment_details?.join_date?.split("T")[0] || "",
+          emergencyContactName: coachData.emergency_contact?.name || "",
+          emergencyContactPhone: coachData.emergency_contact?.phone || "",
+          emergencyContactRelation: coachData.emergency_contact?.relationship || "",
+          achievements: coachData.additional_info?.achievements || "",
+          notes: coachData.additional_info?.notes || "",
+        })
 
+        setIsLoadingBranches(true)
+        try {
+          const branchesResponse = await fetch(
+            getBackendApiUrl("branches?active_only=true&limit=100"),
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          )
           if (branchesResponse.ok) {
-            branchesData = await branchesResponse.json()
-            console.log("Successfully loaded branches from API")
-          } else {
-            console.log("API call failed, using mock data for branches")
-          }
-        } catch (error) {
-          console.log("Error fetching branches, using mock data:", error)
-        }
-
-        try {
-          // Fetch courses
-          const coursesResponse = await fetch(getBackendApiUrl('courses/public/all'), {
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          })
-
-          if (coursesResponse.ok) {
-            coursesData = await coursesResponse.json()
-            console.log("Successfully loaded courses from API")
-          } else {
-            console.log("API call failed, using mock data for courses")
-          }
-        } catch (error) {
-          console.log("Error fetching courses, using mock data:", error)
-        }
-
-        // Handle coach data - use API data if available, otherwise use mock data
-        if (coachData) {
-          // Map API data to form structure
-          console.log("Using API coach data:", coachData)
-          setFormData({
-            firstName: coachData.personal_info?.first_name || "",
-            lastName: coachData.personal_info?.last_name || "",
-            email: coachData.contact_info?.email || "",
-            phone: coachData.contact_info?.phone || "",
-            password: "", // Keep empty for edit form - user can optionally change it
-            gender: coachData.personal_info?.gender || "",
-            dateOfBirth: coachData.personal_info?.date_of_birth?.split('T')[0] || "",
-            address: coachData.address_info?.address || "",
-            area: coachData.address_info?.area || "",
-            city: coachData.address_info?.city || "",
-            state: coachData.address_info?.state || "",
-            zipCode: coachData.address_info?.zip_code || "",
-            country: coachData.address_info?.country || "India",
-            designation: coachData.professional_info?.designation_id || "",
-            experience: coachData.professional_info?.professional_experience || "",
-            qualifications: coachData.professional_info?.education_qualification || "",
-            certifications: (coachData.professional_info?.certifications || []).join(', '),
-            specializations: coachData.areas_of_expertise || [],
-            // Branch assignment from coach data
-            branch: coachData.branch_id || "",
-            courses: coachData.assignment_details?.courses || [],
-            salary: coachData.assignment_details?.salary?.toString() || "",
-            joinDate: coachData.assignment_details?.join_date?.split('T')[0] || "",
-            emergencyContactName: coachData.emergency_contact?.name || "",
-            emergencyContactPhone: coachData.emergency_contact?.phone || "",
-            emergencyContactRelation: coachData.emergency_contact?.relationship || "",
-            achievements: coachData.additional_info?.achievements || "",
-            notes: coachData.additional_info?.notes || "",
-          })
-        } else {
-          // Use mock data for testing
-          console.log("Using mock coach data for testing")
-          setFormData({
-            firstName: "John",
-            lastName: "Smith",
-            email: "john.smith@marshalats.com",
-            phone: "+1234567891",
-            password: "",
-            gender: "male",
-            dateOfBirth: "1985-05-15",
-            address: "456 Coach Street, Downtown Area",
-            area: "Downtown",
-            city: "Hyderabad",
-            state: "Telangana",
-            zipCode: "500001",
-            country: "India",
-            designation: "Senior Instructor",
-            experience: "5-10 years",
-            qualifications: "Bachelor's in Sports Science, Certified Personal Trainer",
-            certifications: "Black Belt Karate, CPR Certified, First Aid Certified",
-            specializations: ["Taekwondo", "Self Defense", "Mixed Martial Arts"],
-            branch: "branch-1",
-            courses: ["course-1", "course-2"],
-            salary: "50000",
-            joinDate: "2023-01-15",
-            emergencyContactName: "Jane Smith",
-            emergencyContactPhone: "+1234567892",
-            emergencyContactRelation: "spouse",
-            achievements: "Regional Karate Champion 2020, Best Coach Award 2023",
-            notes: "Excellent coach with great student feedback and strong technical skills"
-          })
-        }
-
-        // Set fallback data for designations and specializations
-        setDesignations([
-          "Senior Coach",
-          "Coach Instructor",
-          "Senior Instructor",
-          "Instructor",
-          "Assistant Instructor",
-          "Head Coach",
-          "Coach",
-          "Assistant Coach"
-        ])
-        setIsLoadingDesignations(false)
-
-        setSpecializations([
-          "Taekwondo",
-          "Karate",
-          "Kung Fu",
-          "Kick Boxing",
-          "Self Defense",
-          "Mixed Martial Arts",
-          "Judo",
-          "Jiu-Jitsu",
-          "Muay Thai",
-          "Boxing",
-          "Kuchipudi Dance",
-          "Bharatanatyam",
-          "Gymnastics",
-          "Yoga"
-        ])
-        setIsLoadingSpecializations(false)
-
-        // Handle branches data - use API data if available, otherwise use mock data
-        if (branchesData) {
-          const currentUser = BranchManagerAuth.getCurrentUser()
-
-          if (currentUser && currentUser.id) {
-            // Filter branches to only show those managed by the current branch manager
+            const branchesData = await branchesResponse.json()
+            const currentUser = BranchManagerAuth.getCurrentUser()
             const allBranches = branchesData.branches || []
-            const managedBranches = allBranches.filter((branch: any) => {
-              return branch.manager_id === currentUser.id
-            }).map((branch: any) => ({
-              id: branch.id,
-              name: branch.branch?.name || branch.name
-            }))
-
+            const managedBranches = currentUser?.id
+              ? allBranches
+                  .filter((branch: { manager_id?: string }) => branch.manager_id === currentUser.id)
+                  .map((branch: { id: string; branch?: { name?: string }; name?: string }) => ({
+                    id: branch.id,
+                    name: branch.branch?.name || branch.name,
+                  }))
+              : allBranches.map((branch: { id: string; branch?: { name?: string }; name?: string }) => ({
+                  id: branch.id,
+                  name: branch.branch?.name || branch.name,
+                }))
             setBranches(managedBranches)
-            console.log("Loaded managed branches from API:", managedBranches)
           } else {
-            // Fallback to all branches if no current user
-            const branchesList = (branchesData.branches || []).map((branch: any) => ({
-              id: branch.id,
-              name: branch.branch?.name || branch.name
-            }))
-            setBranches(branchesList)
+            setBranches([])
+            toast({
+              title: "Error",
+              description: "Failed to load branches.",
+              variant: "destructive",
+            })
           }
-        } else {
-          // Use mock branches data
-          console.log("Using mock branches data")
-          const currentUser = BranchManagerAuth.getCurrentUser()
-          setBranches([
-            { id: "branch-1", name: currentUser?.branch_name || "Madhapur Branch" },
-            { id: "branch-2", name: "Hitech City Branch" },
-            { id: "branch-3", name: "Gachibowli Branch" },
-            { id: "branch-4", name: "Kondapur Branch" },
-            { id: "branch-5", name: "Kukatpally Branch" }
-          ])
+        } catch (branchErr) {
+          console.error("Error fetching branches:", branchErr)
+          setBranches([])
+          toast({
+            title: "Error",
+            description: "Failed to load branches.",
+            variant: "destructive",
+          })
+        } finally {
+          setIsLoadingBranches(false)
         }
-        setIsLoadingBranches(false)
 
-        // Handle courses data - use API data if available, otherwise use mock data
-        if (coursesData) {
-          const coursesList = (coursesData.courses || []).map((course: any) => ({
-            id: course.id,
-            title: course.title || course.name,
-            code: course.code,
-            difficulty_level: course.difficulty_level
-          }))
-          setCourses(coursesList)
-          console.log("Loaded courses from API:", coursesList)
-        } else {
-          // Use mock courses data
-          console.log("Using mock courses data")
-          setCourses([
-            { id: "course-1", title: "Taekwondo Basics", code: "TKD-001", difficulty_level: "Beginner" },
-            { id: "course-2", title: "Advanced Karate", code: "KAR-002", difficulty_level: "Advanced" },
-            { id: "course-3", title: "Kung Fu Fundamentals", code: "KF-001", difficulty_level: "Beginner" },
-            { id: "course-4", title: "Self Defense for Women", code: "SD-001", difficulty_level: "Beginner" },
-            { id: "course-5", title: "Mixed Martial Arts", code: "MMA-001", difficulty_level: "Intermediate" },
-            { id: "course-6", title: "Kids Martial Arts", code: "KMA-001", difficulty_level: "Beginner" },
-            { id: "course-7", title: "Adult Fitness Boxing", code: "AFB-001", difficulty_level: "Intermediate" },
-            { id: "course-8", title: "Traditional Dance Forms", code: "TDF-001", difficulty_level: "Beginner" }
-          ])
+        setIsLoadingCourses(true)
+        try {
+          const coursesResponse = await fetch(getBackendApiUrl("courses/public/all"), {
+            headers: { "Content-Type": "application/json" },
+          })
+          if (coursesResponse.ok) {
+            const coursesData = await coursesResponse.json()
+            setCourses(
+              (coursesData.courses || []).map(
+                (course: {
+                  id: string
+                  title?: string
+                  name?: string
+                  code?: string
+                  difficulty_level?: string
+                }) => ({
+                  id: course.id,
+                  title: course.title || course.name,
+                  code: course.code,
+                  difficulty_level: course.difficulty_level,
+                })
+              )
+            )
+          } else {
+            setCourses([])
+            toast({
+              title: "Error",
+              description: "Failed to load courses.",
+              variant: "destructive",
+            })
+          }
+        } catch (coursesErr) {
+          console.error("Error fetching courses:", coursesErr)
+          setCourses([])
+          toast({
+            title: "Error",
+            description: "Failed to load courses.",
+            variant: "destructive",
+          })
+        } finally {
+          setIsLoadingCourses(false)
         }
-        setIsLoadingCourses(false)
-
       } catch (error) {
         console.error("Error fetching data:", error)
-        setErrors({ general: error instanceof Error ? error.message : 'Failed to load data' })
+        const message = error instanceof Error ? error.message : "Failed to load data"
+        setErrors({ general: message })
+        toast({
+          title: "Error",
+          description: message,
+          variant: "destructive",
+        })
         setIsLoadingDesignations(false)
         setIsLoadingSpecializations(false)
         setIsLoadingBranches(false)
@@ -442,9 +423,9 @@ export default function BranchManagerEditCoachPage() {
     }
 
     if (coachId) {
-      fetchAllData()
+      void fetchAllData()
     }
-  }, [coachId])
+  }, [coachId, router, toast])
 
   const handleSpecializationToggle = (specialization: string) => {
     setFormData(prev => ({
@@ -472,29 +453,32 @@ export default function BranchManagerEditCoachPage() {
         throw new Error("Authentication token not found")
       }
 
-      try {
-        const response = await fetch(getBackendApiUrl(`coaches/${coachId}/send-credentials`), {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        })
+      const response = await fetch(getBackendApiUrl(`coaches/${coachId}/send-credentials`), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      })
 
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.detail || errorData.message || 'Failed to send credentials email')
-        }
-
-        alert("Login credentials have been sent to the coach's email address")
-      } catch (apiError) {
-        console.log("API call failed, showing success for demo:", apiError)
-        // For demo purposes, show success even if API fails
-        alert("Login credentials have been sent to the coach's email address (Demo mode)")
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          errorData.detail || errorData.message || "Failed to send credentials email"
+        )
       }
+
+      toast({
+        title: "Success",
+        description: "Login credentials have been sent to the coach's email address",
+      })
     } catch (error) {
       console.error("Error sending credentials email:", error)
-      alert(error instanceof Error ? error.message : "Failed to send credentials email")
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to send credentials email",
+        variant: "destructive",
+      })
     } finally {
       setIsSendingEmail(false)
     }
@@ -591,43 +575,40 @@ export default function BranchManagerEditCoachPage() {
         throw new Error("Authentication token not found. Please login again.")
       }
 
-      try {
-        const response = await fetch(getBackendApiUrl(`coaches/${coachId}`), {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(coachData)
-        })
+      const response = await fetch(getBackendApiUrl(`coaches/${coachId}`), {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(coachData),
+      })
 
-        const result = await response.json()
+      const result = await response.json().catch(() => ({}))
 
-        if (!response.ok) {
-          throw new Error(result.detail || result.message || `Failed to update coach (${response.status})`)
-        }
-
-        console.log("Coach updated successfully via API:", result)
-        setShowSuccessPopup(true)
-
-        setTimeout(() => {
-          setShowSuccessPopup(false)
-          router.push("/branch-manager-dashboard/coaches")
-        }, 2000)
-      } catch (apiError) {
-        console.log("API update failed, showing success anyway for demo:", apiError)
-        // For demo purposes, show success even if API fails
-        setShowSuccessPopup(true)
-
-        setTimeout(() => {
-          setShowSuccessPopup(false)
-          router.push("/branch-manager-dashboard/coaches")
-        }, 2000)
+      if (!response.ok) {
+        throw new Error(
+          result.detail || result.message || `Failed to update coach (${response.status})`
+        )
       }
 
+      setShowSuccessPopup(true)
+      toast({
+        title: "Success",
+        description: "Coach updated successfully.",
+      })
+
+      setTimeout(() => {
+        setShowSuccessPopup(false)
+        router.push("/branch-manager-dashboard/coaches")
+      }, 2000)
     } catch (error) {
       console.error("Error updating coach:", error)
-      alert(`Error updating coach: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update coach",
+        variant: "destructive",
+      })
     } finally {
       setIsSubmitting(false)
     }

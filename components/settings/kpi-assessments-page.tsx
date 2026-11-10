@@ -588,7 +588,7 @@ export default function KpiAssessmentsPage() {
   }
 
   return (
-    <main className="w-full p-4 lg:px-8 mx-auto max-w-6xl space-y-6">
+    <main className="w-full p-4 lg:px-8 w-full max-w-none space-y-6">
       <SonnerToaster richColors position="top-center" closeButton />
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

@@ -83,7 +83,7 @@ export default function PartnerOrgBranchCoursesPage() {
   return (
     <main className="min-h-screen bg-[#171A26] text-white">
       <section className="pt-28 pb-10 px-4 border-b border-gray-800">
-        <div className="container mx-auto max-w-7xl">
+        <div className="site-content">
           <Link
             href={`/partner-orgs/${orgPath}`}
             className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-[#FFB70F] mb-6"
@@ -111,7 +111,7 @@ export default function PartnerOrgBranchCoursesPage() {
       </section>
 
       <section className="py-12 px-4">
-        <div className="container mx-auto max-w-7xl">
+        <div className="site-content">
           {courses.length === 0 ? (
             <p className="text-center text-gray-400 py-16">No courses at this branch yet.</p>
           ) : (

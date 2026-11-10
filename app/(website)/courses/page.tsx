@@ -165,7 +165,7 @@ export default function CoursesPage() {
         style={{ backgroundImage: "url(/assets/img/banner.jpg)" }}
       >
         <div className="absolute inset-0 bg-black/60" />
-        <div className="container relative z-10 mx-auto px-4 max-w-7xl">
+        <div className="site-content relative z-10 px-0 sm:px-1">
           <div className="max-w-2xl">
             <h1 className="text-4xl md:text-5xl font-bold text-white uppercase mb-4">Our Classes</h1>
             <p className="text-gray-200 text-lg">
@@ -177,7 +177,7 @@ export default function CoursesPage() {
 
       {/* Courses grid from API */}
       <section className="py-16 md:py-20 bg-[#171A26] min-h-[60vh]">
-        <div className="container mx-auto px-4 max-w-7xl">
+        <div className="site-content px-0 sm:px-1">
           {loading ? (
             <div className="flex justify-center py-24">
               <Loader2 className="w-10 h-10 animate-spin text-[#FFB70F]" />

@@ -2,8 +2,11 @@ import { getBackendApiUrl } from "@/lib/config"
 
 export interface AdminEnrolledStudent {
   id: string
+  student_id?: string
   student_name: string
   enrollment_date: string
+  branch_id?: string
+  branch_name?: string
   progress: number
   status: "active" | "completed" | "paused" | "dropped"
   last_activity?: string
@@ -20,6 +23,46 @@ export interface AdminCourseReview {
 
 function enrollmentStatus(isActive: boolean): AdminEnrolledStudent["status"] {
   return isActive ? "active" : "completed"
+}
+
+function cleanStudentName(value: unknown): string {
+  const name = String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+  if (!name) return ""
+  const lowered = name.toLowerCase()
+  if (
+    lowered === "unknown" ||
+    lowered === "unknown student" ||
+    lowered === "customer" ||
+    lowered === "student" ||
+    lowered === "n/a" ||
+    lowered === "-"
+  ) {
+    return ""
+  }
+  return name
+}
+
+function pickStudentName(row: Record<string, unknown>): string {
+  const nestedStudent =
+    row.student && typeof row.student === "object"
+      ? (row.student as Record<string, unknown>)
+      : null
+  return (
+    cleanStudentName(row.student_name) ||
+    cleanStudentName(row.student_full_name) ||
+    cleanStudentName(row.full_name) ||
+    cleanStudentName(row.name) ||
+    cleanStudentName(nestedStudent?.full_name) ||
+    cleanStudentName(nestedStudent?.name) ||
+    cleanStudentName(
+      `${nestedStudent?.first_name ?? ""} ${nestedStudent?.last_name ?? ""}`.trim()
+    ) ||
+    cleanStudentName(row.email) ||
+    cleanStudentName(nestedStudent?.email) ||
+    ""
+  )
 }
 
 /**
@@ -55,17 +98,25 @@ export async function loadCourseEnrollmentsForAdmin(
               : new Date().toISOString()
         const enrollmentId = String(e.id ?? "").trim()
         const sid = String(e.student_id ?? "").trim()
+        const resolvedName = pickStudentName(e)
         return {
           // Prefer enrollment id so duplicate students don't collide in lists
           id: enrollmentId || (sid ? `${sid}-${i}` : `enrollment-${i}`),
-          student_name: String(e.student_name ?? "Student"),
+          student_id: sid || undefined,
+          student_name: resolvedName || "Unknown student",
           enrollment_date: startStr,
+          branch_id: e.branch_id ? String(e.branch_id) : undefined,
+          branch_name: e.branch_name ? String(e.branch_name) : undefined,
           progress: typeof e.progress_percent === "number" ? (e.progress_percent as number) : 0,
           status: enrollmentStatus(e.is_active !== false),
           last_activity: undefined,
           grade: undefined,
         }
       })
+      .sort(
+        (a, b) =>
+          new Date(b.enrollment_date).getTime() - new Date(a.enrollment_date).getTime()
+      )
   } catch {
     return []
   }

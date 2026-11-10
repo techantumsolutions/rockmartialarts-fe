@@ -11,7 +11,9 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Building, MapPin, Clock, Users, CreditCard, X, Plus, Trash2, Calendar } from "lucide-react"
+import { ArrowLeft, Building, MapPin, Clock, Users, CreditCard, X, Plus, Trash2, Calendar, ImageIcon, Upload, Loader2 } from "lucide-react"
+import { uploadFile } from "@/lib/upload"
+import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import { useRouter, useParams } from "next/navigation"
 import { useDashboardBasePath, useDashboardRole } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
@@ -33,6 +35,13 @@ import {
   lookupDurationMapValue,
   type MasterDuration,
 } from "@/lib/branchCourseSchedule"
+import {
+  DashboardFormPageHeader,
+  DashboardSectionHeading,
+  cardContentClass,
+  dashboardFormCardClass,
+  primaryButtonClass,
+} from "@/components/dashboard/dashboardFormStyles"
 
 // Interfaces for form data
 interface Course {
@@ -176,6 +185,9 @@ interface FormData {
   bank_details: BankDetails
   admission_fee: number
   is_collaboration_partner?: boolean
+  cover_image_url?: string
+  description?: string
+  map_link?: string
 }
 
 export default function EditBranch() {
@@ -253,7 +265,11 @@ export default function EditBranch() {
     },
     admission_fee: 0,
     is_collaboration_partner: false,
+    cover_image_url: "",
+    description: "",
+    map_link: "",
   })
+  const [uploadingCover, setUploadingCover] = useState(false)
 
   // Auto-generate branch code
   const generateBranchCode = () => {
@@ -281,34 +297,7 @@ export default function EditBranch() {
     const loadBranchManagers = async () => {
       try {
         setIsLoadingBranchManagers(true)
-        let token = TokenManager.getToken()
-
-        if (!token) {
-          console.log("No token found, attempting superadmin login...")
-          try {
-            const loginResponse = await fetch(getBackendApiUrl('login'), {
-              method: "PUT",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                email: "pittisunilkumar3@gmail.com",
-                password: "StrongPassword@123"
-              })
-            })
-
-            if (loginResponse.ok) {
-              const loginData = await loginResponse.json()
-              if (loginData.token) {
-                TokenManager.setToken(loginData.token)
-                token = loginData.token
-                console.log("✅ Auto-login successful")
-              }
-            }
-          } catch (loginError) {
-            console.error("Auto-login failed:", loginError)
-          }
-        }
+        const token = TokenManager.getToken()
 
         if (!token) {
           toast({
@@ -316,6 +305,8 @@ export default function EditBranch() {
             description: "Please login to access this page.",
             variant: "destructive",
           })
+          router.push("/login")
+          setIsLoadingBranchManagers(false)
           return
         }
 
@@ -476,6 +467,9 @@ export default function EditBranch() {
           is_collaboration_partner: !!(
             branchData.is_collaboration_partner ?? branchData.allows_collaboration
           ),
+          cover_image_url: branchData.cover_image_url || "",
+          description: branchData.description || "",
+          map_link: branchData.map_link || "",
         })
 
         setIsLoading(false)
@@ -1061,6 +1055,9 @@ export default function EditBranch() {
         },
         bank_details: formData.bank_details,
         admission_fee: formData.admission_fee,
+        cover_image_url: formData.cover_image_url || "",
+        description: formData.description || "",
+        map_link: formData.map_link || "",
       }
       if (canToggleCollaborationPartner) {
         submitData.is_collaboration_partner = !!formData.is_collaboration_partner
@@ -1124,7 +1121,7 @@ export default function EditBranch() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-[#F5F6FA]">
         <main className="w-full p-4 lg:px-8">
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
@@ -1138,36 +1135,104 @@ export default function EditBranch() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      
-      <div className="p-8 pt-[125px]">
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="ghost"
-              onClick={() => router.push(`${basePath}/branches`)}
-              className="flex items-center"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold text-[#4F5077]">Edit Branch</h1>
-              <p className="text-gray-500">Add a new branch to your organization</p>
-            </div>
-          </div>
-        </div>
+    <div className="min-h-screen bg-[#F5F6FA]">
+      <main className="w-full py-6 px-4 lg:px-8 xl:px-10">
+        <DashboardFormPageHeader
+          title="Edit Branch"
+          subtitle="Update branch details, courses, and operations"
+          backLabel="Back"
+          onBack={() => router.push(`${basePath}/branches`)}
+        />
 
         <div className="space-y-6">
-          {/* Branch Information — full width */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Building className="h-5 w-5 text-[#FA6669]" />
-                <span className="text-[#4F5077]">Branch Information</span>
-              </CardTitle>
+          {/* Cover / About — hero image for branch detail card */}
+          <Card className={dashboardFormCardClass}>
+            <CardHeader className="pb-2">
+              <DashboardSectionHeading icon={ImageIcon} title="Branch Cover & About" tone="violet" />
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className={cardContentClass}>
+              <div className="space-y-2">
+                <Label>Cover image (shown on branch detail hero)</Label>
+                {formData.cover_image_url ? (
+                  <img
+                    src={resolvePublicAssetUrl(formData.cover_image_url)}
+                    alt="Branch cover"
+                    className="h-40 w-full rounded-xl border object-cover"
+                  />
+                ) : (
+                  <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-gray-200 bg-[#FAFBFC] text-sm text-gray-400">
+                    No cover image uploaded
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <label className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-[#4F5077] shadow-sm hover:bg-gray-50 ${uploadingCover ? "opacity-60 pointer-events-none" : ""}`}>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={uploadingCover}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        e.target.value = ""
+                        if (!file) return
+                        setUploadingCover(true)
+                        try {
+                          const result = await uploadFile(file)
+                          setFormData((prev) => ({ ...prev, cover_image_url: result.file_url }))
+                        } catch (err) {
+                          toast({
+                            title: "Upload failed",
+                            description: err instanceof Error ? err.message : "Could not upload image",
+                            variant: "destructive",
+                          })
+                        } finally {
+                          setUploadingCover(false)
+                        }
+                      }}
+                    />
+                    {uploadingCover ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    {uploadingCover ? "Uploading…" : formData.cover_image_url ? "Replace image" : "Upload cover"}
+                  </label>
+                  {formData.cover_image_url ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10 text-red-600"
+                      onClick={() => setFormData((prev) => ({ ...prev, cover_image_url: "" }))}
+                    >
+                      Remove
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="branchDescription">About this branch</Label>
+                <Textarea
+                  id="branchDescription"
+                  rows={3}
+                  value={formData.description || ""}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="A short description shown on the branch detail page"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="branchMapLink">Map link (optional)</Label>
+                <Input
+                  id="branchMapLink"
+                  value={formData.map_link || ""}
+                  onChange={(e) => setFormData({ ...formData, map_link: e.target.value })}
+                  placeholder="https://maps.google.com/..."
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Branch Information — full width */}
+          <Card className={dashboardFormCardClass}>
+            <CardHeader className="pb-2">
+              <DashboardSectionHeading icon={Building} title="Branch Information" tone="rose" />
+            </CardHeader>
+            <CardContent className={cardContentClass}>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="branchName">Branch Name *</Label>
@@ -1468,14 +1533,11 @@ export default function EditBranch() {
           </Card>
 
           {/* Course Assignments — full width */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Users className="h-5 w-5 text-[#FA6669]" />
-                <span className="text-[#4F5077]">Course Assignments</span>
-              </CardTitle>
+          <Card className={dashboardFormCardClass}>
+            <CardHeader className="pb-2">
+              <DashboardSectionHeading icon={Users} title="Course Assignments" tone="indigo" />
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className={cardContentClass}>
               {/* Category Selection */}
               <div className="space-y-2">
                 <Label>Select Category</Label>
@@ -1819,14 +1881,11 @@ export default function EditBranch() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Operational Details — 50% on large screens */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Clock className="h-5 w-5 text-[#FA6669]" />
-                <span className="text-[#4F5077]">Operational Details</span>
-              </CardTitle>
+          <Card className={dashboardFormCardClass}>
+            <CardHeader className="pb-2">
+              <DashboardSectionHeading icon={Clock} title="Operational Details" tone="amber" />
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className={cardContentClass}>
               {/* Timings */}
               <div className="space-y-2">
                 <Label>Operating Hours</Label>
@@ -1932,14 +1991,11 @@ export default function EditBranch() {
           </Card>
 
           {/* Bank Details — 50% on large screens */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <CreditCard className="h-5 w-5 text-[#FA6669]" />
-                <span className="text-[#4F5077]">Bank Details</span>
-              </CardTitle>
+          <Card className={dashboardFormCardClass}>
+            <CardHeader className="pb-2">
+              <DashboardSectionHeading icon={CreditCard} title="Bank Details" tone="emerald" />
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className={cardContentClass}>
               <div className="space-y-2">
                 <Label htmlFor="bankName">Bank Name</Label>
                 <Select
@@ -2027,12 +2083,12 @@ export default function EditBranch() {
           <Button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="bg-[#FA6669] hover:bg-[#e55557]"
+            className={primaryButtonClass}
           >
             {isSubmitting ? "Updating..." : "Update Branch"}
           </Button>
         </div>
-      </div>
+      </main>
 
       {/* Success Popup */}
       {showSuccessPopup && (

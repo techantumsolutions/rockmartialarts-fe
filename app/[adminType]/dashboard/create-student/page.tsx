@@ -40,6 +40,11 @@ import {
   RegistrationPricing,
 } from "@/lib/studentRegistrationPayment"
 import { openRazorpayCheckout } from "@/lib/razorpay"
+import {
+  DashboardFormPageHeader,
+  dashboardFormCardClass,
+  primaryButtonClass,
+} from "@/components/dashboard/dashboardFormStyles"
 
 interface Branch {
   id: string
@@ -631,28 +636,20 @@ export default function CreateStudent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <main className="w-full mx-auto py-4 sm:py-6 px-4 sm:px-8 lg:px-12">
-        {/* Page Header */}
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-[#4F5077] mb-1">Create New Student</h1>
-            <p className="text-sm text-gray-500">
-              {canSelectBranch
-                ? isPartnerAdmin
-                  ? "Register a student under your partner branches, courses, and batches"
-                  : "Register a student under any branch, course, and batch"
-                : "Register a student under your assigned branch and courses"}
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            onClick={() => router.push(`${basePath}/students`)}
-            className="mt-4 sm:mt-0 flex items-center space-x-2 px-4 py-2 border-gray-300 hover:bg-gray-50 transition-all duration-200 text-sm"
-          >
-            <span className="text-[#4F5077]">← Back to Students</span>
-          </Button>
-        </div>
+    <div className="min-h-screen bg-[#F5F6FA]">
+      <main className="w-full py-6 px-4 lg:px-8 xl:px-10">
+        <DashboardFormPageHeader
+          title="Create New Student"
+          subtitle={
+            canSelectBranch
+              ? isPartnerAdmin
+                ? "Register a student under your partner branches, courses, and batches"
+                : "Register a student under any branch, course, and batch"
+              : "Register a student under your assigned branch and courses"
+          }
+          backLabel="Back to Students"
+          onBack={() => router.push(`${basePath}/students`)}
+        />
 
         {/* Loading State */}
         {isLoading ? (
@@ -661,8 +658,8 @@ export default function CreateStudent() {
             <p className="mt-4 text-gray-600">Loading branches and form options...</p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-            <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-8">
+          <div className={dashboardFormCardClass}>
+            <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-8 [&_input]:rounded-lg [&_input]:border-gray-200">
               {errors.submit && (
                 <div className="bg-red-50 border border-red-200 rounded-xl p-4">
                   <p className="text-red-600 font-medium">{errors.submit}</p>
@@ -1139,7 +1136,7 @@ export default function CreateStudent() {
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-1 sm:flex-none px-8 py-3 text-base font-medium bg-yellow-400 hover:bg-yellow-500 text-gray-900"
+                  className={`flex-1 sm:flex-none ${primaryButtonClass}`}
                 >
                   {isSubmitting ? (
                     <>

@@ -273,7 +273,7 @@ export default function OnlineLearningDetailPage() {
         style={{ backgroundImage: "url(/assets/img/banner.jpg)" }}
       >
         <div className="absolute inset-0 bg-black/60" />
-        <div className="container relative z-10 mx-auto px-4 max-w-7xl">
+        <div className="site-content relative z-10 px-0 sm:px-1">
           <Link
             href="/online-learning"
             className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-[#FFB70F] mb-6"
@@ -311,7 +311,7 @@ export default function OnlineLearningDetailPage() {
       </section>
 
       <section className="py-12 md:py-16 bg-[#171A26]">
-        <div className="container mx-auto px-4 max-w-7xl">
+        <div className="site-content px-0 sm:px-1">
           {loading ? null : !course ? (
             <div className="text-center text-gray-400">
               <Button asChild className="bg-[#FFB70F] text-black hover:bg-[#e0a00d]">

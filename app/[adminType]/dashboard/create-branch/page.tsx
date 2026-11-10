@@ -22,6 +22,13 @@ import { dropdownAPI, DropdownOption } from "@/lib/dropdownAPI"
 import { useGeographyDropdowns } from "@/hooks/use-geography-dropdowns"
 import { WEEKDAY_CHECKLIST_ORDER, formatWeekdayRanges } from "@/lib/formatWeekdayRanges"
 import { buildCourseSchedulePayload, BATCH_COACH_UNASSIGNED } from "@/lib/branchCourseSchedule"
+import {
+  DashboardFormPageHeader,
+  DashboardSectionHeading,
+  cardContentClass,
+  dashboardFormCardClass,
+  primaryButtonClass,
+} from "@/components/dashboard/dashboardFormStyles"
 
 // Interfaces for form data
 interface Course {
@@ -350,34 +357,7 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
     const loadBranchManagers = async () => {
       try {
         setIsLoadingBranchManagers(true)
-        let token = TokenManager.getToken()
-
-        if (!token) {
-          console.log("No token found, attempting superadmin login...")
-          try {
-            const loginResponse = await fetch(getBackendApiUrl('login'), {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                email: "pittisunilkumar3@gmail.com",
-                password: "StrongPassword@123"
-              })
-            })
-
-            if (loginResponse.ok) {
-              const loginData = await loginResponse.json()
-              if (loginData.token) {
-                TokenManager.setToken(loginData.token)
-                token = loginData.token
-                console.log("✅ Auto-login successful")
-              }
-            }
-          } catch (loginError) {
-            console.error("Auto-login failed:", loginError)
-          }
-        }
+        const token = TokenManager.getToken()
 
         if (!token) {
           toast({
@@ -385,6 +365,8 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
             description: "Please login to access this page.",
             variant: "destructive",
           })
+          router.push("/login")
+          setIsLoadingBranchManagers(false)
           return
         }
 
@@ -959,40 +941,26 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
 
   return (
     <>
-      <div className="p-4 pt-4 md:p-8 md:pt-4">
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:space-x-4 md:gap-0">
-            <Button
-              variant="ghost"
-              onClick={() => router.push(listPath)}
-              className="flex items-center self-start px-2 md:px-4"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-[#4F5077]">
-                {asPartner ? "Create Partner" : "Create Branch"}
-              </h1>
-              <p className="text-sm md:text-base text-gray-500">
-                {asPartner
-                  ? "Add a new collaboration partner branch"
-                  : "Add a new branch to your organization"}
-              </p>
-            </div>
-          </div>
-        </div>
+      <div className="min-h-screen bg-[#F5F6FA]">
+        <main className="w-full py-6 px-4 lg:px-8 xl:px-10">
+          <DashboardFormPageHeader
+            title={asPartner ? "Create Partner" : "Create Branch"}
+            subtitle={
+              asPartner
+                ? "Add a new collaboration partner branch"
+                : "Add a new branch to your organization"
+            }
+            backLabel="Back"
+            onBack={() => router.push(listPath)}
+          />
 
         <div className="space-y-6">
           {/* Branch Information — full width */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Building className="h-5 w-5 text-[#FA6669]" />
-                <span className="text-[#4F5077]">Branch Information</span>
-              </CardTitle>
+          <Card className={dashboardFormCardClass}>
+            <CardHeader className="pb-2">
+              <DashboardSectionHeading icon={Building} title="Branch Information" tone="rose" />
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className={cardContentClass}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="branchName">Branch Name *</Label>
@@ -1269,14 +1237,11 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
           </Card>
 
           {/* Course Assignments — full width */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Users className="h-5 w-5 text-[#FA6669]" />
-                <span className="text-[#4F5077]">Course Assignments</span>
-              </CardTitle>
+          <Card className={dashboardFormCardClass}>
+            <CardHeader className="pb-2">
+              <DashboardSectionHeading icon={Users} title="Course Assignments" tone="indigo" />
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className={cardContentClass}>
               {/* Category Selection */}
               <div className="space-y-2">
                 <Label>Select Category</Label>
@@ -1600,14 +1565,11 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Operational Details — 50% on large screens */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Clock className="h-5 w-5 text-[#FA6669]" />
-                  <span className="text-[#4F5077]">Operational Details</span>
-                </CardTitle>
+            <Card className={dashboardFormCardClass}>
+              <CardHeader className="pb-2">
+                <DashboardSectionHeading icon={Clock} title="Operational Details" tone="amber" />
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className={cardContentClass}>
                 {/* Timings */}
                 <div className="space-y-2">
                   <Label>Operating Hours</Label>
@@ -1723,14 +1685,11 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
             </Card>
 
             {/* Bank Details — 50% on large screens */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <CreditCard className="h-5 w-5 text-[#FA6669]" />
-                  <span className="text-[#4F5077]">Bank Details</span>
-                </CardTitle>
+            <Card className={dashboardFormCardClass}>
+              <CardHeader className="pb-2">
+                <DashboardSectionHeading icon={CreditCard} title="Bank Details" tone="emerald" />
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className={cardContentClass}>
                 <div className="space-y-2">
                   <Label htmlFor="bankName">Bank Name</Label>
                   <Select
@@ -1802,7 +1761,7 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
           <Button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="w-full md:w-auto bg-[#FA6669] hover:bg-[#e55557]"
+            className={`w-full md:w-auto ${primaryButtonClass}`}
           >
             {isSubmitting
               ? "Creating..."
@@ -1811,6 +1770,7 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
                 : "Create Branch"}
           </Button>
         </div>
+        </main>
       </div>
 
       {/* Success Popup */}

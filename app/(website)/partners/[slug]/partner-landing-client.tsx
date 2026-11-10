@@ -322,7 +322,7 @@ export default function PartnerLandingClient() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[#171A26] via-[#171A26]/75 to-[#171A26]/20" />
         </div>
-        <div className="relative z-10 container mx-auto px-4 max-w-7xl pb-12 md:pb-16 pt-28">
+        <div className="relative z-10 site-content px-0 sm:px-1 pb-12 md:pb-16 pt-28">
           {logo ? (
             <div className="mb-6" data-aos="fade-up">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -396,7 +396,7 @@ export default function PartnerLandingClient() {
       {/* About / Why choose us */}
       {hasAbout ? (
         <section className="py-16 md:py-20 relative z-10">
-          <div className="container mx-auto px-4 max-w-7xl">
+          <div className="site-content px-0 sm:px-1">
             <SectionHeading eyebrow="Who we are" title="About" />
             <div className="grid lg:grid-cols-2 gap-10">
               <div className="space-y-6" data-aos="fade-up">
@@ -464,7 +464,7 @@ export default function PartnerLandingClient() {
       {/* Masters */}
       {masters.length > 0 ? (
         <section className="py-16 md:py-20 bg-[#12141e] relative z-10">
-          <div className="container mx-auto px-4 max-w-7xl">
+          <div className="site-content px-0 sm:px-1">
             <SectionHeading eyebrow="Expertise" title="Masters & Experts" />
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {masters.map((m, i) => (
@@ -516,7 +516,7 @@ export default function PartnerLandingClient() {
       {/* Gallery */}
       {gallery.length > 0 ? (
         <section className="py-16 md:py-20 relative z-10">
-          <div className="container mx-auto px-4 max-w-7xl">
+          <div className="site-content px-0 sm:px-1">
             <SectionHeading eyebrow="Inside the academy" title="Gallery" />
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
               {gallery.map((g, i) => {
@@ -550,7 +550,7 @@ export default function PartnerLandingClient() {
       {/* Testimonials */}
       {testimonials.length > 0 ? (
         <section className="py-16 md:py-20 bg-[#12141e] relative z-10">
-          <div className="container mx-auto px-4 max-w-7xl">
+          <div className="site-content px-0 sm:px-1">
             <SectionHeading eyebrow="Voices" title="Testimonials" />
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {testimonials.map((t, i) => {
@@ -600,7 +600,7 @@ export default function PartnerLandingClient() {
       {/* Team */}
       {team.length > 0 ? (
         <section className="py-16 md:py-20 relative z-10">
-          <div className="container mx-auto px-4 max-w-7xl">
+          <div className="site-content px-0 sm:px-1">
             <SectionHeading eyebrow="Our people" title="Partner Team" />
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {team.map((m, i) => (
@@ -646,7 +646,7 @@ export default function PartnerLandingClient() {
 
       {/* Contact / hours / map */}
       <section className="py-16 md:py-20 bg-[#12141e] relative z-10" id="contact">
-        <div className="container mx-auto px-4 max-w-7xl">
+        <div className="site-content px-0 sm:px-1">
           <SectionHeading eyebrow="Visit us" title="Contact & Hours" />
           <div className="grid lg:grid-cols-2 gap-8">
             <div className="space-y-5" data-aos="fade-up">

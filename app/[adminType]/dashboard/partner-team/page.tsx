@@ -328,7 +328,7 @@ export default function PartnerTeamPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto">
+    <div className="w-full max-w-none space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-start gap-3">
           <div className="mt-1 rounded-md bg-amber-50 border border-amber-200 p-2">

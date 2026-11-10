@@ -10,9 +10,9 @@ import { cn } from "@/lib/utils"
 interface ResponsiveContainerProps {
   children: React.ReactNode
   className?: string
-  /** Max width: default max-w-7xl. Use "full" for no max-width. */
+  /** Max width: default full. Use "7xl"/breakpoints only when intentionally constrained. */
   maxWidth?: "sm" | "md" | "lg" | "xl" | "2xl" | "7xl" | "full"
-  /** Padding: default px-4 sm:px-6 lg:px-8 */
+  /** Padding: default none — admin shell already pads content */
   noPadding?: boolean
 }
 
@@ -29,13 +29,14 @@ const maxWidthClass = {
 export function ResponsiveContainer({
   children,
   className,
-  maxWidth = "7xl",
-  noPadding = false,
+  maxWidth = "full",
+  noPadding = true,
 }: ResponsiveContainerProps) {
   return (
     <div
       className={cn(
-        "w-full mx-auto",
+        "w-full",
+        maxWidth !== "full" && "mx-auto",
         maxWidth !== "full" && maxWidthClass[maxWidth],
         !noPadding && "px-4 sm:px-6 lg:px-8",
         className

@@ -257,7 +257,7 @@ export default function CourseSyllabusPage() {
   }
 
   return (
-    <main className="w-full p-4 lg:px-8 mx-auto max-w-6xl space-y-6">
+    <main className="w-full p-4 lg:px-8 w-full max-w-none space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">

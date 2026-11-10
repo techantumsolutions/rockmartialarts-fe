@@ -9,11 +9,42 @@ import {
 } from "@/lib/coachFetch"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, Edit, X, Eye, Handshake, ImageIcon, Award, Images, MessageSquareQuote, UserCog, SearchCode, ChevronLeft, ChevronRight } from "lucide-react"
+import {
+  Search,
+  Edit,
+  X,
+  Eye,
+  Handshake,
+  ImageIcon,
+  Award,
+  Images,
+  MessageSquareQuote,
+  UserCog,
+  SearchCode,
+  ChevronLeft,
+  ChevronRight,
+  Building2,
+  Users,
+  BookOpen,
+  UserCheck,
+  UserCog as UserCogIcon,
+  RotateCcw,
+  MoreHorizontal,
+  Store,
+} from "lucide-react"
+import {
+  AdminPageShell,
+  AdminPageHeader,
+  AdminKpiGrid,
+  AdminKpiCard,
+  AdminFilterBar,
+  AdminTableShell,
+  AdminStatusPill,
+} from "@/components/dashboard/AdminPageShell"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { useRouter, usePathname } from "next/navigation"
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
@@ -82,6 +113,9 @@ export default function BranchesList() {
   const [selectedBranch, setSelectedBranch] = useState("")
   const [selectedManagerId, setSelectedManagerId] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
+  const [locationFilter, setLocationFilter] = useState("all")
+  const [managerFilter, setManagerFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
   const [branches, setBranches] = useState<Branch[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -472,47 +506,143 @@ const itemsPerPage = 10
     return "—"
   }
 
-  // Enhanced search functionality - filter branches based on search term.
-  // Collaboration partners are managed under Partners pages, not this Branches list.
-  const filteredBranches = branches.filter((branch) => {
-    if (branch.is_collaboration_partner || branch.allows_collaboration) {
-      return false
-    }
-    if (!searchTerm) return true
+  const initialsFromName = (name: string) => {
+    if (!name || name === "—") return "?"
+    const parts = name.trim().split(/\s+/).filter(Boolean)
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+    return `${parts[0][0] || ""}${parts[parts.length - 1][0] || ""}`.toUpperCase()
+  }
 
-    const searchLower = searchTerm.toLowerCase()
-    return (
-      branch.branch?.name?.toLowerCase().includes(searchLower) ||
-      branch.id?.toLowerCase().includes(searchLower) ||
-      branch.branch?.address?.line1?.toLowerCase().includes(searchLower) ||
-      branch.branch?.address?.city?.toLowerCase().includes(searchLower) ||
-      branch.branch?.address?.state?.toLowerCase().includes(searchLower) ||
-      branch.branch?.email?.toLowerCase().includes(searchLower) ||
-      branch.branch?.phone?.toLowerCase().includes(searchLower)
-    )
-  })
-  // Calculate paginated data
-const totalPages = Math.ceil(filteredBranches.length / itemsPerPage)
-const paginatedBranches = filteredBranches.slice(
-  (currentPage - 1) * itemsPerPage,
-  currentPage * itemsPerPage
-)
+  const listBranches = useMemo(
+    () =>
+      branches.filter((branch) => !branch.is_collaboration_partner && !branch.allows_collaboration),
+    [branches]
+  )
+
+  const locationOptions = useMemo(() => {
+    const cities = new Set<string>()
+    listBranches.forEach((b) => {
+      const city = b.branch?.address?.city?.trim()
+      if (city) cities.add(city)
+    })
+    return Array.from(cities).sort((a, b) => a.localeCompare(b))
+  }, [listBranches])
+
+  const managerFilterOptions = useMemo(() => {
+    const entries = new Map<string, string>()
+    listBranches.forEach((b) => {
+      if (!b.manager_id) return
+      const name = getManagerDisplayName(b)
+      entries.set(b.manager_id, name !== "—" ? name : b.manager_id)
+    })
+    return Array.from(entries.entries()).sort((a, b) => a[1].localeCompare(b[1]))
+  }, [listBranches, branchManagerById, coachById])
+
+  const kpiTotals = useMemo(
+    () => ({
+      total: listBranches.length,
+      students: listBranches.reduce((sum, b) => sum + (b.statistics?.student_count ?? 0), 0),
+      courses: listBranches.reduce(
+        (sum, b) =>
+          sum + (b.statistics?.course_count ?? b.operational_details?.courses_offered?.length ?? 0),
+        0
+      ),
+      coaches: listBranches.reduce((sum, b) => sum + (b.statistics?.coach_count ?? 0), 0),
+    }),
+    [listBranches]
+  )
+
+  const filteredBranches = useMemo(() => {
+    return listBranches.filter((branch) => {
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase()
+        const managerName = getManagerDisplayName(branch).toLowerCase()
+        const matchesSearch =
+          branch.branch?.name?.toLowerCase().includes(searchLower) ||
+          branch.id?.toLowerCase().includes(searchLower) ||
+          branch.branch?.address?.line1?.toLowerCase().includes(searchLower) ||
+          branch.branch?.address?.city?.toLowerCase().includes(searchLower) ||
+          branch.branch?.address?.state?.toLowerCase().includes(searchLower) ||
+          branch.branch?.email?.toLowerCase().includes(searchLower) ||
+          branch.branch?.phone?.toLowerCase().includes(searchLower) ||
+          managerName.includes(searchLower)
+        if (!matchesSearch) return false
+      }
+      if (locationFilter !== "all") {
+        const city = branch.branch?.address?.city?.trim()
+        if (city !== locationFilter) return false
+      }
+      if (managerFilter !== "all" && branch.manager_id !== managerFilter) return false
+      if (statusFilter === "active" && branch.is_active === false) return false
+      if (statusFilter === "inactive" && branch.is_active !== false) return false
+      return true
+    })
+  }, [listBranches, searchTerm, locationFilter, managerFilter, statusFilter, branchManagerById, coachById])
+
+  const resetFilters = () => {
+    setSearchTerm("")
+    setLocationFilter("all")
+    setManagerFilter("all")
+    setStatusFilter("all")
+    setCurrentPage(1)
+  }
+
+  const totalPages = Math.ceil(filteredBranches.length / itemsPerPage) || 1
+  const paginatedBranches = filteredBranches.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  )
+  const pageStart =
+    filteredBranches.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1
+  const pageEnd = Math.min(currentPage * itemsPerPage, filteredBranches.length)
+
+  const renderHeaderActions = () => (
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        className="btn-admin-outline h-10 shrink-0"
+        onClick={handleOpenAssignModal}
+      >
+        <UserCogIcon className="mr-2 h-4 w-4 text-[#2563EB]" />
+        Assign Manager
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        className="btn-admin-outline h-10 shrink-0"
+        onClick={() => router.push(`${basePath}/branch-managers`)}
+      >
+        <Users className="mr-2 h-4 w-4 text-[#1F9D57]" />
+        Branch Managers
+      </Button>
+      <Button
+        type="button"
+        className="h-10 shrink-0 bg-[#E1BB33] font-semibold text-[#3d3e5c] hover:bg-[#d4ae2a]"
+        onClick={() => router.push(`${basePath}/create-branch`)}
+      >
+        + Add Branch
+      </Button>
+    </>
+  )
 
 
   return (
-    <div className="w-full p-4 lg:px-8 overflow-x-hidden">
-        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-6">
-          <h1 className="text-2xl font-bold text-[#4F5077]">Branches list</h1>
-          {!BranchManagerAuth.isAuthenticated() && (
+    <AdminPageShell className="overflow-x-hidden">
+      <AdminPageHeader
+        icon={Store}
+        title="Branches"
+        subtitle="Manage all training branches and their information"
+        actions={
+          !BranchManagerAuth.isAuthenticated() ? (
             <>
-              {/* Mobile: horizontal scroll + arrows */}
-              <div className="flex items-center gap-1 w-full min-w-0 sm:hidden">
+              <div className="flex w-full min-w-0 items-center gap-1 sm:hidden">
                 <button
                   type="button"
                   aria-label="Scroll actions left"
                   onClick={() => scrollActionsToFullyVisible(-1)}
                   disabled={!canScrollActionsLeft}
-                  className={`shrink-0 flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-opacity ${
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-opacity ${
                     canScrollActionsLeft ? "opacity-100" : "opacity-0 pointer-events-none"
                   }`}
                 >
@@ -520,229 +650,322 @@ const paginatedBranches = filteredBranches.slice(
                 </button>
                 <div
                   ref={actionScrollRef}
-                  className="flex flex-1 min-w-0 flex-nowrap items-center gap-2 overflow-x-auto scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                  className="admin-actions flex min-w-0 flex-1 flex-nowrap overflow-x-auto scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
                 >
-                  <Button
-                    onClick={() => router.push(`${basePath}/create-branch`)}
-                    className="bg-yellow-400 hover:bg-yellow-500 text-white px-4 py-2 rounded-lg font-medium shrink-0"
-                  >
-                    + Add Branch
-                  </Button>
-                  <Button
-                    className="bg-blue-500 hover:bg-blue-600 text-white px-4 shrink-0"
-                    onClick={handleOpenAssignModal}
-                  >
-                    Assign Manager
-                  </Button>
-                  <Button
-                    className="bg-green-500 hover:bg-green-600 text-white px-4 shrink-0"
-                    onClick={() => router.push(`${basePath}/branch-managers`)}
-                  >
-                    Branch Managers
-                  </Button>
+                  {renderHeaderActions()}
                 </div>
                 <button
                   type="button"
                   aria-label="Scroll actions right"
                   onClick={() => scrollActionsToFullyVisible(1)}
                   disabled={!canScrollActionsRight}
-                  className={`shrink-0 flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-opacity ${
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-opacity ${
                     canScrollActionsRight ? "opacity-100" : "opacity-0 pointer-events-none"
                   }`}
                 >
                   <ChevronRight className="h-4 w-4 text-gray-700" />
                 </button>
               </div>
+              <div className="admin-actions hidden sm:flex">{renderHeaderActions()}</div>
+            </>
+          ) : undefined
+        }
+      />
 
-              {/* Desktop / tablet: normal row */}
-              <div className="hidden sm:flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
+      <AdminKpiGrid>
+        <AdminKpiCard
+          icon={Building2}
+          tone="blue"
+          label="Total Branches"
+          value={loading ? "—" : kpiTotals.total}
+        />
+        <AdminKpiCard
+          icon={Users}
+          tone="green"
+          label="Active Students"
+          value={loading || loadingStats ? "—" : kpiTotals.students}
+        />
+        <AdminKpiCard
+          icon={BookOpen}
+          tone="purple"
+          label="Courses Offered"
+          value={loading || loadingStats ? "—" : kpiTotals.courses}
+        />
+        <AdminKpiCard
+          icon={UserCheck}
+          tone="amber"
+          label="Assigned Coaches"
+          value={loading || loadingStats ? "—" : kpiTotals.coaches}
+        />
+      </AdminKpiGrid>
+
+      <AdminFilterBar>
+        <div className="relative min-w-[200px] flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7A99]" />
+          <Input
+            placeholder="Search branch by name, location or manager…"
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value)
+              setCurrentPage(1)
+            }}
+            className="pl-9"
+          />
+        </div>
+        <Select
+          value={locationFilter}
+          onValueChange={(v) => {
+            setLocationFilter(v)
+            setCurrentPage(1)
+          }}
+        >
+          <SelectTrigger className="h-11 w-full sm:w-[160px]">
+            <SelectValue placeholder="Location" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Locations</SelectItem>
+            {locationOptions.map((city) => (
+              <SelectItem key={city} value={city}>
+                {city}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={managerFilter}
+          onValueChange={(v) => {
+            setManagerFilter(v)
+            setCurrentPage(1)
+          }}
+        >
+          <SelectTrigger className="h-11 w-full sm:w-[180px]">
+            <SelectValue placeholder="Manager" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Managers</SelectItem>
+            {managerFilterOptions.map(([id, name]) => (
+              <SelectItem key={id} value={id}>
+                {name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={statusFilter}
+          onValueChange={(v) => {
+            setStatusFilter(v)
+            setCurrentPage(1)
+          }}
+        >
+          <SelectTrigger className="h-11 w-full sm:w-[140px]">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Status: All</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="inactive">Inactive</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button
+          type="button"
+          variant="outline"
+          className="btn-admin-outline h-11"
+          onClick={resetFilters}
+        >
+          <RotateCcw className="mr-2 h-4 w-4" />
+          Reset
+        </Button>
+      </AdminFilterBar>
+
+      <AdminTableShell
+        footer={
+          filteredBranches.length > 0 ? (
+            <>
+              <span>
+                Showing {pageStart} – {pageEnd} of {filteredBranches.length} branch
+                {filteredBranches.length === 1 ? "" : "es"}
+              </span>
+              <div className="admin-pagination flex items-center gap-1">
                 <Button
-                  onClick={() => router.push(`${basePath}/create-branch`)}
-                  className="bg-yellow-400 hover:bg-yellow-500 text-white px-4 sm:px-6 py-2 rounded-lg font-medium shrink-0"
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 w-9 p-0"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  aria-label="Previous page"
                 >
-                  + Add Branch
+                  <ChevronLeft className="h-4 w-4" />
                 </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <Button
+                    key={page}
+                    type="button"
+                    size="sm"
+                    variant={currentPage === page ? "default" : "outline"}
+                    className={`h-9 min-w-9 px-2 ${
+                      currentPage === page
+                        ? "bg-[#E1BB33] font-semibold text-[#3d3e5c] hover:bg-[#d4ae2a]"
+                        : ""
+                    }`}
+                    aria-current={currentPage === page ? "page" : undefined}
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </Button>
+                ))}
                 <Button
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 sm:px-6 shrink-0"
-                  onClick={handleOpenAssignModal}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 w-9 p-0"
+                  disabled={currentPage === totalPages || filteredBranches.length === 0}
+                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                  aria-label="Next page"
                 >
-                  Assign Manager
-                </Button>
-                <Button
-                  className="bg-green-500 hover:bg-green-600 text-white px-4 sm:px-6 shrink-0"
-                  onClick={() => router.push(`${basePath}/branch-managers`)}
-                >
-                  Branch Managers
+                  <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
             </>
-          )}
-        </div>
-
-        <div className="mb-6">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-black w-4 h-4" />
-            <Input
-              placeholder="Search by name, ID, Location"
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value)
-                setCurrentPage(1)
-              }}
-              className="pl-10"
-            />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b">
-              <tr className="text-[#6B7A99]">
-                {/* <th className="px-2 py-3 text-left text-xs font-medium text-gray-500  ">
-                  Branch ID
-                </th> */}
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
-                  Branch Name
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap min-w-[200px]">
-                  Branch Location
-                </th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 whitespace-nowrap">
-                  <div className="flex items-center justify-center">
-                    <span>Active Students</span>
-                    <div className="w-2 h-2 bg-blue-500 rounded-full ml-2"></div>
-                  </div>
-                </th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 whitespace-nowrap">
-                  <div className="flex items-center justify-center">
-                    <span>Courses Offered</span>
-                    <div className="w-2 h-2 bg-green-500 rounded-full ml-2"></div>
-                  </div>
-                </th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 whitespace-nowrap">
-                  <div className="flex items-center justify-center">
-                    <span>Assigned Coaches</span>
-                    <div className="w-2 h-2 bg-purple-500 rounded-full ml-2"></div>
-                  </div>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap min-w-[160px]">
-                  Branch Manager
-                </th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 whitespace-nowrap min-w-[140px]">
-                  Contact Number
-                </th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 whitespace-nowrap min-w-[130px]">
-                  Action
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+          ) : undefined
+        }
+      >
+        <table>
+          <thead>
+            <tr>
+              <th className="text-left">Branch</th>
+              <th className="text-left min-w-[200px]">Location</th>
+              <th className="text-center">Active Students</th>
+              <th className="text-center">Courses</th>
+              <th className="text-center">Coaches</th>
+              <th className="text-left min-w-[160px]">Branch Manager</th>
+              <th className="text-center min-w-[130px]">Contact</th>
+              <th className="text-center">Status</th>
+              <th className="text-center min-w-[120px]">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="py-8 px-6 text-center text-gray-500">
-                    Loading branches...
+                  <td colSpan={9} className="py-10 text-center text-[#6B7A99]">
+                    Loading branches…
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={8} className="py-8 px-6 text-center text-red-500">
+                  <td colSpan={9} className="py-10 text-center text-red-600">
                     Error: {error}
                   </td>
                 </tr>
               ) : filteredBranches.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 px-6 text-center text-gray-500">
-                    {searchTerm ? `No branches found matching "${searchTerm}"` : 'No branches found'}
+                  <td colSpan={9} className="py-10 text-center text-[#6B7A99]">
+                    {searchTerm ? `No branches found matching "${searchTerm}"` : "No branches found"}
                   </td>
                 </tr>
               ) : (
-                paginatedBranches.map((branch) => (
+                paginatedBranches.map((branch) => {
+                  const managerName = getManagerDisplayName(branch)
+                  const isActive = branch.is_active !== false
+                  return (
                   <tr
                     key={branch.id}
-                    className={`hover:bg-gray-50 ${branch.is_active === false ? "bg-gray-50/80" : ""}`}
+                    className={!isActive ? "bg-gray-50/60" : undefined}
                   >
-                    {/* <td className="px-2 py-4 whitespace-nowrap text-xs text-[#6B7A99]">{branch.id}</td> */}
-                    <td className="px-4 py-4 whitespace-nowrap text-xs text-[#6B7A99]">
-                      <div className="flex items-center gap-2">
-                        <span>{branch.branch?.name || 'N/A'}</span>
-                        {(branch.is_collaboration_partner || branch.allows_collaboration) && (
-                          <span className="inline-flex px-2 py-0.5 text-[10px] font-medium rounded bg-amber-50 text-amber-800 border border-amber-200">
-                            Partner
-                          </span>
-                        )}
-                        {branch.is_active === false && (
-                          <span className="inline-flex px-2 py-0.5 text-[10px] font-medium rounded bg-red-100 text-red-700">
-                            Disabled
-                          </span>
-                        )}
+                    <td className="whitespace-nowrap">
+                      <div className="flex items-center gap-2.5">
+                        <div className="admin-icon-tile admin-icon-tile--violet !h-9 !w-9 !rounded-xl">
+                          <Store className="h-4 w-4" />
+                        </div>
+                        <span className="font-semibold text-[#2F3158]">
+                          {branch.branch?.name || "N/A"}
+                        </span>
                       </div>
                     </td>
-                    <td className="px-4 py-4 text-xs text-[#6B7A99] max-w-xs">
-                      {branch.branch?.address ?
-                        `${branch.branch.address.line1}, ${branch.branch.address.city}, ${branch.branch.address.state}` :
-                        'Address not available'
-                      }
+                    <td className="max-w-xs text-[#6B7A99]">
+                      {branch.branch?.address
+                        ? `${branch.branch.address.line1}, ${branch.branch.address.city}, ${branch.branch.address.state}`
+                        : "Address not available"}
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-xs text-[#6B7A99] text-center">
+                    <td className="text-center">
                       <div className="flex items-center justify-center">
                         {loadingStats && !branch.statistics ? (
-                          <div className="animate-pulse bg-gray-200 rounded-full px-2.5 py-0.5 text-xs">
-                            Loading...
-                          </div>
+                          <span className="inline-block h-6 w-10 animate-pulse rounded-lg bg-gray-200" />
                         ) : (
-                          <span className="inline-flex items-center text-xs text-[#6B7A99]">
+                          <span className="inline-flex min-w-[2.25rem] items-center justify-center gap-1 rounded-lg bg-[#E8F1FF] px-2 py-1 text-xs font-semibold text-[#2563EB]">
+                            <Users className="h-3 w-3" />
                             {branch.statistics?.student_count ?? 0}
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-xs text-[#6B7A99] text-center">
+                    <td className="text-center">
                       <div className="flex items-center justify-center">
                         {loadingStats && !branch.statistics ? (
-                          <div className="animate-pulse bg-gray-200 rounded-full px-2.5 py-0.5 text-xs">
-                            Loading...
-                          </div>
+                          <span className="inline-block h-6 w-10 animate-pulse rounded-lg bg-gray-200" />
                         ) : (
-                          <span className="inline-flex items-center text-xs text-[#6B7A99]">
-                            {branch.statistics?.course_count ?? branch.operational_details?.courses_offered?.length ?? 0}
+                          <span className="inline-flex min-w-[2.25rem] items-center justify-center gap-1 rounded-lg bg-[#EAF8F0] px-2 py-1 text-xs font-semibold text-[#1F9D57]">
+                            <BookOpen className="h-3 w-3" />
+                            {branch.statistics?.course_count ??
+                              branch.operational_details?.courses_offered?.length ??
+                              0}
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-xs text-[#6B7A99] text-center">
+                    <td className="text-center">
                       <div className="flex items-center justify-center">
                         {loadingStats && !branch.statistics ? (
-                          <div className="animate-pulse bg-gray-200 rounded-full px-2.5 py-0.5 text-xs">
-                            Loading...
-                          </div>
+                          <span className="inline-block h-6 w-10 animate-pulse rounded-lg bg-gray-200" />
                         ) : (
-                          <span className="text-xs text-[#6B7A99]">
+                          <span className="inline-flex min-w-[2.25rem] items-center justify-center gap-1 rounded-lg bg-[#F1EBFF] px-2 py-1 text-xs font-semibold text-[#6D28D9]">
+                            <UserCheck className="h-3 w-3" />
                             {branch.statistics?.coach_count ?? 0}
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-4 text-xs text-[#6B7A99] whitespace-nowrap min-w-[160px]">
-                      {getManagerDisplayName(branch)}
+                    <td className="min-w-[160px] whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FFF8E1] text-xs font-semibold text-[#B8860B]">
+                          {initialsFromName(managerName)}
+                        </span>
+                        <span className="text-[#2F3158]">{managerName}</span>
+                      </div>
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-xs text-[#6B7A99] text-center">
+                    <td className="text-center whitespace-nowrap text-[#6B7A99]">
                       {getBranchContactDisplay(branch)}
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-xs text-[#6B7A99] text-center">
-                      <div className="flex items-center justify-center space-x-2">
+                    <td className="text-center">
+                      <AdminStatusPill status={isActive ? "active" : "inactive"}>
+                        {isActive ? "Active" : "Inactive"}
+                      </AdminStatusPill>
+                    </td>
+                    <td className="text-center">
+                      <div className="flex items-center justify-center gap-1">
                         <button
-                          className="text-blue-400 hover:text-blue-600"
-                          onClick={() => handleViewClick(branch.id)}
-                          title="View Details"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          className="text-gray-400 hover:text-gray-600"
+                          type="button"
+                          className="btn-admin-outline !h-9 !w-9 !p-0"
                           onClick={() => handleEditClick(branch.id)}
                           title="Edit Branch"
                         >
-                          <Edit className="w-4 h-4" />
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-admin-outline !h-9 !w-9 !p-0"
+                          onClick={() => handleViewClick(branch.id)}
+                          title="View Details"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-admin-outline !h-9 !w-9 !p-0"
+                          onClick={() => handleViewClick(branch.id)}
+                          title="More actions"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
                         </button>
                         {(branch.is_collaboration_partner || branch.allows_collaboration) && (
                           <button
@@ -865,48 +1088,12 @@ const paginatedBranches = filteredBranches.slice(
                       </div>
                     </td>
                   </tr>
-                ))
+                  )
+                })
               )}
             </tbody>
           </table>
-        </div>
-
-       {totalPages > 1 ? (
-       <div className="flex items-center justify-center space-x-2 mt-6">
-  <Button
-    variant="outline"
-    className="px-3 py-2 bg-transparent"
-    disabled={currentPage === 1}
-    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-  >
-    Previous
-  </Button>
-
-  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-    <Button
-      key={page}
-      onClick={() => setCurrentPage(page)}
-      className={`px-3 py-2 ${
-        currentPage === page
-          ? "bg-yellow-400 hover:bg-yellow-500 text-black"
-          : "bg-transparent"
-      }`}
-      variant={currentPage === page ? "default" : "outline"}
-    >
-      {page}
-    </Button>
-  ))}
-
-  <Button
-    variant="outline"
-    className="px-3 py-2 bg-transparent"
-    disabled={currentPage === totalPages}
-    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-  >
-    Next
-  </Button>
-</div>
-       ) : null}
+      </AdminTableShell>
 
       {showAssignPopup && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -944,7 +1131,7 @@ const paginatedBranches = filteredBranches.slice(
                     <SelectValue placeholder="Choose a branch to assign manager to" />
                   </SelectTrigger>
                   <SelectContent>
-                    {filteredBranches.map((branch) => (
+                    {listBranches.map((branch) => (
                       <SelectItem key={branch.id} value={branch.id}>
                         {branch.branch?.name || 'Unknown Branch'} ({branch.id})
                       </SelectItem>
@@ -1020,6 +1207,6 @@ const paginatedBranches = filteredBranches.slice(
         </div>
       )}
 
-    </div>
+    </AdminPageShell>
   )
 }

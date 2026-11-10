@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 interface Permission {
   id: string
@@ -96,10 +96,10 @@ export function usePermissions(userRole?: string) {
     setLoading(false)
   }, [userRole])
 
-  const hasPermission = (permissionId: string): boolean => {
+  const hasPermission = useCallback((permissionId: string): boolean => {
     const permission = permissions.find(p => p.id === permissionId)
     return permission?.enabled ?? false
-  }
+  }, [permissions])
 
   return { permissions, hasPermission, loading }
 }

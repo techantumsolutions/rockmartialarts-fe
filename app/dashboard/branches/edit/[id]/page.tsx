@@ -222,34 +222,7 @@ export default function EditBranch() {
     const loadBranchManagers = async () => {
       try {
         setIsLoadingBranchManagers(true)
-        let token = TokenManager.getToken()
-
-        if (!token) {
-          console.log("No token found, attempting superadmin login...")
-          try {
-            const loginResponse = await fetch(getBackendApiUrl('login'), {
-              method: "PUT",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                email: "pittisunilkumar3@gmail.com",
-                password: "StrongPassword@123"
-              })
-            })
-
-            if (loginResponse.ok) {
-              const loginData = await loginResponse.json()
-              if (loginData.token) {
-                TokenManager.setToken(loginData.token)
-                token = loginData.token
-                console.log("✅ Auto-login successful")
-              }
-            }
-          } catch (loginError) {
-            console.error("Auto-login failed:", loginError)
-          }
-        }
+        const token = TokenManager.getToken()
 
         if (!token) {
           toast({
@@ -257,6 +230,8 @@ export default function EditBranch() {
             description: "Please login to access this page.",
             variant: "destructive",
           })
+          router.push("/login")
+          setIsLoadingBranchManagers(false)
           return
         }
 

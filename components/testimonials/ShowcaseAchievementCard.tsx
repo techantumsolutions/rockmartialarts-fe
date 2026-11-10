@@ -11,48 +11,43 @@ export type ShowcaseAchievementItem = {
   image?: string | null
 }
 
+/** Compact card sized for a 3-column achievements grid (no internal scroll). */
 export function ShowcaseAchievementCard({ item }: { item: ShowcaseAchievementItem }) {
   const title = item.achievement_title || "Achievement"
   const desc = item.description?.trim() || ""
 
   return (
     <div className="bg-gray-900/50 rounded-xl border border-gray-800 overflow-hidden h-full flex flex-col transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:border-[#FFB70F]/40">
-      {/* Fixed media frame — uniform aspect ratio without cropping images */}
-      <div className="relative w-full aspect-[4/3] shrink-0 overflow-hidden bg-gray-950 flex items-center justify-center">
-        {/* Ambient blurred backdrop so portrait/custom-ratio images blend seamlessly */}
-        <SafeImage
-          src={item.image || DEFAULT_IMAGE_PLACEHOLDER}
-          alt=""
-          resolveUrl={Boolean(item.image)}
-          className="absolute inset-0 w-full h-full object-cover object-center blur-xl scale-110 opacity-70 pointer-events-none"
-          aria-hidden
-          loading="lazy"
-        />
-        {/* Sharp full image preserving original aspect ratio without cropping */}
+      <div className="relative w-full aspect-[3/4] max-h-[280px] shrink-0 overflow-hidden bg-gray-950">
         <SafeImage
           src={item.image || DEFAULT_IMAGE_PLACEHOLDER}
           alt={title}
           resolveUrl={Boolean(item.image)}
-          className="relative z-10 w-full h-full object-contain object-center"
+          className="absolute inset-0 w-full h-full object-cover object-center"
+          wrapperClassName="absolute inset-0"
           loading="lazy"
           decoding="async"
         />
       </div>
-      <div className="p-4 flex flex-col flex-1 min-h-[9.5rem]">
-        <div className="flex items-center gap-3 mb-2">
+      <div className="p-3 sm:p-4 flex flex-col flex-1 min-h-0">
+        <div className="flex items-center gap-2.5 mb-2 min-w-0">
           <SafeImage
             src={item.student_photo || DEFAULT_IMAGE_PLACEHOLDER}
             alt={item.student_name || ""}
             resolveUrl={Boolean(item.student_photo)}
-            className="w-10 h-10 shrink-0 rounded-full object-cover border border-[#FFB70F]/30"
+            className="w-9 h-9 shrink-0 rounded-full object-cover border border-[#FFB70F]/30"
             loading="lazy"
           />
-          <span className="font-medium text-white truncate text-sm">{item.student_name || "Student"}</span>
+          <span className="font-medium text-white truncate text-sm">
+            {item.student_name || "Student"}
+          </span>
         </div>
-        <h3 className="text-[#FFB70F] font-bold text-base mb-2 line-clamp-2 min-h-[2.75rem]">{title}</h3>
-        <p className="text-gray-400 text-sm leading-relaxed line-clamp-3 flex-1">
-          {desc || "\u00A0"}
-        </p>
+        <h3 className="text-[#FFB70F] font-bold text-sm sm:text-base mb-1.5 line-clamp-2 leading-snug">
+          {title}
+        </h3>
+        {desc ? (
+          <p className="text-gray-400 text-xs sm:text-sm leading-relaxed line-clamp-2">{desc}</p>
+        ) : null}
       </div>
     </div>
   )

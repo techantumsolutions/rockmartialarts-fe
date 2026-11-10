@@ -189,7 +189,7 @@ export default function BranchesDiscoveryPage() {
         style={{ backgroundImage: "url(/assets/img/banner.jpg)" }}
       >
         <div className="absolute inset-0 bg-black/60" />
-        <div className="container relative z-10 mx-auto px-4 max-w-7xl">
+        <div className="site-content relative z-10 px-0 sm:px-1">
           <div className="max-w-2xl">
             <h1 className="text-4xl md:text-5xl font-bold text-white uppercase mb-4">Our Branches</h1>
             <p className="text-gray-200 text-lg">
@@ -200,7 +200,7 @@ export default function BranchesDiscoveryPage() {
       </section>
 
       <section className="py-10 md:py-12 bg-[#171A26] border-b border-gray-800">
-        <div className="container mx-auto px-4 max-w-7xl">
+        <div className="site-content px-0 sm:px-1">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs uppercase tracking-wider text-gray-400 mb-2">State</label>
@@ -292,7 +292,7 @@ export default function BranchesDiscoveryPage() {
       </section>
 
       <section className="py-16 md:py-20 bg-[#171A26]">
-        <div className="container mx-auto px-4 max-w-7xl">
+        <div className="site-content px-0 sm:px-1">
           {loading ? (
             <div className="flex justify-center py-16">
               <Loader2 className="w-10 h-10 animate-spin text-[#FFB70F]" />

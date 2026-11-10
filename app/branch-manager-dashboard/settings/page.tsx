@@ -27,6 +27,7 @@ import {
 import Header from "@/components/layout/Header"
 import { useToast } from "@/hooks/use-toast"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { branchAPI } from "@/lib/branchAPI"
 
 interface BranchSettings {
   // Branch Configuration
@@ -71,34 +72,27 @@ export default function BranchManagerSettingsPage() {
   const [loading, setLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errors, setErrors] = useState<FormErrors>({})
+  const [branchRecord, setBranchRecord] = useState<Record<string, any> | null>(null)
+  const [settingsReadOnlyNotice, setSettingsReadOnlyNotice] = useState<string | null>(null)
   
   const [settings, setSettings] = useState<BranchSettings>({
-    // Branch Configuration
-    branch_name: "Main Branch",
-    branch_code: "MB001",
-    branch_email: "mainbranch@marshalats.com",
-    branch_phone: "+1234567890",
-    
-    // Operational Settings
+    branch_name: "",
+    branch_code: "",
+    branch_email: "",
+    branch_phone: "",
     operating_hours_start: "06:00",
     operating_hours_end: "22:00",
     max_students_per_class: 20,
     booking_advance_days: 30,
     cancellation_hours: 24,
-    
-    // Notification Settings
-    email_notifications: true,
-    sms_notifications: true,
-    push_notifications: true,
-    student_reminder_notifications: true,
-    coach_assignment_notifications: true,
-    
-    // Security Settings
+    email_notifications: false,
+    sms_notifications: false,
+    push_notifications: false,
+    student_reminder_notifications: false,
+    coach_assignment_notifications: false,
     require_password_change: false,
     session_timeout_minutes: 60,
     two_factor_authentication: false,
-    
-    // Display Settings
     timezone: "Asia/Kolkata",
     date_format: "DD/MM/YYYY",
     currency: "INR",
@@ -117,38 +111,34 @@ export default function BranchManagerSettingsPage() {
       try {
         setLoading(true)
         
-        // Get current user data
         const currentUser = BranchManagerAuth.getCurrentUser()
-        if (!currentUser) {
-          throw new Error("User data not found")
+        const token = BranchManagerAuth.getToken()
+        const branchId = currentUser?.branch_id
+        if (!currentUser || !token || !branchId) {
+          throw new Error("Branch manager session or branch assignment not found")
         }
 
-        // Mock settings data - in real implementation, this would come from API
-        const mockSettings: BranchSettings = {
-          branch_name: currentUser.branch_name || "Main Branch",
-          branch_code: "MB001",
-          branch_email: "mainbranch@marshalats.com",
-          branch_phone: "+1234567890",
-          operating_hours_start: "06:00",
-          operating_hours_end: "22:00",
-          max_students_per_class: 20,
-          booking_advance_days: 30,
-          cancellation_hours: 24,
-          email_notifications: true,
-          sms_notifications: true,
-          push_notifications: true,
-          student_reminder_notifications: true,
-          coach_assignment_notifications: true,
-          require_password_change: false,
-          session_timeout_minutes: 60,
-          two_factor_authentication: false,
-          timezone: "Asia/Kolkata",
-          date_format: "DD/MM/YYYY",
-          currency: "INR",
-          language: "en"
-        }
+        const branch = await branchAPI.getBranchById(branchId, token)
+        setBranchRecord(branch)
 
-        setSettings(mockSettings)
+        const branchInfo = branch.branch || {}
+        const timings = branch.operational_details?.timings || []
+        const firstTiming = timings[0]
+        const lastTiming = timings[timings.length - 1] || firstTiming
+
+        setSettings((prev) => ({
+          ...prev,
+          branch_name: branchInfo.name || currentUser.branch_name || "",
+          branch_code: branchInfo.code || branch.code || "",
+          branch_email: branchInfo.email || "",
+          branch_phone: branchInfo.phone || "",
+          operating_hours_start: firstTiming?.open || "06:00",
+          operating_hours_end: lastTiming?.close || "22:00",
+        }))
+
+        setSettingsReadOnlyNotice(
+          "Notification, security, and display preferences are not stored on the branch API yet and are shown as read-only."
+        )
 
       } catch (error) {
         console.error('Error loading settings:', error)
@@ -206,19 +196,71 @@ export default function BranchManagerSettingsPage() {
     try {
       setIsSubmitting(true)
 
-      // Mock API call - in real implementation, this would save the settings
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      const currentUser = BranchManagerAuth.getCurrentUser()
+      const token = BranchManagerAuth.getToken()
+      const branchId = currentUser?.branch_id
+
+      if (!token || !branchId || !branchRecord) {
+        throw new Error("Branch profile is not loaded")
+      }
+
+      const existingTimings = branchRecord.operational_details?.timings || []
+      const updatedTimings =
+        existingTimings.length > 0
+          ? existingTimings.map((timing: any, index: number) =>
+              index === 0
+                ? {
+                    ...timing,
+                    open: settings.operating_hours_start,
+                    close: settings.operating_hours_end,
+                  }
+                : timing
+            )
+          : [
+              {
+                day: "Monday",
+                open: settings.operating_hours_start,
+                close: settings.operating_hours_end,
+              },
+            ]
+
+      await branchAPI.updateBranch(
+        branchId,
+        {
+          branch: {
+            ...(branchRecord.branch || {}),
+            name: settings.branch_name,
+            code: settings.branch_code || branchRecord.branch?.code,
+            email: settings.branch_email,
+            phone: settings.branch_phone,
+          },
+          operational_details: {
+            ...(branchRecord.operational_details || {}),
+            courses_offered:
+              branchRecord.operational_details?.courses_offered || [],
+            holidays: branchRecord.operational_details?.holidays || [],
+            timings: updatedTimings,
+          },
+        },
+        token
+      )
+
+      const refreshed = await branchAPI.getBranchById(branchId, token)
+      setBranchRecord(refreshed)
 
       toast({
         title: "Success",
-        description: "Settings updated successfully",
+        description: "Branch profile and operating hours saved",
       })
-
     } catch (error) {
       console.error('Error updating settings:', error)
+      const description =
+        error instanceof Error
+          ? error.message
+          : "Failed to update branch settings"
       toast({
-        title: "Error",
-        description: "Failed to update settings",
+        title: "Unable to save",
+        description,
         variant: "destructive",
       })
     } finally {
@@ -227,30 +269,22 @@ export default function BranchManagerSettingsPage() {
   }
 
   const handleReset = () => {
-    // Reset to default values
-    setSettings({
-      branch_name: "Main Branch",
-      branch_code: "MB001",
-      branch_email: "mainbranch@marshalats.com",
-      branch_phone: "+1234567890",
-      operating_hours_start: "06:00",
-      operating_hours_end: "22:00",
-      max_students_per_class: 20,
-      booking_advance_days: 30,
-      cancellation_hours: 24,
-      email_notifications: true,
-      sms_notifications: true,
-      push_notifications: true,
-      student_reminder_notifications: true,
-      coach_assignment_notifications: true,
-      require_password_change: false,
-      session_timeout_minutes: 60,
-      two_factor_authentication: false,
-      timezone: "Asia/Kolkata",
-      date_format: "DD/MM/YYYY",
-      currency: "INR",
-      language: "en"
-    })
+    if (!branchRecord) return
+
+    const branchInfo = branchRecord.branch || {}
+    const timings = branchRecord.operational_details?.timings || []
+    const firstTiming = timings[0]
+    const lastTiming = timings[timings.length - 1] || firstTiming
+
+    setSettings((prev) => ({
+      ...prev,
+      branch_name: branchInfo.name || "",
+      branch_code: branchInfo.code || "",
+      branch_email: branchInfo.email || "",
+      branch_phone: branchInfo.phone || "",
+      operating_hours_start: firstTiming?.open || "06:00",
+      operating_hours_end: lastTiming?.close || "22:00",
+    }))
     setErrors({})
   }
 
@@ -286,6 +320,13 @@ export default function BranchManagerSettingsPage() {
       
       <main className="w-full p-4 lg:py-4 px-19">
         <div className="max-w-4xl mx-auto">
+          {settingsReadOnlyNotice && (
+            <div className="mb-6 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+              <Info className="w-5 h-5 shrink-0 mt-0.5" />
+              <p>{settingsReadOnlyNotice}</p>
+            </div>
+          )}
+
           {/* Header */}
           <div className="flex flex-col lg:flex-row justify-between items-start py-8 mb-6 lg:items-center gap-4">
             <div>
@@ -411,6 +452,7 @@ export default function BranchManagerSettingsPage() {
                     value={settings.max_students_per_class}
                     onChange={(e) => handleInputChange('max_students_per_class', parseInt(e.target.value))}
                     className={errors.max_students_per_class ? "border-red-500" : ""}
+                    disabled
                   />
                   {errors.max_students_per_class && (
                     <p className="text-xs text-red-600">{errors.max_students_per_class}</p>
@@ -426,6 +468,7 @@ export default function BranchManagerSettingsPage() {
                     max="365"
                     value={settings.booking_advance_days}
                     onChange={(e) => handleInputChange('booking_advance_days', parseInt(e.target.value))}
+                    disabled
                   />
                 </div>
 
@@ -438,6 +481,7 @@ export default function BranchManagerSettingsPage() {
                     max="168"
                     value={settings.cancellation_hours}
                     onChange={(e) => handleInputChange('cancellation_hours', parseInt(e.target.value))}
+                    disabled
                   />
                 </div>
               </CardContent>
@@ -460,6 +504,7 @@ export default function BranchManagerSettingsPage() {
                   <Switch
                     checked={settings.email_notifications}
                     onCheckedChange={(checked) => handleInputChange('email_notifications', checked)}
+                    disabled
                   />
                 </div>
 
@@ -471,6 +516,7 @@ export default function BranchManagerSettingsPage() {
                   <Switch
                     checked={settings.sms_notifications}
                     onCheckedChange={(checked) => handleInputChange('sms_notifications', checked)}
+                    disabled
                   />
                 </div>
 
@@ -482,6 +528,7 @@ export default function BranchManagerSettingsPage() {
                   <Switch
                     checked={settings.push_notifications}
                     onCheckedChange={(checked) => handleInputChange('push_notifications', checked)}
+                    disabled
                   />
                 </div>
 
@@ -493,6 +540,7 @@ export default function BranchManagerSettingsPage() {
                   <Switch
                     checked={settings.student_reminder_notifications}
                     onCheckedChange={(checked) => handleInputChange('student_reminder_notifications', checked)}
+                    disabled
                   />
                 </div>
 
@@ -504,6 +552,7 @@ export default function BranchManagerSettingsPage() {
                   <Switch
                     checked={settings.coach_assignment_notifications}
                     onCheckedChange={(checked) => handleInputChange('coach_assignment_notifications', checked)}
+                    disabled
                   />
                 </div>
               </CardContent>
@@ -526,6 +575,7 @@ export default function BranchManagerSettingsPage() {
                   <Switch
                     checked={settings.require_password_change}
                     onCheckedChange={(checked) => handleInputChange('require_password_change', checked)}
+                    disabled
                   />
                 </div>
 
@@ -539,6 +589,7 @@ export default function BranchManagerSettingsPage() {
                     value={settings.session_timeout_minutes}
                     onChange={(e) => handleInputChange('session_timeout_minutes', parseInt(e.target.value))}
                     className={errors.session_timeout_minutes ? "border-red-500" : ""}
+                    disabled
                   />
                   {errors.session_timeout_minutes && (
                     <p className="text-xs text-red-600">{errors.session_timeout_minutes}</p>
@@ -547,7 +598,7 @@ export default function BranchManagerSettingsPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="timezone">Timezone</Label>
-                  <Select value={settings.timezone} onValueChange={(value) => handleInputChange('timezone', value)}>
+                  <Select value={settings.timezone} onValueChange={(value) => handleInputChange('timezone', value)} disabled>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -562,7 +613,7 @@ export default function BranchManagerSettingsPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="currency">Currency</Label>
-                  <Select value={settings.currency} onValueChange={(value) => handleInputChange('currency', value)}>
+                  <Select value={settings.currency} onValueChange={(value) => handleInputChange('currency', value)} disabled>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>

@@ -30,6 +30,7 @@ import { getBackendApiUrl } from "@/lib/config"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { formatRegisteredDateTime } from "@/lib/formatRegisteredDate"
 import { formatPaymentSourceLabel } from "@/lib/formatPaymentSourceLabel"
+import { StudentPlanRenewalSection } from "@/components/students/StudentPlanRenewalSection"
 
 interface StudentDetails {
   id: string
@@ -77,10 +78,21 @@ interface EnrollmentHistory {
   id: string
   course_name: string
   enrollment_date: string
+  start_date?: string
+  end_date?: string
+  next_due_date?: string
   completion_date?: string
   status: string
   progress: number
   grade?: string
+  is_active?: boolean
+  payment_status?: string
+  fee_amount?: number
+  batch_ref?: string
+  course_id?: string
+  branch_id?: string
+  branch_name?: string
+  duration_id?: string
 }
 
 interface PaymentRecord {
@@ -210,13 +222,24 @@ export default function BranchManagerStudentDetailPage() {
         console.log('✅ Enrollment data received:', enrollmentData)
 
         enrollmentHistory = enrollmentData.enrollments?.map((enrollment: any) => ({
-          id: enrollment.id,
+          id: enrollment.id || enrollment.enrollment_id,
           course_name: enrollment.course_name || "Unknown Course",
           enrollment_date: enrollment.enrollment_date || enrollment.created_at,
+          start_date: enrollment.start_date,
+          end_date: enrollment.end_date,
+          next_due_date: enrollment.next_due_date || enrollment.end_date,
           completion_date: enrollment.completion_date,
           status: enrollment.status || 'active',
           progress: enrollment.progress || 0,
-          grade: enrollment.grade || undefined
+          grade: enrollment.grade || undefined,
+          is_active: enrollment.is_active,
+          payment_status: enrollment.payment_status,
+          fee_amount: enrollment.fee_amount,
+          batch_ref: enrollment.batch_ref,
+          course_id: enrollment.course_id,
+          branch_id: enrollment.branch_id,
+          branch_name: enrollment.branch_name,
+          duration_id: enrollment.duration_id || enrollment.duration,
         })) || []
       } else {
         console.warn('⚠️ Failed to fetch enrollment history:', enrollmentResponse.status)
@@ -656,6 +679,18 @@ export default function BranchManagerStudentDetailPage() {
                 )}
               </CardContent>
             </Card>
+          </div>
+
+          <div className="mt-8">
+            <StudentPlanRenewalSection
+              studentName={student?.full_name || "Student"}
+              enrollments={enrollmentHistory}
+              loading={loading}
+              authToken={BranchManagerAuth.getToken()}
+              onRenewed={() => {
+                void fetchStudentDetails()
+              }}
+            />
           </div>
 
           {/* Current Courses */}

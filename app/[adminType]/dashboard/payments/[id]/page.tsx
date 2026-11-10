@@ -363,6 +363,15 @@ export default function PaymentDetailPage() {
                 <span className="text-gray-600">Status</span>
                 {getStatusBadge(payment.payment_status)}
               </div>
+              {["failed", "cancelled", "canceled"].includes(
+                String(payment.payment_status || "").toLowerCase()
+              ) ? (
+                <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                  This checkout did not complete. Ask the student to open{" "}
+                  <strong>Student Dashboard → Payments</strong> and use <strong>Retry payment</strong>{" "}
+                  (same Razorpay create-order flow).
+                </p>
+              ) : null}
               <div className="flex items-center justify-between">
                 <span className="text-gray-600">Payment Method</span>
                 <span className="text-gray-900">{payment.payment_method || "N/A"}</span>

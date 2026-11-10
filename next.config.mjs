@@ -13,6 +13,13 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: "120mb",
     },
+    optimizePackageImports: [
+      "lucide-react",
+      "@radix-ui/react-icons",
+      "date-fns",
+      "recharts",
+      "framer-motion",
+    ],
   },
   // react-pdf / pdfjs optional native canvas — not used in browser viewer
   webpack: (config) => {

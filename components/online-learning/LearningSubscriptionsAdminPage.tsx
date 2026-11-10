@@ -124,7 +124,7 @@ export default function LearningSubscriptionsAdminPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <main className="w-full p-4 lg:px-8 lg:py-6 space-y-6 max-w-6xl mx-auto">
+      <main className="w-full p-4 lg:px-8 lg:py-6 space-y-6 w-full max-w-none">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-[#4F5077]">

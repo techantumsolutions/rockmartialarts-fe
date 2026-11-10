@@ -1,13 +1,32 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Calendar } from "lucide-react"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import {
+  AdminCard,
+  AdminFilterBar,
+  AdminKpiCard,
+  AdminKpiGrid,
+  AdminPageHeader,
+  AdminPageShell,
+  AdminStatusPill,
+  AdminTableShell,
+} from "@/components/dashboard/AdminPageShell"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
+import {
+  Calendar,
+  CheckCircle2,
+  CreditCard,
+  Download,
+  Eye,
+  Plus,
+  RotateCcw,
+  XCircle,
+} from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
@@ -61,6 +80,37 @@ interface PaymentStats {
   pending_payments: number
   total_students: number
   this_month_collection: number
+  payment_count?: number
+  failed_count?: number
+  cancelled_count?: number
+}
+
+const STUDENT_AVATAR_PALETTE = [
+  "bg-[#E8F1FF] text-[#2563EB]",
+  "bg-[#F1EBFF] text-[#6D28D9]",
+  "bg-[#EAF8F0] text-[#1F9D57]",
+  "bg-[#FFF8E1] text-[#C9971A]",
+  "bg-[#FFE8E8] text-[#E11D48]",
+]
+
+function studentInitials(name?: string | null) {
+  const trimmed = (name || "Unknown").trim()
+  const parts = trimmed.split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) {
+    return `${parts[0][0] || ""}${parts[parts.length - 1][0] || ""}`.toUpperCase()
+  }
+  return trimmed.slice(0, 2).toUpperCase()
+}
+
+function paymentStatusPill(
+  status: string
+): "paid" | "pending" | "cancelled" | "rejected" | undefined {
+  const s = status.toLowerCase()
+  if (s === "paid" || s === "completed") return "paid"
+  if (s === "pending") return "pending"
+  if (s === "cancelled" || s === "canceled") return "cancelled"
+  if (s === "failed") return "rejected"
+  return undefined
 }
 
 interface BranchOption {
@@ -79,6 +129,8 @@ type RecoveryAction = "restore_checkout" | "mark_received" | "waive"
 
 export default function PaymentTrackingPage() {
   const params = useParams<{ adminType: string }>()
+  const router = useRouter()
+  const basePath = useDashboardBasePath()
   const { toast } = useToast()
   const [payments, setPayments] = useState<Payment[]>([])
   const [stats, setStats] = useState<PaymentStats>({
@@ -594,7 +646,7 @@ export default function PaymentTrackingPage() {
   }
 
   const showPartnerColumn = isSuperAdmin || isPartnerAdmin
-  const tableColSpan = (isSuperAdmin ? 5 : 4) + (showPartnerColumn ? 1 : 0)
+  const tableColSpan = 7 + (showPartnerColumn ? 1 : 0)
   const selectedPartnerLabel =
     partnerFilter === "all"
       ? null
@@ -604,478 +656,462 @@ export default function PaymentTrackingPage() {
           ? "All partners"
           : partnerOptions.find((p) => p.id === partnerFilter)?.name || "Partner"
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <main className="w-full p-4 lg:px-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Payment Tracking</h1>
+  const maxBranchRevenue = useMemo(
+    () => Math.max(1, ...branchRevenue.map((r) => r.total_revenue)),
+    [branchRevenue]
+  )
 
-        {isPartnerAdmin ? (
-          <div className="mb-6 space-y-4">
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-              Student course payments are collected on Rock’s payment gateway. This list shows
-              every transaction for your organization (student, branch, course, amount) so you can
-              reconcile settlement with Rock Super Admin offline.
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader className="py-4">
-                  <CardTitle className="text-sm font-medium text-gray-700">
-                    Your org — collected (all time)
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-semibold text-gray-900">
-                    {formatCurrency(stats.total_collected)}
+  const paidTransactions =
+    typeof stats.payment_count === "number" ? stats.payment_count : "—"
+
+  const cancelledOrFailed =
+    Number(stats.cancelled_count ?? 0) + Number(stats.failed_count ?? 0) > 0
+      ? Number(stats.cancelled_count ?? 0) + Number(stats.failed_count ?? 0)
+      : stats.pending_payments
+
+  const periodRevenueLabel =
+    periodStart || periodEnd
+      ? periodRevenue != null
+        ? formatCurrency(periodRevenue)
+        : "—"
+      : formatCurrency(Number(stats.this_month_collection) || 0)
+
+  return (
+    <AdminPageShell>
+      <AdminPageHeader
+        icon={CreditCard}
+        title="Payment Tracking"
+        subtitle="Track revenue, payment status, and transactions across branches."
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="btn-admin-outline h-10"
+              disabled={exporting}
+              onClick={() => void handleExport()}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              {exporting ? "Exporting…" : "Export Report"}
+            </Button>
+            <Button
+              type="button"
+              className="btn-admin-primary h-10"
+              onClick={() => router.push(`${basePath}/create-student`)}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Record Payment
+            </Button>
+          </>
+        }
+      />
+
+      {isPartnerAdmin ? (
+        <>
+          <AdminCard className="border-amber-200/80 bg-[#FFFBEB] text-sm text-amber-950">
+            Student course payments are collected on Rock&apos;s payment gateway. This list shows every
+            transaction for your organization (student, branch, course, amount) so you can reconcile
+            settlement with Rock Super Admin offline.
+          </AdminCard>
+          <AdminKpiGrid cols={4}>
+            <AdminKpiCard
+              icon={CreditCard}
+              label="Your org — collected (all time)"
+              value={formatCurrency(stats.total_collected)}
+              tone="amber"
+            />
+            <AdminKpiCard
+              icon={Calendar}
+              label="Selected period"
+              value={formatCurrency(Number(stats.this_month_collection) || 0)}
+              tone="blue"
+              hint="Uses date filters below when set"
+            />
+          </AdminKpiGrid>
+        </>
+      ) : null}
+
+      {isSuperAdmin ? (
+        <div
+          className={
+            partnerFilter === "all" && branchRevenue.length > 0
+              ? "grid grid-cols-1 gap-4 xl:grid-cols-[1fr_minmax(0,17rem)]"
+              : ""
+          }
+        >
+          <AdminKpiGrid cols={4}>
+            <AdminKpiCard
+              icon={CreditCard}
+              label={
+                selectedPartnerLabel ? `Revenue — ${selectedPartnerLabel}` : "Total Revenue (All time)"
+              }
+              value={formatCurrency(stats.total_collected)}
+              tone="amber"
+            />
+            <AdminKpiCard
+              icon={CheckCircle2}
+              label="Paid Transactions"
+              value={paidTransactions}
+              tone="green"
+            />
+            <AdminKpiCard
+              icon={XCircle}
+              label="Cancelled / Failed"
+              value={cancelledOrFailed}
+              tone="rose"
+            />
+            <AdminKpiCard
+              icon={Calendar}
+              label={periodStart || periodEnd ? "Selected Period Revenue" : "This Month Revenue"}
+              value={periodRevenueLabel}
+              tone="blue"
+            />
+          </AdminKpiGrid>
+
+          {partnerFilter === "all" && branchRevenue.length > 0 ? (
+            <AdminCard>
+              <h3 className="mb-3 text-sm font-semibold text-[#4F5077]">Branch-wise Revenue</h3>
+              <div
+                className={
+                  branchRevenue.length > 5
+                    ? "max-h-48 space-y-3 overflow-y-auto pr-1"
+                    : "space-y-3"
+                }
+              >
+                {branchRevenue.map((r) => (
+                  <div key={r.branch_id}>
+                    <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+                      <span className="truncate text-[#6B7A99]">{r.branch_name}</span>
+                      <span className="shrink-0 font-semibold text-[#4F5077]">
+                        {formatCurrency(r.total_revenue)}
+                      </span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
+                      <div
+                        className="h-full rounded-full bg-[#6D28D9]"
+                        style={{ width: `${(r.total_revenue / maxBranchRevenue) * 100}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">Paid / completed for your branches</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="py-4">
-                  <CardTitle className="text-sm font-medium text-gray-700">
-                    Selected period
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-semibold text-gray-900">
-                    {formatCurrency(Number(stats.this_month_collection) || 0)}
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    Uses the date filters below when set
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                ))}
+              </div>
+            </AdminCard>
+          ) : null}
+        </div>
+      ) : null}
+
+      <AdminFilterBar className="items-end">
+        <div className="flex min-w-[160px] flex-col gap-1">
+          <span className="text-xs font-medium text-[#6B7A99]">Branch</span>
+          {canPickBranch ? (
+            <Select value={branchFilter} onValueChange={setBranchFilter} disabled={branchesLoading}>
+              <SelectTrigger className="h-11 w-full min-w-[160px] bg-white sm:w-48">
+                <SelectValue placeholder={branchesLoading ? "Loading…" : "All branches"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All branches</SelectItem>
+                {!isPartnerAdmin ? <SelectItem value="unassigned">No branch on record</SelectItem> : null}
+                {branchOptions.map((b) => (
+                  <SelectItem key={b.id} value={b.id}>
+                    {b.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <BranchSelectionField />
+          )}
+        </div>
+
+        {isSuperAdmin ? (
+          <div className="flex min-w-[160px] flex-col gap-1">
+            <span className="text-xs font-medium text-[#6B7A99]">Partner</span>
+            <Select value={partnerFilter} onValueChange={setPartnerFilter} disabled={partnersLoading}>
+              <SelectTrigger className="h-11 w-full min-w-[160px] bg-white sm:w-52">
+                <SelectValue placeholder={partnersLoading ? "Loading…" : "All Rock + partners"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All (Rock + partners)</SelectItem>
+                <SelectItem value="rock">Rock only</SelectItem>
+                <SelectItem value="partners">All partners</SelectItem>
+                {partnerOptions.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         ) : null}
 
-        {/* Live revenue cards (Super Admin only) */}
-        {isSuperAdmin && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 items-stretch">
-            <Card className="h-full flex flex-col">
-              <CardHeader className="py-4">
-                <CardTitle className="text-sm font-medium text-gray-700">
-                  {selectedPartnerLabel
-                    ? `Revenue — ${selectedPartnerLabel}`
-                    : "Total Revenue (All time)"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold text-gray-900">{formatCurrency(stats.total_collected)}</div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {selectedPartnerLabel
-                    ? "Paid / completed for this partner filter"
-                    : "Paid / completed payments"}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="h-full flex flex-col">
-              <CardHeader className="py-4">
-                <CardTitle className="text-sm font-medium text-gray-700">Custom Duration Revenue</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap items-end gap-2">
-                  <div className="flex-1 min-w-[130px] max-w-[180px]">
-                    <div className="text-xs text-gray-500 mb-1">Start</div>
-                    <div className="relative">
-                      <Input
-                        type="date"
-                        min="1000-01-01"
-                        max="9999-12-31"
-                        value={periodStart}
-                        className="w-full pl-3 pr-9 py-1.5 h-9 text-xs sm:text-sm bg-white border-gray-200 rounded-md cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:top-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-datetime-edit]:p-0"
-                        onClick={(e) => e.currentTarget.showPicker?.()}
-                        onChange={(e) => {
-                          const raw = e.target.value || ""
-                          const match = /^(\d+)-(\d{2})-(\d{2})$/.exec(raw)
-                          if (!match) {
-                            setPeriodStart(raw.slice(0, 10))
-                            return
-                          }
-                          setPeriodStart(`${match[1].slice(0, 4)}-${match[2]}-${match[3]}`)
-                        }}
-                      />
-                      <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
-                    </div>
-                  </div>
-                  <div className="flex-1 min-w-[130px] max-w-[180px]">
-                    <div className="text-xs text-gray-500 mb-1">End</div>
-                    <div className="relative">
-                      <Input
-                        type="date"
-                        min="1000-01-01"
-                        max="9999-12-31"
-                        value={periodEnd}
-                        className="w-full pl-3 pr-9 py-1.5 h-9 text-xs sm:text-sm bg-white border-gray-200 rounded-md cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:top-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-datetime-edit]:p-0"
-                        onClick={(e) => e.currentTarget.showPicker?.()}
-                        onChange={(e) => {
-                          const raw = e.target.value || ""
-                          const match = /^(\d+)-(\d{2})-(\d{2})$/.exec(raw)
-                          if (!match) {
-                            setPeriodEnd(raw.slice(0, 10))
-                            return
-                          }
-                          setPeriodEnd(`${match[1].slice(0, 4)}-${match[2]}-${match[3]}`)
-                        }}
-                      />
-                      <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
-                    </div>
-                  </div>
-                  {(periodStart || periodEnd) ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-9"
-                      disabled={analyticsLoading}
-                      onClick={() => {
-                        setPeriodStart("")
-                        setPeriodEnd("")
-                        setPeriodRevenue(null)
-                      }}
-                    >
-                      Clear
-                    </Button>
-                  ) : null}
-                </div>
-                <div className="text-2xl font-semibold text-gray-900 mt-3">
-                  {periodRevenue == null ? "—" : formatCurrency(periodRevenue)}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="h-full flex flex-col">
-              <CardHeader className="py-4 shrink-0">
-                <CardTitle className="text-sm font-medium text-gray-700">Branch-wise Revenue</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {/* Mobile/tablet: all branches. Desktop (lg+): 4 rows + visible smooth scrollbar */}
-                <div
-                  className={
-                    branchRevenue.length > 4
-                      ? "space-y-2 lg:max-h-[6.5rem] lg:overflow-y-scroll lg:scroll-smooth lg:pr-1 lg:[scrollbar-width:thin] lg:[scrollbar-color:#9ca3af_#f3f4f6] lg:[&::-webkit-scrollbar]:w-1.5 lg:[&::-webkit-scrollbar-track]:bg-gray-100 lg:[&::-webkit-scrollbar-track]:rounded-full lg:[&::-webkit-scrollbar-thumb]:bg-gray-400 lg:[&::-webkit-scrollbar-thumb]:rounded-full lg:[&::-webkit-scrollbar-thumb]:hover:bg-gray-500"
-                      : "space-y-2"
-                  }
-                >
-                  {branchRevenue.length === 0 ? (
-                    <div className="text-sm text-gray-500">{analyticsLoading ? "Loading…" : "No data"}</div>
-                  ) : (
-                    branchRevenue.map((r) => (
-                      <div key={r.branch_id} className="flex items-center justify-between gap-3 h-5">
-                        <div className="text-sm leading-5 text-gray-700 truncate">{r.branch_name}</div>
-                        <div className="text-sm leading-5 font-medium text-gray-900 whitespace-nowrap">
-                          {formatCurrency(r.total_revenue)}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        <div className="flex flex-wrap items-center justify-between gap-4 border-1 shadow overflow-x-auto p-6 mb-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-medium text-gray-700">
-              {canPickBranch ? "Select Branch:" : "Branch:"}
-            </span>
-            {canPickBranch ? (
-              <Select value={branchFilter} onValueChange={setBranchFilter} disabled={branchesLoading}>
-                <SelectTrigger className="w-48 bg-gray-100 text-gray-600 border-0">
-                  <SelectValue placeholder={branchesLoading ? "Loading…" : "Choose branch"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All branches</SelectItem>
-                  {!isPartnerAdmin ? (
-                    <SelectItem value="unassigned">No branch on record</SelectItem>
-                  ) : null}
-                  {branchOptions.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      {b.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <BranchSelectionField />
-            )}
-          </div>
-
-          {isSuperAdmin ? (
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-medium text-gray-700">Partner:</span>
-              <Select
-                value={partnerFilter}
-                onValueChange={setPartnerFilter}
-                disabled={partnersLoading}
-              >
-                <SelectTrigger className="w-56 bg-gray-100 text-gray-600 border-0">
-                  <SelectValue placeholder={partnersLoading ? "Loading…" : "All sources"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All (Rock + partners)</SelectItem>
-                  <SelectItem value="rock">Rock only</SelectItem>
-                  <SelectItem value="partners">All partners</SelectItem>
-                  {partnerOptions.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : null}
-
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-medium text-gray-700">Filter by:</span>
-            <Input
-              type="date"
-              value={periodStart}
-              onChange={(e) => {
-                setPeriodStart(e.target.value)
-              }}
-              className="w-[150px] bg-gray-100 border-0 text-gray-600"
-            />
-            <Input
-              type="date"
-              value={periodEnd}
-              onChange={(e) => {
-                setPeriodEnd(e.target.value)
-              }}
-              className="w-[150px] bg-gray-100 border-0 text-gray-600"
-            />
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-medium text-gray-700">Student:</span>
-            <Input
-              value={studentSearch}
-              onChange={(e) => setStudentSearch(e.target.value)}
-              placeholder="Search name / phone / email"
-              className="w-[220px] bg-gray-100 border-0 text-gray-600"
-            />
-          </div>
-
-          <Button
-            onClick={handleExport}
-            disabled={exporting}
-            className="bg-transparent border border-gray-300 text-[#5A6ACF] text-[10px] w-[120px] hover:bg-gray-100 px-6 py-2 rounded-md flex items-center gap-1"
-          >
-            {exporting ? "Exporting..." : "Export CSV"}
-          </Button>
+        <div className="flex min-w-[130px] flex-col gap-1">
+          <span className="text-xs font-medium text-[#6B7A99]">Start Date</span>
+          <Input
+            type="date"
+            value={periodStart}
+            onChange={(e) => setPeriodStart(e.target.value)}
+            className="h-11 w-full min-w-[130px] bg-white sm:w-[150px]"
+          />
+        </div>
+        <div className="flex min-w-[130px] flex-col gap-1">
+          <span className="text-xs font-medium text-[#6B7A99]">End Date</span>
+          <Input
+            type="date"
+            value={periodEnd}
+            onChange={(e) => setPeriodEnd(e.target.value)}
+            className="h-11 w-full min-w-[130px] bg-white sm:w-[150px]"
+          />
         </div>
 
-        <div className="bg-white rounded-b-xl shadow overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
+        <div className="flex min-w-[200px] flex-1 flex-col gap-1">
+          <span className="text-xs font-medium text-[#6B7A99]">Student</span>
+          <Input
+            value={studentSearch}
+            onChange={(e) => setStudentSearch(e.target.value)}
+            placeholder="Search name / phone / email"
+            className="h-11 w-full bg-white"
+          />
+        </div>
+
+        <Button
+          type="button"
+          variant="outline"
+          className="btn-admin-outline h-11 shrink-0"
+          disabled={analyticsLoading}
+          onClick={() => {
+            setBranchFilter("all")
+            setPartnerFilter("all")
+            setPeriodStart("")
+            setPeriodEnd("")
+            setStudentSearch("")
+            setPeriodRevenue(null)
+          }}
+        >
+          <RotateCcw className="mr-2 h-4 w-4" />
+          Reset Filters
+        </Button>
+      </AdminFilterBar>
+
+      <AdminCard padding={false}>
+        <div className="border-b border-gray-100 px-5 py-4">
+          <div className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5 text-[#6D28D9]" />
+            <h2 className="text-[15px] font-semibold text-[#4F5077]">Payment Transactions</h2>
+          </div>
+        </div>
+        <AdminTableShell
+          footer={
+            !loading && totalPayments > 0 ? (
+              <>
+                <span>
+                  Showing {startIdx + 1}–{endIdx} of {totalPayments}
+                </span>
+                <nav className="admin-pagination flex items-center gap-2" aria-label="Pagination">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="btn-admin-outline h-8"
+                    disabled={safePage <= 1}
+                    onClick={() => {
+                      setPage((p) => Math.max(1, p - 1))
+                      window.scrollTo({ top: 0, behavior: "smooth" })
+                    }}
+                  >
+                    Prev
+                  </Button>
+                  <span
+                    className="inline-flex h-8 min-w-8 items-center justify-center rounded-lg bg-[#E1BB33] px-2 text-sm font-semibold text-[#3d3e5c]"
+                    aria-current="page"
+                  >
+                    {safePage}
+                  </span>
+                  <span className="text-xs text-[#6B7A99]">
+                    / {totalPages}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="btn-admin-outline h-8"
+                    disabled={safePage >= totalPages}
+                    onClick={() => {
+                      setPage((p) => Math.min(totalPages, p + 1))
+                      window.scrollTo({ top: 0, behavior: "smooth" })
+                    }}
+                  >
+                    Next
+                  </Button>
+                </nav>
+              </>
+            ) : undefined
+          }
+        >
+          <table>
+            <thead>
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-[#000] uppercase tracking-wider">
-                  Student Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-[#000] uppercase tracking-wider">
-                  Course enrolled
-                </th>
-                {showPartnerColumn ? (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-[#000] uppercase tracking-wider">
-                    Partner / Branch
-                  </th>
-                ) : null}
-                <th className="px-6 py-3 text-left text-xs font-medium text-[#000] uppercase tracking-wider">
-                  Payment details
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-[#000] uppercase tracking-wider">
-                  Status
-                </th>
-                {isSuperAdmin && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-[#000] uppercase tracking-wider">
-                    Action
-                  </th>
-                )}
+                <th>Student</th>
+                <th>Course Enrolled</th>
+                {showPartnerColumn ? <th>Branch / Partner</th> : null}
+                <th>Payment Details</th>
+                <th>Date &amp; Time</th>
+                <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={tableColSpan} className="px-6 py-8 text-center">
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
-                      <span className="ml-2 text-gray-500">Loading payments...</span>
-                    </div>
+                  <td colSpan={tableColSpan} className="py-12 text-center text-[#6B7A99]">
+                    Loading payments…
                   </td>
                 </tr>
               ) : pagedPayments.length === 0 ? (
                 <tr>
-                  <td colSpan={tableColSpan} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={tableColSpan} className="py-12 text-center text-[#6B7A99]">
                     No payments found
                   </td>
                 </tr>
               ) : (
-                pagedPayments.map((payment) => {
+                pagedPayments.map((payment, idx) => {
                   const paymentStatus = String(payment.payment_status || "").toLowerCase()
+                  const statusLabel =
+                    paymentStatus === "paid"
+                      ? "Paid"
+                      : paymentStatus === "pending"
+                        ? "Pending"
+                        : paymentStatus === "cancelled" || paymentStatus === "canceled"
+                          ? "Cancelled"
+                          : "Failed"
                   return (
-                  <tr key={payment.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {payment.student_id ? (
-                        <Link
-                          href={`/${adminType}/dashboard/students/${payment.student_id}`}
-                          className="font-medium text-blue-700 hover:text-blue-900 hover:underline"
-                        >
-                          {payment.student_name || "Unknown Student"}
-                        </Link>
-                      ) : (
-                        payment.student_name || "Unknown Student"
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      <div className="font-medium">{payment.course_name || "N/A"}</div>
-                      {payment.branch_name && !showPartnerColumn ? (
-                        <div className="text-xs text-gray-500 mt-0.5">{payment.branch_name}</div>
-                      ) : null}
-                    </td>
-                    {showPartnerColumn ? (
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        <div className="font-medium">
-                          {payment.partner_org_name || (payment.partner_org_id ? "Partner" : "Rock")}
+                    <tr key={payment.id}>
+                      <td>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-9 w-9">
+                            <AvatarFallback
+                              className={`text-xs font-semibold ${STUDENT_AVATAR_PALETTE[idx % STUDENT_AVATAR_PALETTE.length]}`}
+                            >
+                              {studentInitials(payment.student_name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            {payment.student_id ? (
+                              <Link
+                                href={`/${adminType}/dashboard/students/${payment.student_id}`}
+                                className="font-medium text-[#4F5077] hover:underline"
+                              >
+                                {payment.student_name || "Unknown Student"}
+                              </Link>
+                            ) : (
+                              <span className="font-medium text-[#4F5077]">
+                                {payment.student_name || "Unknown Student"}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        {payment.branch_name ? (
-                          <div className="text-xs text-gray-500 mt-0.5">{payment.branch_name}</div>
+                      </td>
+                      <td>
+                        <div className="font-medium text-[#4F5077]">{payment.course_name || "N/A"}</div>
+                        {payment.branch_name && !showPartnerColumn ? (
+                          <div className="mt-0.5 text-xs text-[#6B7A99]">{payment.branch_name}</div>
                         ) : null}
                       </td>
-                    ) : null}
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      <div className="font-semibold text-base">
-                        {formatCurrency(Number(payment.amount) || 0)}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {formatDateTime(payment.payment_date || payment.created_at)}
-                      </div>
-                      <div className="text-xs text-gray-600 mt-0.5">
-                        {describePaymentSource(payment)}
+                      {showPartnerColumn ? (
+                        <td>
+                          <div className="font-medium text-[#4F5077]">
+                            {payment.partner_org_name || (payment.partner_org_id ? "Partner" : "Rock")}
+                          </div>
+                          {payment.branch_name ? (
+                            <div className="mt-0.5 text-xs text-[#6B7A99]">{payment.branch_name}</div>
+                          ) : null}
+                        </td>
+                      ) : null}
+                      <td>
+                        <div className="font-semibold text-[#4F5077]">
+                          {formatCurrency(Number(payment.amount) || 0)}
+                        </div>
+                        <div className="mt-0.5 text-xs text-[#6B7A99]">{describePaymentSource(payment)}</div>
                         {payment.transaction_id ? (
-                          <span className="text-gray-400"> · {payment.transaction_id}</span>
+                          <div className="mt-0.5 text-xs text-[#9593A8]">{payment.transaction_id}</div>
                         ) : null}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge
-                        className={
-                          paymentStatus === "paid"
-                            ? "bg-green-100 text-green-800"
-                            : paymentStatus === "pending"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : paymentStatus === "cancelled" || paymentStatus === "canceled"
-                                ? "bg-gray-100 text-gray-800"
-                              : "bg-red-100 text-red-800"
-                        }
-                      >
-                        {paymentStatus === "paid"
-                          ? "Paid"
-                          : paymentStatus === "pending"
-                            ? "Pending"
-                            : paymentStatus === "cancelled" || paymentStatus === "canceled"
-                              ? "Cancelled"
-                              : "Failed"}
-                      </Badge>
-                    </td>
-                    {isSuperAdmin && (
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {paymentStatus === "cancelled" || paymentStatus === "canceled" ? (
-                          recoverablePaymentIds[payment.id] ? (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
+                      </td>
+                      <td className="whitespace-nowrap text-sm text-[#6B7A99]">
+                        {formatDateTime(payment.payment_date || payment.created_at)}
+                      </td>
+                      <td>
+                        <AdminStatusPill status={paymentStatusPill(paymentStatus)}>{statusLabel}</AdminStatusPill>
+                      </td>
+                      <td>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="btn-admin-outline h-8"
+                            onClick={() => router.push(`${basePath}/payments/${payment.id}`)}
+                          >
+                            <Eye className="mr-1 h-3.5 w-3.5" />
+                            View
+                          </Button>
+                          {isSuperAdmin ? (
+                            paymentStatus === "cancelled" || paymentStatus === "canceled" ? (
+                              recoverablePaymentIds[payment.id] ? (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      disabled={recoveringId === payment.id}
+                                      className="btn-admin-outline h-8 text-emerald-800"
+                                    >
+                                      <RotateCcw className="mr-1 h-3.5 w-3.5" />
+                                      {recoveringId === payment.id ? "Working…" : "Recover"}
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-56">
+                                    <DropdownMenuItem
+                                      onClick={() => openRecoverDialog(payment, "restore_checkout")}
+                                    >
+                                      Restore checkout (student pays online)
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => openRecoverDialog(payment, "mark_received")}
+                                    >
+                                      Mark payment received (offline)
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => openRecoverDialog(payment, "waive")}>
+                                      Waive / complimentary access
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              ) : null
+                            ) : (
                               <Button
                                 variant="outline"
                                 size="sm"
-                                disabled={recoveringId === payment.id}
-                                className="text-emerald-800 border-emerald-200 hover:bg-emerald-50"
+                                onClick={() => void handleCancelPayment(payment)}
+                                disabled={
+                                  cancellingId === payment.id ||
+                                  ["paid", "completed", "cancelled", "canceled"].includes(paymentStatus)
+                                }
+                                className="btn-admin-outline h-8 text-red-700 hover:bg-red-50"
                               >
-                                {recoveringId === payment.id ? "Working…" : "Recover"}
+                                Cancel
                               </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-56">
-                              <DropdownMenuItem
-                                onClick={() => openRecoverDialog(payment, "restore_checkout")}
-                              >
-                                Restore checkout (student pays online)
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => openRecoverDialog(payment, "mark_received")}
-                              >
-                                Mark payment received (offline)
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => openRecoverDialog(payment, "waive")}>
-                                Waive / complimentary access
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                          ) : (
-                            <span className="text-xs text-gray-400">—</span>
-                          )
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => void handleCancelPayment(payment)}
-                            disabled={
-                              cancellingId === payment.id ||
-                              ["paid", "completed", "cancelled", "canceled"].includes(paymentStatus)
-                            }
-                            className="text-red-700 border-red-200 hover:bg-red-50 hover:text-red-800"
-                          >
-                            {cancellingId === payment.id ? "Cancelling..." : "Cancel"}
-                          </Button>
-                        )}
+                            )
+                          ) : null}
+                        </div>
                       </td>
-                    )}
-                  </tr>
+                    </tr>
                   )
                 })
               )}
             </tbody>
           </table>
-        </div>
+        </AdminTableShell>
+      </AdminCard>
 
-        {/* Pagination */}
-        {!loading && totalPayments > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-3 mt-4">
-            <div className="text-sm text-gray-600">
-              Showing <span className="font-medium">{startIdx + 1}</span>-
-              <span className="font-medium">{startIdx + pagedPayments.length}</span> of{" "}
-              <span className="font-medium">{totalPayments}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={safePage <= 1}
-                onClick={() => {
-                  setPage((p) => Math.max(1, p - 1))
-                  window.scrollTo({ top: 0, behavior: "smooth" })
-                }}
-              >
-                Prev
-              </Button>
-              <div className="text-sm text-gray-700">
-                Page <span className="font-medium">{safePage}</span> /{" "}
-                <span className="font-medium">{totalPages}</span>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={safePage >= totalPages}
-                onClick={() => {
-                  setPage((p) => Math.min(totalPages, p + 1))
-                  window.scrollTo({ top: 0, behavior: "smooth" })
-                }}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
-        )}
-
-        <AlertDialog
+      <AlertDialog
           open={recoverOpen}
           onOpenChange={(open) => {
             setRecoverOpen(open)
@@ -1131,8 +1167,7 @@ export default function PaymentTrackingPage() {
               )}
             </AlertDialogFooter>
           </AlertDialogContent>
-        </AlertDialog>
-      </main>
-    </div>
+      </AlertDialog>
+    </AdminPageShell>
   )
 }

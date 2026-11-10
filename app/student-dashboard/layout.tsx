@@ -9,9 +9,11 @@ export default function StudentDashboardLayout({
 }) {
   return (
     <StudentRouteGuard>
-      <StudentDashboardSonner />
-      <StudentPromotionPopup />
-      {children}
+      <div data-app-shell="student" className="min-h-screen font-[family-name:var(--font-poppins)]">
+        <StudentDashboardSonner />
+        <StudentPromotionPopup />
+        {children}
+      </div>
     </StudentRouteGuard>
   )
 }

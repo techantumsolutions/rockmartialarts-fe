@@ -177,49 +177,16 @@ export default function CreateBranchManagerPage() {
       try {
         setIsLoadingBranches(true)
 
-        // Get authentication token
-        let token = TokenManager.getToken()
-
-        // If no token, try to get one using superadmin credentials for testing
+        const token = TokenManager.getToken()
         if (!token) {
-          console.log('No token found, attempting to get superadmin token...')
-          try {
-            const loginResponse = await fetch(getBackendApiUrl('superadmin/login'), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                email: "pittisunilkumar3@gmail.com",
-                password: "StrongPassword@123"
-              })
-            })
-
-            if (loginResponse.ok) {
-              const loginData = await loginResponse.json()
-              console.log('✅ Got superadmin token for branches')
-
-              // Store the token using TokenManager
-              TokenManager.storeAuthData(loginData)
-              token = TokenManager.getToken()
-            } else {
-              console.error('Failed to get superadmin token:', loginResponse.statusText)
-              toast({
-                title: "Authentication Error",
-                description: "Unable to authenticate. Please login manually.",
-                variant: "destructive",
-              })
-              setIsLoadingBranches(false)
-              return
-            }
-          } catch (error) {
-            console.error('Error getting superadmin token:', error)
-            toast({
-              title: "Authentication Error",
-              description: "Please login to access branch data.",
-              variant: "destructive",
-            })
-            setIsLoadingBranches(false)
-            return
-          }
+          toast({
+            title: "Authentication Error",
+            description: "Please login to continue",
+            variant: "destructive",
+          })
+          router.push("/login")
+          setIsLoadingBranches(false)
+          return
         }
 
         // Call real backend API

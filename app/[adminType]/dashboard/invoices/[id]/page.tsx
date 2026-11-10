@@ -81,7 +81,7 @@ export default function AdminInvoiceDetailPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-4 max-w-4xl mx-auto">
+    <div className="p-4 md:p-6 space-y-4 w-full max-w-none">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Button variant="outline" asChild>
           <Link href={`${basePath}/invoices`}>

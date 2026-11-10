@@ -1,14 +1,15 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, CreditCard, User, Calendar, MapPin, BookOpen, DollarSign, Receipt, Download, Mail, MessageCircle } from "lucide-react"
+import { ArrowLeft, CreditCard, User, BookOpen, Download, Mail, MessageCircle } from "lucide-react"
 import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
+import { paymentAPI } from "@/lib/paymentAPI"
+import { invoicesAPI } from "@/lib/invoicesAPI"
 
 interface PaymentDetails {
   id: string
@@ -40,11 +41,7 @@ export default function PaymentDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetchPaymentDetails()
-  }, [paymentId])
-
-  const fetchPaymentDetails = async () => {
+  const fetchPaymentDetails = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -52,52 +49,76 @@ export default function PaymentDetailPage() {
       const token = TokenManager.getToken()
       if (!token) {
         setError("Authentication required. Please login again.")
+        setPayment(null)
         return
       }
 
-      // For now, we'll simulate payment details since the backend might not have this endpoint
-      // In a real implementation, this would call: GET /api/payments/{paymentId}
-      
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // Mock payment data - in real implementation, this would come from the API
-      const mockPayment: PaymentDetails = {
-        id: paymentId,
-        student_id: "test-student-2024",
-        student_name: "Test Student 2024",
-        student_email: "teststudent2024@example.com",
-        student_phone: "+919876543210",
-        amount: 16200,
-        payment_type: "Registration Fee",
-        payment_method: "Credit Card",
-        payment_status: "paid",
-        transaction_id: `TXN${paymentId.slice(-8).toUpperCase()}`,
-        payment_date: new Date().toISOString(),
-        course_name: "Kungfu",
-        course_id: "course-123",
-        branch_name: "Test Martial Arts Academy",
-        branch_id: "branch-123",
-        created_at: new Date().toISOString(),
-        notes: "Registration payment processed successfully",
-        enrollment_id: "enrollment-123"
+      let data: PaymentDetails | null = null
+      try {
+        data = (await paymentAPI.getPaymentById(paymentId, token)) as PaymentDetails
+      } catch {
+        data = null
       }
 
-      setPayment(mockPayment)
-    } catch (err: any) {
+      let invoice = null as Awaited<ReturnType<typeof invoicesAPI.getByPayment>> | null
+      try {
+        invoice = await invoicesAPI.getByPayment(paymentId, token)
+      } catch {
+        invoice = null
+      }
+
+      if (!data && !invoice) {
+        setError("Payment not found")
+        setPayment(null)
+        return
+      }
+
+      const line = invoice?.line_items?.[0]
+      setPayment({
+        id: data?.id || paymentId,
+        student_id: data?.student_id,
+        student_name: data?.student_name || invoice?.customer?.name,
+        student_email: data?.student_email || invoice?.customer?.email,
+        student_phone: data?.student_phone || invoice?.customer?.phone,
+        amount: data?.amount ?? invoice?.total_amount,
+        payment_type: data?.payment_type || invoice?.source,
+        payment_method:
+          data?.payment_method ||
+          invoice?.payment_gateway_label ||
+          invoice?.payment_method ||
+          undefined,
+        payment_status: data?.payment_status || "paid",
+        transaction_id: data?.transaction_id || invoice?.payment_reference || undefined,
+        payment_date: data?.payment_date || invoice?.paid_at || invoice?.created_at || undefined,
+        course_name: data?.course_name || line?.course_name,
+        course_id: data?.course_id,
+        branch_name: data?.branch_name || line?.branch_name,
+        branch_id: data?.branch_id,
+        created_at: data?.created_at || invoice?.created_at || undefined,
+        enrollment_id: data?.enrollment_id,
+      })
+    } catch (err: unknown) {
       console.error("Error fetching payment details:", err)
-      setError(err.message || "Failed to fetch payment details")
+      setError(err instanceof Error ? err.message : "Failed to fetch payment details")
+      setPayment(null)
     } finally {
       setLoading(false)
     }
-  }
+  }, [paymentId])
+
+  useEffect(() => {
+    void fetchPaymentDetails()
+  }, [fetchPaymentDetails])
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       paid: { color: "bg-green-100 text-green-800", label: "Paid" },
+      completed: { color: "bg-green-100 text-green-800", label: "Paid" },
       pending: { color: "bg-yellow-100 text-yellow-800", label: "Pending" },
       failed: { color: "bg-red-100 text-red-800", label: "Failed" },
-      refunded: { color: "bg-gray-100 text-gray-800", label: "Refunded" }
+      refunded: { color: "bg-gray-100 text-gray-800", label: "Refunded" },
+      cancelled: { color: "bg-gray-100 text-gray-800", label: "Cancelled" },
+      canceled: { color: "bg-gray-100 text-gray-800", label: "Cancelled" },
     }
     
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending

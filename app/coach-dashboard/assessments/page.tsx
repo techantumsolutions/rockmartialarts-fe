@@ -25,7 +25,8 @@ import {
   Calendar
 } from "lucide-react"
 import CoachDashboardHeader from "@/components/coach-dashboard-header"
-import { checkCoachAuth, getCoachAuthHeaders } from "@/lib/coachAuth"
+import { checkCoachAuth } from "@/lib/coachAuth"
+import { kpiAssessmentAPI, AssessmentRow } from "@/lib/kpiAssessmentAPI"
 
 interface Assessment {
   id: string
@@ -118,86 +119,84 @@ export default function CoachAssessmentsPage() {
     setFilteredAssessments(filtered)
   }, [searchTerm, filterType, activeTab, assessments])
 
-  const fetchAssessmentData = async (token: string, coachId: string) => {
+  const mapKpiRowsToAssessments = (
+    rows: AssessmentRow[],
+    coachId: string
+  ): Assessment[] => {
+    const coachRows = rows.filter((row) => {
+      const evaluatorId = (row as AssessmentRow & { evaluator_id?: string })
+        .evaluator_id
+      return !evaluatorId || evaluatorId === coachId
+    })
+
+    return coachRows.map((row) => {
+      const maxScore = row.max_score || 100
+      const score = row.raw_score ?? 0
+      const completed = Boolean(row.evaluated_at)
+      const normalized =
+        row.normalized_score ??
+        (maxScore > 0 ? (score / maxScore) * 100 : 0)
+
+      return {
+        id: row.id,
+        student_name: row.student_id,
+        student_id: row.student_id,
+        course_name: row.course_id,
+        course_id: row.course_id,
+        assessment_type: "progress",
+        title: row.kpi_name || row.kpi_code || "KPI assessment",
+        description: row.notes || "",
+        score,
+        max_score: maxScore,
+        grade: completed ? `${Math.round(normalized)}%` : "Pending",
+        date: row.evaluated_at || "",
+        status: completed ? "completed" : "pending",
+        notes: row.notes || undefined,
+        skills_assessed: row.kpi_name ? [row.kpi_name] : [],
+      }
+    })
+  }
+
+  const buildStats = (items: Assessment[]): AssessmentStats => {
+    const completed = items.filter((a) => a.status === "completed")
+    const pending = items.filter((a) => a.status === "pending")
+    const average =
+      completed.length > 0
+        ? completed.reduce(
+            (sum, item) =>
+              sum + (item.max_score > 0 ? (item.score / item.max_score) * 100 : 0),
+            0
+          ) / completed.length
+        : 0
+
+    return {
+      total_assessments: items.length,
+      completed_assessments: completed.length,
+      pending_assessments: pending.length,
+      average_score: Math.round(average * 10) / 10,
+      students_assessed: new Set(items.map((a) => a.student_id)).size,
+    }
+  }
+
+  const fetchAssessmentData = async (_token: string, coachId: string) => {
     try {
       setLoading(true)
       setError(null)
 
-      // For now, we'll use mock data since the specific coach assessments endpoint may not be implemented
-      // In a real implementation, this would call: `/api/coaches/${coachId}/assessments`
-      
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      const { assessments: rows } = await kpiAssessmentAPI.listAssessments({})
 
-      // Mock data for demonstration
-      const mockAssessments: Assessment[] = [
-        {
-          id: "1",
-          student_name: "John Smith",
-          student_id: "STU001",
-          course_name: "Karate Basics",
-          course_id: "COURSE001",
-          assessment_type: "skill",
-          title: "Basic Kata Assessment",
-          description: "Assessment of fundamental kata techniques",
-          score: 85,
-          max_score: 100,
-          grade: "B+",
-          date: "2024-01-15",
-          status: "completed",
-          notes: "Good form, needs work on timing",
-          skills_assessed: ["Kata", "Balance", "Technique"]
-        },
-        {
-          id: "2",
-          student_name: "Sarah Johnson",
-          student_id: "STU002",
-          course_name: "Advanced Taekwondo",
-          course_id: "COURSE002",
-          assessment_type: "belt_test",
-          title: "Blue Belt Test",
-          description: "Comprehensive blue belt examination",
-          score: 92,
-          max_score: 100,
-          grade: "A-",
-          date: "2024-01-14",
-          status: "completed",
-          notes: "Excellent performance, ready for next level",
-          skills_assessed: ["Forms", "Sparring", "Breaking", "Theory"]
-        },
-        {
-          id: "3",
-          student_name: "Mike Chen",
-          student_id: "STU003",
-          course_name: "Kung Fu Fundamentals",
-          course_id: "COURSE003",
-          assessment_type: "progress",
-          title: "Monthly Progress Review",
-          description: "Regular progress assessment",
-          score: 0,
-          max_score: 100,
-          grade: "Pending",
-          date: "2024-01-20",
-          status: "pending",
-          notes: "Scheduled for next week",
-          skills_assessed: ["Stances", "Hand Techniques", "Flexibility"]
-        }
-      ]
-
-      const mockStats: AssessmentStats = {
-        total_assessments: 25,
-        completed_assessments: 20,
-        pending_assessments: 5,
-        average_score: 87.5,
-        students_assessed: 15
-      }
-
-      setAssessments(mockAssessments)
-      setFilteredAssessments(mockAssessments)
-      setAssessmentStats(mockStats)
+      const mapped = mapKpiRowsToAssessments(rows || [], coachId)
+      setAssessments(mapped)
+      setFilteredAssessments(mapped)
+      setAssessmentStats(buildStats(mapped))
     } catch (error) {
       console.error("Error fetching assessment data:", error)
-      setError("Failed to load assessment data")
+      setError(
+        error instanceof Error ? error.message : "Failed to load assessment data"
+      )
+      setAssessments([])
+      setFilteredAssessments([])
+      setAssessmentStats(buildStats([]))
     } finally {
       setLoading(false)
     }
@@ -262,7 +261,7 @@ export default function CoachAssessmentsPage() {
     )
   }
 
-  if (error || !assessmentStats) {
+  if (error && !loading) {
     return (
       <div className="min-h-screen bg-gray-50">
         <CoachDashboardHeader 
@@ -284,6 +283,8 @@ export default function CoachAssessmentsPage() {
       </div>
     )
   }
+
+  const stats = assessmentStats ?? buildStats([])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -374,7 +375,7 @@ export default function CoachAssessmentsPage() {
                   <ClipboardList className="h-8 w-8 text-blue-600" />
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Total Assessments</p>
-                    <p className="text-2xl font-bold text-gray-900">{assessmentStats.total_assessments}</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.total_assessments}</p>
                   </div>
                 </div>
               </CardContent>
@@ -386,7 +387,7 @@ export default function CoachAssessmentsPage() {
                   <Award className="h-8 w-8 text-green-600" />
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Completed</p>
-                    <p className="text-2xl font-bold text-gray-900">{assessmentStats.completed_assessments}</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.completed_assessments}</p>
                   </div>
                 </div>
               </CardContent>
@@ -398,7 +399,7 @@ export default function CoachAssessmentsPage() {
                   <Calendar className="h-8 w-8 text-yellow-600" />
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Pending</p>
-                    <p className="text-2xl font-bold text-gray-900">{assessmentStats.pending_assessments}</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.pending_assessments}</p>
                   </div>
                 </div>
               </CardContent>
@@ -410,7 +411,7 @@ export default function CoachAssessmentsPage() {
                   <TrendingUp className="h-8 w-8 text-purple-600" />
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Average Score</p>
-                    <p className="text-2xl font-bold text-gray-900">{assessmentStats.average_score}%</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.average_score}%</p>
                   </div>
                 </div>
               </CardContent>
@@ -422,7 +423,7 @@ export default function CoachAssessmentsPage() {
                   <Users className="h-8 w-8 text-red-600" />
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Students Assessed</p>
-                    <p className="text-2xl font-bold text-gray-900">{assessmentStats.students_assessed}</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.students_assessed}</p>
                   </div>
                 </div>
               </CardContent>

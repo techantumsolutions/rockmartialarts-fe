@@ -2,7 +2,11 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { formatRegisteredDateTime } from "@/lib/formatRegisteredDate"
+import { formatPlanCalendarDate, formatRegisteredDateTime } from "@/lib/formatRegisteredDate"
+import {
+  getEnrollmentUiStatus,
+  type EnrollmentUiStatus,
+} from "@/lib/student-enrollment-status"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -28,8 +32,10 @@ import {
 } from "lucide-react"
 import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
+import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { formatPaymentSourceLabel } from "@/lib/formatPaymentSourceLabel"
 import { getBackendApiUrl } from "@/lib/config"
+import { StudentPlanRenewalSection } from "@/components/students/StudentPlanRenewalSection"
 
 interface StudentDetails {
   id: string
@@ -82,14 +88,24 @@ interface EnrollmentHistory {
   enrollment_date: string
   start_date?: string
   end_date?: string
+  next_due_date?: string
   completion_date?: string
   status: string
   progress: number
   grade?: string
   is_active?: boolean
   payment_status?: string
+  fee_amount?: number
+  batch_ref?: string
+  course_id?: string
+  branch_id?: string
+  branch_name?: string
+  duration_id?: string
+  duration_label?: string
+  include_in_history?: boolean
   updated_at?: string
   created_at?: string
+  registered_at?: string
 }
 
 interface PaymentRecord {
@@ -126,18 +142,28 @@ export default function StudentDetailPage() {
   const [paymentsLoading, setPaymentsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const getAuthToken = () => {
+    let token = TokenManager.getToken()
+    if (!token) token = BranchManagerAuth.getToken()
+    return token
+  }
+
   const deriveEnrollmentStatus = (enrollment: any): string => {
-    const explicit = String(enrollment?.status || "").toLowerCase()
-    const active = enrollment?.is_active !== false
     const paymentStatus = String(enrollment?.payment_status || "").toLowerCase()
-    if (paymentStatus === 'cancelled' || paymentStatus === 'canceled') return 'cancelled'
-    if (paymentStatus === 'paused') return 'paused'
-    if (paymentStatus === 'expired') return 'expired'
-    if (!active) return 'inactive'
-    if (['completed', 'paused', 'cancelled', 'inactive', 'active'].includes(explicit)) {
-      return explicit
+    if (paymentStatus === "cancelled" || paymentStatus === "canceled") return "cancelled"
+    if (paymentStatus === "paused") return "paused"
+    if (paymentStatus === "pending" || paymentStatus === "processing" || paymentStatus === "failed") {
+      return "pending"
     }
-    return 'active'
+    const ui: EnrollmentUiStatus = getEnrollmentUiStatus({
+      isActive: enrollment?.is_active !== false,
+      paymentStatus: enrollment?.payment_status,
+      endDate: enrollment?.end_date,
+      completionDate: enrollment?.completion_date,
+    })
+    if (ui === "expiring_soon") return "active"
+    if (ui === "grace") return "expired"
+    return ui
   }
 
   useEffect(() => {
@@ -149,7 +175,7 @@ export default function StudentDetailPage() {
       setLoading(true)
       setError(null)
 
-      let token = TokenManager.getToken()
+      let token = getAuthToken()
 
       // For development: if no token found, try to get one from the backend
       if (!token) {
@@ -241,22 +267,45 @@ export default function StudentDetailPage() {
         const enrollmentData = await enrollmentResponse.json()
         const enrollments = enrollmentData.enrollments || []
 
-        // Transform API response to match frontend interface
-        const history: EnrollmentHistory[] = enrollments.map((enrollment: any) => ({
-          id: enrollment.id || `enrollment-${Date.now()}`,
-          course_name: enrollment.course_name || 'Unknown Course',
-          enrollment_date: enrollment.enrollment_date || enrollment.created_at || new Date().toISOString(),
-          start_date: enrollment.start_date,
-          end_date: enrollment.end_date,
-          completion_date: enrollment.completion_date,
-          status: deriveEnrollmentStatus(enrollment),
-          progress: enrollment.progress || 0,
-          grade: enrollment.grade,
-          is_active: enrollment.is_active,
-          payment_status: enrollment.payment_status,
-          updated_at: enrollment.updated_at,
-          created_at: enrollment.created_at,
-        }))
+        const history: EnrollmentHistory[] = enrollments
+          .map((enrollment: any, index: number) => ({
+            id: enrollment.id || enrollment.enrollment_id || `${studentId}-${index}`,
+            course_name: enrollment.course_name || "Unknown Course",
+            enrollment_date:
+              enrollment.enrollment_date ||
+              enrollment.registered_at ||
+              enrollment.created_at ||
+              new Date().toISOString(),
+            start_date: enrollment.start_date,
+            end_date: enrollment.end_date,
+            next_due_date:
+              enrollment.next_due_date ||
+              (String(enrollment.payment_status || "").toLowerCase() === "paid"
+                ? enrollment.end_date
+                : undefined),
+            completion_date: enrollment.completion_date,
+            status: deriveEnrollmentStatus(enrollment),
+            progress: Number(enrollment.progress) || 0,
+            grade: enrollment.grade,
+            is_active: enrollment.is_active,
+            payment_status: enrollment.payment_status,
+            fee_amount: enrollment.fee_amount,
+            batch_ref: enrollment.batch_ref,
+            course_id: enrollment.course_id,
+            branch_id: enrollment.branch_id,
+            branch_name: enrollment.branch_name,
+            duration_id: enrollment.duration_id || enrollment.duration,
+            duration_label: enrollment.duration_label,
+            include_in_history:
+              enrollment.include_in_history !== false &&
+              !["pending", "processing", "failed"].includes(
+                String(enrollment.payment_status || "").toLowerCase()
+              ),
+            updated_at: enrollment.updated_at,
+            created_at: enrollment.created_at,
+            registered_at: enrollment.registered_at || enrollment.created_at,
+          }))
+          .filter((row) => row.include_in_history !== false)
 
         setEnrollmentHistory(history)
       } else {
@@ -683,6 +732,20 @@ export default function StudentDetailPage() {
               </CardContent>
             </Card>
 
+            <StudentPlanRenewalSection
+              studentName={student?.full_name || "Student"}
+              enrollments={enrollmentHistory}
+              loading={enrollmentsLoading}
+              authToken={getAuthToken()}
+              onRenewed={() => {
+                const token = getAuthToken()
+                if (token) {
+                  void fetchEnrollmentHistory(token)
+                  void fetchPaymentHistory(token)
+                }
+              }}
+            />
+
             {/* Course Enrollment History */}
             <Card>
               <CardHeader>
@@ -713,26 +776,47 @@ export default function StudentDetailPage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {enrollmentHistory.map((enrollment) => (
-                      <div key={enrollment.id} className="p-4 bg-gray-50 rounded-lg border-l-4 border-l-green-500">
+                    {enrollmentHistory.map((enrollment) => {
+                      const pay = String(enrollment.payment_status || "").toLowerCase()
+                      const isPaid = pay === "paid" || pay === "completed"
+                      const borderClass =
+                        enrollment.status === "active"
+                          ? "border-l-green-500"
+                          : enrollment.status === "expired"
+                            ? "border-l-red-400"
+                            : enrollment.status === "cancelled"
+                              ? "border-l-gray-400"
+                              : "border-l-slate-300"
+                      const badgeClass =
+                        enrollment.status === "completed"
+                          ? "bg-green-100 text-green-800"
+                          : enrollment.status === "active"
+                            ? "bg-blue-100 text-blue-800"
+                            : enrollment.status === "inactive"
+                              ? "bg-gray-100 text-gray-700"
+                              : enrollment.status === "paused"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : enrollment.status === "expired"
+                                  ? "bg-red-100 text-red-800"
+                                  : enrollment.status === "cancelled"
+                                    ? "bg-red-50 text-red-700"
+                                    : "bg-slate-100 text-slate-700"
+                      const dueDate =
+                        enrollment.next_due_date || (isPaid ? enrollment.end_date : undefined)
+
+                      return (
+                      <div key={enrollment.id} className={`p-4 bg-gray-50 rounded-lg border-l-4 ${borderClass}`}>
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center space-x-2">
                             <BookOpen className="w-5 h-5 " />
                             <h4 className="font-semibold ">{enrollment.course_name}</h4>
+                            {enrollment.duration_label ? (
+                              <span className="text-xs text-slate-500">({enrollment.duration_label})</span>
+                            ) : null}
                           </div>
                           <div className="flex items-center space-x-2">
                             {getStatusIcon(enrollment.status)}
-                            <Badge
-                              variant="secondary"
-                              className={`text-xs ${
-                                enrollment.status === 'completed' ? 'bg-green-100 text-green-800' :
-                                enrollment.status === 'active' ? 'bg-blue-100 text-blue-800' :
-                                enrollment.status === 'inactive' ? 'bg-gray-100 text-gray-700' :
-                                enrollment.status === 'paused' ? 'bg-yellow-100 text-yellow-800' :
-                                enrollment.status === 'expired' ? 'bg-red-100 text-red-800' :
-                                'bg-slate-100 text-slate-700'
-                              }`}
-                            >
+                            <Badge variant="secondary" className={`text-xs ${badgeClass}`}>
                               {enrollment.status.charAt(0).toUpperCase() + enrollment.status.slice(1)}
                             </Badge>
                           </div>
@@ -742,43 +826,53 @@ export default function StudentDetailPage() {
                           <div className="flex items-center space-x-1">
                             <Calendar className="w-4 h-4" />
                             <span className="font-medium">Enrolled:</span>
-                            <span>{new Date(enrollment.enrollment_date).toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric'
-                            })}</span>
+                            <span>
+                              {formatPlanCalendarDate(
+                                enrollment.registered_at ||
+                                  enrollment.created_at ||
+                                  enrollment.enrollment_date
+                              )}
+                            </span>
                           </div>
                           {enrollment.start_date && (
                             <div className="flex items-center space-x-1">
                               <Clock className="w-4 h-4" />
                               <span className="font-medium">Start:</span>
-                              <span>{new Date(enrollment.start_date).toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric'
-                              })}</span>
+                              <span>{formatPlanCalendarDate(enrollment.start_date)}</span>
                             </div>
                           )}
                           {enrollment.end_date && (
                             <div className="flex items-center space-x-1">
                               <Clock className="w-4 h-4" />
                               <span className="font-medium">End:</span>
-                              <span>{new Date(enrollment.end_date).toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric'
-                              })}</span>
+                              <span>{formatPlanCalendarDate(enrollment.end_date)}</span>
+                            </div>
+                          )}
+                          {dueDate && (
+                            <div className="flex items-center space-x-1">
+                              <Clock className="w-4 h-4 text-amber-600" />
+                              <span className="font-medium">Next due:</span>
+                              <span className="font-semibold text-amber-700">
+                                {formatPlanCalendarDate(dueDate)}
+                              </span>
+                            </div>
+                          )}
+                          {isPaid &&
+                            enrollment.fee_amount != null &&
+                            Number(enrollment.fee_amount) > 0 && (
+                            <div className="flex items-center space-x-1">
+                              <CreditCard className="w-4 h-4 text-blue-600" />
+                              <span className="font-medium">Course fee paid:</span>
+                              <span className="font-semibold text-blue-700">
+                                ₹{Number(enrollment.fee_amount).toLocaleString("en-IN")}
+                              </span>
                             </div>
                           )}
                           {enrollment.completion_date && (
                             <div className="flex items-center space-x-1">
                               <CheckCircle className="w-4 h-4 text-green-600" />
                               <span className="font-medium">Completed:</span>
-                              <span>{new Date(enrollment.completion_date).toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric'
-                              })}</span>
+                              <span>{formatPlanCalendarDate(enrollment.completion_date)}</span>
                             </div>
                           )}
                           {enrollment.grade && (
@@ -790,7 +884,7 @@ export default function StudentDetailPage() {
                           )}
                         </div>
 
-                        {enrollment.progress >= 0 && (
+                        {enrollment.progress > 0 && (
                           <div className="mt-3">
                             <div className="flex items-center justify-between text-sm mb-2">
                               <span className=" flex items-center">
@@ -803,7 +897,8 @@ export default function StudentDetailPage() {
                           </div>
                         )}
                       </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </CardContent>

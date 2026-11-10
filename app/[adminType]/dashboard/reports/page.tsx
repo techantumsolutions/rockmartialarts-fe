@@ -148,9 +148,9 @@ const REPORT_CATEGORIES = [
     id: "attendance",
     name: "Attendance Reports",
     icon: TrendingUp,
-    description: "Use Attendance module reports for full UI",
+    description: "Operational attendance listings and exports (API: /reports/attendance)",
     reports: [
-      { id: "attendance-module", name: "Open Attendance Reports", icon: TrendingUp },
+      { id: "attendance-list", name: "Attendance List", icon: FileText },
     ]
   }
 ]
@@ -253,13 +253,6 @@ function ReportsPageContent() {
       // Show loading state for this specific category
       setCategoryLoading(categoryId)
 
-      // M23: Attendance reports live under Attendance module
-      if (categoryId === "attendance") {
-        router.push(`${basePath}/attendance/reports`)
-        setCategoryLoading(null)
-        return
-      }
-
       // Navigate with error handling and performance tracking (use basePath for branch-admin/super-admin)
       const navigationTimeout = setTimeout(() => {
         try {
@@ -333,23 +326,19 @@ function ReportsPageContent() {
   // Show skeleton loading state for initial load
   if (loading && !filterOptions) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <main className="w-full p-4 lg:px-8 mx-auto">
-          <PageHeaderSkeleton />
-          <SearchBarSkeleton />
-          <ReportCategoriesGridSkeleton />
-        </main>
+      <div className="w-full min-w-0">
+        <PageHeaderSkeleton />
+        <SearchBarSkeleton />
+        <ReportCategoriesGridSkeleton />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-
-      <main className="w-full p-4 lg:px-8 mx-auto">
+    <div className="w-full min-w-0">
         {/* Page Header - Enhanced with loading states */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
+          <h1 className="text-2xl font-bold text-[#4F5077]">Reports</h1>
           <p className="text-gray-600">
             Comprehensive system reports and analytics
             {loading && <InlineLoader size="sm" className="ml-2" />}
@@ -590,7 +579,6 @@ function ReportsPageContent() {
             </CardContent>
           </Card>
         )}
-      </main>
     </div>
   )
 }

@@ -31,6 +31,11 @@ import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import Header from "@/components/layout/Header"
 import { reportsAPI } from "@/lib/reportsAPI"
+import { getBackendApiUrl } from "@/lib/config"
+import {
+  toBranchManagerGenericReport,
+  isBranchManagerReportSupported,
+} from "@/lib/individualReportTransforms"
 import { toast } from "sonner"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import BranchSelectionField from "@/components/layout/BranchSelectionField"
@@ -154,6 +159,7 @@ export default function BranchManagerIndividualReport() {
   const [filtersLoading, setFiltersLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [reportData, setReportData] = useState<any>(null)
+  const [reportUnavailable, setReportUnavailable] = useState(false)
   const [chartData, setChartData] = useState<ChartData | null>(null)
   const [filterOptions, setFilterOptions] = useState<any>(null)
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
@@ -277,43 +283,37 @@ export default function BranchManagerIndividualReport() {
       console.log('🔍 Fetching course popularity data for branch:', branchId)
 
       // Fetch course reports from the backend
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/reports/courses?branch_id=${branchId}&limit=100`, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
+      const data = await reportsAPI.getCourseReports(token, {
+        branch_id: branchId,
+        limit: 100,
       })
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error("Authentication failed. Please login again.")
-        }
-        throw new Error(`Failed to fetch course data: ${response.status}`)
-      }
+      const courses = data.courses || []
 
-      const data = await response.json()
-      console.log('✅ Course Reports API response:', data)
-
-      const courseReports = data.course_reports || {}
-      const enrollmentStats = courseReports.course_enrollment_statistics || []
-      const completionStats = courseReports.course_completion_statistics || []
-
-      // Transform data for the report
-      const coursePopularityData = enrollmentStats.map((course: any) => {
-        const completionData = completionStats.find((comp: any) => comp._id === course._id)
+      const coursePopularityData = courses.map((course: any) => {
+        const total = course.total_enrollments || 0
+        const active = course.active_enrollments || 0
+        const completionRate =
+          course.completion_rate ??
+          (total > 0 ? (active / total) * 100 : 0)
 
         return {
-          id: course._id,
-          title: course.title || 'Unknown Course',
-          code: course.code || 'N/A',
-          category_name: course.category_name || 'General',
-          total_enrollments: course.total_enrollments || 0,
-          active_enrollments: course.active_enrollments || 0,
-          completion_rate: completionData?.completion_rate || 0,
-          popularity_score: calculatePopularityScore(course.total_enrollments, course.active_enrollments, completionData?.completion_rate || 0),
-          enrollment_rate: course.total_enrollments > 0 ? ((course.active_enrollments / course.total_enrollments) * 100).toFixed(1) : '0.0'
+          id: course.id || course._id,
+          title: course.title || "Unknown Course",
+          code: course.code || "N/A",
+          category_name: course.category_name || "General",
+          total_enrollments: total,
+          active_enrollments: active,
+          completion_rate: completionRate,
+          popularity_score: calculatePopularityScore(
+            total,
+            active,
+            completionRate
+          ),
+          enrollment_rate:
+            total > 0 ? ((active / total) * 100).toFixed(1) : "0.0",
         }
-      }).sort((a: any, b: any) => b.popularity_score - a.popularity_score) // Sort by popularity
+      }).sort((a: any, b: any) => b.popularity_score - a.popularity_score)
 
       // Calculate summary statistics
       const totalCourses = coursePopularityData.length
@@ -366,6 +366,54 @@ export default function BranchManagerIndividualReport() {
     return Math.round(enrollmentScore + activeScore + completionScore)
   }
 
+  const fetchCategoryReportApi = async (
+    token: string,
+    branchId: string
+  ): Promise<any> => {
+    switch (categoryId) {
+      case "student":
+        return reportsAPI.getStudentReports(token, { branch_id: branchId })
+      case "course":
+        return reportsAPI.getCourseReports(token, { branch_id: branchId, limit: 100 })
+      case "financial":
+        return reportsAPI.getFinancialReports(token, {
+          branch_id: branchId,
+          limit: 100,
+        })
+      case "branch":
+        return reportsAPI.getBranchReports(token, {
+          branch_id: branchId,
+          limit: 100,
+        })
+      case "coach": {
+        const response = await fetch(
+          getBackendApiUrl(
+            `reports/coaches?branch_id=${encodeURIComponent(branchId)}`
+          ),
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+              "Cache-Control": "no-cache",
+            },
+            cache: "no-store",
+          }
+        )
+        if (!response.ok) {
+          throw new Error(`Failed to load coach report (${response.status})`)
+        }
+        return response.json()
+      }
+      case "operational":
+        return reportsAPI.getOperationalReports(token, "enrollments", {
+          branch_id: branchId,
+          limit: 100,
+        })
+      default:
+        throw new Error("Unsupported report category")
+    }
+  }
+
   // Load report data
   const loadReportData = useCallback(async () => {
     if (!currentBranchManager || !branchManagerBranchId) {
@@ -375,23 +423,61 @@ export default function BranchManagerIndividualReport() {
 
     setLoading(true)
     setError(null)
+    setReportUnavailable(false)
     try {
       const token = BranchManagerAuth.getToken()
       if (!token) {
         throw new Error("Authentication token not found")
       }
 
-      // Load real data based on report type
-      if (reportId === 'course-popularity-analysis') {
-        const courseData = await fetchCoursePopularityData(token, branchManagerBranchId)
-        setReportData(courseData)
-      } else {
-        // For other reports, use mock data for now
-        const mockData = generateMockReportData(reportId, branchManagerBranchId)
-        setReportData(mockData)
+      if (!isBranchManagerReportSupported(categoryId, reportId)) {
+        setReportData(null)
+        setReportUnavailable(true)
+        return
       }
 
-      toast.success("Report data loaded successfully")
+      if (reportId === "course-popularity-analysis") {
+        const courseData = await fetchCoursePopularityData(
+          token,
+          branchManagerBranchId
+        )
+        setReportData(courseData)
+        return
+      }
+
+      let apiData = await fetchCategoryReportApi(token, branchManagerBranchId)
+
+      if (categoryId === "operational") {
+        const rows = apiData.rows || []
+        apiData = {
+          generated_at: new Date().toISOString(),
+          student_reports: {
+            enrollment_statistics: rows.map((row: any) => ({
+              _id: row.course_id || row.id,
+              total_students: 1,
+              course_info: {
+                title:
+                  row.course_name ||
+                  row.student_name ||
+                  row.course_id ||
+                  "Enrollment",
+              },
+            })),
+            students_by_branch: [],
+            attendance_statistics: [],
+          },
+        }
+      }
+
+      const transformCategory = categoryId === "operational" ? "student" : categoryId
+
+      setReportData(
+        toBranchManagerGenericReport(apiData, transformCategory, {
+          title: currentReport?.name || "Report",
+          branchId: branchManagerBranchId,
+          branchName: currentBranchManager?.branch_name || "Branch",
+        })
+      )
     } catch (error) {
       console.error('Error loading report data:', error)
       const errorMessage = error instanceof Error ? error.message : 'Failed to load report data'
@@ -400,35 +486,13 @@ export default function BranchManagerIndividualReport() {
     } finally {
       setLoading(false)
     }
-  }, [currentBranchManager, branchManagerBranchId, reportId])
-
-  // Generate mock data for demonstration
-  const generateMockReportData = (reportId: string, branchId: string) => {
-    // This would be replaced with real API calls in production
-    return {
-      title: currentReport?.name || "Report",
-      branch_id: branchId,
-      branch_name: currentBranchManager?.branch_name || "Branch",
-      generated_at: new Date().toISOString(),
-      data: {
-        summary: {
-          total_records: Math.floor(Math.random() * 100) + 50,
-          active_records: Math.floor(Math.random() * 80) + 30,
-          growth_rate: (Math.random() * 20 - 10).toFixed(1) + "%"
-        },
-        charts: [
-          {
-            type: "bar",
-            title: "Monthly Trends",
-            data: Array.from({length: 6}, (_, i) => ({
-              month: new Date(2024, i, 1).toLocaleDateString('en-US', {month: 'short'}),
-              value: Math.floor(Math.random() * 100) + 20
-            }))
-          }
-        ]
-      }
-    }
-  }
+  }, [
+    currentBranchManager,
+    branchManagerBranchId,
+    reportId,
+    categoryId,
+    currentReport?.name,
+  ])
 
   useEffect(() => {
     if (currentReport && currentBranchManager) {
@@ -628,6 +692,19 @@ export default function BranchManagerIndividualReport() {
                 </div>
               </div>
             </div>
+          ) : reportUnavailable ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center max-w-lg">
+                <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Report data unavailable
+                </h3>
+                <p className="text-gray-600">
+                  This report does not have a backed API endpoint yet. No sample
+                  data is shown.
+                </p>
+              </div>
+            </div>
           ) : reportData ? (
             <div className="space-y-6">
               {/* Summary Cards */}
@@ -763,7 +840,10 @@ export default function BranchManagerIndividualReport() {
                     <Badge variant="secondary">
                       {reportId === 'course-popularity-analysis'
                         ? reportData.data.courses?.length || 0
-                        : reportData.data.charts[0]?.data?.length || 0} records
+                        : reportData.data.tableRows?.length ||
+                          reportData.data.charts[0]?.data?.length ||
+                          0}{" "}
+                      records
                     </Badge>
                   </CardTitle>
                 </CardHeader>
@@ -860,8 +940,24 @@ export default function BranchManagerIndividualReport() {
                               </td>
                             </tr>
                           ))
+                        ) : (reportData.data.tableRows?.length
+                          ? reportData.data.tableRows
+                          : reportData.data.charts[0]?.data || []
+                        ).length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="py-8 text-center text-gray-500">
+                              No report data available.
+                            </td>
+                          </tr>
                         ) : (
-                          reportData.data.charts[0]?.data?.map((item: any, index: number) => (
+                          (reportData.data.tableRows?.length
+                            ? reportData.data.tableRows.map((row: any) => ({
+                                month: row.name,
+                                value: row.value,
+                                status: row.status,
+                              }))
+                            : reportData.data.charts[0]?.data || []
+                          ).map((item: any, index: number) => (
                             <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
                               <td className="py-4 px-4">
                                 <span className="text-sm text-gray-900">{item.month}</span>

@@ -230,7 +230,7 @@ export default function DemoBookingsAdminPage() {
 
   return (
     <div className="p-4 sm:p-6">
-      <div className="mx-auto max-w-7xl space-y-6">
+      <div className="w-full max-w-none space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Demo bookings</h1>

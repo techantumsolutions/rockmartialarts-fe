@@ -136,7 +136,7 @@ export default function StorePage() {
           className="absolute inset-0 w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-black/50" />
-        <div className="container relative z-10 mx-auto px-4 max-w-7xl">
+        <div className="site-content relative z-10 px-0 sm:px-1">
           <div className="max-w-xl">
             <h1 className="text-4xl md:text-5xl font-bold text-white uppercase mb-2">Store</h1>
             <h2 className="text-3xl md:text-4xl font-bold text-[#F73322] mb-4">Gear for the Way.</h2>
@@ -149,7 +149,7 @@ export default function StorePage() {
 
       {/* Filters & Products */}
       <section className="py-16 md:py-20 bg-[#171A26]">
-        <div className="container mx-auto px-4 max-w-7xl">
+        <div className="site-content px-0 sm:px-1">
           {/* Desktop View (lg and xl screens): Standard flex-wrap pills without arrows or scrolling */}
           <div className="hidden lg:flex flex-wrap gap-3 mb-10">
             {categories.map((cat) => (

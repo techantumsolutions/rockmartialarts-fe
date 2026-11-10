@@ -272,7 +272,7 @@ function SuperAdminLoginFormContent() {
                 </div>
                 <PasswordInput
                   id="password"
-                  placeholder="StrongPassword@123"
+                  placeholder="Enter your password"
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value)
