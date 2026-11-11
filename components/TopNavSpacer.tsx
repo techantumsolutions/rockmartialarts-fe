@@ -1,18 +1,11 @@
 "use client"
 
 import { usePathname } from "next/navigation"
-
-const DASHBOARD_PREFIXES = [
-  "/student-dashboard",
-  "/coach-dashboard",
-  "/branch-manager-dashboard",
-  "/super-admin",
-  "/branch-admin",
-]
+import { isDashboardPath } from "./FixedTopNavWrapper"
 
 export function TopNavSpacer({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const isDashboard = pathname != null && DASHBOARD_PREFIXES.some((p) => pathname.startsWith(p))
+  const isDashboard = isDashboardPath(pathname)
   const spacerClass = isDashboard ? undefined : undefined
   return <div className={spacerClass}>{children}</div>
 }

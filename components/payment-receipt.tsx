@@ -3,8 +3,8 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { Download, Share2, CheckCircle2, Facebook, Twitter, Linkedin, MessageCircle } from "lucide-react"
-import { useRef } from "react"
+import { Download, Share2, CheckCircle2, Facebook, Twitter, Linkedin, MessageCircle, Loader2 } from "lucide-react"
+import { useRef, useState } from "react"
 
 interface PaymentReceiptProps {
   paymentId: string
@@ -44,88 +44,149 @@ export function PaymentReceipt({
     })
   }
 
-  const handleDownloadPDF = () => {
-    // Simple print-to-PDF functionality
-    const printWindow = window.open('', '_blank')
-    if (!printWindow) return
+  const [downloading, setDownloading] = useState(false)
 
-    const receiptHTML = receiptRef.current?.innerHTML || ''
-    
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Payment Receipt - ${paymentId}</title>
-        <style>
-          body {
-            font-family: Arial, sans-serif;
-            padding: 40px;
-            max-width: 800px;
-            margin: 0 auto;
-          }
-          .receipt-header {
-            text-align: center;
-            margin-bottom: 30px;
-          }
-          .receipt-title {
-            font-size: 28px;
-            font-weight: bold;
-            color: #f59e0b;
-            margin-bottom: 10px;
-          }
-          .success-icon {
-            color: #22c55e;
-            font-size: 48px;
-            margin-bottom: 20px;
-          }
-          .receipt-details {
-            background: #f9fafb;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 20px 0;
-          }
-          .detail-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid #e5e7eb;
-          }
-          .detail-label {
-            font-weight: 600;
-            color: #6b7280;
-          }
-          .detail-value {
-            color: #111827;
-          }
-          .amount-row {
-            font-size: 20px;
-            font-weight: bold;
-            color: #f59e0b;
-            border-bottom: none;
-            padding-top: 20px;
-          }
-          .footer {
-            text-align: center;
-            margin-top: 40px;
-            color: #6b7280;
-            font-size: 12px;
-          }
-        </style>
-      </head>
-      <body>
-        ${receiptHTML}
-        <div class="footer">
-          <p>This is a computer-generated receipt and does not require a signature.</p>
-          <p>© ${new Date().getFullYear()} Rock Martial Arts. All rights reserved.</p>
-        </div>
-      </body>
-      </html>
-    `)
-    
-    printWindow.document.close()
-    setTimeout(() => {
-      printWindow.print()
-    }, 250)
+  const handleDownloadPDF = async () => {
+    try {
+      setDownloading(true)
+      const { jsPDF } = await import("jspdf")
+      const autoTable = (await import("jspdf-autotable")).default
+
+      const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" })
+      const pageWidth = doc.internal.pageSize.getWidth()
+      const margin = 40
+      const contentWidth = pageWidth - margin * 2
+
+      // Top decorative header bar
+      doc.setFillColor(245, 158, 11) // amber-500
+      doc.rect(0, 0, pageWidth, 6, "F")
+
+      // Header: Brand & Title
+      doc.setFont("helvetica", "bold")
+      doc.setFontSize(22)
+      doc.setTextColor(30, 41, 59) // slate-800
+      doc.text("ROCK MARTIAL ARTS", margin, 45)
+
+      doc.setFontSize(12)
+      doc.setTextColor(217, 119, 6) // amber-600
+      doc.text("PAYMENT RECEIPT", margin, 64)
+
+      // Payment Confirmed Badge on top right
+      const badgeText = "PAYMENT SUCCESSFUL"
+      doc.setFontSize(9)
+      doc.setFont("helvetica", "bold")
+      const badgeWidth = doc.getTextWidth(badgeText) + 20
+      const badgeX = pageWidth - margin - badgeWidth
+      const badgeY = 32
+      const badgeHeight = 22
+
+      doc.setFillColor(220, 252, 231) // green-100
+      doc.roundedRect(badgeX, badgeY, badgeWidth, badgeHeight, 4, 4, "F")
+      doc.setTextColor(22, 101, 52) // green-800
+      doc.text(badgeText, badgeX + 10, badgeY + 15)
+
+      // Divider line
+      doc.setDrawColor(226, 232, 240) // slate-200
+      doc.setLineWidth(1)
+      doc.line(margin, 82, pageWidth - margin, 82)
+
+      // Receipt details table
+      const formattedAmount = `${currency === "INR" ? "Rs. " : currency + " "}${Number(amount || 0).toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`
+
+      autoTable(doc, {
+        startY: 96,
+        body: [
+          ["Student Name", studentName || "Student"],
+          ["Course", courseName || "Course Enrollment"],
+          ["Branch", branchName || "Main Branch"],
+          ["Payment ID", paymentId || "N/A"],
+          ["Order ID", orderId || paymentId || "N/A"],
+          ["Date & Time", formatDate(date)],
+          ["Payment Status", "Paid / Confirmed"],
+        ],
+        theme: "plain",
+        styles: {
+          fontSize: 10,
+          cellPadding: { top: 9, bottom: 9, left: 10, right: 10 },
+          lineColor: [241, 245, 249],
+          lineWidth: { bottom: 1 },
+        },
+        columnStyles: {
+          0: {
+            fontStyle: "bold",
+            textColor: [100, 116, 139],
+            cellWidth: 140,
+          },
+          1: {
+            fontStyle: "normal",
+            textColor: [15, 23, 42],
+          },
+        },
+        margin: { left: margin, right: margin },
+      })
+
+      const finalY = (doc as any).lastAutoTable?.finalY || 300
+
+      // Amount Highlight Box
+      const boxY = finalY + 16
+      const boxHeight = 44
+      doc.setFillColor(254, 243, 199) // amber-100
+      doc.setDrawColor(245, 158, 11) // amber-500
+      doc.setLineWidth(1)
+      doc.roundedRect(margin, boxY, contentWidth, boxHeight, 6, 6, "FD")
+
+      doc.setFont("helvetica", "bold")
+      doc.setFontSize(11)
+      doc.setTextColor(146, 64, 14) // amber-800
+      doc.text("TOTAL AMOUNT PAID", margin + 14, boxY + 27)
+
+      doc.setFontSize(16)
+      doc.setTextColor(180, 83, 9) // amber-700
+      const amtWidth = doc.getTextWidth(formattedAmount)
+      doc.text(formattedAmount, margin + contentWidth - amtWidth - 14, boxY + 28)
+
+      // Note box
+      const noteY = boxY + boxHeight + 20
+      doc.setFillColor(248, 250, 252) // slate-50
+      doc.setDrawColor(226, 232, 240)
+      doc.roundedRect(margin, noteY, contentWidth, 42, 6, 6, "FD")
+
+      doc.setFont("helvetica", "normal")
+      doc.setFontSize(9)
+      doc.setTextColor(71, 85, 105) // slate-600
+      doc.text(
+        "Thank you for your payment! You can now access your enrolled course.",
+        margin + 12,
+        noteY + 17
+      )
+      doc.text(
+        "A confirmation has been recorded with your academy account.",
+        margin + 12,
+        noteY + 31
+      )
+
+      // Footer
+      const footerY = 790
+      doc.setDrawColor(226, 232, 240)
+      doc.line(margin, footerY - 14, pageWidth - margin, footerY - 14)
+
+      doc.setFontSize(8.5)
+      doc.setTextColor(148, 163, 184)
+      const f1 = "This is a computer-generated receipt and does not require a physical signature."
+      doc.text(f1, pageWidth / 2, footerY, { align: "center" })
+      const f2 = `© ${new Date().getFullYear()} Rock Martial Arts. All rights reserved.`
+      doc.text(f2, pageWidth / 2, footerY + 12, { align: "center" })
+
+      const safeName = (paymentId || orderId || "receipt").replace(/[^a-zA-Z0-9_-]/g, "_")
+      doc.save(`Payment-Receipt-${safeName}.pdf`)
+    } catch (err) {
+      console.error("Failed to generate receipt PDF:", err)
+    } finally {
+      setDownloading(false)
+    }
   }
 
   const shareText = `I just enrolled in ${courseName} at Rock Martial Arts! 🥋💪`
@@ -231,11 +292,16 @@ export function PaymentReceipt({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Button 
           onClick={handleDownloadPDF} 
+          disabled={downloading}
           className="w-full"
           size="lg"
         >
-          <Download className="w-5 h-5 mr-2" />
-          Download Receipt
+          {downloading ? (
+            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+          ) : (
+            <Download className="w-5 h-5 mr-2" />
+          )}
+          {downloading ? "Downloading PDF..." : "Download Receipt"}
         </Button>
         
         {navigator.share ? (

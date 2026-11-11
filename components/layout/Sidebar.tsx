@@ -171,7 +171,7 @@ export default function Sidebar({
       hasPermission,
     })
 
-    if (urlBasePath && roleBasePath && urlBasePath !== roleBasePath) {
+    if (role !== "student" && urlBasePath && roleBasePath && urlBasePath !== roleBasePath) {
       all = remapNavBase(all, roleBasePath, urlBasePath)
     }
 
@@ -180,7 +180,7 @@ export default function Sidebar({
         ? filterPartnerNavByFeatures(all, partnerFeaturePermissions)
         : all
 
-    return filtered.filter((i) => i.label !== "Settings" && !i.overflowOnly)
+    return filtered.filter((i) => (role === "student" ? true : i.label !== "Settings") && !i.overflowOnly)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- hasPermission intentionally omitted
   }, [role, roleBasePath, urlBasePath, menuOptions, partnerFeaturePermissions])
 
@@ -357,29 +357,19 @@ export default function Sidebar({
       data-sidebar-collapsed={collapsed ? "true" : "false"}
     >
       {!compactChrome && (
-        <div className="shrink-0 border-b border-[#E2E8F0] px-3 py-3">
-          <div className={`flex items-center ${collapsed ? "justify-center" : "gap-2"}`}>
+        <div className="flex h-[70px] shrink-0 items-center border-b border-[#E2E8F0] px-3">
+          <div className={`flex w-full items-center ${collapsed ? "justify-center" : "gap-2"}`}>
             <Link
               href={activeBase}
               onClick={() => notify(activeBase)}
-              className={`flex min-w-0 items-center ${collapsed ? "" : "gap-2.5 flex-1"}`}
-              title="Skillora Alpha"
+              className={`flex min-w-0 items-center ${collapsed ? "" : "flex-1"}`}
+              title="Dashboard"
             >
               <img
                 src={logoSrc}
-                alt="Skillora Alpha"
+                alt="Logo"
                 className="h-9 w-auto max-w-[40px] shrink-0 object-contain"
               />
-              {!collapsed && (
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold tracking-wide text-[#171A26]">
-                    SKILLORA ALPHA
-                  </p>
-                  <p className="truncate text-[10px] uppercase tracking-[0.12em] text-[#64748B]">
-                    Learn · Practice · Advance
-                  </p>
-                </div>
-              )}
             </Link>
             {!collapsed && (
               <button
@@ -398,7 +388,7 @@ export default function Sidebar({
                 type="button"
                 data-no-action-overlay
                 onClick={() => setCollapsed(false)}
-                className="mt-2 hidden h-8 w-8 items-center justify-center rounded-md text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#171A26] lg:inline-flex"
+                className="hidden h-8 w-8 items-center justify-center rounded-md text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#171A26] lg:inline-flex"
                 aria-label="Expand sidebar"
                 title="Expand sidebar"
               >

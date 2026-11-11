@@ -12,7 +12,6 @@ import {
   CalendarCheck,
   BarChart,
   CreditCard,
-  User,
   Settings,
   UserPlus,
   MessageSquare,
@@ -36,6 +35,7 @@ import {
   Layers,
   Megaphone,
   Wallet,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react"
 
@@ -145,7 +145,7 @@ function partnerSuperAdminMenu(basePath: string = PARTNER_ADMIN_BASE): NavItem[]
     label: "Organization Branding",
     path: `${basePath}/org-branding`,
     icon: ImageIcon,
-    overflowOnly: true,
+    permissionId: "org-branding",
   })
 
   const achievementsIdx = menu.findIndex((i) => i.path.endsWith("/achievements-showcase"))
@@ -666,7 +666,6 @@ const BRANCH_ADMIN_MENU: NavItem[] = [
     ],
   },
   { label: "Reports", path: `${BRANCH_ADMIN_BASE}/reports`, icon: BarChart, permissionId: "reports" },
-  { label: "KPI Assessments", path: `${BRANCH_ADMIN_BASE}/kpi-assessments`, icon: ClipboardList },
   { label: "Leads", path: `${BRANCH_ADMIN_BASE}/leads`, icon: UserPlus, overflowOnly: true, permissionId: "crm" },
   { label: "Demo Bookings", path: `${BRANCH_ADMIN_BASE}/demo-bookings`, icon: CalendarCheck, overflowOnly: true, permissionId: "crm" },
   { label: "Invoices", path: `${BRANCH_ADMIN_BASE}/invoices`, icon: FileText, overflowOnly: true, permissionId: "payments" },
@@ -676,16 +675,16 @@ const BRANCH_ADMIN_MENU: NavItem[] = [
 ]
 
 const STUDENT_MENU: NavItem[] = [
-  { label: "Dashboard", path: "/student-dashboard", icon: LayoutDashboard, permissionId: "dashboard" },
-  { label: "Courses", path: "/student-dashboard/courses", icon: BookOpen, permissionId: "courses" },
-  { label: "Online Learning", path: "/student-dashboard/online-learning", icon: MonitorPlay, permissionId: "courses" },
-  { label: "Event Registrations", path: "/events/my-registrations", icon: CalendarClock },
-  { label: "Syllabus", path: "/student-dashboard/syllabus", icon: FileText, permissionId: "syllabus" },
-  { label: "Attendance", path: "/student-dashboard/attendance", icon: CalendarCheck, permissionId: "attendance" },
-  { label: "Payments", path: "/student-dashboard/payments", icon: CreditCard, permissionId: "payments" },
-  { label: "Invoices", path: "/student-dashboard/invoices", icon: FileText, permissionId: "payments" },
-  { label: "Billing", path: "/student-dashboard/billing", icon: CalendarCheck, permissionId: "payments" },
-  { label: "Profile", path: "/student-dashboard/profile", icon: User, permissionId: "profile" },
+  { id: "dashboard", label: "Dashboard", path: "/student-dashboard", icon: LayoutDashboard, permissionId: "dashboard" },
+  { id: "courses", label: "My Courses", path: "/student-dashboard/courses", icon: BookOpen, permissionId: "courses" },
+  { id: "attendance", label: "Attendance", path: "/student-dashboard/attendance", icon: CalendarCheck, permissionId: "attendance" },
+  { id: "performance", label: "Performance", path: "/student-dashboard/performance", icon: Trophy, permissionId: "performance" },
+  { id: "progress", label: "Progress", path: "/student-dashboard/progress", icon: TrendingUp },
+  { id: "syllabus", label: "Syllabus", path: "/student-dashboard/syllabus", icon: FileText, permissionId: "syllabus" },
+  { id: "payments", label: "Payments", path: "/student-dashboard/payments", icon: CreditCard, permissionId: "payments" },
+  { id: "invoices", label: "Invoices", path: "/student-dashboard/invoices", icon: FileText, permissionId: "payments" },
+  { id: "billing", label: "Billing", path: "/student-dashboard/billing", icon: Wallet, permissionId: "payments" },
+  { id: "registration-forms", label: "Registration Forms", path: "/student-dashboard/registration-forms", icon: ClipboardList, permissionId: "registration_forms" },
 ]
 
 function filterNavChildrenByPermission(

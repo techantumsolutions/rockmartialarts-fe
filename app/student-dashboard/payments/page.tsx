@@ -273,6 +273,7 @@ export default function StudentPaymentsPage() {
       return
     }
     const { course_id, branch_id } = tenureModal.enrollment
+    const isRenewal = tenureModal.isRenewal
     ;(async () => {
       try {
         let resolvedBatchRef = String(tenureModal.enrollment.batch_ref || "").trim()
@@ -296,13 +297,24 @@ export default function StudentPaymentsPage() {
             }))
             .filter((b) => b.batch_ref)
           setBatchOptions(loadedBatches)
-          const batchStillOffered = loadedBatches.some((b) => b.batch_ref === resolvedBatchRef)
-          if (!batchStillOffered) {
-            resolvedBatchRef = loadedBatches.length === 1 ? loadedBatches[0].batch_ref : ""
+
+          if (isRenewal) {
+            // For renewal, strictly lock to the existing previous batch.
+            // If enrollment record was missing batch_ref, default to the branch's primary batch.
+            if (!resolvedBatchRef && loadedBatches.length > 0) {
+              resolvedBatchRef = loadedBatches[0].batch_ref
+            }
+          } else {
+            const batchStillOffered = loadedBatches.some((b) => b.batch_ref === resolvedBatchRef)
+            if (!batchStillOffered) {
+              resolvedBatchRef = loadedBatches.length === 1 ? loadedBatches[0].batch_ref : ""
+            }
           }
         } catch {
           setBatchOptions([])
-          resolvedBatchRef = ""
+          if (!isRenewal) {
+            resolvedBatchRef = ""
+          }
         }
         setSelectedBatchRef(resolvedBatchRef)
 
@@ -335,14 +347,13 @@ export default function StudentPaymentsPage() {
           return
         }
 
-        if (!resolvedBatchRef && loadedBatches.length > 1) {
+        if (!isRenewal && !resolvedBatchRef && loadedBatches.length > 1) {
           setTenurePrices({})
           setTenureQuotes({})
           return
         }
 
         const profileEnr = tenureModal.enrollment
-        const isRenewal = tenureModal.isRenewal
         const next: Record<string, number | null> = {}
         const quotes: Record<string, RenewalQuoteBreakdown | null> = {}
         for (const opt of options) {
@@ -545,12 +556,13 @@ export default function StudentPaymentsPage() {
     try {
       const userData = user
       const chosenBatch = (selectedBatchRef || "").trim()
-      const batchStillOffered = batchOptions.some((b) => b.batch_ref === chosenBatch)
-      const batchRef = batchStillOffered
-        ? chosenBatch
-        : batchOptions.length === 1
-          ? batchOptions[0].batch_ref
-          : ""
+      const batchRef = isRenewal
+        ? String(enrollment.batch_ref || chosenBatch || "").trim()
+        : batchOptions.some((b) => b.batch_ref === chosenBatch)
+          ? chosenBatch
+          : batchOptions.length === 1
+            ? batchOptions[0].batch_ref
+            : ""
 
       let prepJson: Record<string, unknown> = {
         enrollment_id: enrollment.id,
@@ -1311,7 +1323,7 @@ export default function StudentPaymentsPage() {
                 pending first payment.
               </DialogDescription>
             </DialogHeader>
-            {batchOptions.length > 1 && (
+            {!tenureModal?.isRenewal && batchOptions.length > 1 && (
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700" htmlFor="renewal-batch">
                   Batch
@@ -1362,6 +1374,25 @@ export default function StudentPaymentsPage() {
                 </select>
               </div>
             )}
+            {tenureModal?.isRenewal && (
+              <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3 text-xs text-slate-600">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-slate-500">Course &amp; Batch</span>
+                  <span className="font-semibold text-slate-800">
+                    {tenureModal.enrollment.course_name}
+                    {(() => {
+                      const matchedBatch = batchOptions.find(
+                        (b) => b.batch_ref === (selectedBatchRef || tenureModal.enrollment.batch_ref)
+                      )
+                      return matchedBatch ? ` · ${matchedBatch.label}` : ""
+                    })()}
+                  </span>
+                </div>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Renewing subscription for your current batch.
+                </p>
+              </div>
+            )}
             {tenurePricesLoading ? (
               <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -1376,7 +1407,7 @@ export default function StudentPaymentsPage() {
                   if (available.length === 0) {
                     return (
                       <p className="text-sm text-muted-foreground text-center py-4">
-                        {batchOptions.length > 1 && !selectedBatchRef
+                        {!tenureModal?.isRenewal && batchOptions.length > 1 && !selectedBatchRef
                           ? "Select your batch to see the current admin prices."
                           : "No tenure configured for this course. Please contact support."}
                       </p>

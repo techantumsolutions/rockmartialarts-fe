@@ -28,6 +28,7 @@ import {
 import { getBackendApiUrl } from "@/lib/config"
 import { formatRegisteredDateTime } from "@/lib/formatRegisteredDate"
 import { getEnrollmentUiStatus, formatEnrollmentUiStatusLabel } from "@/lib/student-enrollment-status"
+import { mergeEnrollmentsByCourseBranch } from "@/lib/merge-enrollment-groups"
 import { TokenManager } from "@/lib/tokenManager"
 import { requireStudentSession } from "@/lib/sessionAuth"
 
@@ -76,6 +77,7 @@ export default function StudentDashboard() {
         }
 
         let profileData: any = null
+        let uniqueCoursesCount = 0
 
         const headers = {
           'Authorization': `Bearer ${token}`,
@@ -94,18 +96,22 @@ export default function StudentDashboard() {
           const profileResult = await profileResponse.json()
           profileData = profileResult.profile
 
+          const rawEnrollments = (profileData.enrollments || []) as any[]
+          const mergedEnrollments = mergeEnrollmentsByCourseBranch(rawEnrollments)
+          uniqueCoursesCount = mergedEnrollments.length
+
           setStudentData({
             name: profileData.full_name || `${profileData.first_name} ${profileData.last_name}` || "Student",
             email: profileData.email || "",
             studentId: profileData.id || "",
             joinDate: profileData.created_at ? formatRegisteredDateTime(profileData.created_at) : "",
-            course: profileData.enrollments?.[0]?.course_name || "No Course",
+            course: mergedEnrollments[0]?.course_name || profileData.enrollments?.[0]?.course_name || "No Course",
             phone: profileData.phone || "",
             dateOfBirth: profileData.date_of_birth || "",
             gender: profileData.gender || ""
           })
 
-          setEnrollmentData(profileData.enrollments || [])
+          setEnrollmentData(mergedEnrollments)
 
           const sid = profileData.id || ""
           if (sid) {
@@ -168,7 +174,7 @@ export default function StudentDashboard() {
           const progressPct = attendanceResult.statistics?.percentage
           const roundedProgress = typeof progressPct === "number" ? Math.round(progressPct) : 0
           setDashboardStats({
-            enrolledCourses: profileData?.enrollments?.length || 0,
+            enrolledCourses: uniqueCoursesCount,
             completedClasses: attendanceResult.statistics?.attended || 0,
             upcomingClasses: 0,
             overallProgress: roundedProgress,
@@ -186,7 +192,7 @@ export default function StudentDashboard() {
           setAttendanceData(null)
 
           setDashboardStats({
-            enrolledCourses: profileData?.enrollments?.length || 0,
+            enrolledCourses: uniqueCoursesCount,
             completedClasses: 0,
             upcomingClasses: 0,
             overallProgress: 0,

@@ -37,7 +37,7 @@ export default function StudentPerformancePage() {
       pageDescription="Your training snapshot, achievements, and coach notes."
       showBreadcrumb={false}
     >
-      <StudentPerformanceDashboardClient canEdit={false} title="My performance" />
+      <StudentPerformanceDashboardClient canEdit={false} showHeader={false} />
     </StudentDashboardLayout>
   )
 }

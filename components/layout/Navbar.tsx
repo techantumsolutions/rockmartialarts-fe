@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ChevronDown, MoreVertical, Settings, User, LogOut, FileText } from "lucide-react"
+import { ChevronDown, MoreVertical, Settings, User, LogOut, FileText, UserPlus } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +15,7 @@ import { useCMS } from "@/contexts/CMSContext"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import { useState, useEffect, useMemo, useRef } from "react"
 import NotificationDropdown from "@/components/notification-dropdown"
+import LinkedStudentSwitcher from "@/components/linked-student-switcher"
 import { MobileSidebar } from "@/components/layout/responsive"
 import {
   DashboardRole,
@@ -45,6 +46,7 @@ export default function Navbar({ role, variant = "topnav" }: NavbarProps) {
   const pathname = usePathname()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [profileImage, setProfileImage] = useState<string>("")
+  const [userName, setUserName] = useState<string>("")
   const [openNavMenu, setOpenNavMenu] = useState<string | null>(null)
   const navMenuCloseTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hoveredNavMenu = useRef<string | null>(null)
@@ -105,14 +107,30 @@ export default function Navbar({ role, variant = "topnav" }: NavbarProps) {
   const roleLabel = getRoleLabel(role)
 
   useEffect(() => {
-    const saved = localStorage.getItem("profileImage")
-    if (saved) setProfileImage(saved)
-    const handleStorage = () => {
-      const updated = localStorage.getItem("profileImage")
-      if (updated) setProfileImage(updated)
+    const readProfileData = () => {
+      try {
+        const saved = localStorage.getItem("profileImage")
+        if (saved) setProfileImage(saved)
+        const rawUser = localStorage.getItem("user")
+        if (rawUser) {
+          const u = JSON.parse(rawUser)
+          if (u.profile_image) setProfileImage(u.profile_image)
+          const name = u.full_name || u.name || (u.first_name ? `${u.first_name} ${u.last_name || ""}`.trim() : "")
+          if (name) setUserName(name)
+        }
+      } catch {
+        /* ignore */
+      }
     }
+
+    readProfileData()
+    const handleStorage = () => readProfileData()
     window.addEventListener("storage", handleStorage)
-    return () => window.removeEventListener("storage", handleStorage)
+    window.addEventListener("student-profile-image-updated", handleStorage)
+    return () => {
+      window.removeEventListener("storage", handleStorage)
+      window.removeEventListener("student-profile-image-updated", handleStorage)
+    }
   }, [])
 
   const handleLogout = () => {
@@ -186,12 +204,12 @@ export default function Navbar({ role, variant = "topnav" }: NavbarProps) {
     <header
       className={`${
         useSidebarShell
-          ? "relative z-40 w-full bg-transparent"
+          ? "relative z-40 h-full w-full bg-transparent"
           : "fixed top-0 left-0 right-0 z-50 border-b border-gray-200/80 bg-white shadow-sm backdrop-blur-sm"
       } min-w-0`}
     >
-      <div className="w-full px-3 sm:px-4 lg:px-6 py-2 sm:py-2.5">
-        <div className="flex justify-between items-center gap-2 sm:gap-4 min-h-[48px] sm:min-h-[56px]">
+      <div className={`w-full px-3 sm:px-4 lg:px-6 ${useSidebarShell ? "h-full flex items-center" : "py-2 sm:py-2.5"}`}>
+        <div className={`flex w-full justify-between items-center gap-2 sm:gap-4 ${useSidebarShell ? "" : "min-h-[48px] sm:min-h-[56px]"}`}>
           <div className="flex items-center gap-2 flex-shrink-0 min-w-0">
             {!useSidebarShell && (
               <div className="flex-shrink-0">
@@ -208,31 +226,6 @@ export default function Navbar({ role, variant = "topnav" }: NavbarProps) {
               open={isMobileMenuOpen}
               onOpenChange={setIsMobileMenuOpen}
             />
-            {useSidebarShell && (
-              <div className="hidden sm:flex flex-col min-w-0 lg:hidden">
-                <span className="text-sm font-bold text-[#4F5077] truncate">SKILLORA ALPHA</span>
-                <span className="text-[10px] uppercase tracking-wider text-gray-400">
-                  Learn · Practice · Advance
-                </span>
-              </div>
-            )}
-            {useSidebarShell && (
-              <div className="hidden md:flex items-center flex-1 max-w-md ml-2">
-                <div className="relative w-full">
-                  <input
-                    type="search"
-                    placeholder="Search…"
-                    className="w-full h-10 rounded-xl border border-gray-200 bg-gray-50/80 px-4 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#E1BB33]/40 focus:border-[#E1BB33]"
-                    readOnly
-                    onFocus={(e) => e.currentTarget.blur()}
-                    aria-label="Search"
-                  />
-                  <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 hidden lg:inline-flex items-center rounded-md border border-gray-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-gray-400">
-                    Ctrl + K
-                  </kbd>
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="flex items-center gap-1 sm:gap-2 lg:gap-3 ml-auto flex-shrink-0">
@@ -440,6 +433,8 @@ export default function Navbar({ role, variant = "topnav" }: NavbarProps) {
               </DropdownMenu>
             )}
 
+            {role === "student" && <LinkedStudentSwitcher />}
+
             <NotificationDropdown />
 
             <DropdownMenu>
@@ -448,10 +443,12 @@ export default function Navbar({ role, variant = "topnav" }: NavbarProps) {
                   <Avatar className="w-9 h-9 sm:w-10 sm:h-10 flex-shrink-0">
                     <AvatarImage src={profileImage} />
                     <AvatarFallback className="bg-gradient-to-br from-yellow-400 to-yellow-500 text-white font-semibold text-sm">
-                      {roleLabel.slice(0, 2).toUpperCase()}
+                      {(userName || roleLabel).slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="text-sm font-semibold text-gray-800 hidden lg:inline">{roleLabel}</span>
+                  <span className="text-sm font-semibold text-gray-800 hidden lg:inline max-w-[120px] truncate" title={userName || roleLabel}>
+                    {userName || roleLabel}
+                  </span>
                   <ChevronDown className={`w-4 h-4 text-gray-600 transition-transform duration-200 hidden sm:block ${role === "branch_admin" ? "group-data-[state=open]:rotate-180" : ""}`} />
                 </button>
               </DropdownMenuTrigger>
@@ -461,7 +458,13 @@ export default function Navbar({ role, variant = "topnav" }: NavbarProps) {
                     <User className="w-4 h-4" />
                     Profile
                   </DropdownMenuItem>
-                  {(role === "super_admin" || role === "partner_super_admin") && (
+                  {role === "student" && (
+                    <DropdownMenuItem onClick={() => router.push("/student-dashboard/add-student")} className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200 flex items-center gap-2">
+                      <UserPlus className="w-4 h-4" />
+                      Add another student
+                    </DropdownMenuItem>
+                  )}
+                  {(role === "super_admin" || role === "partner_super_admin" || role === "student") && (
                     <DropdownMenuItem onClick={() => router.push(settingsPath)} className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200 flex items-center gap-2">
                       <Settings className="w-4 h-4" />
                       Settings
