@@ -9,6 +9,7 @@ import type { DashboardRole } from "@/lib/dashboard-config"
  */
 export function useDashboardBasePath(): string {
   const pathname = usePathname() ?? ""
+  if (pathname.startsWith("/student-dashboard")) return "/student-dashboard"
   const partnerMatch = pathname.match(/^\/partners\/([^/]+)\/dashboard/)
   if (partnerMatch) return `/partners/${partnerMatch[1]}/dashboard`
   if (pathname.startsWith("/branch-manager-dashboard")) return "/branch-manager-dashboard"
@@ -22,6 +23,7 @@ export function useDashboardBasePath(): string {
  */
 export function useDashboardRole(): DashboardRole {
   const pathname = usePathname() ?? ""
+  if (pathname.startsWith("/student-dashboard")) return "student"
   if (pathname.startsWith("/branch-admin/dashboard")) return "branch_admin"
   if (
     pathname.startsWith("/partner-admin/dashboard") ||

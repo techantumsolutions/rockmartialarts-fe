@@ -43,11 +43,13 @@ export function StudentPerformanceDashboardClient({
   canEdit,
   backHref,
   title = "Student performance",
+  showHeader = true,
 }: {
   studentId?: string | null
   canEdit: boolean
   backHref?: string
   title?: string
+  showHeader?: boolean
 }) {
   const router = useRouter()
   const { toast: appToast } = useToast()
@@ -543,24 +545,25 @@ export function StudentPerformanceDashboardClient({
 
   return (
     <div className="space-y-6">
-
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
-          <p className="text-sm text-slate-600">
-            {canEdit
-              ? "Fee status is read from payments. Use the form below to update belt, skills, goals, feedback, and warrior stats."
-              : "Your fee status and next due date come from your enrollment and payments. Contact your branch for updates."}
-          </p>
+      {showHeader && (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
+            <p className="text-sm text-slate-600">
+              {canEdit
+                ? "Fee status is read from payments. Use the form below to update belt, skills, goals, feedback, and warrior stats."
+                : "Your fee status and next due date come from your enrollment and payments. Contact your branch for updates."}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            {backHref ? (
+              <Button variant="outline" onClick={() => router.push(backHref)}>
+                Back
+              </Button>
+            ) : null}
+          </div>
         </div>
-        <div className="flex gap-2">
-          {backHref ? (
-            <Button variant="outline" onClick={() => router.push(backHref)}>
-              Back
-            </Button>
-          ) : null}
-        </div>
-      </div>
+      )}
       {shell}
     </div>
   )

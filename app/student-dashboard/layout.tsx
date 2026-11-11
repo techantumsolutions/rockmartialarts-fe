@@ -1,6 +1,7 @@
 import StudentRouteGuard from "@/components/student-route-guard"
 import { StudentDashboardSonner } from "@/components/student-dashboard-sonner"
 import StudentPromotionPopup from "@/components/promotions/StudentPromotionPopup"
+import DashboardLayout from "@/components/layout/DashboardLayout"
 
 export default function StudentDashboardLayout({
   children,
@@ -12,7 +13,9 @@ export default function StudentDashboardLayout({
       <div data-app-shell="student" className="min-h-screen font-[family-name:var(--font-poppins)]">
         <StudentDashboardSonner />
         <StudentPromotionPopup />
-        {children}
+        <DashboardLayout role="student">
+          {children}
+        </DashboardLayout>
       </div>
     </StudentRouteGuard>
   )

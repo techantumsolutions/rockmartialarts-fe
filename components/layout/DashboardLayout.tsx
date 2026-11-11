@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { usePathname } from "next/navigation"
 import { type DashboardRole } from "@/lib/dashboard-config"
 import Navbar from "@/components/layout/Navbar"
 import Sidebar, {
@@ -20,6 +21,7 @@ const SIDEBAR_ROLES: DashboardRole[] = [
   "super_admin",
   "branch_admin",
   "partner_super_admin",
+  "student",
 ]
 
 const SIDEBAR_COLLAPSED_KEY = "skillora-admin-sidebar-collapsed"
@@ -31,6 +33,14 @@ const SIDEBAR_COLLAPSED_KEY = "skillora-admin-sidebar-collapsed"
 export default function DashboardLayout({ children, role }: DashboardLayoutProps) {
   const useSidebar = SIDEBAR_ROLES.includes(role)
   const [collapsed, setCollapsed] = useState(false)
+  const pathname = usePathname()
+  const mainRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    if (mainRef.current) {
+      mainRef.current.scrollTo({ top: 0, left: 0 })
+    }
+  }, [pathname])
 
   useEffect(() => {
     try {
@@ -83,10 +93,10 @@ export default function DashboardLayout({ children, role }: DashboardLayoutProps
 
       {/* Right column: fixed top bar + scrollable content only */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="z-40 shrink-0 border-b border-[#E2E8F0] bg-white/95 backdrop-blur-sm">
+        <div className="z-40 h-[70px] shrink-0 border-b border-[#E2E8F0] bg-white/95 backdrop-blur-sm">
           <Navbar role={role} variant="sidebar" />
         </div>
-        <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
+        <main ref={mainRef} className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
           {/* min-h-full + flex column keeps footer at the bottom of the viewport when content is short */}
           <div className="flex min-h-full flex-col">
             <div className="admin-content-frame w-full max-w-none flex-1 px-4 py-4 md:px-6 md:py-5">
