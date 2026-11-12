@@ -872,17 +872,17 @@ const itemsPerPage = 10
           ) : undefined
         }
       >
-        <table className="w-full min-w-[820px] lg:min-w-0 lg:table-fixed admin-table-fit">
+        <table className="w-full min-w-[900px] lg:min-w-0 lg:table-fixed admin-table-fit">
           <thead>
             <tr>
-              <th className="text-left lg:w-[13.5%]">Branch</th>
-              <th className="text-left lg:w-[14%]">Location</th>
-              <th className="text-center lg:w-[8%]">Active Students</th>
-              <th className="text-center lg:w-[8%]">Courses</th>
-              <th className="text-center lg:w-[8%]">Coaches</th>
-              <th className="text-left lg:w-[12%]">Branch Manager</th>
+              <th className="text-left lg:w-[12.5%]">Branch</th>
+              <th className="text-left lg:w-[13.5%]">Location</th>
+              <th className="text-center lg:w-[8.5%]">Active Students</th>
+              <th className="text-center lg:w-[8.5%]">Courses</th>
+              <th className="text-center lg:w-[8.5%]">Coaches</th>
+              <th className="text-left lg:w-[11%]">Branch Manager</th>
               <th className="text-center lg:w-[10.5%]">Contact</th>
-              <th className="text-center lg:w-[8%]">Status</th>
+              <th className="text-center lg:w-[9%]">Status</th>
               <th className="text-right lg:w-[18%]">Actions</th>
             </tr>
           </thead>
@@ -916,8 +916,8 @@ const itemsPerPage = 10
                   >
                     <td>
                       <div className="flex min-w-0 items-center gap-1.5 xl:gap-2.5">
-                        <div className="inline-flex h-6 w-6 xl:h-8 xl:w-8 shrink-0 items-center justify-center rounded-lg xl:rounded-xl bg-[#F1EBFF] text-[#6D28D9]">
-                          <Store className="h-3.5 w-3.5 xl:h-4 xl:w-4" />
+                        <div className="hidden xl:inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#F1EBFF] text-[#6D28D9]">
+                          <Store className="h-4 w-4" />
                         </div>
                         <span className="min-w-0 break-words text-xs xl:text-sm font-semibold leading-tight text-[#2F3158]">
                           {branch.branch?.name || "N/A"}
@@ -1098,7 +1098,7 @@ const itemsPerPage = 10
                         <Switch
                           checked={branch.is_active ?? true}
                           disabled={statusUpdating}
-                          className="shrink-0 origin-right scale-[0.82] -ml-1.5 xl:ml-0 xl:scale-90 2xl:scale-100 data-[state=checked]:bg-yellow-400"
+                          className="shrink-0 origin-right scale-[0.80] -ml-2 xl:ml-0 xl:scale-90 2xl:scale-100 data-[state=checked]:bg-yellow-400"
                           onCheckedChange={(checked) =>
                             handleBranchActiveToggle(branch, checked)
                           }
