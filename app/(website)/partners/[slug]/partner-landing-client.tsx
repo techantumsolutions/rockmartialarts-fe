@@ -138,6 +138,9 @@ export default function PartnerLandingClient() {
   const params = useParams()
   const router = useRouter()
   const slug = params.slug as string
+  const [data, setData] = useState<PartnerLanding | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [formName, setFormName] = useState("")
   const [formPhone, setFormPhone] = useState("")
   const [formEmail, setFormEmail] = useState("")

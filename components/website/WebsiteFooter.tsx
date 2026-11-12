@@ -65,7 +65,7 @@ export function WebsiteFooter() {
   const email = footer?.email || "info@rockmartialarts.com"
 
   return (
-    <footer className="w-full bg-black text-gray-300 pt-12 pb-0">
+    <footer className="w-full bg-[#171A26] border-t border-[#383D4D] text-[#D8DCE6] pt-12 pb-0">
       <div className="site-content px-0 pt-8 sm:px-1">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8 text-left">
           <div className="md:col-span-2 lg:col-span-3">
@@ -133,8 +133,8 @@ export function WebsiteFooter() {
           </div>
         </div>
       </div>
-      <div className="mt-10 w-full bg-gray-900/50 py-4">
-        <div className="site-content px-0 text-center text-gray-500 sm:px-1">
+      <div className="mt-10 w-full bg-[#222635] border-t border-[#383D4D] py-4">
+        <div className="site-content px-0 text-center text-[#AEB4C2] sm:px-1">
           {copyrightText}
         </div>
       </div>

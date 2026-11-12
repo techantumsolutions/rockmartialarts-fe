@@ -631,6 +631,80 @@ img[loading="lazy"] {
 /* ---- Website content rail: page 100% wide, content 85vw ---- */
 .site-shell {
   width: 100%;
+  background-color: #171A26;
+  color: #ffffff;
+}
+
+/* Unified Home Page dark-navy + gold theme across all public website pages inside .site-shell */
+.site-shell .bg-black {
+  background-color: #171A26;
+}
+.site-shell .bg-black\/50 {
+  background-color: rgba(23, 26, 38, 0.68);
+}
+.site-shell .bg-black\/60 {
+  background-color: rgba(23, 26, 38, 0.72);
+}
+.site-shell .bg-black\/70 {
+  background-color: rgba(23, 26, 38, 0.8);
+}
+.site-shell .bg-black\/80 {
+  background-color: rgba(23, 26, 38, 0.88);
+}
+.site-shell .bg-gray-950 {
+  background-color: #171A26;
+}
+.site-shell .bg-gray-950\/70,
+.site-shell .bg-gray-950\/80,
+.site-shell .bg-gray-950\/90 {
+  background-color: rgba(23, 26, 38, 0.9);
+}
+.site-shell .bg-gray-900,
+.site-shell .bg-gray-900\/40,
+.site-shell .bg-gray-900\/50,
+.site-shell .bg-gray-900\/60 {
+  background-color: #292E40;
+}
+.site-shell .bg-gray-900\/80,
+.site-shell .bg-gray-900\/95 {
+  background-color: rgba(41, 46, 64, 0.94);
+}
+.site-shell .bg-gray-800,
+.site-shell .bg-gray-800\/50,
+.site-shell .bg-gray-800\/60,
+.site-shell .bg-\[\#1E2130\] {
+  background-color: #222635;
+}
+.site-shell .hover\:bg-gray-800:hover,
+.site-shell .hover\:bg-gray-700:hover {
+  background-color: #383D4D;
+}
+.site-shell .border-gray-800,
+.site-shell .border-gray-800\/60,
+.site-shell .border-gray-800\/80,
+.site-shell .border-gray-700,
+.site-shell .border-gray-700\/80,
+.site-shell .border-gray-600 {
+  border-color: #383D4D;
+}
+.site-shell .hover\:border-\[\#FFB70F\]:hover {
+  border-color: #FFB70F;
+}
+.site-shell .hover\:border-\[\#FFB70F\]\/50:hover {
+  border-color: rgba(255, 183, 15, 0.5);
+}
+.site-shell .focus\:border-\[\#FFB70F\]:focus,
+.site-shell .focus-visible\:border-\[\#FFB70F\]:focus-visible {
+  border-color: #FFB70F;
+}
+.site-shell :is(.text-gray-200, .text-gray-300):not(.bg-white):not(.bg-white *) {
+  color: #D8DCE6;
+}
+.site-shell :is(.text-gray-400, .text-gray-500, .text-gray-600):not(.bg-white):not(.bg-white *) {
+  color: #AEB4C2;
+}
+.site-shell .hover\:text-\[\#FFB70F\]:hover {
+  color: #FFB70F;
 }
 
 .site-content {

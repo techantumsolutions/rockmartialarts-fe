@@ -225,7 +225,7 @@ export default function CategoryLandingPage() {
               <div className="text-center mt-12">
                 <Link
                   href="/register"
-                  className="inline-block rounded-lg bg-[#FFB70F] px-8 py-3.5 text-base font-semibold text-black hover:bg-[#F73322] hover:text-white transition-colors"
+                  className="inline-block rounded-lg bg-[#FFB70F] px-8 py-3.5 text-base font-semibold text-[#171A26] hover:brightness-110 hover:shadow-[0_10px_28px_rgba(255,183,15,0.35)] transition-all"
                 >
                   Register now
                 </Link>

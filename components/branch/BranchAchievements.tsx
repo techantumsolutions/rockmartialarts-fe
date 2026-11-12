@@ -122,7 +122,7 @@ export function BranchAchievements({ branchId }: BranchAchievementsProps) {
                 <button
                   type="button"
                   onClick={loadMore}
-                  className="inline-block rounded-lg bg-[#FFB70F] px-6 py-3 text-base font-semibold text-black hover:bg-[#F73322] hover:text-white transition-colors"
+                  className="inline-block rounded-lg bg-[#FFB70F] px-6 py-3 text-base font-semibold text-[#171A26] hover:brightness-110 hover:shadow-[0_10px_28px_rgba(255,183,15,0.35)] transition-all"
                 >
                   Load More
                 </button>
