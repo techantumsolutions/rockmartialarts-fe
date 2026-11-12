@@ -10,7 +10,6 @@ import {
   Search,
   Edit,
   Trash2,
-  RefreshCw,
   Eye,
   Link2,
   MessageCircle,
@@ -31,7 +30,6 @@ import {
   AdminTableShell,
   AdminStatusPill,
 } from "@/components/dashboard/AdminPageShell"
-import { Checkbox } from "@/components/ui/checkbox"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
@@ -209,7 +207,6 @@ export default function StudentList() {
   const [error, setError] = useState<string | null>(null)
   const [assignmentLoading, setAssignmentLoading] = useState(false)
   const [assignmentError, setAssignmentError] = useState<string | null>(null)
-  const [refreshing, setRefreshing] = useState(false)
   const [unassignedStudents, setUnassignedStudents] = useState<Student[]>([])
   const [unassignedStudentsLoading, setUnassignedStudentsLoading] = useState(false)
   const [assignStudentSearch, setAssignStudentSearch] = useState("")
@@ -231,7 +228,6 @@ export default function StudentList() {
 const [currentPage, setCurrentPage] = useState(initialFilters.page)
 const itemsPerPage = 15
   const [refreshKey, setRefreshKey] = useState(0)
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const isBranchAdmin = (params?.adminType as string) === "branch-admin" ||
     (typeof pathname === "string" && pathname.startsWith("/branch-admin"))
 
@@ -869,32 +865,8 @@ const paginatedStudents = filteredStudents.slice(
     filteredStudents.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1
   const rangeEnd = Math.min(currentPage * itemsPerPage, filteredStudents.length)
 
-  const allOnPageSelected =
-    paginatedStudents.length > 0 &&
-    paginatedStudents.every((s) => selectedIds.has(s.id))
-
-  const toggleSelectAllOnPage = (checked: boolean) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      paginatedStudents.forEach((s) => {
-        if (checked) next.add(s.id)
-        else next.delete(s.id)
-      })
-      return next
-    })
-  }
-
-  const toggleSelectRow = (id: string, checked: boolean) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (checked) next.add(id)
-      else next.delete(id)
-      return next
-    })
-  }
-
   const actionIconClass =
-    "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-[#4F5077] shadow-sm hover:bg-gray-50 disabled:opacity-50"
+    "inline-flex h-7 w-7 lg:h-6 lg:w-6 xl:h-8 xl:w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-[#4F5077] shadow-sm hover:bg-gray-50 disabled:opacity-50"
 
   return (
     <AdminPageShell>
@@ -904,22 +876,7 @@ const paginatedStudents = filteredStudents.slice(
             <Users className="h-5 w-5" strokeWidth={2.2} />
           </div>
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="admin-page-title">Student List</h1>
-              <Button
-                type="button"
-                onClick={() => window.location.reload()}
-                variant="outline"
-                size="sm"
-                disabled={loading || refreshing}
-                className="btn-admin-outline h-9 px-3"
-              >
-                <RefreshCw
-                  className={`mr-1.5 h-4 w-4 ${loading || refreshing ? "animate-spin" : ""}`}
-                />
-                Refresh
-              </Button>
-            </div>
+            <h1 className="admin-page-title">Student List</h1>
             <p className="admin-page-subtitle">
               Manage and view all registered students across branches.
             </p>
@@ -1048,6 +1005,7 @@ const paginatedStudents = filteredStudents.slice(
       </AdminFilterBar>
 
       <AdminTableShell
+        className="admin-table-fit-wrap"
         footer={
           <>
             <span>
@@ -1110,30 +1068,22 @@ const paginatedStudents = filteredStudents.slice(
           </>
         }
       >
-            <table className="w-full min-w-[960px]">
+            <table className="w-full min-w-[820px] lg:min-w-0 lg:table-fixed admin-table-fit">
               <thead>
                 <tr>
-                  <th className="w-12">
-                    <Checkbox
-                      checked={allOnPageSelected}
-                      onCheckedChange={(c) => toggleSelectAllOnPage(c === true)}
-                      aria-label="Select all on this page"
-                    />
-                  </th>
-                  <th className="w-14">S.No</th>
-                  <th>Student</th>
-                  <th>Registered</th>
-                  <th>Courses (Expertise)</th>
-                  <th>Duration</th>
-                  <th>Branch</th>
-                  <th>Status</th>
-                  <th>Actions</th>
+                  <th className="w-12 lg:w-[5.5%]">S.No</th>
+                  <th className="lg:w-[19%]">Student</th>
+                  <th className="lg:w-[20%]">Courses &amp; Registered</th>
+                  <th className="lg:w-[14%]">Duration</th>
+                  <th className="lg:w-[10.5%]">Branch</th>
+                  <th className="lg:w-[9.5%]">Status</th>
+                  <th className="lg:w-[21.5%] text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={9} className="py-8 px-6 text-center text-[#6B7A99]">
+                    <td colSpan={7} className="py-8 px-6 text-center text-[#6B7A99]">
                       <div className="flex items-center justify-center space-x-2">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                         <span>Loading students...</span>
@@ -1142,7 +1092,7 @@ const paginatedStudents = filteredStudents.slice(
                   </tr>
                 ) : error ? (
                   <tr>
-                    <td colSpan={9} className="py-8 px-6 text-center">
+                    <td colSpan={7} className="py-8 px-6 text-center">
                       <div className="text-red-500 mb-2">
                         <strong>Error loading students:</strong>
                       </div>
@@ -1159,7 +1109,7 @@ const paginatedStudents = filteredStudents.slice(
                   </tr>
                 ) : listViewFilter === 'unassigned' && unassignedStudentsLoading ? (
                   <tr>
-                    <td colSpan={9} className="py-8 px-6 text-center text-[#6B7A99]">
+                    <td colSpan={7} className="py-8 px-6 text-center text-[#6B7A99]">
                       <div className="flex items-center justify-center space-x-2">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                         <span>Loading unassigned students...</span>
@@ -1168,7 +1118,7 @@ const paginatedStudents = filteredStudents.slice(
                   </tr>
                 ) : filteredStudents.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-8 px-6 text-center text-[#6B7A99]">
+                    <td colSpan={7} className="py-8 px-6 text-center text-[#6B7A99]">
                       <div className="mb-2">
                         {searchTerm
                           ? `No students found matching "${searchTerm}"`
@@ -1194,94 +1144,87 @@ const paginatedStudents = filteredStudents.slice(
                     const genderLabel = student.gender?.trim() ? student.gender : "—"
                     const ageLabel = computeStudentAge(student)
                     return (
-                    <tr key={student.id} className="text-sm text-[#6B7A99]">
-                      <td className="align-middle">
-                        <Checkbox
-                          checked={selectedIds.has(student.id)}
-                          onCheckedChange={(c) => toggleSelectRow(student.id, c === true)}
-                          aria-label={`Select ${displayName}`}
-                        />
-                      </td>
-                      <td className="align-top text-sm font-medium text-[#4F5077]">
+                    <tr key={student.id} className="text-xs xl:text-sm text-[#6B7A99]">
+                      <td className="align-middle text-xs xl:text-sm font-medium text-[#4F5077]">
                         {(currentPage - 1) * itemsPerPage + index + 1}
                       </td>
-                      <td className="align-top">
-                        <div className="flex min-w-[12rem] items-start gap-3">
-                          <Avatar className="h-10 w-10 shrink-0 border border-white shadow-sm">
-                            <AvatarFallback
-                              className={`text-xs font-semibold ${avatarTone(displayName)}`}
+                      <td className="align-middle">
+                        <div className="min-w-0">
+                          <p className="break-words text-xs xl:text-sm font-semibold leading-tight text-[#4F5077]">{displayName}</p>
+                          <p className="mt-0.5 text-[11px] xl:text-xs capitalize leading-tight text-[#6B7A99]">
+                            {genderLabel} • {ageLabel}
+                          </p>
+                          {adminType === "super-admin" && student.student_level ? (
+                            <Badge
+                              variant="outline"
+                              className="mt-0.5 max-w-full truncate border-[#4F5077]/30 px-1.5 py-0 text-[10px] font-medium leading-tight text-[#4F5077]"
                             >
-                              {studentInitials(displayName)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0">
-                            <p className="font-semibold text-[#4F5077]">{displayName}</p>
-                            <p className="mt-0.5 text-xs capitalize text-[#6B7A99]">
-                              {genderLabel} • {ageLabel}
-                            </p>
-                            {adminType === "super-admin" && student.student_level ? (
-                              <Badge
-                                variant="outline"
-                                className="mt-1 w-fit border-[#4F5077]/30 text-[10px] font-medium text-[#4F5077]"
-                              >
-                                {student.student_level}
-                              </Badge>
-                            ) : null}
-                          </div>
+                              {student.student_level}
+                            </Badge>
+                          ) : null}
                         </div>
                       </td>
-                      <td className="align-top whitespace-nowrap text-sm">
-                        <div className="font-medium text-[#4F5077]">
-                          {formatRegisteredDateTime(student.created_at)}
-                        </div>
-                        {student.created_by && (
-                          <div className="mt-1 text-xs text-[#6B7A99]">
-                            By {student.created_by.name || "User"}
-                          </div>
-                        )}
-                      </td>
-                      <td className="align-top">
-                        {student.courses && student.courses.length > 0 ? (
-                          <div className="flex max-w-[14rem] flex-wrap gap-1">
-                            {student.courses.map((course, courseIdx) => (
-                              <span
-                                key={courseIdx}
-                                className={`inline-flex rounded-lg px-2 py-0.5 text-xs font-medium ${COURSE_PILL_STYLES[courseIdx % COURSE_PILL_STYLES.length]}`}
-                              >
-                                {course.course_name || course.course_id}
+                      <td className="align-middle">
+                        <div className="space-y-1.5">
+                          <div>
+                            {student.courses && student.courses.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {student.courses.map((course, courseIdx) => (
+                                  <span
+                                    key={courseIdx}
+                                    className={`inline-flex max-w-full break-words whitespace-normal rounded-md px-1.5 py-0.5 text-[11px] xl:text-xs font-medium leading-tight ${COURSE_PILL_STYLES[courseIdx % COURSE_PILL_STYLES.length]}`}
+                                  >
+                                    {course.course_name || course.course_id}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : student.course_info ? (
+                              <span className="inline-flex max-w-full break-words whitespace-normal rounded-md bg-emerald-50 px-1.5 py-0.5 text-[11px] xl:text-xs font-medium leading-tight text-emerald-800">
+                                {student.course_info.course_id}
                               </span>
-                            ))}
+                            ) : (
+                              <span className="text-[11px] xl:text-xs text-[#6B7A99]">No courses</span>
+                            )}
                           </div>
-                        ) : student.course_info ? (
-                          <span className="inline-flex rounded-lg bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">
-                            {student.course_info.course_id}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-[#6B7A99]">No courses</span>
-                        )}
-                      </td>
-                      <td className="align-top">
-                        <div className="min-w-[9rem] text-sm">
-                          <div className="flex items-center gap-1.5 font-medium text-[#4F5077]">
-                            <Calendar className="h-3.5 w-3.5 text-[#6B7A99]" />
-                            {student.courses && student.courses.length > 0 && student.courses[0].duration
-                              ? student.courses[0].duration
-                              : student.course_info?.duration || "—"}
-                          </div>
-                          <div className="mt-1 space-y-0.5 text-xs text-[#6B7A99]">
-                            <div>Start: {formatEnrollmentDate(student.start_date ?? undefined)}</div>
-                            <div>End: {formatEnrollmentDate(student.end_date ?? undefined)}</div>
+                          <div className="text-[11px] xl:text-xs leading-tight">
+                            <div className="break-words font-medium text-[#4F5077]">
+                              {formatRegisteredDateTime(student.created_at)}
+                            </div>
+                            {student.created_by && (
+                              <div className="mt-0.5 break-words text-[10.5px] xl:text-xs text-[#6B7A99]">
+                                By {student.created_by.name || "User"}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>
-                      <td className="align-top">
-                        <span className="inline-flex items-start gap-1.5 text-sm text-[#4F5077]">
-                          <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#6B7A99]" />
-                          {getStudentBranchColumnLabel(student)}
+                      <td className="align-middle">
+                        <div className="min-w-0 text-[11px] xl:text-xs leading-tight">
+                          <div className="flex items-center gap-1 font-medium text-[#4F5077]">
+                            <Calendar className="h-3 w-3 xl:h-3.5 xl:w-3.5 shrink-0 text-[#6B7A99]" />
+                            <span className="truncate">
+                              {student.courses && student.courses.length > 0 && student.courses[0].duration
+                                ? student.courses[0].duration
+                                : student.course_info?.duration || "—"}
+                            </span>
+                          </div>
+                          <div className="mt-0.5 space-y-0.5 text-[10.5px] xl:text-xs text-[#6B7A99]">
+                            <div className="break-words">Start: {formatEnrollmentDate(student.start_date ?? undefined)}</div>
+                            <div className="break-words">End: {formatEnrollmentDate(student.end_date ?? undefined)}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="align-middle">
+                        <span className="inline-flex max-w-full items-start gap-1 text-[11px] xl:text-xs leading-tight text-[#4F5077]">
+                          <MapPin className="mt-0.5 hidden h-3.5 w-3.5 shrink-0 text-[#6B7A99] xl:inline-block" />
+                          <span className="break-words">{getStudentBranchColumnLabel(student)}</span>
                         </span>
                       </td>
-                      <td className="align-top">
-                        <AdminStatusPill status={student.is_active ? "active" : "inactive"}>
+                      <td className="align-middle">
+                        <AdminStatusPill
+                          status={student.is_active ? "active" : "inactive"}
+                          className="whitespace-nowrap"
+                        >
                           <span
                             className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${
                               student.is_active ? "bg-emerald-500" : "bg-red-500"
@@ -1290,8 +1233,8 @@ const paginatedStudents = filteredStudents.slice(
                           {student.is_active ? "Active" : "Inactive"}
                         </AdminStatusPill>
                       </td>
-                      <td className="align-top">
-                        <div className="flex flex-wrap items-center gap-1.5">
+                      <td className="align-middle">
+                        <div className="flex flex-wrap items-center justify-end gap-0.5 xl:gap-1">
                           {adminType === "super-admin" && (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -1308,7 +1251,7 @@ const paginatedStudents = filteredStudents.slice(
                                   {notifyLoadingId === student.id ? (
                                     <span className="text-[10px]">…</span>
                                   ) : (
-                                    <MessageCircle className="h-4 w-4 text-emerald-600" />
+                                    <MessageCircle className="h-3.5 w-3.5 xl:h-4 xl:w-4 text-emerald-600" />
                                   )}
                                 </button>
                               </DropdownMenuTrigger>
@@ -1334,7 +1277,7 @@ const paginatedStudents = filteredStudents.slice(
                             className={actionIconClass}
                             title="View Details"
                           >
-                            <Eye className="h-4 w-4 text-[#4F5077]" />
+                            <Eye className="h-3.5 w-3.5 xl:h-4 xl:w-4 text-[#4F5077]" />
                           </button>
                           <button
                             type="button"
@@ -1342,7 +1285,7 @@ const paginatedStudents = filteredStudents.slice(
                             className={actionIconClass}
                             title="Edit Student"
                           >
-                            <Edit className="h-4 w-4 text-[#6B7A99]" />
+                            <Edit className="h-3.5 w-3.5 xl:h-4 xl:w-4 text-[#6B7A99]" />
                           </button>
                           {student.has_credentials === false ? (
                             <button
@@ -1355,7 +1298,7 @@ const paginatedStudents = filteredStudents.slice(
                               {onboardLinkLoading === student.id ? (
                                 <span className="text-[10px]">…</span>
                               ) : (
-                                <Link2 className="h-4 w-4 text-emerald-600" />
+                                <Link2 className="h-3.5 w-3.5 xl:h-4 xl:w-4 text-emerald-600" />
                               )}
                             </button>
                           ) : null}
@@ -1365,12 +1308,13 @@ const paginatedStudents = filteredStudents.slice(
                             className={`${actionIconClass} border-red-100 text-red-600 hover:bg-red-50`}
                             title="Delete Student"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3.5 w-3.5 xl:h-4 xl:w-4" />
                           </button>
                           <Switch
                             checked={student.is_active}
                             onCheckedChange={() => handleToggleStudent(student.id)}
                             title={student.is_active ? "Deactivate student" : "Activate student"}
+                            className="shrink-0 origin-right scale-[0.82] -ml-1.5 xl:ml-0 xl:scale-90 2xl:scale-100"
                           />
                         </div>
                       </td>

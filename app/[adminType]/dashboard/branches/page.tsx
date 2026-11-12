@@ -554,13 +554,6 @@ const itemsPerPage = 10
     return "—"
   }
 
-  const initialsFromName = (name: string) => {
-    if (!name || name === "—") return "?"
-    const parts = name.trim().split(/\s+/).filter(Boolean)
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-    return `${parts[0][0] || ""}${parts[parts.length - 1][0] || ""}`.toUpperCase()
-  }
-
   const listBranches = useMemo(
     () =>
       branches.filter((branch) => !branch.is_collaboration_partner && !branch.allows_collaboration),
@@ -826,6 +819,7 @@ const itemsPerPage = 10
       </AdminFilterBar>
 
       <AdminTableShell
+        className="admin-table-fit-wrap"
         footer={
           filteredBranches.length > 0 ? (
             <>
@@ -878,18 +872,18 @@ const itemsPerPage = 10
           ) : undefined
         }
       >
-        <table>
+        <table className="w-full min-w-[820px] lg:min-w-0 lg:table-fixed admin-table-fit">
           <thead>
             <tr>
-              <th className="text-left">Branch</th>
-              <th className="text-left min-w-[200px]">Location</th>
-              <th className="text-center">Active Students</th>
-              <th className="text-center">Courses</th>
-              <th className="text-center">Coaches</th>
-              <th className="text-left min-w-[160px]">Branch Manager</th>
-              <th className="text-center min-w-[130px]">Contact</th>
-              <th className="text-center">Status</th>
-              <th className="text-center min-w-[120px]">Actions</th>
+              <th className="text-left lg:w-[13.5%]">Branch</th>
+              <th className="text-left lg:w-[14%]">Location</th>
+              <th className="text-center lg:w-[8%]">Active Students</th>
+              <th className="text-center lg:w-[8%]">Courses</th>
+              <th className="text-center lg:w-[8%]">Coaches</th>
+              <th className="text-left lg:w-[12%]">Branch Manager</th>
+              <th className="text-center lg:w-[10.5%]">Contact</th>
+              <th className="text-center lg:w-[8%]">Status</th>
+              <th className="text-right lg:w-[18%]">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -920,17 +914,17 @@ const itemsPerPage = 10
                     key={branch.id}
                     className={!isActive ? "bg-gray-50/60" : undefined}
                   >
-                    <td className="whitespace-nowrap">
-                      <div className="flex items-center gap-2.5">
-                        <div className="admin-icon-tile admin-icon-tile--violet !h-9 !w-9 !rounded-xl">
-                          <Store className="h-4 w-4" />
+                    <td>
+                      <div className="flex min-w-0 items-center gap-1.5 xl:gap-2.5">
+                        <div className="inline-flex h-6 w-6 xl:h-8 xl:w-8 shrink-0 items-center justify-center rounded-lg xl:rounded-xl bg-[#F1EBFF] text-[#6D28D9]">
+                          <Store className="h-3.5 w-3.5 xl:h-4 xl:w-4" />
                         </div>
-                        <span className="font-semibold text-[#2F3158]">
+                        <span className="min-w-0 break-words text-xs xl:text-sm font-semibold leading-tight text-[#2F3158]">
                           {branch.branch?.name || "N/A"}
                         </span>
                       </div>
                     </td>
-                    <td className="max-w-xs text-[#6B7A99]">
+                    <td className="text-[11px] xl:text-xs leading-tight break-words text-[#6B7A99]">
                       {branch.branch?.address
                         ? `${branch.branch.address.line1}, ${branch.branch.address.city}, ${branch.branch.address.state}`
                         : "Address not available"}
@@ -940,8 +934,8 @@ const itemsPerPage = 10
                         {loadingStats && !branch.statistics ? (
                           <span className="inline-block h-6 w-10 animate-pulse rounded-lg bg-gray-200" />
                         ) : (
-                          <span className="inline-flex min-w-[2.25rem] items-center justify-center gap-1 rounded-lg bg-[#E8F1FF] px-2 py-1 text-xs font-semibold text-[#2563EB]">
-                            <Users className="h-3 w-3" />
+                          <span className="inline-flex min-w-[2rem] items-center justify-center gap-1 rounded-lg bg-[#E8F1FF] px-1.5 py-0.5 text-[11px] xl:px-2 xl:py-1 xl:text-xs font-semibold text-[#2563EB]">
+                            <Users className="h-3 w-3 shrink-0" />
                             {branch.statistics?.student_count ?? 0}
                           </span>
                         )}
@@ -952,8 +946,8 @@ const itemsPerPage = 10
                         {loadingStats && !branch.statistics ? (
                           <span className="inline-block h-6 w-10 animate-pulse rounded-lg bg-gray-200" />
                         ) : (
-                          <span className="inline-flex min-w-[2.25rem] items-center justify-center gap-1 rounded-lg bg-[#EAF8F0] px-2 py-1 text-xs font-semibold text-[#1F9D57]">
-                            <BookOpen className="h-3 w-3" />
+                          <span className="inline-flex min-w-[2rem] items-center justify-center gap-1 rounded-lg bg-[#EAF8F0] px-1.5 py-0.5 text-[11px] xl:px-2 xl:py-1 xl:text-xs font-semibold text-[#1F9D57]">
+                            <BookOpen className="h-3 w-3 shrink-0" />
                             {branch.statistics?.course_count ??
                               branch.operational_details?.courses_offered?.length ??
                               0}
@@ -966,22 +960,17 @@ const itemsPerPage = 10
                         {loadingStats && !branch.statistics ? (
                           <span className="inline-block h-6 w-10 animate-pulse rounded-lg bg-gray-200" />
                         ) : (
-                          <span className="inline-flex min-w-[2.25rem] items-center justify-center gap-1 rounded-lg bg-[#F1EBFF] px-2 py-1 text-xs font-semibold text-[#6D28D9]">
-                            <UserCheck className="h-3 w-3" />
+                          <span className="inline-flex min-w-[2rem] items-center justify-center gap-1 rounded-lg bg-[#F1EBFF] px-1.5 py-0.5 text-[11px] xl:px-2 xl:py-1 xl:text-xs font-semibold text-[#6D28D9]">
+                            <UserCheck className="h-3 w-3 shrink-0" />
                             {branch.statistics?.coach_count ?? 0}
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="min-w-[160px] whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FFF8E1] text-xs font-semibold text-[#B8860B]">
-                          {initialsFromName(managerName)}
-                        </span>
-                        <span className="text-[#2F3158]">{managerName}</span>
-                      </div>
+                    <td>
+                      <span className="block min-w-0 break-words text-xs xl:text-sm leading-tight text-[#2F3158]">{managerName}</span>
                     </td>
-                    <td className="text-center whitespace-nowrap text-[#6B7A99]">
+                    <td className="text-center text-[11px] xl:text-xs leading-tight break-all text-[#6B7A99]">
                       {getBranchContactDisplay(branch)}
                     </td>
                     <td className="text-center">
@@ -989,31 +978,31 @@ const itemsPerPage = 10
                         {isActive ? "Active" : "Inactive"}
                       </AdminStatusPill>
                     </td>
-                    <td className="text-center">
-                      <div className="flex items-center justify-center gap-1">
+                    <td>
+                      <div className="flex flex-wrap items-center justify-end gap-0.5 xl:gap-1">
                         <button
                           type="button"
-                          className="btn-admin-outline !h-9 !w-9 !p-0"
+                          className="inline-flex h-6 w-6 xl:h-8 xl:w-8 shrink-0 items-center justify-center rounded-lg border border-[#E5E7EB] bg-white text-[#4F5077] hover:bg-gray-50 cursor-pointer"
                           onClick={() => handleEditClick(branch.id)}
                           title="Edit Branch"
                         >
-                          <Edit className="h-4 w-4" />
+                          <Edit className="h-3.5 w-3.5 xl:h-4 xl:w-4" />
                         </button>
                         <button
                           type="button"
-                          className="btn-admin-outline !h-9 !w-9 !p-0"
+                          className="inline-flex h-6 w-6 xl:h-8 xl:w-8 shrink-0 items-center justify-center rounded-lg border border-[#E5E7EB] bg-white text-[#4F5077] hover:bg-gray-50 cursor-pointer"
                           onClick={() => handleViewClick(branch.id)}
                           title="View Details"
                         >
-                          <Eye className="h-4 w-4" />
+                          <Eye className="h-3.5 w-3.5 xl:h-4 xl:w-4" />
                         </button>
                         <button
                           type="button"
-                          className="btn-admin-outline !h-9 !w-9 !p-0"
+                          className="inline-flex h-6 w-6 xl:h-8 xl:w-8 shrink-0 items-center justify-center rounded-lg border border-[#E5E7EB] bg-white text-[#4F5077] hover:bg-gray-50 cursor-pointer"
                           onClick={() => handleViewClick(branch.id)}
                           title="More actions"
                         >
-                          <MoreHorizontal className="h-4 w-4" />
+                          <MoreHorizontal className="h-3.5 w-3.5 xl:h-4 xl:w-4" />
                         </button>
                         {(branch.is_collaboration_partner || branch.allows_collaboration) && (
                           <button
@@ -1109,7 +1098,7 @@ const itemsPerPage = 10
                         <Switch
                           checked={branch.is_active ?? true}
                           disabled={statusUpdating}
-                          className="data-[state=checked]:bg-yellow-400"
+                          className="shrink-0 origin-right scale-[0.82] -ml-1.5 xl:ml-0 xl:scale-90 2xl:scale-100 data-[state=checked]:bg-yellow-400"
                           onCheckedChange={(checked) =>
                             handleBranchActiveToggle(branch, checked)
                           }

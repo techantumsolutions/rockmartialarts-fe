@@ -158,6 +158,14 @@ export default function CoachesListPage() {
   const [designationFilter, setDesignationFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
 
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const statusParam = (new URLSearchParams(window.location.search).get("status") || "").toLowerCase()
+    if (statusParam === "active" || statusParam === "inactive") {
+      setStatusFilter(statusParam)
+    }
+  }, [])
+
   const authToken = () => {
     if (isBranchAdmin) {
       return BranchManagerAuth.getToken() || TokenManager.getToken()
