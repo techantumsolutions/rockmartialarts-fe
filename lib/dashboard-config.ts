@@ -36,6 +36,9 @@ import {
   Megaphone,
   Wallet,
   TrendingUp,
+  ShoppingBag,
+  Package,
+  ShoppingCart,
   type LucideIcon,
 } from "lucide-react"
 
@@ -75,6 +78,9 @@ const ROCK_ONLY_NAV_LABELS = new Set([
   "Learning Subscriptions",
   "Learning Subs",
   "Partners",
+  "Store Management",
+  "Products",
+  "Orders",
 ])
 
 const ROCK_ONLY_PATH_SUFFIXES = [
@@ -90,6 +96,9 @@ const ROCK_ONLY_PATH_SUFFIXES = [
   "/attendance/devices",
   "/attendance/biometric-mapping",
   "/partner-profiles",
+  "/store/products",
+  "/store/categories",
+  "/store/orders",
 ]
 
 function filterPartnerNavChildren(children: NavChild[] | undefined): NavChild[] | undefined {
@@ -578,6 +587,33 @@ const SUPER_ADMIN_MENU: NavItem[] = [
     ],
   },
   {
+    id: "store-management",
+    label: "Store Management",
+    path: `${SUPER_ADMIN_BASE}/store/products`,
+    icon: ShoppingBag,
+    expandable: true,
+    children: [
+      {
+        id: "store-products",
+        label: "Products",
+        path: `${SUPER_ADMIN_BASE}/store/products`,
+        icon: Package,
+      },
+      {
+        id: "store-categories",
+        label: "Categories",
+        path: `${SUPER_ADMIN_BASE}/store/categories`,
+        icon: Tags,
+      },
+      {
+        id: "store-orders",
+        label: "Orders",
+        path: `${SUPER_ADMIN_BASE}/store/orders`,
+        icon: ShoppingCart,
+      },
+    ],
+  },
+  {
     id: "reports-analytics",
     label: "Reports & Analytics",
     path: `${SUPER_ADMIN_BASE}/reports`,
@@ -677,6 +713,7 @@ const BRANCH_ADMIN_MENU: NavItem[] = [
 const STUDENT_MENU: NavItem[] = [
   { id: "dashboard", label: "Dashboard", path: "/student-dashboard", icon: LayoutDashboard, permissionId: "dashboard" },
   { id: "courses", label: "My Courses", path: "/student-dashboard/courses", icon: BookOpen, permissionId: "courses" },
+  { id: "store", label: "Store", path: "/student-dashboard/store", icon: ShoppingBag },
   { id: "attendance", label: "Attendance", path: "/student-dashboard/attendance", icon: CalendarCheck, permissionId: "attendance" },
   { id: "performance", label: "Performance", path: "/student-dashboard/performance", icon: Trophy, permissionId: "performance" },
   { id: "progress", label: "Progress", path: "/student-dashboard/progress", icon: TrendingUp },
@@ -767,7 +804,47 @@ export function isPartnerBranchManagerNav(): boolean {
   }
 }
 
-type MenuOptions = { partnerBranchManager?: boolean }
+export function isPartnerStudentNav(): boolean {
+  if (typeof window === "undefined") return false
+  try {
+    // 1. Partner slug in localStorage (set during partner student login)
+    if (localStorage.getItem("partner_slug")) return true
+
+    // 2. User object in localStorage
+    const raw = localStorage.getItem("user")
+    if (raw) {
+      const u = JSON.parse(raw)
+      if (
+        String(u?.partner_org_id || "").trim() ||
+        String(u?.partner_id || "").trim() ||
+        String(u?.partner_org?.id || "").trim() ||
+        String(u?.created_by?.partner_org_id || "").trim()
+      ) {
+        return true
+      }
+    }
+
+    // 3. Unified auth_data in localStorage
+    const authRaw = localStorage.getItem("auth_data")
+    if (authRaw) {
+      const auth = JSON.parse(authRaw)
+      const u = auth?.user
+      if (
+        String(u?.partner_org_id || "").trim() ||
+        String(u?.partner_id || "").trim() ||
+        String(u?.partner_org?.id || "").trim() ||
+        String(u?.created_by?.partner_org_id || "").trim()
+      ) {
+        return true
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return false
+}
+
+export type MenuOptions = { partnerBranchManager?: boolean; partnerStudent?: boolean }
 
 export function getMenuForRole(
   role: DashboardRole,
@@ -781,8 +858,13 @@ export function getMenuForRole(
       return options?.partnerBranchManager
         ? BRANCH_ADMIN_MENU.filter((item) => !PARTNER_BRANCH_MANAGER_HIDDEN_LABELS.has(item.label))
         : BRANCH_ADMIN_MENU
-    case "student":
+    case "student": {
+      const isPartner = options?.partnerStudent ?? isPartnerStudentNav()
+      if (isPartner) {
+        return STUDENT_MENU.filter((item) => item.id !== "store" && item.label !== "Store")
+      }
       return STUDENT_MENU
+    }
     case "partner_super_admin":
       return partnerSuperAdminMenu(basePathOverride || PARTNER_ADMIN_BASE)
     default:

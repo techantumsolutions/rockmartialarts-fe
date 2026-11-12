@@ -25,6 +25,7 @@ import {
   getRoleLabel,
   getBasePath,
   isPartnerBranchManagerNav,
+  isPartnerStudentNav,
   type NavItem,
 } from "@/lib/dashboard-config"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
@@ -58,14 +59,16 @@ export default function Navbar({ role, variant = "topnav" }: NavbarProps) {
   const basePath = getBasePath(role)
   const NAV_VISIBLE_LIMIT = 7
   const [partnerBranchManager, setPartnerBranchManager] = useState(false)
+  const [partnerStudent, setPartnerStudent] = useState(false)
 
   useEffect(() => {
     setPartnerBranchManager(role === "branch_admin" && isPartnerBranchManagerNav())
+    setPartnerStudent(role === "student" && isPartnerStudentNav())
   }, [role])
 
   const menuOptions = useMemo(
-    () => ({ partnerBranchManager }),
-    [partnerBranchManager]
+    () => ({ partnerBranchManager, partnerStudent }),
+    [partnerBranchManager, partnerStudent]
   )
 
   const menuItems = useMemo(() => {
