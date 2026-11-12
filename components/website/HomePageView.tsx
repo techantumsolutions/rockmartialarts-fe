@@ -3,12 +3,11 @@
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { motion, useReducedMotion } from "framer-motion"
-import { Play } from "lucide-react"
+import { ArrowRight, Building2, Handshake, MapPin, Phone, Play } from "lucide-react"
 import { sanitizeRichHtmlClient } from "@/lib/sanitizeClientHtml"
 import { ScrollZoomContinuous } from "@/components/ScrollZoomContinuous"
 import {
   AnimatedSection,
-  AnimatedCard,
   AnimatedStaggerGrid,
   FloatingShapes,
   HeroAnimation,
@@ -63,6 +62,16 @@ export interface HomePageViewProps {
   testimonialsSubtitle: string
   testimonialsEnabled: boolean
   classCards: { id?: string; name: string; img: string; href: string }[]
+  branches?: { id: string; name: string; location: string; address: string; phone?: string; href: string }[]
+  partnerBranches?: {
+    id: string
+    name: string
+    location?: string
+    description?: string
+    img?: string
+    href: string
+  }[]
+  partnerDirectoryHref?: string
   physicalBenefits: string[]
   mentalBenefits: string[]
   trainers: { name: string; role: string; img: string; about?: string; rating?: number | null }[]
@@ -96,7 +105,7 @@ function HomepageMediaPlayer({
 
   if (mediaFailed && resolvedPoster) {
     return (
-      <div className="relative rounded-lg overflow-hidden aspect-video bg-gray-800">
+      <div className="relative rounded-xl overflow-hidden aspect-video bg-[#171A26] border border-[#383D4D]">
         <img src={resolvedPoster} alt="" className="absolute inset-0 w-full h-full object-cover" />
       </div>
     )
@@ -104,7 +113,7 @@ function HomepageMediaPlayer({
 
   if (ytId) {
     return (
-      <div className="relative rounded-lg overflow-hidden aspect-video bg-gray-800">
+      <div className="relative rounded-xl overflow-hidden aspect-video bg-[#171A26] border border-[#383D4D]">
         {showPosterOverlay && resolvedPoster ? (
           <button
             type="button"
@@ -112,9 +121,9 @@ function HomepageMediaPlayer({
             onClick={() => setShowPosterOverlay(false)}
             aria-label="Play video"
           >
-            <img src={resolvedPoster} alt="" className="absolute inset-0 w-full h-full object-cover" />
-            <span className="absolute inset-0 flex items-center justify-center bg-black/35 group-hover:bg-black/45 transition-colors">
-              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#F73322] text-white shadow-lg">
+            <img src={resolvedPoster} alt="" className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+            <span className="absolute inset-0 flex items-center justify-center bg-[#171A26]/40 group-hover:bg-[#171A26]/55 transition-colors">
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#FFB70F] text-[#171A26] shadow-[0_8px_24px_rgba(255,183,15,0.4)] transition-transform duration-300 group-hover:scale-110">
                 <Play className="h-6 w-6 ml-0.5" fill="currentColor" />
               </span>
             </span>
@@ -133,7 +142,7 @@ function HomepageMediaPlayer({
   }
 
   return (
-    <div className="relative rounded-lg overflow-hidden aspect-video bg-gray-800">
+    <div className="relative rounded-xl overflow-hidden aspect-video bg-[#171A26] border border-[#383D4D]">
       <video
         controls
         playsInline
@@ -175,6 +184,9 @@ export default function HomePageView({
   testimonialsSubtitle,
   testimonialsEnabled,
   classCards,
+  branches = [],
+  partnerBranches = [],
+  partnerDirectoryHref = "/partner-orgs",
   physicalBenefits,
   mentalBenefits,
   trainers,
@@ -209,7 +221,7 @@ export default function HomePageView({
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }} transition={{ duration: 0.3, ease: "easeOut" }}>
               <Link
                 href={primaryHref}
-                className="inline-block rounded-lg bg-[#FFB70F] px-6 py-3.5 text-base font-semibold text-black hover:bg-[#F73322] hover:text-white transition-colors duration-300"
+                className="inline-flex items-center justify-center rounded-lg bg-[#FFB70F] px-6 py-3.5 text-sm sm:text-base font-semibold text-[#171A26] transition-all duration-300 hover:-translate-y-0.5 hover:brightness-110 hover:shadow-[0_10px_30px_rgba(255,183,15,0.35)]"
               >
                 {primaryCtaText}
               </Link>
@@ -219,7 +231,7 @@ export default function HomePageView({
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }} transition={{ duration: 0.3, ease: "easeOut" }}>
               <Link
                 href={secondaryHref}
-                className="inline-block rounded-lg border-2 border-white px-6 py-3.5 text-base font-semibold text-white hover:bg-white hover:text-black transition-colors duration-300"
+                className="inline-flex items-center justify-center rounded-lg border border-[#383D4D] bg-[#171A26]/45 backdrop-blur-sm px-6 py-3.5 text-sm sm:text-base font-semibold text-white transition-all duration-300 hover:-translate-y-0.5 hover:border-[#FFB70F] hover:text-[#FFB70F] hover:shadow-[0_8px_24px_rgba(255,183,15,0.15)]"
               >
                 {secondaryCtaText}
               </Link>
@@ -229,12 +241,12 @@ export default function HomePageView({
       ) : (
         <div className="flex flex-wrap items-center justify-center gap-4 mt-6">
           {primaryCtaText ? (
-            <Link href={primaryHref} className="inline-block rounded-lg bg-[#FFB70F] px-6 py-3.5 text-base font-semibold text-black">
+            <Link href={primaryHref} className="inline-flex items-center justify-center rounded-lg bg-[#FFB70F] px-6 py-3.5 text-sm sm:text-base font-semibold text-[#171A26]">
               {primaryCtaText}
             </Link>
           ) : null}
           {secondaryCtaText ? (
-            <Link href={secondaryHref} className="inline-block rounded-lg border-2 border-white px-6 py-3.5 text-base font-semibold text-white">
+            <Link href={secondaryHref} className="inline-flex items-center justify-center rounded-lg border border-[#383D4D] bg-[#171A26]/45 px-6 py-3.5 text-sm sm:text-base font-semibold text-white">
               {secondaryCtaText}
             </Link>
           ) : null}
@@ -243,7 +255,7 @@ export default function HomePageView({
     ) : undefined
 
   return (
-    <main className="min-h-screen relative">
+    <main className="min-h-screen relative bg-[#171A26] text-white">
       {/* Floating background shapes — slow floating motion */}
       <FloatingShapes className="z-0" />
 
@@ -278,13 +290,13 @@ export default function HomePageView({
       />
 
       {/* Tagline - scroll reveal */}
-      <AnimatedSection variant="fadeSlideUp" className="py-10 md:py-14 relative z-10">
+      <AnimatedSection variant="fadeSlideUp" className="py-10 md:py-14 relative z-10 border-y border-[#383D4D] bg-[#222635]/60">
         <div className="site-content px-0 sm:px-1">
-          <h1 className="text-center text-white text-xl md:text-2xl lg:text-3xl font-medium">
+          <h1 className="text-center text-white text-xl md:text-2xl lg:text-3xl font-semibold tracking-tight">
             {ctaTitle}
           </h1>
           {ctaSubtitle && (
-            <p className="text-center text-gray-400 text-lg mt-4">{ctaSubtitle}</p>
+            <p className="text-center text-[#AEB4C2] text-base md:text-lg mt-4">{ctaSubtitle}</p>
           )}
         </div>
       </AnimatedSection>
@@ -292,63 +304,227 @@ export default function HomePageView({
       {/* Our Classes - Section 3: each card zooms individually (in view = scale 1, scroll past = scale 0) */}
       <section
         id="courses"
-        className="py-12 md:py-16 scroll-mt-24 relative z-10"
+        className="py-14 md:py-20 scroll-mt-24 relative z-10 bg-[#171A26]"
       >
         <div className="site-content px-0 sm:px-1">
           <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
-            <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
-            <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">
+            <div className="w-16 h-1 rounded-full bg-[#FFB70F] mx-auto mb-4" />
+            <p className="text-[#FFB70F] font-semibold uppercase tracking-[0.2em] text-xs mb-2">
               {coursesSubtitle}
             </p>
-            <h2 className="text-3xl md:text-4xl font-bold text-[#FFB70F]">{coursesTitle}</h2>
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white">{coursesTitle}</h2>
           </AnimatedSection>
           <AnimatedStaggerGrid
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8"
             staggerDelay={0.12}
             childClassName="text-center group"
             amount="some"
           >
             {classCards.map((c) => (
               <ScrollZoomContinuous key={c.id ?? c.name}>
-                <AnimatedCard scrollReveal={false} className="h-full">
-                  <div className="mb-4 overflow-hidden rounded-lg aspect-[4/3] bg-gray-800">
+                <Link
+                  href={c.href}
+                  className="group h-full flex flex-col rounded-2xl border border-[#383D4D] bg-[#292E40] p-4 shadow-[0_8px_24px_rgba(0,0,0,0.25)] transition-all duration-300 ease-out hover:-translate-y-2 hover:border-[#FFB70F]/50 hover:shadow-[0_18px_40px_rgba(255,183,15,0.18)]"
+                >
+                  <div className="relative mb-4 overflow-hidden rounded-xl aspect-[4/3] bg-[#222635] border border-[#383D4D]/70">
                     <SafeImage
                       src={c.img}
                       alt={c.name}
                       loading="lazy"
                       decoding="async"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      className="w-full h-full object-cover"
+                      wrapperClassName="transition-transform duration-700 ease-out group-hover:scale-110"
                     />
                   </div>
-                  <h3 className="text-xl font-bold text-[#FFB70F] mb-4">{c.name}</h3>
-                  <Link
-                    href={c.href}
-                    className="inline-block rounded-lg bg-white px-5 py-3.5 text-base font-medium text-black hover:bg-[#F73322] hover:text-white transition-colors duration-300 hover:scale-105"
+                  <h3 className="text-lg sm:text-xl font-bold text-white group-hover:text-[#FFB70F] transition-colors duration-300 mb-4">{c.name}</h3>
+                  <span
+                    className="mt-auto inline-flex items-center justify-center rounded-lg bg-[#FFB70F] px-5 py-2.5 text-sm font-semibold text-[#171A26] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:brightness-110 hover:shadow-[0_10px_28px_rgba(255,183,15,0.35)]"
                   >
                     Explore More
-                  </Link>
-                </AnimatedCard>
+                  </span>
+                </Link>
               </ScrollZoomContinuous>
             ))}
           </AnimatedStaggerGrid>
         </div>
       </section>
 
+      {/* Branches section directly below main categories / courses */}
+      {branches.length > 0 ? (
+        <section
+          id="branches"
+          className="py-14 md:py-20 scroll-mt-24 relative z-10 border-t border-[#383D4D] bg-[#222635]/40"
+        >
+          <div className="site-content px-0 sm:px-1">
+            <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
+              <div className="w-16 h-1 rounded-full bg-[#FFB70F] mx-auto mb-4" />
+              <p className="text-[#FFB70F] font-semibold uppercase tracking-[0.2em] text-xs mb-2">
+                Locations
+              </p>
+              <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
+                Our Branches
+              </h2>
+            </AnimatedSection>
+            <AnimatedStaggerGrid
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8"
+              staggerDelay={0.12}
+              childClassName="group"
+              amount="some"
+            >
+              {branches.map((b) => (
+                <ScrollZoomContinuous key={b.id}>
+                  <Link
+                    href={b.href}
+                    className="group h-full flex flex-col justify-between rounded-2xl border border-[#383D4D] bg-[#292E40] p-5 shadow-[0_8px_24px_rgba(0,0,0,0.25)] transition-all duration-300 ease-out hover:-translate-y-2 hover:border-[#FFB70F]/50 hover:shadow-[0_18px_40px_rgba(255,183,15,0.18)]"
+                  >
+                    <div>
+                      <div className="flex items-start gap-3 mb-4">
+                        <div className="w-11 h-11 rounded-xl bg-[#FFB70F]/15 border border-[#FFB70F]/30 flex items-center justify-center text-[#FFB70F] shrink-0 transition-transform duration-300 group-hover:scale-105">
+                          <Building2 className="w-5 h-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-lg font-bold text-white group-hover:text-[#FFB70F] transition-colors duration-300 truncate" title={b.name}>
+                            {b.name}
+                          </h3>
+                          {b.location ? (
+                            <p className="text-xs sm:text-sm text-[#AEB4C2] flex items-center gap-1 mt-1 truncate" title={b.location}>
+                              <MapPin className="w-3.5 h-3.5 text-[#FFB70F] shrink-0" />
+                              <span className="truncate">{b.location}</span>
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div className="space-y-2 text-sm text-[#D8DCE6]">
+                        {b.address ? (
+                          <p className="line-clamp-2 text-[#AEB4C2] leading-relaxed" title={b.address}>
+                            {b.address}
+                          </p>
+                        ) : null}
+                        {b.phone ? (
+                          <p className="flex items-center gap-2 text-xs sm:text-sm text-[#D8DCE6]">
+                            <Phone className="w-3.5 h-3.5 text-[#FFB70F] shrink-0" />
+                            <span className="truncate">{b.phone}</span>
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                    <span className="mt-5 inline-flex items-center justify-center gap-2 rounded-lg bg-[#FFB70F] px-5 py-2.5 text-sm font-semibold text-[#171A26] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:brightness-110 hover:shadow-[0_10px_28px_rgba(255,183,15,0.35)]">
+                      Explore Branch
+                      <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
+                    </span>
+                  </Link>
+                </ScrollZoomContinuous>
+              ))}
+            </AnimatedStaggerGrid>
+            <div className="text-center mt-10">
+              <Link
+                href="/branches"
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#383D4D] bg-[#292E40] px-6 py-3 text-sm font-semibold text-white transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-[#FFB70F] hover:text-[#FFB70F] hover:shadow-[0_10px_28px_rgba(255,183,15,0.18)]"
+              >
+                View All Branches
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {/* Partner Branches section directly below Our Branches */}
+      {partnerBranches.length > 0 ? (
+        <section
+          id="partner-branches"
+          className="py-14 md:py-20 scroll-mt-24 relative z-10 border-t border-[#383D4D] bg-[#171A26]"
+        >
+          <div className="site-content px-0 sm:px-1">
+            <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
+              <div className="w-16 h-1 rounded-full bg-[#FFB70F] mx-auto mb-4" />
+              <p className="text-[#FFB70F] font-semibold uppercase tracking-[0.2em] text-xs mb-2">
+                Network
+              </p>
+              <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
+                Partner Branches
+              </h2>
+            </AnimatedSection>
+            <AnimatedStaggerGrid
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8"
+              staggerDelay={0.12}
+              childClassName="group"
+              amount="some"
+            >
+              {partnerBranches.map((pb) => (
+                <ScrollZoomContinuous key={pb.id}>
+                  <Link
+                    href={pb.href}
+                    className="group h-full flex flex-col justify-between rounded-2xl border border-[#383D4D] bg-[#292E40] p-4 shadow-[0_8px_24px_rgba(0,0,0,0.25)] transition-all duration-300 ease-out hover:-translate-y-2 hover:border-[#FFB70F]/50 hover:shadow-[0_18px_40px_rgba(255,183,15,0.18)]"
+                  >
+                    <div>
+                      <div className="relative mb-4 overflow-hidden rounded-xl aspect-[16/9] bg-[#222635] border border-[#383D4D]/70">
+                        {pb.img ? (
+                          <SafeImage
+                            src={pb.img}
+                            alt={pb.name}
+                            loading="lazy"
+                            decoding="async"
+                            className="w-full h-full object-cover"
+                            wrapperClassName="transition-transform duration-700 ease-out group-hover:scale-110"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-[#FFB70F]/80">
+                            <Handshake className="w-9 h-9 transition-transform duration-500 ease-out group-hover:scale-110" />
+                          </div>
+                        )}
+                      </div>
+                      <h3 className="text-lg font-bold text-white group-hover:text-[#FFB70F] transition-colors duration-300 truncate" title={pb.name}>
+                        {pb.name}
+                      </h3>
+                      {pb.location ? (
+                        <p className="text-xs sm:text-sm text-[#AEB4C2] flex items-center gap-1 mt-1 truncate" title={pb.location}>
+                          <MapPin className="w-3.5 h-3.5 text-[#FFB70F] shrink-0" />
+                          <span className="truncate">{pb.location}</span>
+                        </p>
+                      ) : null}
+                      {pb.description ? (
+                        <p className="text-sm text-[#AEB4C2] mt-2 line-clamp-2 leading-relaxed">
+                          {pb.description}
+                        </p>
+                      ) : null}
+                    </div>
+                    <span className="mt-5 inline-flex items-center justify-center gap-2 rounded-lg bg-[#FFB70F] px-5 py-2.5 text-sm font-semibold text-[#171A26] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:brightness-110 hover:shadow-[0_10px_28px_rgba(255,183,15,0.35)]">
+                      Explore Partner
+                      <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
+                    </span>
+                  </Link>
+                </ScrollZoomContinuous>
+              ))}
+            </AnimatedStaggerGrid>
+            <div className="text-center mt-10">
+              <Link
+                href={partnerDirectoryHref}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#383D4D] bg-[#292E40] px-6 py-3 text-sm font-semibold text-white transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-[#FFB70F] hover:text-[#FFB70F] hover:shadow-[0_10px_28px_rgba(255,183,15,0.18)]"
+              >
+                View All Partner Branches
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       {/* M22-S02: Video section below Courses, above About */}
       {mediaSectionItems.length > 0 ? (
         <section
           id="media"
-          className="py-12 md:py-16 scroll-mt-24 relative z-10"
+          className="py-14 md:py-20 scroll-mt-24 relative z-10 border-t border-[#383D4D] bg-[#222635]/40"
         >
           <div className="site-content px-0 sm:px-1">
             <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
-              <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
+              <div className="w-16 h-1 rounded-full bg-[#FFB70F] mx-auto mb-4" />
               {(mediaSectionSubtitle || "").trim() ? (
-                <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">
+                <p className="text-[#FFB70F] font-semibold uppercase tracking-[0.2em] text-xs mb-2">
                   {mediaSectionSubtitle}
                 </p>
               ) : null}
-              <h2 className="text-3xl md:text-4xl font-bold text-[#FFB70F]">
+              <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
                 {(mediaSectionTitle || "").trim() || "Videos"}
               </h2>
             </AnimatedSection>
@@ -360,14 +536,18 @@ export default function HomePageView({
               }
             >
               {mediaSectionItems.map((item, i) => (
-                <AnimatedSection key={item.id || `media-${i}`} variant="fadeSlideUp">
+                <AnimatedSection
+                  key={item.id || `media-${i}`}
+                  variant="fadeSlideUp"
+                  className="rounded-2xl border border-[#383D4D] bg-[#292E40] p-4 sm:p-5 shadow-[0_8px_24px_rgba(0,0,0,0.25)] transition-all duration-300 ease-out hover:-translate-y-2 hover:border-[#FFB70F]/50 hover:shadow-[0_18px_40px_rgba(255,183,15,0.18)]"
+                >
                   {(item.title || item.subtitle) && (
                     <div className="mb-3 text-center md:text-left">
                       {item.title ? (
-                        <h3 className="text-xl font-bold text-[#FFB70F]">{item.title}</h3>
+                        <h3 className="text-lg sm:text-xl font-bold text-white">{item.title}</h3>
                       ) : null}
                       {item.subtitle ? (
-                        <p className="text-gray-400 text-sm mt-1">{item.subtitle}</p>
+                        <p className="text-[#AEB4C2] text-sm mt-1">{item.subtitle}</p>
                       ) : null}
                     </div>
                   )}
@@ -385,11 +565,11 @@ export default function HomePageView({
       {/* About: image (left); title, subtitle, rich text (right). Mobile: image first. Fallback benefits when no HTML. */}
       <AnimatedSection
         variant="fadeSlideUp"
-        className="py-12 md:py-16 relative z-10"
+        className="py-14 md:py-20 relative z-10 border-y border-[#383D4D] bg-[#222635]/40"
       >
         <div className="site-content px-0 sm:px-1">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start lg:items-center">
-            <div className="overflow-hidden rounded-lg">
+            <div className="group overflow-hidden rounded-2xl border border-[#383D4D] bg-[#292E40] shadow-[0_0_24px_2px_rgba(255,183,15,0.16)] transition-all duration-500 ease-out hover:-translate-y-1.5 hover:border-[#FFB70F]/50 hover:shadow-[0_18px_40px_rgba(255,183,15,0.22)]">
               <SafeImage
                 src={
                   aboutImage
@@ -399,27 +579,28 @@ export default function HomePageView({
                 alt={aboutTitle || "About"}
                 resolveUrl={false}
                 className="w-full h-auto object-cover"
+                wrapperClassName="block w-full transition-transform duration-700 ease-out group-hover:scale-105"
               />
             </div>
             <div>
-                <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">Discover</p>
-                <h2 className="text-3xl md:text-4xl font-bold text-[#FFB70F] mb-4">{aboutTitle || "About us"}</h2>
-                {aboutSubtitle ? <p className="text-gray-300 mb-6">{aboutSubtitle}</p> : null}
+                <p className="text-[#FFB70F] font-semibold uppercase tracking-[0.2em] text-xs mb-2">Discover</p>
+                <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white mb-4">{aboutTitle || "About us"}</h2>
+                {aboutSubtitle ? <p className="text-[#AEB4C2] mb-6">{aboutSubtitle}</p> : null}
                 {safeAboutHtml ? (
                   <div
-                    className="max-w-none text-gray-300 space-y-4 leading-relaxed [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-[#FFB70F] [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-[#FFB70F] [&_h3]:text-lg [&_h3]:text-[#FFB70F] [&_p]:text-gray-300 [&_a]:text-[#FFB70F] [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5 [&_strong]:text-white"
+                    className="max-w-none text-[#AEB4C2] space-y-4 leading-relaxed [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-[#FFB70F] [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-[#FFB70F] [&_h3]:text-lg [&_h3]:text-[#FFB70F] [&_p]:text-[#AEB4C2] [&_a]:text-[#FFB70F] [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5 [&_strong]:text-white"
                     dangerouslySetInnerHTML={{ __html: safeAboutHtml }}
                   />
                 ) : physicalBenefits.length || mentalBenefits.length ? (
                   <div className="space-y-6">
                     {physicalBenefits.length > 0 ? (
-                      <div className="flex gap-4">
+                      <div className="flex gap-4 rounded-xl border border-[#383D4D]/70 bg-[#292E40]/50 p-4 transition-all duration-300 hover:-translate-y-1 hover:border-[#FFB70F]/40 hover:bg-[#292E40]">
                         <img
                           src="/assets/img/courses/icon1.png"
                           alt=""
                           className="w-12 h-12 flex-shrink-0"
                         />
-                        <ul className="list-disc list-inside text-gray-300 space-y-2">
+                        <ul className="list-disc list-inside text-[#AEB4C2] space-y-2">
                           {physicalBenefits.map((b) => (
                             <li key={b}>{b}</li>
                           ))}
@@ -427,21 +608,21 @@ export default function HomePageView({
                       </div>
                     ) : null}
                     {mentalBenefits.length > 0 ? (
-                      <>
-                        <div className="flex gap-4 items-center">
+                      <div className="rounded-xl border border-[#383D4D]/70 bg-[#292E40]/50 p-4 transition-all duration-300 hover:-translate-y-1 hover:border-[#FFB70F]/40 hover:bg-[#292E40]">
+                        <div className="flex gap-4 items-center mb-3">
                           <img
                             src="/assets/img/courses/icon2.png"
                             alt=""
                             className="w-12 h-12 flex-shrink-0"
                           />
-                          <h3 className="text-2xl font-bold text-[#FFB70F]">Mental Benefits</h3>
+                          <h3 className="text-xl sm:text-2xl font-bold text-[#FFB70F]">Mental Benefits</h3>
                         </div>
-                        <ul className="list-disc list-inside text-gray-300 space-y-2 ml-16">
+                        <ul className="list-disc list-inside text-[#AEB4C2] space-y-2 ml-16">
                           {mentalBenefits.map((b) => (
                             <li key={b}>{b}</li>
                           ))}
                         </ul>
-                      </>
+                      </div>
                     ) : null}
                   </div>
                 ) : null}
@@ -451,13 +632,13 @@ export default function HomePageView({
       </AnimatedSection>
 
       {/* Our Expert Masters — up to 8 coaches; desktop 4 / tablet 2 / mobile 1 */}
-      <LazySection className="py-16 md:py-20 relative z-10" minHeight={420} rootMargin="280px">
+      <LazySection className="py-16 md:py-20 relative z-10 bg-[#171A26]" minHeight={420} rootMargin="280px">
       <section>
         <div className="site-content px-0 sm:px-1">
           <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
-            <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
-            <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">Our Members</p>
-            <h2 className="text-3xl md:text-4xl font-bold text-[#FFB70F]">Our Expert Masters</h2>
+            <div className="w-16 h-1 rounded-full bg-[#FFB70F] mx-auto mb-4" />
+            <p className="text-[#FFB70F] font-semibold uppercase tracking-[0.2em] text-xs mb-2">Our Members</p>
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white">Our Expert Masters</h2>
           </AnimatedSection>
           <AnimatedStaggerGrid
             className={
@@ -469,46 +650,48 @@ export default function HomePageView({
             childClassName="h-full w-full"
           >
             {trainers.length === 0 ? (
-              <p className="text-center text-gray-500 text-sm col-span-full py-8">
+              <p className="text-center text-[#AEB4C2] text-sm col-span-full py-8">
                 Coach profiles from admin will appear here. Set display order and photos in Coaches Management.
               </p>
             ) : null}
             {trainers.map((t, idx) => (
-              <AnimatedCard key={`${t.name}-${idx}`} scrollReveal={false}>
-                <div className="bg-gray-900/50 rounded-xl p-6 border border-gray-800 h-full flex flex-col items-center text-center">
-                  <div className="w-[180px] h-[340px] max-w-full shrink-0 rounded-lg overflow-hidden border-2 border-[#FFB70F]/40 mb-4 bg-gray-800">
-                    <SafeImage
-                      src={t.img || DEFAULT_IMAGE_PLACEHOLDER}
-                      alt={t.name}
-                      loading="lazy"
-                      decoding="async"
-                      width={180}
-                      height={340}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <h3 className="text-lg sm:text-xl font-bold text-white mb-1 line-clamp-2">{t.name}</h3>
-                  <p className="text-[#FFB70F] font-semibold text-sm mb-3 line-clamp-2">{t.role}</p>
-                  <p className="text-gray-400 text-sm leading-relaxed line-clamp-4 flex-1 w-full">
-                    {t.about?.trim()
-                      ? t.about
-                      : "Experienced instructor dedicated to helping every student grow with discipline and skill."}
-                  </p>
-                  {typeof t.rating === "number" && t.rating > 0 ? (
-                    <p className="mt-3 text-[#FFB70F] text-sm font-semibold" aria-label={`Rating ${t.rating} out of 5`}>
-                      ★ {t.rating.toFixed(1)} / 5
-                    </p>
-                  ) : (
-                    <img
-                      src="/assets/img/courses/stars.png"
-                      alt=""
-                      loading="lazy"
-                      decoding="async"
-                      className="mt-3 w-24 h-auto opacity-90"
-                    />
-                  )}
+              <div
+                key={`${t.name}-${idx}`}
+                className="group bg-[#292E40] rounded-2xl p-6 border border-[#383D4D] shadow-[0_8px_24px_rgba(0,0,0,0.25)] h-full flex flex-col items-center text-center transition-all duration-300 ease-out hover:-translate-y-2 hover:border-[#FFB70F]/50 hover:shadow-[0_18px_40px_rgba(255,183,15,0.18)]"
+              >
+                <div className="w-[180px] h-[340px] max-w-full shrink-0 rounded-xl overflow-hidden border-2 border-[#FFB70F]/40 mb-4 bg-[#222635] transition-colors duration-300 group-hover:border-[#FFB70F]">
+                  <SafeImage
+                    src={t.img || DEFAULT_IMAGE_PLACEHOLDER}
+                    alt={t.name}
+                    loading="lazy"
+                    decoding="async"
+                    width={180}
+                    height={340}
+                    className="w-full h-full object-cover"
+                    wrapperClassName="transition-transform duration-700 ease-out group-hover:scale-110"
+                  />
                 </div>
-              </AnimatedCard>
+                <h3 className="text-lg sm:text-xl font-bold text-white transition-colors duration-300 group-hover:text-[#FFB70F] mb-1 line-clamp-2">{t.name}</h3>
+                <p className="text-[#FFB70F] font-semibold text-sm mb-3 line-clamp-2">{t.role}</p>
+                <p className="text-[#AEB4C2] text-sm leading-relaxed line-clamp-4 flex-1 w-full">
+                  {t.about?.trim()
+                    ? t.about
+                    : "Experienced instructor dedicated to helping every student grow with discipline and skill."}
+                </p>
+                {typeof t.rating === "number" && t.rating > 0 ? (
+                  <p className="mt-3 text-[#FFB70F] text-sm font-semibold" aria-label={`Rating ${t.rating} out of 5`}>
+                    ★ {t.rating.toFixed(1)} / 5
+                  </p>
+                ) : (
+                  <img
+                    src="/assets/img/courses/stars.png"
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    className="mt-3 w-24 h-auto opacity-90"
+                  />
+                )}
+              </div>
             ))}
           </AnimatedStaggerGrid>
         </div>
@@ -517,27 +700,29 @@ export default function HomePageView({
 
       {/* Student testimonials (MongoDB marketing) — carousel, max 6 */}
       {testimonialsEnabled && (
-      <LazySection className="py-16 md:py-20 relative z-10" minHeight={480} rootMargin="280px">
+      <LazySection className="py-16 md:py-20 relative z-10 border-t border-[#383D4D] bg-[#222635]/50" minHeight={480} rootMargin="280px">
       <section>
         <div className="site-content px-0 sm:px-1">
           <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
-            <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
-            <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">{testimonialsSubtitle}</p>
-            <h2 className="text-3xl md:text-4xl font-bold text-[#FFB70F]">{testimonialsTitle}</h2>
+            <div className="w-16 h-1 rounded-full bg-[#FFB70F] mx-auto mb-4" />
+            <p className="text-[#FFB70F] font-semibold uppercase tracking-[0.2em] text-xs mb-2">{testimonialsSubtitle}</p>
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white">{testimonialsTitle}</h2>
           </AnimatedSection>
           {showcaseTestimonials.length === 0 && testimonials.length === 0 ? (
-            <p className="text-center text-gray-500 py-12 text-sm">No testimonials available</p>
+            <p className="text-center text-[#AEB4C2] py-12 text-sm">No testimonials available</p>
           ) : showcaseTestimonials.length > 0 ? (
             <>
-              <Carousel className="px-2 md:px-8">
-                {showcaseTestimonials.slice(0, 6).map((t, i) => (
-                  <TestimonialCard key={t.id || i} item={t} />
-                ))}
-              </Carousel>
+              <div className="[&_.bg-gray-900\/50]:bg-[#292E40] [&_.border-gray-800]:border-[#383D4D] [&_.rounded-xl]:rounded-2xl [&_.text-gray-300]:text-[#AEB4C2] [&_.bg-gray-900\/50]:shadow-[0_8px_24px_rgba(0,0,0,0.25)] [&_.bg-gray-900\/50]:transition-all [&_.bg-gray-900\/50]:duration-300 [&_.bg-gray-900\/50]:ease-out [&_.bg-gray-900\/50:hover]:-translate-y-2 [&_.bg-gray-900\/50:hover]:border-[#FFB70F]/50 [&_.bg-gray-900\/50:hover]:shadow-[0_18px_40px_rgba(255,183,15,0.18)] [&_.rounded-full>span]:transition-transform [&_.rounded-full>span]:duration-700 [&_.rounded-full>span]:ease-out [&_.bg-gray-900\/50:hover_.rounded-full>span]:scale-110">
+                <Carousel className="px-2 md:px-8">
+                  {showcaseTestimonials.slice(0, 6).map((t, i) => (
+                    <TestimonialCard key={t.id || i} item={t} />
+                  ))}
+                </Carousel>
+              </div>
               <AnimatedSection className="text-center mt-10" variant="fadeSlideUp">
                 <Link
                   href="/testimonials"
-                  className="inline-block rounded-lg bg-[#FFB70F] px-6 py-3 text-base font-semibold text-black hover:bg-[#F73322] hover:text-white transition-colors duration-300"
+                  className="inline-flex items-center justify-center rounded-lg bg-[#FFB70F] px-6 py-3 text-sm sm:text-base font-semibold text-[#171A26] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:brightness-110 hover:shadow-[0_10px_30px_rgba(255,183,15,0.35)]"
                 >
                   More testimonials
                 </Link>
@@ -550,42 +735,44 @@ export default function HomePageView({
                 staggerDelay={0.1}
               >
                 {testimonials.slice(0, 4).map((t, i) => (
-                  <AnimatedCard key={i} scrollReveal={false}>
-                    <div className="bg-gray-900/50 rounded-xl p-6 border border-gray-800 h-full flex flex-col items-center text-center">
-                      <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-[#FFB70F]/50 mb-4 flex-shrink-0">
-                        <SafeImage
-                          src={t.image || DEFAULT_IMAGE_PLACEHOLDER}
-                          alt={t.name}
-                          loading="lazy"
-                          decoding="async"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <img
-                        src="/assets/img/courses/quote.png"
-                        alt=""
+                  <div
+                    key={i}
+                    className="group bg-[#292E40] rounded-2xl p-6 border border-[#383D4D] shadow-[0_8px_24px_rgba(0,0,0,0.25)] h-full flex flex-col items-center text-center transition-all duration-300 ease-out hover:-translate-y-2 hover:border-[#FFB70F]/50 hover:shadow-[0_18px_40px_rgba(255,183,15,0.18)]"
+                  >
+                    <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-[#FFB70F]/50 mb-4 flex-shrink-0 transition-colors duration-300 group-hover:border-[#FFB70F]">
+                      <SafeImage
+                        src={t.image || DEFAULT_IMAGE_PLACEHOLDER}
+                        alt={t.name}
                         loading="lazy"
                         decoding="async"
-                        className="w-8 h-8 mb-2 opacity-80"
+                        className="w-full h-full object-cover"
+                        wrapperClassName="transition-transform duration-700 ease-out group-hover:scale-110"
                       />
-                      <p className="text-gray-300 text-sm leading-relaxed mb-4 flex-1">
-                        {t.quote || defaultTestimonialQuote || ""}
-                      </p>
-                      <h3 className="text-[#FFB70F] font-semibold">{t.name}</h3>
-                      {t.achievement?.trim() ? (
-                        <p className="text-[#FFB70F]/90 text-xs font-medium uppercase tracking-wide mt-1">
-                          {t.achievement}
-                        </p>
-                      ) : null}
-                      <p className="text-white/80 text-sm">{t.role}</p>
                     </div>
-                  </AnimatedCard>
+                    <img
+                      src="/assets/img/courses/quote.png"
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      className="w-8 h-8 mb-2 opacity-80"
+                    />
+                    <p className="text-[#AEB4C2] text-sm leading-relaxed mb-4 flex-1">
+                      {t.quote || defaultTestimonialQuote || ""}
+                    </p>
+                    <h3 className="text-[#FFB70F] font-semibold">{t.name}</h3>
+                    {t.achievement?.trim() ? (
+                      <p className="text-[#FFB70F]/90 text-xs font-medium uppercase tracking-wide mt-1">
+                        {t.achievement}
+                      </p>
+                    ) : null}
+                    <p className="text-white/80 text-sm">{t.role}</p>
+                  </div>
                 ))}
               </AnimatedStaggerGrid>
               <AnimatedSection className="text-center mt-10" variant="fadeSlideUp">
                 <Link
                   href="/testimonials"
-                  className="inline-block rounded-lg bg-[#FFB70F] px-6 py-3 text-base font-semibold text-black hover:bg-[#F73322] hover:text-white transition-colors duration-300"
+                  className="inline-flex items-center justify-center rounded-lg bg-[#FFB70F] px-6 py-3 text-sm sm:text-base font-semibold text-[#171A26] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:brightness-110 hover:shadow-[0_10px_30px_rgba(255,183,15,0.35)]"
                 >
                   More testimonials
                 </Link>
@@ -598,16 +785,16 @@ export default function HomePageView({
       )}
 
       {/* Student achievements showcase (MongoDB) */}
-      <LazySection className="py-16 md:py-20 relative z-10 border-t border-gray-800/80" minHeight={400} rootMargin="280px">
+      <LazySection className="py-16 md:py-20 relative z-10 border-t border-[#383D4D] bg-[#171A26]" minHeight={400} rootMargin="280px">
       <section>
         <div className="site-content px-0 sm:px-1">
           <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
-            <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
-            <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">Celebrate</p>
-            <h2 className="text-3xl md:text-4xl font-bold text-[#FFB70F]">Student Achievements</h2>
+            <div className="w-16 h-1 rounded-full bg-[#FFB70F] mx-auto mb-4" />
+            <p className="text-[#FFB70F] font-semibold uppercase tracking-[0.2em] text-xs mb-2">Celebrate</p>
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white">Student Achievements</h2>
           </AnimatedSection>
           {showcaseAchievements.length === 0 ? (
-            <p className="text-center text-gray-500 py-12 text-sm">No achievements yet</p>
+            <p className="text-center text-[#AEB4C2] py-12 text-sm">No achievements yet</p>
           ) : (
             <AnimatedStaggerGrid
               className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6"
@@ -615,7 +802,10 @@ export default function HomePageView({
               childClassName="h-full min-w-0"
             >
               {showcaseAchievements.slice(0, 9).map((a, i) => (
-                <div key={a.id || i} className="h-full min-w-0 max-w-full">
+                <div
+                  key={a.id || i}
+                  className="h-full min-w-0 max-w-full [&>div]:bg-[#292E40] [&>div]:border-[#383D4D] [&>div]:rounded-2xl [&>div]:shadow-[0_8px_24px_rgba(0,0,0,0.25)] [&>div]:transition-all [&>div]:duration-300 [&>div]:ease-out [&>div:hover]:-translate-y-2 [&>div:hover]:scale-100 [&>div:hover]:border-[#FFB70F]/50 [&>div:hover]:shadow-[0_18px_40px_rgba(255,183,15,0.18)] [&_.relative>span]:transition-transform [&_.relative>span]:duration-700 [&_.relative>span]:ease-out [&>div:hover_.relative>span]:scale-110 [&_.bg-gray-950]:bg-[#222635] [&_.text-gray-400]:text-[#AEB4C2]"
+                >
                   <ShowcaseAchievementCard item={a} />
                 </div>
               ))}
@@ -627,31 +817,34 @@ export default function HomePageView({
 
       {/* CTA section — only when CMS provides bottom CTA copy */}
       {bottomCtaTitle?.trim() ? (
-      <AnimatedSection variant="fadeSlideUp" className="py-16 md:py-24 relative z-10">
-        <div className="site-content px-0 sm:px-1 text-center">
-          <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">{bottomCtaTitle}</h2>
-          {bottomCtaSubtitle ? <p className="text-gray-400 mb-8">{bottomCtaSubtitle}</p> : null}
-          {!shouldReduceMotion ? (
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.98 }}
-              transition={{ duration: 0.3, ease: "easeOut" }}
-            >
+      <AnimatedSection variant="fadeSlideUp" className="py-16 md:py-20 relative z-10 bg-[#171A26]">
+        <div className="site-content px-0 sm:px-1">
+          <div className="rounded-2xl bg-[#FFB70F] px-6 py-10 sm:px-10 lg:px-14 lg:py-12 text-center shadow-[0_16px_40px_rgba(255,183,15,0.2)] transition-shadow duration-300 hover:shadow-[0_20px_48px_rgba(255,183,15,0.28)]">
+            <h2 className="text-2xl md:text-4xl font-bold tracking-tight text-[#171A26] mb-3">{bottomCtaTitle}</h2>
+            {bottomCtaSubtitle ? <p className="text-[#171A26]/80 text-base md:text-lg max-w-2xl mx-auto mb-8">{bottomCtaSubtitle}</p> : null}
+            {!shouldReduceMotion ? (
+              <motion.div
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.98 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+                className="inline-block"
+              >
+                <Link
+                  href="/register"
+                  className="inline-block rounded-lg bg-[#171A26] px-8 py-4 text-base md:text-lg font-semibold text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#222635] hover:shadow-lg"
+                >
+                  Get Started
+                </Link>
+              </motion.div>
+            ) : (
               <Link
                 href="/register"
-                className="inline-block rounded-lg bg-[#FFB70F] px-8 py-4 text-lg font-semibold text-black hover:bg-[#F73322] hover:text-white transition-colors duration-300"
+                className="inline-block rounded-lg bg-[#171A26] px-8 py-4 text-base md:text-lg font-semibold text-white"
               >
                 Get Started
               </Link>
-            </motion.div>
-          ) : (
-            <Link
-              href="/register"
-              className="inline-block rounded-lg bg-[#FFB70F] px-8 py-4 text-lg font-semibold text-black"
-            >
-              Get Started
-            </Link>
-          )}
+            )}
+          </div>
         </div>
       </AnimatedSection>
       ) : null}

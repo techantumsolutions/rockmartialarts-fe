@@ -22,11 +22,11 @@ const mobileLinkClass =
   "block text-lg font-medium uppercase tracking-wide text-white hover:text-[#FFB70F]"
 
 const ctaOutlineClass =
-  "inline-flex items-center justify-center rounded-[10px] border border-white bg-transparent px-5 py-3.5 text-base font-medium text-white transition-colors hover:bg-white hover:text-black"
+  "inline-flex items-center justify-center rounded-[10px] border border-[#383D4D] bg-[#171A26]/50 px-5 py-3.5 text-base font-medium text-white transition-all duration-300 hover:border-[#FFB70F] hover:text-[#FFB70F]"
 const ctaSecondaryClass =
-  "inline-flex items-center justify-center rounded-[10px] border border-white/40 bg-white/10 px-5 py-3.5 text-base font-medium text-white transition-colors hover:bg-white/20"
+  "inline-flex items-center justify-center rounded-[10px] border border-[#383D4D] bg-[#222635]/70 px-5 py-3.5 text-base font-medium text-white transition-all duration-300 hover:border-[#FFB70F] hover:bg-[#292E40]"
 const ctaLoginClass =
-  "inline-flex items-center justify-center gap-2 rounded-[10px] bg-[#FFB70F] px-5 py-3.5 text-base font-medium text-white transition-colors hover:bg-[#F73322] hover:text-black"
+  "inline-flex items-center justify-center gap-2 rounded-[10px] bg-[#FFB70F] px-5 py-3.5 text-base font-semibold text-[#171A26] transition-all duration-300 hover:brightness-110 hover:shadow-[0_10px_28px_rgba(255,183,15,0.35)]"
 
 /**
  * Read-only dashboard link for the public nav.
@@ -157,7 +157,7 @@ export function FixedTopNav() {
   )
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 w-full py-2 bg-gradient-to-b from-black/70 via-black/30 to-transparent">
+    <header className="fixed top-0 left-0 right-0 z-50 w-full py-2 bg-gradient-to-b from-[#171A26]/95 via-[#171A26]/65 to-transparent">
       <div className="site-content flex items-center justify-between gap-3 px-0 sm:px-1">
         <Link href="/" className="flex-shrink-0">
           <img
@@ -219,7 +219,7 @@ export function FixedTopNav() {
           </SheetTrigger>
           <SheetContent
             side="right"
-            className="w-[300px] sm:w-[340px] border-[#766E6E] px-6 py-6 overflow-y-auto [&>button]:text-white [&>button]:opacity-100 [&>button]:hover:text-white [&>button]:hover:opacity-100 [&>button_svg]:text-white"
+            className="w-[300px] sm:w-[340px] bg-[#171A26] border-[#383D4D] px-6 py-6 overflow-y-auto [&>button]:text-white [&>button]:opacity-100 [&>button]:hover:text-white [&>button]:hover:opacity-100 [&>button_svg]:text-white"
           >
             <ul className="mt-4 flex flex-col gap-5">
               <li>

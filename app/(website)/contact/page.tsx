@@ -97,7 +97,7 @@ export default function ContactPage() {
             </p>
             <Link
               href="/request-callback"
-              className="inline-block mt-6 rounded-[10px] bg-[#FFB70F] px-5 py-3.5 text-base font-medium text-black transition-colors hover:bg-[#F73322] hover:text-white"
+              className="inline-block mt-6 rounded-[10px] bg-[#FFB70F] px-5 py-3.5 text-base font-semibold text-[#171A26] transition-all hover:brightness-110 hover:shadow-[0_10px_28px_rgba(255,183,15,0.35)]"
             >
               Request a callback
             </Link>

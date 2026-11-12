@@ -97,8 +97,8 @@ export function BranchesNavDropdown({ variant = "desktop", onNavigate }: Branche
         <div
           className={
             isMobile
-              ? "mt-2 w-full rounded-lg border border-gray-700 bg-[#171A26] py-2 shadow-xl z-50"
-              : "absolute left-0 top-full min-w-[240px] rounded-lg border border-gray-700 bg-[#171A26] py-2 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200"
+              ? "mt-2 w-full rounded-lg border border-[#383D4D] bg-[#292E40] py-2 shadow-xl z-50"
+              : "absolute left-0 top-full min-w-[240px] rounded-lg border border-[#383D4D] bg-[#292E40] py-2 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200"
           }
         >
           <Link
@@ -107,7 +107,7 @@ export function BranchesNavDropdown({ variant = "desktop", onNavigate }: Branche
               setOpen(false)
               onNavigate?.()
             }}
-            className="flex items-center gap-2 px-4 py-3 hover:bg-white/10 transition-colors text-left border-b border-gray-700 min-h-11"
+            className="flex items-center gap-2 px-4 py-3 hover:bg-white/10 transition-colors text-left border-b border-[#383D4D] min-h-11"
           >
             <Building2 className="h-4 w-4 text-[#FFB70F] flex-shrink-0" />
             <span className="font-medium text-white">View all branches</span>
