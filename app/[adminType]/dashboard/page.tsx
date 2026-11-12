@@ -24,6 +24,7 @@ import {
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Header from "@/components/layout/Header"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState, useCallback, useMemo } from "react"
 import {
@@ -489,6 +490,24 @@ export default function SuperAdminDashboard() {
     "this-year": "This Year"
   }[timePeriod] || "This Month"
 
+  const studentsHref = (status: "active" | "inactive") => {
+    const qs = new URLSearchParams()
+    qs.set("status", status)
+    if (branchFilterId) qs.set("branch", branchFilterId)
+    return `${basePath}/students?${qs.toString()}`
+  }
+
+  const paymentHref = (withPeriod: boolean) => {
+    const qs = new URLSearchParams()
+    if (withPeriod) {
+      qs.set("start_date", dateRange.start_date)
+      qs.set("end_date", dateRange.end_date)
+    }
+    if (branchFilterId) qs.set("branch_id", branchFilterId)
+    const query = qs.toString()
+    return `${basePath}/payment-tracking${query ? `?${query}` : ""}`
+  }
+
   const heroCards = [
     {
       label: `${timePeriodLabel} Collection`,
@@ -499,6 +518,7 @@ export default function SuperAdminDashboard() {
       icon: IndianRupee,
       tone: "bg-[#FFF8E1] border-[#F5E6B8]",
       iconWrap: "bg-[#F5E0A0] text-[#9A7B1A]",
+      href: paymentHref(true),
     },
     {
       label: "Active Students",
@@ -509,6 +529,7 @@ export default function SuperAdminDashboard() {
       icon: UserCheck,
       tone: "bg-[#EAF8F0] border-[#CDEAD8]",
       iconWrap: "bg-[#C6EBD5] text-[#1F9D57]",
+      href: studentsHref("active"),
     },
     {
       label: "Active Coaches",
@@ -517,6 +538,7 @@ export default function SuperAdminDashboard() {
       icon: UserCog,
       tone: "bg-[#EAF1FF] border-[#D0DFFF]",
       iconWrap: "bg-[#C9DAFF] text-[#2563EB]",
+      href: `${basePath}/coaches?status=active`,
     },
     {
       label: "Branches",
@@ -525,6 +547,7 @@ export default function SuperAdminDashboard() {
       icon: Building2,
       tone: "bg-[#F1EBFF] border-[#DDD2FF]",
       iconWrap: "bg-[#DDD0FF] text-[#6D28D9]",
+      href: role === "branch_admin" ? `${basePath}/branch-courses` : `${basePath}/branches`,
     },
   ]
 
@@ -534,48 +557,56 @@ export default function SuperAdminDashboard() {
       value: dashboardStats?.inactive_students ?? 0,
       icon: UserX,
       iconWrap: "bg-[#FFE8E8] text-[#E11D48]",
+      href: studentsHref("inactive"),
     },
     {
       label: "Enrollments",
       value: dashboardStats?.enrollments_count ?? dashboardStats?.active_enrollments ?? 0,
       icon: ClipboardList,
       iconWrap: "bg-[#E6FAF7] text-[#0D9488]",
+      href: `${basePath}/reports/enrollments`,
     },
     {
       label: "Renewals",
       value: dashboardStats?.renewals_count ?? 0,
       icon: RefreshCw,
       iconWrap: "bg-[#FFF0E6] text-[#EA580C]",
+      href: `${basePath}/reports/renewals`,
     },
     {
       label: "Leads",
       value: dashboardStats?.leads_count ?? 0,
       icon: Target,
       iconWrap: "bg-[#E8EEFF] text-[#3730A3]",
+      href: `${basePath}/leads`,
     },
     {
       label: "Active Courses",
       value: dashboardStats?.courses_with_enrollments_in_period ?? dashboardStats?.active_courses ?? 0,
       icon: BookOpen,
       iconWrap: "bg-[#E8F1FF] text-[#3B82F6]",
+      href: `${basePath}/courses`,
     },
     {
       label: "Demo Bookings",
       value: dashboardStats?.demo_bookings_count ?? 0,
       icon: Presentation,
       iconWrap: "bg-[#F8E9FF] text-[#A21CAF]",
+      href: `${basePath}/demo-bookings`,
     },
     {
       label: "Training Requests",
       value: dashboardStats?.training_requests_count ?? 0,
       icon: Dumbbell,
       iconWrap: "bg-[#E6F7F5] text-[#0F766E]",
+      href: `${basePath}/training-requests`,
     },
     {
       label: "Events",
       value: dashboardStats?.events_count ?? dashboardStats?.events_registrations_count ?? 0,
       icon: PartyPopper,
       iconWrap: "bg-[#FFE9EC] text-[#BE123C]",
+      href: `${basePath}/events`,
     },
   ]
 
@@ -593,24 +624,28 @@ export default function SuperAdminDashboard() {
       value: paymentAPI.formatCurrency(paymentStats?.this_month_collection || 0),
       valueClass: "text-[#1F9D57]",
       cardClass: "bg-[#F3FBF6] border-[#D9F2E4]",
+      href: paymentHref(true),
     },
     {
       label: "Total Revenue",
       value: paymentAPI.formatCurrency(paymentStats?.total_collected || 0),
       valueClass: "text-[#2563EB]",
       cardClass: "bg-[#F3F7FF] border-[#D9E6FF]",
+      href: paymentHref(false),
     },
     {
       label: "Physical Hand Cash (Total)",
       value: paymentAPI.formatCurrency(paymentStats?.hand_cash_revenue || 0),
       valueClass: "text-[#B45309]",
       cardClass: "bg-[#FFF8EB] border-[#F5E4C0]",
+      href: paymentHref(false),
     },
     {
       label: `Hand Cash (${timePeriodLabel})`,
       value: paymentAPI.formatCurrency(paymentStats?.period_hand_cash_revenue || 0),
       valueClass: "text-[#0F766E]",
       cardClass: "bg-[#F0FBFA] border-[#CDEFEB]",
+      href: paymentHref(true),
     },
   ]
 
@@ -682,9 +717,10 @@ export default function SuperAdminDashboard() {
           : heroCards.map((card) => {
               const Icon = card.icon
               return (
-                <div
+                <Link
                   key={card.label}
-                  className={`rounded-2xl border p-5 shadow-sm ${card.tone}`}
+                  href={card.href}
+                  className={`block rounded-2xl border p-5 shadow-sm cursor-pointer transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E1BB33]/60 ${card.tone}`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div
@@ -701,7 +737,7 @@ export default function SuperAdminDashboard() {
                   <p className="mt-1 text-3xl font-bold tracking-tight text-[#2F3158]">
                     {typeof card.value === "number" ? formatNumber(card.value) : card.value}
                   </p>
-                </div>
+                </Link>
               )
             })}
       </div>
@@ -718,9 +754,10 @@ export default function SuperAdminDashboard() {
           : secondaryCards.map((card) => {
               const Icon = card.icon
               return (
-                <div
+                <Link
                   key={card.label}
-                  className="rounded-2xl border border-[#EEF0F4] bg-white px-3.5 py-3.5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
+                  href={card.href}
+                  className="block rounded-2xl border border-[#EEF0F4] bg-white px-3.5 py-3.5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] cursor-pointer transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E1BB33]/60"
                 >
                   <div
                     className={`mb-2.5 inline-flex h-9 w-9 items-center justify-center rounded-full ${card.iconWrap}`}
@@ -731,7 +768,7 @@ export default function SuperAdminDashboard() {
                   <p className="mt-1.5 text-xl font-bold tracking-tight text-[#2F3158]">
                     {formatNumber(Number(card.value) || 0)}
                   </p>
-                </div>
+                </Link>
               )
             })}
       </div>
@@ -772,15 +809,16 @@ export default function SuperAdminDashboard() {
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
               <div className="grid grid-cols-1 content-start gap-3 sm:grid-cols-2 lg:col-span-4 lg:grid-cols-1">
                 {revenueTiles.map((tile) => (
-                  <div
+                  <Link
                     key={tile.label}
-                    className={`rounded-xl border px-4 py-3.5 ${tile.cardClass}`}
+                    href={tile.href}
+                    className={`block rounded-xl border px-4 py-3.5 cursor-pointer transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E1BB33]/60 ${tile.cardClass}`}
                   >
                     <p className="text-[11px] text-[#6B7A99]">{tile.label}</p>
                     <p className={`mt-1 text-[22px] font-bold tracking-tight ${tile.valueClass}`}>
                       {tile.value}
                     </p>
-                  </div>
+                  </Link>
                 ))}
               </div>
 

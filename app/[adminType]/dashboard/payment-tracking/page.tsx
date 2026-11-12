@@ -189,6 +189,17 @@ export default function PaymentTrackingPage() {
   }, [isSuperAdmin, partnerFilter])
 
   useEffect(() => {
+    if (typeof window === "undefined") return
+    const sp = new URLSearchParams(window.location.search)
+    const start = sp.get("start_date")
+    const end = sp.get("end_date")
+    const branchId = sp.get("branch_id")
+    if (start) setPeriodStart(start)
+    if (end) setPeriodEnd(end)
+    if (branchId && canPickBranch) setBranchFilter(branchId)
+  }, [canPickBranch])
+
+  useEffect(() => {
     const timer = window.setTimeout(() => {
       setDebouncedStudentSearch(studentSearch.trim())
     }, 400)

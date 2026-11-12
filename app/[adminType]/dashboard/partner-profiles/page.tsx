@@ -245,7 +245,7 @@ export default function PartnerProfilesPage() {
           </AdminFilterBar>
         </div>
 
-        <div className="p-5">
+        <div className="p-2.5 sm:p-3 xl:p-5">
           {loading ? (
             <div className="flex items-center justify-center gap-2 py-12 text-sm text-[#64748B]">
               <Loader2 className="h-4 w-4 animate-spin" /> Loading partners…
@@ -273,24 +273,25 @@ export default function PartnerProfilesPage() {
             </div>
           ) : (
             <AdminTableShell
+              className="admin-table-fit-wrap"
               footer={
                 <span>
                   Showing {filtered.length} of {partners.length} partners
                 </span>
               }
             >
-              <table>
+              <table className="w-full min-w-[820px] lg:min-w-0 lg:table-fixed admin-table-fit">
                 <thead>
                   <tr>
-                    <th className="w-8" />
-                    <th>Partner</th>
-                    <th>Email</th>
-                    <th>Mobile</th>
-                    <th>Payment</th>
-                    <th>Status</th>
-                    <th>Validity</th>
-                    <th>Login URL</th>
-                    <th className="text-right">Actions</th>
+                    <th className="w-8 lg:w-[4%] 2xl:w-[3.5%]" />
+                    <th className="lg:w-[16.5%] 2xl:w-[15.5%]">Partner</th>
+                    <th className="lg:w-[13%] 2xl:w-[12.5%]">Email</th>
+                    <th className="lg:w-[11.5%] 2xl:w-[10.5%]">Mobile</th>
+                    <th className="lg:w-[8.5%] 2xl:w-[8.5%]">Payment</th>
+                    <th className="lg:w-[9%] 2xl:w-[8%]">Status</th>
+                    <th className="lg:w-[11%] 2xl:w-[11%]">Validity</th>
+                    <th className="lg:w-[10.5%] 2xl:w-[11%]">Login URL</th>
+                    <th className="lg:w-[16%] 2xl:w-[19.5%] text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -308,7 +309,7 @@ export default function PartnerProfilesPage() {
                               type="button"
                               aria-expanded={isOpen}
                               aria-label={isOpen ? "Collapse partner details" : "Expand partner details"}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#171A26]"
+                              className="inline-flex h-6 w-6 xl:h-8 xl:w-8 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#171A26]"
                               onClick={() => setExpandedId(isOpen ? null : p.id)}
                             >
                               <ChevronDown
@@ -320,32 +321,43 @@ export default function PartnerProfilesPage() {
                             </button>
                           </td>
                           <td>
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F1EBFF] text-sm font-semibold text-[#6D28D9]">
+                            <div className="flex min-w-0 items-center gap-2 xl:gap-3">
+                              <div className="flex h-7 w-7 xl:h-9 xl:w-9 shrink-0 items-center justify-center rounded-full bg-[#F1EBFF] text-xs xl:text-sm font-semibold text-[#6D28D9]">
                                 {partnerInitial(p.name)}
                               </div>
-                              <div>
-                                <div className="font-medium text-[#171A26]">{p.name}</div>
-                                <div className="font-mono text-xs text-[#64748B]">{p.slug}</div>
+                              <div className="min-w-0 flex-1">
+                                <div className="break-words text-xs xl:text-sm font-medium leading-tight text-[#171A26]">{p.name}</div>
+                                <div className="truncate font-mono text-[11px] xl:text-xs text-[#64748B]">{p.slug}</div>
                               </div>
                             </div>
                           </td>
-                          <td className="text-[#64748B]">{p.email}</td>
-                          <td className="text-[#64748B]">{p.phone}</td>
-                          <td className="capitalize text-[#64748B]">
-                            {(p.payment_method || "—").replace("_", " ")}
+                          <td>
+                            <div className="truncate text-xs text-[#64748B]" title={p.email}>
+                              {p.email}
+                            </div>
+                          </td>
+                          <td>
+                            <div className="truncate text-xs text-[#64748B]" title={p.phone}>
+                              {p.phone}
+                            </div>
+                          </td>
+                          <td className="text-xs leading-tight capitalize text-[#64748B]">
+                            <span className="block break-words">{(p.payment_method || "—").replace("_", " ")}</span>
                             {p.payment_status ? (
-                              <span className="mt-0.5 block text-xs text-[#9593A8]">
+                              <span className="mt-0.5 block truncate text-[11px] text-[#9593A8]">
                                 {p.payment_status}
                               </span>
                             ) : null}
                           </td>
                           <td>
-                            <AdminStatusPill status={partnerStatusTone(p)} className="capitalize">
+                            <AdminStatusPill
+                              status={partnerStatusTone(p)}
+                              className="capitalize whitespace-nowrap"
+                            >
                               {p.status || "—"}
                             </AdminStatusPill>
                           </td>
-                          <td className="whitespace-nowrap text-xs text-[#64748B]">
+                          <td className="text-[11px] xl:text-xs leading-tight text-[#64748B]">
                             {formatPartnerValidityRange(p)}
                           </td>
                           <td>
@@ -354,10 +366,10 @@ export default function PartnerProfilesPage() {
                                 href={loginPath}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex max-w-[200px] items-center gap-1 truncate font-mono text-xs text-[#2563EB] hover:underline"
+                                className="inline-flex max-w-full items-center gap-1 font-mono text-[11px] xl:text-xs text-[#2563EB] hover:underline"
                                 title={loginPath}
                               >
-                                {loginPath}
+                                <span className="truncate">{loginPath}</span>
                                 <ExternalLink className="h-3 w-3 shrink-0" />
                               </a>
                             ) : (
@@ -365,13 +377,16 @@ export default function PartnerProfilesPage() {
                             )}
                           </td>
                           <td>
-                            <div className="flex flex-wrap items-center justify-end gap-2">
+                            <div className="flex flex-nowrap items-center justify-end gap-1 xl:gap-1.5">
                               {(p.status === "invited" || p.invite_email_sent === false) &&
                               enabled ? (
                                 <Button
                                   type="button"
                                   variant="outline"
                                   size="sm"
+                                  className="h-6 w-6 gap-0 p-0 xl:h-8 xl:w-8 2xl:w-auto 2xl:gap-1.5 2xl:px-2.5 text-xs"
+                                  title="Resend Invite"
+                                  aria-label="Resend Invite"
                                   disabled={resendingId === p.id}
                                   onClick={() => void resendInvite(p)}
                                 >
@@ -380,7 +395,7 @@ export default function PartnerProfilesPage() {
                                   ) : (
                                     <Mail className="h-3.5 w-3.5" />
                                   )}
-                                  Resend Invite
+                                  <span className="hidden 2xl:inline">Resend Invite</span>
                                 </Button>
                               ) : null}
                               {loginPath ? (
@@ -388,20 +403,23 @@ export default function PartnerProfilesPage() {
                                   type="button"
                                   variant="ghost"
                                   size="icon"
-                                  className="h-9 w-9"
+                                  className="h-6 w-6 xl:h-8 xl:w-8"
                                   title="Open login URL"
                                   onClick={() => window.open(loginPath, "_blank", "noopener,noreferrer")}
                                 >
-                                  <Link2 className="h-4 w-4" />
+                                  <Link2 className="h-3.5 w-3.5 xl:h-4 xl:w-4" />
                                 </Button>
                               ) : null}
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-medium text-[#64748B]">
+                              <div className="flex items-center gap-1.5">
+                                <span className="hidden 2xl:inline text-xs font-medium text-[#64748B]">
                                   {enabled ? "Enable" : "Disable"}
                                 </span>
                                 <Switch
                                   checked={enabled}
                                   disabled={togglingId === p.id}
+                                  title={enabled ? "Disable partner" : "Enable partner"}
+                                  aria-label={enabled ? "Disable partner" : "Enable partner"}
+                                  className="shrink-0 origin-right scale-[0.82] -ml-1 xl:ml-0 xl:scale-90 2xl:scale-100"
                                   onCheckedChange={(checked) => void toggleActive(p, checked)}
                                 />
                               </div>
@@ -410,7 +428,7 @@ export default function PartnerProfilesPage() {
                         </tr>
                         {isOpen ? (
                           <tr className="bg-[#FFFCF5]">
-                            <td colSpan={9} className="!p-4">
+                            <td colSpan={9} className="admin-expanded-cell">
                               <PartnerProfileAdminControls
                                 partner={p}
                                 open={isOpen}

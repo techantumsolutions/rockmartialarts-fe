@@ -394,6 +394,107 @@ body:has([data-admin-shell]) {
   box-shadow: var(--admin-shadow-card);
 }
 
+/* Opt-in compact full-fit table layout for small laptop screens (no inner H/V scrollbars) */
+[data-admin-shell] .admin-table-wrap.admin-table-fit-wrap {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+[data-admin-shell] .admin-table-wrap.admin-table-fit-wrap > div:first-child {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (min-width: 1024px) {
+  [data-admin-shell] .admin-table-wrap.admin-table-fit-wrap {
+    overflow: clip;
+  }
+
+  [data-admin-shell] .admin-table-wrap.admin-table-fit-wrap > div:first-child {
+    overflow-x: clip;
+    overflow-y: visible;
+  }
+}
+
+[data-admin-shell] table.admin-table-fit thead th {
+  padding: 0.55rem 0.35rem !important;
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  white-space: normal;
+}
+
+[data-admin-shell] table.admin-table-fit thead th:first-child,
+[data-admin-shell] table.admin-table-fit tbody td:first-child {
+  padding-left: 0.5rem !important;
+}
+
+[data-admin-shell] table.admin-table-fit thead th:last-child,
+[data-admin-shell] table.admin-table-fit tbody td:last-child {
+  padding-right: 0.5rem !important;
+}
+
+[data-admin-shell] table.admin-table-fit tbody td {
+  padding: 0.5rem 0.35rem !important;
+  vertical-align: middle;
+}
+
+[data-admin-shell] table.admin-table-fit tbody td.admin-expanded-cell {
+  padding: 1rem !important;
+}
+
+@media (min-width: 1280px) {
+  [data-admin-shell] table.admin-table-fit thead th {
+    padding: 0.65rem 0.5rem !important;
+    font-size: 0.72rem;
+  }
+
+  [data-admin-shell] table.admin-table-fit thead th:first-child,
+  [data-admin-shell] table.admin-table-fit tbody td:first-child {
+    padding-left: 0.75rem !important;
+  }
+
+  [data-admin-shell] table.admin-table-fit thead th:last-child,
+  [data-admin-shell] table.admin-table-fit tbody td:last-child {
+    padding-right: 0.75rem !important;
+  }
+
+  [data-admin-shell] table.admin-table-fit tbody td {
+    padding: 0.55rem 0.5rem !important;
+  }
+}
+
+[data-admin-shell] table.admin-table-fit .admin-status-active,
+[data-admin-shell] table.admin-table-fit .admin-status-approved,
+[data-admin-shell] table.admin-table-fit .admin-status-paid,
+[data-admin-shell] table.admin-table-fit .admin-status-pending,
+[data-admin-shell] table.admin-table-fit .admin-status-draft,
+[data-admin-shell] table.admin-table-fit .admin-status-inactive,
+[data-admin-shell] table.admin-table-fit .admin-status-rejected,
+[data-admin-shell] table.admin-table-fit .admin-status-cancelled {
+  padding: 0.15rem 0.45rem;
+  font-size: 0.6875rem;
+  white-space: nowrap;
+}
+
+@media (min-width: 1280px) {
+  [data-admin-shell] table.admin-table-fit .admin-status-active,
+  [data-admin-shell] table.admin-table-fit .admin-status-approved,
+  [data-admin-shell] table.admin-table-fit .admin-status-paid,
+  [data-admin-shell] table.admin-table-fit .admin-status-pending,
+  [data-admin-shell] table.admin-table-fit .admin-status-draft,
+  [data-admin-shell] table.admin-table-fit .admin-status-inactive,
+  [data-admin-shell] table.admin-table-fit .admin-status-rejected,
+  [data-admin-shell] table.admin-table-fit .admin-status-cancelled {
+    padding: 0.2rem 0.625rem;
+    font-size: 0.75rem;
+  }
+}
+
 /* ─── Buttons ─── */
 [data-admin-shell] button,
 [data-admin-shell] a[role="button"],
