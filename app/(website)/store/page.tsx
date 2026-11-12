@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
+import { storeAPI } from "@/lib/storeAPI"
 
 const categories = [
   { id: "all", label: "All" },
@@ -34,10 +35,42 @@ const products = [
 
 export default function StorePage() {
   const [filter, setFilter] = useState("all")
+  const [currentCategories, setCurrentCategories] = useState(categories)
+  const [currentProducts, setCurrentProducts] = useState(products)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const pillRefs = useRef<(HTMLButtonElement | null)[]>([])
 
-  const currentIndex = categories.findIndex((c) => c.id === filter)
+  useEffect(() => {
+    async function loadDynamicItems() {
+      try {
+        const [cats, prods] = await Promise.all([
+          storeAPI.getCategories(true),
+          storeAPI.getProducts({ is_active: true }),
+        ])
+        if (cats && cats.length > 0) {
+          setCurrentCategories([
+            { id: "all", label: "All" },
+            ...cats.map((c) => ({ id: c.slug || c.id, label: c.name })),
+          ])
+        }
+        if (prods && prods.length > 0) {
+          setCurrentProducts(
+            prods.map((p) => ({
+              name: p.title,
+              price: `₹ ${p.final_price?.toLocaleString("en-IN") || p.price}`,
+              category: p.category_slug || p.category_id,
+              img: p.image_url || "/assets/img/store/img1.png",
+            }))
+          )
+        }
+      } catch {
+        /* fallback to static initial items */
+      }
+    }
+    loadDynamicItems()
+  }, [])
+
+  const currentIndex = currentCategories.findIndex((c) => c.id === filter)
 
   const centerPill = useCallback((idx: number, smooth = true) => {
     // Feature only active for mobile and tablet screens (< lg / 1024px)
@@ -57,7 +90,7 @@ export default function StorePage() {
     }
 
     // Most right category: align to the end (right)
-    if (idx === categories.length - 1) {
+    if (idx === currentCategories.length - 1) {
       container.scrollTo({
         left: container.scrollWidth,
         behavior: smooth ? "smooth" : "auto",
@@ -78,18 +111,18 @@ export default function StorePage() {
         behavior: smooth ? "smooth" : "auto",
       })
     }
-  }, [])
+  }, [currentCategories.length])
 
   const handleSelect = (id: string, smooth = true) => {
     setFilter(id)
-    const idx = categories.findIndex((c) => c.id === id)
+    const idx = currentCategories.findIndex((c) => c.id === id)
     if (idx !== -1) {
       centerPill(idx, smooth)
     }
   }
 
   useEffect(() => {
-    const idx = categories.findIndex((c) => c.id === filter)
+    const idx = currentCategories.findIndex((c) => c.id === filter)
     if (idx !== -1) {
       centerPill(idx, false)
       const timer = setTimeout(() => {
@@ -97,34 +130,34 @@ export default function StorePage() {
       }, 50)
       return () => clearTimeout(timer)
     }
-  }, [filter, centerPill])
+  }, [filter, centerPill, currentCategories])
 
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 1024) return
-      const idx = categories.findIndex((c) => c.id === filter)
+      const idx = currentCategories.findIndex((c) => c.id === filter)
       if (idx !== -1) centerPill(idx, false)
     }
     window.addEventListener("resize", handleResize)
     return () => window.removeEventListener("resize", handleResize)
-  }, [filter, centerPill])
+  }, [filter, centerPill, currentCategories])
 
   const goToPrev = () => {
     if (currentIndex > 0) {
-      handleSelect(categories[currentIndex - 1].id, true)
+      handleSelect(currentCategories[currentIndex - 1].id, true)
     }
   }
 
   const goToNext = () => {
-    if (currentIndex < categories.length - 1) {
-      handleSelect(categories[currentIndex + 1].id, true)
+    if (currentIndex < currentCategories.length - 1) {
+      handleSelect(currentCategories[currentIndex + 1].id, true)
     }
   }
 
   const filteredProducts =
     filter === "all"
-      ? products
-      : products.filter((p) => p.category === filter)
+      ? currentProducts
+      : currentProducts.filter((p) => p.category === filter)
 
   return (
     <main className="min-h-screen">
@@ -152,7 +185,7 @@ export default function StorePage() {
         <div className="site-content px-0 sm:px-1">
           {/* Desktop View (lg and xl screens): Standard flex-wrap pills without arrows or scrolling */}
           <div className="hidden lg:flex flex-wrap gap-3 mb-10">
-            {categories.map((cat) => (
+            {currentCategories.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => setFilter(cat.id)}
@@ -186,7 +219,7 @@ export default function StorePage() {
                 ref={scrollContainerRef}
                 className="flex-1 flex items-center gap-2.5 overflow-x-auto py-2 scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
               >
-                {categories.map((cat, idx) => {
+                {currentCategories.map((cat, idx) => {
                   const isSelected = filter === cat.id
                   return (
                     <button

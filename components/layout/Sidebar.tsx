@@ -9,6 +9,7 @@ import {
   getBasePath,
   getMenuForRole,
   isPartnerBranchManagerNav,
+  isPartnerStudentNav,
   remapNavBase,
   type DashboardRole,
   type NavChild,
@@ -124,6 +125,7 @@ export default function Sidebar({
   const urlBasePath = useDashboardBasePath()
   const { cms } = useCMS()
   const [partnerBranchManager, setPartnerBranchManager] = useState(false)
+  const [partnerStudent, setPartnerStudent] = useState(false)
   const [openKeys, setOpenKeys] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState("")
   const [internalCollapsed, setInternalCollapsed] = useState(false)
@@ -144,6 +146,7 @@ export default function Sidebar({
 
   useEffect(() => {
     setPartnerBranchManager(role === "branch_admin" && isPartnerBranchManagerNav())
+    setPartnerStudent(role === "student" && isPartnerStudentNav())
   }, [role])
 
   useEffect(() => {
@@ -156,8 +159,8 @@ export default function Sidebar({
   }, [collapsedProp])
 
   const menuOptions = useMemo(
-    () => ({ partnerBranchManager }),
-    [partnerBranchManager]
+    () => ({ partnerBranchManager, partnerStudent }),
+    [partnerBranchManager, partnerStudent]
   )
 
   // hasPermission is a new function identity every render — do not put it in deps
