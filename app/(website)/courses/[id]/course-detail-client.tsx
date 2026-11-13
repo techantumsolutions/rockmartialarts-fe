@@ -104,7 +104,7 @@ function SectionLabel({ sub, title }: { sub?: string; title?: string }) {
     <div className="text-center mb-10">
       <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
       {sub?.trim() ? (
-        <p className="text-[#F73322] uppercase tracking-[0.25em] text-sm font-semibold mb-2">{sub}</p>
+        <p className="text-[#FFB70F] uppercase tracking-[0.25em] text-sm font-semibold mb-2">{sub}</p>
       ) : null}
       {title?.trim() ? (
         <h2 className="text-3xl md:text-4xl font-extrabold text-white uppercase" style={{ fontFamily: "'Oswald', sans-serif" }}>{title}</h2>
@@ -163,7 +163,7 @@ function LearningVideoPlayer({
               className="absolute inset-0 w-full h-full object-cover"
             />
             <span className="absolute inset-0 flex items-center justify-center bg-black/35 group-hover:bg-black/45 transition-colors">
-              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#F73322] text-white shadow-lg">
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#FFB70F] text-[#171A26] shadow-[0_10px_28px_rgba(255,183,15,0.35)]">
                 <Play className="h-6 w-6 ml-0.5" fill="currentColor" />
               </span>
             </span>
@@ -540,7 +540,7 @@ function CourseDetailPageInner() {
   if (error || !course) return (
     <main className="min-h-screen flex items-center justify-center px-4">
       <div className="text-center text-white"><p className="text-red-300 mb-6 text-lg">{error || "Course not found."}</p>
-        <Link href="/courses" onClick={handleBackNavigation} className="inline-flex items-center gap-2 rounded-lg bg-[#FFB70F] px-6 py-3 text-black font-semibold hover:bg-[#F73322] hover:text-white transition-colors"><ArrowLeft className="w-4 h-4" /> Back to Courses</Link>
+        <Link href="/courses" onClick={handleBackNavigation} className="inline-flex items-center gap-2 rounded-lg bg-[#FFB70F] px-6 py-3 text-[#171A26] font-semibold hover:brightness-110 hover:shadow-[0_10px_28px_rgba(255,183,15,0.35)] transition-all"><ArrowLeft className="w-4 h-4" /> Back to Courses</Link>
       </div>
     </main>
   )
@@ -692,7 +692,7 @@ function CourseDetailPageInner() {
             {hero.subtitle && <p className="text-lg md:text-xl text-gray-200 max-w-2xl mb-3">{hero.subtitle}</p>}
             {hero.description && <p className="text-gray-300 max-w-2xl mb-6">{hero.description}</p>}
             {hero.cta_text && (
-              <Link href={courseRegistrationHref(hero.cta_link)} className="inline-block rounded-lg bg-[#F73322] px-8 py-3.5 text-base font-bold text-white hover:bg-[#FFB70F] hover:text-black transition-colors">
+              <Link href={courseRegistrationHref(hero.cta_link)} className="inline-block rounded-lg bg-[#FFB70F] px-8 py-3.5 text-base font-bold text-[#171A26] hover:brightness-110 hover:shadow-[0_10px_28px_rgba(255,183,15,0.35)] transition-all">
                 {hero.cta_text}
               </Link>
             )}
@@ -703,7 +703,7 @@ function CourseDetailPageInner() {
       {/* ============ 2. INFO BAR (location / duration / price / timings) ============ */}
       {enabled("info_bar") && (info.location || durations.length > 0 || info.price || info.training_time) && (
         <section
-          className={`bg-[#F73322] transition-opacity duration-300 ${
+          className={`bg-[#222635] border-y border-[#383D4D] transition-opacity duration-300 ${
             branchPricingLoading && branches.length > 0 ? "opacity-[0.88]" : "opacity-100"
           }`}
         >
@@ -886,7 +886,7 @@ function CourseDetailPageInner() {
                                   }}
                                   className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-between gap-3 cursor-pointer ${
                                     isSelected
-                                      ? "bg-[#F73322] text-white font-semibold shadow-sm"
+                                      ? "bg-[#FFB70F] text-[#171A26] font-semibold shadow-sm"
                                       : "bg-white/5 hover:bg-white/10 text-gray-200"
                                   }`}
                                 >
@@ -922,16 +922,16 @@ function CourseDetailPageInner() {
           about.secondary_description ||
           about.image1 ||
           about.image2) && (
-        <section className="py-16 md:py-20 bg-white text-[#171A26]">
+        <section className="py-16 md:py-20 bg-[#171A26] text-white">
           <div className="site-content px-0 sm:px-1">
             <div className="flex flex-col lg:flex-row lg:items-center gap-8">
               {/* LEFT: text content (60%) */}
               <div className="w-full lg:w-[60%]">
-                <p className="text-[#F73322] uppercase tracking-[0.2em] text-sm font-semibold mb-2">About {displayTitle}</p>
-                <h2 className="text-3xl md:text-4xl font-extrabold text-[#171A26] uppercase mb-6" style={{ fontFamily: "'Oswald', sans-serif" }}>
+                <p className="text-[#FFB70F] uppercase tracking-[0.2em] text-sm font-semibold mb-2">About {displayTitle}</p>
+                <h2 className="text-3xl md:text-4xl font-extrabold text-white uppercase mb-6" style={{ fontFamily: "'Oswald', sans-serif" }}>
                   {aboutTitle || "Start Today and Change Your Life"}
                 </h2>
-                <div className="space-y-4 text-gray-700 leading-relaxed">
+                <div className="space-y-4 text-[#D8DCE6] leading-relaxed">
                   {aboutDescription && <p>{aboutDescription}</p>}
                   {about.secondary_description && <p>{about.secondary_description}</p>}
                 </div>
@@ -942,7 +942,7 @@ function CourseDetailPageInner() {
                   <img
                     src={aboutImage}
                     alt="About Course"
-                    className="rounded-xl w-full h-auto object-cover"
+                    className="rounded-xl border border-[#383D4D] w-full h-auto object-cover"
                   />
                 </div>
               )}
@@ -953,15 +953,15 @@ function CourseDetailPageInner() {
 
       {/* ============ CTA (Ready to Start Your Journey?) ============ */}
       {enabled("cta") && (
-        <section className="px-4 py-8 md:bg-[#F73322] md:px-0 md:py-12">
-          <div className="site-content rounded-2xl bg-[#F73322] px-5 py-8 text-center sm:px-8 md:rounded-none md:bg-transparent md:px-4 md:py-0">
+        <section className="px-4 py-8 md:bg-[#222635] md:border-y md:border-[#383D4D] md:px-0 md:py-12">
+          <div className="site-content rounded-2xl bg-[#292E40] border border-[#383D4D] px-5 py-8 text-center sm:px-8 md:rounded-none md:border-0 md:bg-transparent md:px-4 md:py-0">
             <h2 className="text-2xl md:text-3xl font-extrabold text-white uppercase mb-5 md:mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>
               {pc.cta_section?.headline?.trim() || "Ready to Start Your Journey?"}
             </h2>
             <div className="mx-auto grid max-w-xl grid-cols-1 items-center gap-3 md:grid-cols-2 md:gap-4">
               <Link
                 href={courseRegistrationHref(hero.cta_link)}
-                className="inline-flex w-full items-center justify-center rounded-lg bg-[#FFB70F] px-4 py-3.5 text-base font-bold text-black hover:bg-white transition-colors shadow-lg sm:px-10 md:py-4"
+                className="inline-flex w-full items-center justify-center rounded-lg bg-[#FFB70F] px-4 py-3.5 text-base font-bold text-[#171A26] hover:brightness-110 hover:shadow-[0_10px_28px_rgba(255,183,15,0.35)] transition-all shadow-lg sm:px-10 md:py-4"
               >
                 {hero.cta_text?.trim() || "Join Now"}
               </Link>
@@ -969,7 +969,7 @@ function CourseDetailPageInner() {
                 <button
                   type="button"
                   onClick={handleAddToCartClick}
-                  className="inline-flex w-full items-center justify-center rounded-lg border-2 border-white px-4 py-3.5 text-base font-bold text-white hover:bg-white hover:text-[#F73322] transition-colors sm:px-8 md:py-4"
+                  className="inline-flex w-full items-center justify-center rounded-lg border-2 border-[#383D4D] bg-[#292E40] px-4 py-3.5 text-base font-bold text-white hover:border-[#FFB70F] hover:text-[#FFB70F] transition-colors sm:px-8 md:py-4"
                 >
                   Add to cart
                 </button>
@@ -984,7 +984,7 @@ function CourseDetailPageInner() {
 
       {/* ============ 3a. COURSE INFO SECTIONS (60-40 / 40-60 alternating) ============ */}
       {enabled("course_info_sections") && courseInfoSections.length > 0 && (
-        <section className="py-16 md:py-20 bg-white text-[#171A26]">
+        <section className="py-16 md:py-20 bg-[#171A26] text-white">
           <div className="site-content px-0 sm:px-1 space-y-16">
             {courseInfoSections.map((sec, idx) => {
               const textLeft = sec.layout !== "image_left"
@@ -999,9 +999,9 @@ function CourseDetailPageInner() {
                   }
                 >
                   <div className={hasImage ? (textLeft ? "sm:col-span-3" : "sm:col-span-3 sm:order-2") : ""}>
-                    {sec.title && <h2 className="text-2xl md:text-3xl font-extrabold text-[#171A26] uppercase mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>{sec.title}</h2>}
+                    {sec.title && <h2 className="text-2xl md:text-3xl font-extrabold text-white uppercase mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>{sec.title}</h2>}
                     {sec.content && (
-                      <div className="text-gray-700 leading-relaxed space-y-3 mb-4">
+                      <div className="text-[#D8DCE6] leading-relaxed space-y-3 mb-4">
                         {sec.content
                           .split(/\r?\n\s*\r?\n+/)
                           .map((paragraph) => paragraph.trim())
@@ -1018,7 +1018,7 @@ function CourseDetailPageInner() {
                         {sec.bullet_points.filter(Boolean).map((bp, i) => (
                           <li key={i} className="flex items-start gap-2">
                             <span className="text-[#FFB70F] font-bold shrink-0">&gt;&gt;</span>
-                            <span className="text-gray-700">{bp}</span>
+                            <span className="text-[#D8DCE6]">{bp}</span>
                           </li>
                         ))}
                       </ul>
@@ -1181,7 +1181,7 @@ function CourseDetailPageInner() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
               {instructors.map((inst, i) => (
                 <div key={i} className="text-center group">
-                  <div className="relative w-48 h-48 mx-auto mb-4 rounded-full overflow-hidden border-4 border-[#F73322] group-hover:border-[#FFB70F] transition-colors bg-gray-800">
+                  <div className="relative w-48 h-48 mx-auto mb-4 rounded-full overflow-hidden border-4 border-[#383D4D] group-hover:border-[#FFB70F] transition-colors bg-[#222635]">
                     <SafeImage
                       src={inst.photo}
                       alt={inst.name}
@@ -1189,7 +1189,7 @@ function CourseDetailPageInner() {
                       fallbackSrc={DEFAULT_IMAGE_PLACEHOLDER}
                     />
                   </div>
-                  <h3 className="text-lg font-bold text-[#F73322] uppercase" style={{ fontFamily: "'Oswald', sans-serif" }}>{inst.name}</h3>
+                  <h3 className="text-lg font-bold text-[#FFB70F] uppercase" style={{ fontFamily: "'Oswald', sans-serif" }}>{inst.name}</h3>
                   <p className="text-gray-400 text-sm">{inst.designation}</p>
                   {inst.bio ? <p className="text-gray-500 text-xs mt-2 px-2">{inst.bio}</p> : null}
                 </div>

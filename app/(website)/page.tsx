@@ -1,3 +1,5 @@
+import { branchNameToSlug } from "@/lib/branch-slug"
+import { toCategoryHref } from "@/lib/category-slug"
 import { toCourseSlug } from "@/lib/course-slug"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import { getBackendProxyBaseUrl } from "@/lib/serverBackendUrl"
@@ -62,6 +64,92 @@ async function getCourses(): Promise<{ courses: any[]; fromApi: boolean }> {
 
 function getCourseImage(c: any): string | null {
   return c?.media_resources?.course_image_url || (c?.page_content?.hero_section?.hero_image) || null
+}
+
+function looksLikeImageUrl(value?: string | null): boolean {
+  const s = (value || "").trim()
+  if (!s) return false
+  return /^(https?:\/\/|\/|uploads\/)/i.test(s) || /\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(s)
+}
+
+async function getMainCategories(): Promise<{ categories: any[]; fromApi: boolean }> {
+  const qs = "active_only=true&include_subcategories=true&limit=100"
+  try {
+    const backendUrl = getBackendProxyBaseUrl()
+    const res = await fetch(`${backendUrl.replace(/\/$/, "")}/api/categories/public/all?${qs}`, {
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+    })
+    if (res.ok) {
+      const data = await res.json()
+      const list = data.categories ?? data ?? []
+      return { categories: Array.isArray(list) ? list : [], fromApi: true }
+    }
+
+    const siteOrigin =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "")
+    if (siteOrigin) {
+      const proxyRes = await fetch(`${siteOrigin.replace(/\/$/, "")}/api/backend/categories/public/all?${qs}`, {
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+      })
+      if (proxyRes.ok) {
+        const data = await proxyRes.json()
+        const list = data.categories ?? data ?? []
+        return { categories: Array.isArray(list) ? list : [], fromApi: true }
+      }
+    }
+    return { categories: [], fromApi: true }
+  } catch {
+    return { categories: [], fromApi: false }
+  }
+}
+
+async function fetchPublicEndpointJson(apiPath: string): Promise<{ ok: boolean; data: any }> {
+  const cleanPath = apiPath.replace(/^\/+/, "")
+  try {
+    const backendUrl = getBackendProxyBaseUrl()
+    const res = await fetch(`${backendUrl.replace(/\/$/, "")}/api/${cleanPath}`, {
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+    })
+    if (res.ok) {
+      return { ok: true, data: await res.json() }
+    }
+
+    const siteOrigin =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "")
+    if (siteOrigin) {
+      const proxyRes = await fetch(`${siteOrigin.replace(/\/$/, "")}/api/backend/${cleanPath}`, {
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+      })
+      if (proxyRes.ok) {
+        return { ok: true, data: await proxyRes.json() }
+      }
+    }
+    return { ok: true, data: null }
+  } catch {
+    return { ok: false, data: null }
+  }
+}
+
+async function getHomepageBranches(): Promise<any[]> {
+  const { data } = await fetchPublicEndpointJson("branches/public/search?active_only=true&limit=100")
+  const list = data?.branches ?? []
+  return Array.isArray(list) ? list : []
+}
+
+async function getHomepagePartnerBranches(): Promise<{ collabPartners: any[]; partnerOrgs: any[] }> {
+  const [collabRes, orgRes] = await Promise.all([
+    fetchPublicEndpointJson("collaboration-partners/public/partners?limit=100"),
+    fetchPublicEndpointJson("partner-organizations/public/directory?limit=100"),
+  ])
+  const collabPartners = Array.isArray(collabRes.data?.partners) ? collabRes.data.partners : []
+  const partnerOrgs = Array.isArray(orgRes.data?.partners) ? orgRes.data.partners : []
+  return { collabPartners, partnerOrgs }
 }
 
 const coachImageFallback = "/assets/img/courses/kung-fu-trainer.png"
@@ -255,21 +343,34 @@ async function getHomepageCoaches(): Promise<
 /* ---------- component ---------- */
 
 export default async function HomePage() {
-  const [coursesResult, cms, trainers, showcaseTestimonials, showcaseAchievements, homepageAbout] =
-    await Promise.all([
-      getCourses(),
-      getCMSContent(),
-      getHomepageCoaches(),
-      getShowcaseTestimonialsFromApi(),
-      getShowcaseAchievementsFromApi(),
-      getHomepageAboutFromApi(),
-    ])
+  const [
+    coursesResult,
+    categoriesResult,
+    apiBranches,
+    partnerData,
+    cms,
+    trainers,
+    showcaseTestimonials,
+    showcaseAchievements,
+    homepageAbout,
+  ] = await Promise.all([
+    getCourses(),
+    getMainCategories(),
+    getHomepageBranches(),
+    getHomepagePartnerBranches(),
+    getCMSContent(),
+    getHomepageCoaches(),
+    getShowcaseTestimonialsFromApi(),
+    getShowcaseAchievementsFromApi(),
+    getHomepageAboutFromApi(),
+  ])
   const { courses: apiCourses, fromApi } = coursesResult
+  const { categories: apiCategories, fromApi: categoriesFromApi } = categoriesResult
 
   const homepage = cms?.homepage || {}
   const footer = cms?.footer || {}
 
-  /* All active super-admin courses — newest last so existing cards keep their place */
+  /* All active super-admin courses — used to pick representative thumbnails for each main category */
   const activeCourses = [...apiCourses]
     .filter((c: any) => c.settings?.active !== false && c.enabled !== false)
     .sort((a: any, b: any) => {
@@ -277,17 +378,165 @@ export default async function HomePage() {
       const tb = new Date(b.created_at || 0).getTime()
       return ta - tb
     })
+
+  /* Main categories shown in the home page Training Program carousel; clicking navigates to all related courses */
   const classCards =
-    activeCourses.length > 0
-      ? activeCourses.map((c: any) => ({
-          id: c.id,
-          name: c.title || c.name || c.code || "Course",
-          img: getCourseImage(c) || "/assets/img/courses/choose_img1.png",
-          href: `/courses/${toCourseSlug(c)}`,
-        }))
-      : fromApi
+    apiCategories.length > 0
+      ? apiCategories.map((cat: any) => {
+          const allowedIds = new Set<string>(
+            [
+              cat.id,
+              ...(Array.isArray(cat.subcategories) ? cat.subcategories.map((sub: any) => sub?.id) : []),
+            ]
+              .filter(Boolean)
+              .map((v: any) => String(v))
+          )
+          const rawCategoryImg = looksLikeImageUrl(cat.image_url)
+            ? cat.image_url
+            : looksLikeImageUrl(cat.icon_url)
+              ? cat.icon_url
+              : null
+          const matchingCourse = activeCourses.find(
+            (c: any) =>
+              ((c.category_id && allowedIds.has(String(c.category_id))) ||
+                (c.sub_category && allowedIds.has(String(c.sub_category)))) &&
+              Boolean(getCourseImage(c))
+          )
+          const courseImg = matchingCourse ? getCourseImage(matchingCourse) : null
+          const resolvedImg =
+            (rawCategoryImg && (resolvePublicAssetUrl(rawCategoryImg) || rawCategoryImg)) ||
+            (courseImg && (resolvePublicAssetUrl(courseImg) || courseImg)) ||
+            "/assets/img/courses/choose_img1.png"
+          const derivedSlug = String(cat.name || "")
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, "-")
+            .replace(/_/g, "-")
+            .replace(/[^a-z0-9-]/g, "")
+          return {
+            id: cat.id,
+            name: cat.name || cat.code || "Category",
+            img: resolvedImg,
+            href: toCategoryHref({
+              id: cat.id,
+              name: cat.name,
+              slug: cat.slug || derivedSlug || cat.id,
+            }),
+          }
+        })
+      : fromApi || categoriesFromApi
         ? [{ id: "explore", name: "Explore our courses", img: "/assets/img/courses/choose_img1.png", href: "/courses" }]
         : []
+
+  const branchCards = apiBranches
+    .filter((b: any) => b && b.is_active !== false)
+    .map((b: any) => {
+      const name = String(b.branch?.name || b.name || b.code || "Branch")
+      const addr = b.branch?.address || b.address || {}
+      const location = [addr.city, addr.state].filter(Boolean).join(", ")
+      const address = [addr.line1, addr.area, addr.city, addr.state, addr.pincode].filter(Boolean).join(", ")
+      const phone = String(b.branch?.phone || b.phone || "").trim()
+      const slug = String(b.slug || branchNameToSlug(name)).trim()
+      return {
+        id: String(b.id || slug || name),
+        name,
+        location,
+        address,
+        phone: phone || undefined,
+        href: `/branches/${encodeURIComponent(slug || String(b.id || ""))}`,
+      }
+    })
+
+  const partnerSeen = new Set<string>()
+  const partnerBranchCards: {
+    id: string
+    name: string
+    location?: string
+    description?: string
+    img?: string
+    href: string
+  }[] = []
+
+  const addPartnerCard = (item: {
+    key: string
+    id: string
+    name: string
+    location?: string
+    description?: string
+    img?: string
+    href: string
+  }) => {
+    const norm = item.key.trim().toLowerCase()
+    if (!norm || partnerSeen.has(norm)) return
+    partnerSeen.add(norm)
+    partnerBranchCards.push({
+      id: item.id,
+      name: item.name,
+      location: item.location || undefined,
+      description: item.description || undefined,
+      img: item.img || undefined,
+      href: item.href,
+    })
+  }
+
+  for (const p of partnerData.collabPartners) {
+    const name = String(p?.name || p?.code || "Partner Branch").trim()
+    const slug = String(p?.slug || branchNameToSlug(name)).trim()
+    const coverRaw = p?.cover_banner_url || p?.logo_url || ""
+    const img = coverRaw ? resolvePublicAssetUrl(coverRaw) || String(coverRaw) : ""
+    const location = [p?.city, p?.state].filter(Boolean).join(", ")
+    addPartnerCard({
+      key: slug || p?.branch_id || name,
+      id: String(p?.branch_id || slug || name),
+      name,
+      location,
+      description: p?.short_description ? String(p.short_description) : undefined,
+      img: img || undefined,
+      href: p?.partner_url || `/partners/${encodeURIComponent(slug || String(p?.branch_id || ""))}`,
+    })
+  }
+
+  for (const org of partnerData.partnerOrgs) {
+    const name = String(org?.name || "Partner").trim()
+    const slug = String(org?.slug || branchNameToSlug(name)).trim()
+    const coverRaw = org?.cover_banner_url || org?.logo_url || ""
+    const img = coverRaw ? resolvePublicAssetUrl(coverRaw) || String(coverRaw) : ""
+    addPartnerCard({
+      key: slug || org?.partner_org_id || name,
+      id: String(org?.partner_org_id || slug || name),
+      name,
+      location: org?.address ? String(org.address) : undefined,
+      description: org?.tagline || org?.short_description ? String(org.tagline || org.short_description) : undefined,
+      img: img || undefined,
+      href: org?.landing_path || `/partner-orgs/${encodeURIComponent(slug || String(org?.partner_org_id || ""))}`,
+    })
+  }
+
+  if (partnerBranchCards.length === 0) {
+    for (const b of apiBranches) {
+      if (!b || b.is_active === false) continue
+      const isPartner = Boolean(b.partner_org_id || b.allows_collaboration || b.is_collaboration_partner)
+      if (!isPartner) continue
+      const name = String(b.branch?.name || b.name || b.code || "Partner Branch")
+      const addr = b.branch?.address || b.address || {}
+      const location = [addr.city, addr.state].filter(Boolean).join(", ")
+      const address = [addr.line1, addr.area, addr.city, addr.state, addr.pincode].filter(Boolean).join(", ")
+      const slug = String(b.slug || branchNameToSlug(name)).trim()
+      addPartnerCard({
+        key: slug || b.id || name,
+        id: String(b.id || slug || name),
+        name,
+        location: location || undefined,
+        description: address || undefined,
+        href:
+          b.allows_collaboration || b.is_collaboration_partner
+            ? `/partners/${encodeURIComponent(slug || String(b.id || ""))}`
+            : `/branches/${encodeURIComponent(slug || String(b.id || ""))}`,
+      })
+    }
+  }
+
+  const partnerDirectoryHref = partnerData.partnerOrgs.length > 0 ? "/partner-orgs" : "/partners"
 
   /* Hero content from CMS — no hardcoded title/CTA fallbacks; show only when set in admin */
   const heroTitle = (homepage.hero_title || "").trim()
@@ -357,6 +606,9 @@ export default async function HomePage() {
       testimonialsSubtitle={testimonialsSubtitle}
       testimonialsEnabled={testimonialsEnabled}
       classCards={classCards}
+      branches={branchCards}
+      partnerBranches={partnerBranchCards}
+      partnerDirectoryHref={partnerDirectoryHref}
       physicalBenefits={
         Array.isArray(homepage.physical_benefits)
           ? homepage.physical_benefits.filter((x: any) => String(x || "").trim())

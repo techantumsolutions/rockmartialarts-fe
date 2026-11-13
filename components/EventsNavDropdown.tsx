@@ -64,8 +64,8 @@ export function EventsNavDropdown({ variant = "desktop", onNavigate }: EventsNav
           role="menu"
           className={
             isMobile
-              ? "mt-2 w-full rounded-lg border border-gray-700 bg-[#171A26] py-2 shadow-xl z-50"
-              : "absolute left-0 top-full min-w-[220px] rounded-lg border border-gray-700 bg-[#171A26] py-2 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200"
+              ? "mt-2 w-full rounded-lg border border-[#383D4D] bg-[#292E40] py-2 shadow-xl z-50"
+              : "absolute left-0 top-full min-w-[220px] rounded-lg border border-[#383D4D] bg-[#292E40] py-2 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200"
           }
         >
           <ul>

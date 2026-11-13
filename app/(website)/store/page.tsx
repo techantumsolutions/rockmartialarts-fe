@@ -172,7 +172,7 @@ export default function StorePage() {
         <div className="site-content relative z-10 px-0 sm:px-1">
           <div className="max-w-xl">
             <h1 className="text-4xl md:text-5xl font-bold text-white uppercase mb-2">Store</h1>
-            <h2 className="text-3xl md:text-4xl font-bold text-[#F73322] mb-4">Gear for the Way.</h2>
+            <h2 className="text-3xl md:text-4xl font-bold text-[#FFB70F] mb-4">Gear for the Way.</h2>
             <p className="text-gray-200 text-lg">
               Quality training gear and equipment hand-picked by Rock Martial Arts
             </p>
