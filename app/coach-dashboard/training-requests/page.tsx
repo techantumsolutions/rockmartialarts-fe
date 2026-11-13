@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import CoachDashboardHeader from "@/components/coach-dashboard-header"
 import { checkCoachAuth } from "@/lib/coachAuth"
 import { Button } from "@/components/ui/button"
@@ -52,6 +53,7 @@ import {
   Check,
   X,
   Sparkles,
+  MessageSquare,
 } from "lucide-react"
 
 type StatusTab = "pending" | "accepted" | "rejected" | "all"
@@ -237,16 +239,27 @@ export default function CoachTrainingRequestsPage() {
               Review and respond to Home, School, College, Corporate, and Residential training sessions assigned to you.
             </p>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={loadRequests}
-            disabled={loading}
-            className="self-start sm:self-auto border-gray-300 hover:bg-gray-100"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <Link href="/coach-dashboard/training-requests/chat">
+              <Button
+                type="button"
+                className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-semibold shadow-xs gap-1.5"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>Live Messages & Chat</span>
+              </Button>
+            </Link>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={loadRequests}
+              disabled={loading}
+              className="border-gray-300 hover:bg-gray-100"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {/* Metric Summary Cards (Clickable, syncs to corresponding tab) */}
@@ -739,16 +752,39 @@ export default function CoachTrainingRequestsPage() {
 
                     {/* Accepted confirmation if accepted */}
                     {isAccepted && (
-                      <div className="text-xs bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-emerald-900 space-y-1">
-                        <div className="flex items-center gap-1.5 font-bold text-emerald-800">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                          You accepted this request on {fmtDate(req.coach_responded_at)}
+                      <div className="space-y-3">
+                        <div className="text-xs bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-emerald-900 space-y-1">
+                          <div className="flex items-center gap-1.5 font-bold text-emerald-800">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            You accepted this request on {fmtDate(req.coach_responded_at)}
+                          </div>
+                          {req.coach_response_note && (
+                            <p className="pl-5 text-gray-700">
+                              <b>Note to admin:</b> {req.coach_response_note}
+                            </p>
+                          )}
                         </div>
-                        {req.coach_response_note && (
-                          <p className="pl-5 text-gray-700">
-                            <b>Note to admin:</b> {req.coach_response_note}
-                          </p>
-                        )}
+
+                        {/* Live Chat with Student */}
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-gray-100">
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <MessageSquare className="w-4 h-4 text-yellow-600" />
+                            <span>Direct line with student client is active.</span>
+                          </div>
+                          <Button
+                            type="button"
+                            onClick={() => router.push(`/coach-dashboard/training-requests/chat?request_id=${req.id}`)}
+                            className="w-full sm:w-auto px-5 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-semibold shadow-sm gap-2"
+                          >
+                            <MessageSquare className="w-4 h-4" />
+                            <span>Chat with Student</span>
+                            {Boolean(req.chat_unread_coach_count) && (
+                              <span className="ml-1 px-1.5 py-0.2 rounded-full bg-red-600 text-white text-[10px] font-bold">
+                                {req.chat_unread_coach_count}
+                              </span>
+                            )}
+                          </Button>
+                        </div>
                       </div>
                     )}
 

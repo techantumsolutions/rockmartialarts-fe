@@ -8,6 +8,7 @@ const DASHBOARD_PREFIXES = [
   "/student-dashboard",
   "/coach-dashboard",
   "/branch-manager-dashboard",
+  "/training-dashboard",
   "/super-admin",
   "/branch-admin",
   "/partner-admin",
@@ -17,7 +18,7 @@ const DASHBOARD_PREFIXES = [
 export function isDashboardPath(pathname: string | null | undefined): boolean {
   if (!pathname) return false
   const p = pathname.split("?")[0] || ""
-  if (p.includes("/dashboard") || p.endsWith("/dashboard")) return true
+  if (p.includes("-dashboard") || p.includes("/dashboard") || p.endsWith("/dashboard")) return true
   if (DASHBOARD_PREFIXES.some((prefix) => p.startsWith(prefix))) return true
   // /partners/:slug/... (partner dashboards and white-label auth), but /partners is public
   if (/^\/partners\/[^/]+/.test(p)) return true

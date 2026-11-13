@@ -270,28 +270,47 @@ export default function HomeTrainingPublicForm() {
 
   if (submittedId) {
     return (
-      <div
-        ref={successRef}
-        className="rounded-xl border border-gray-800 bg-gray-900/50 p-8 md:p-10 text-center max-w-xl mx-auto"
-      >
-        <CheckCircle2 className="w-14 h-14 text-[#FFB70F] mx-auto mb-4" />
-        <h2 className="text-2xl font-bold text-white mb-2">Request submitted</h2>
-        <p className="text-gray-300 mb-6">
-          Thank you. Our team will review your home training request and get back to you soon.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Button
-            type="button"
-            className="bg-[#FFB70F] hover:bg-[#e0a00d] text-black"
-            onClick={() => setSubmittedId(null)}
-          >
-            Submit another
-          </Button>
-          <Button asChild variant="outline" className="border-gray-600 text-white hover:bg-gray-800">
-            <Link href="/">Back to home</Link>
-          </Button>
+      <>
+        <div
+          ref={successRef}
+          className="rounded-xl border border-gray-800 bg-gray-900/50 p-8 md:p-10 text-center max-w-xl mx-auto"
+        >
+          <CheckCircle2 className="w-14 h-14 text-[#FFB70F] mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-white mb-2">Request submitted</h2>
+          <p className="text-gray-300 mb-6">
+            Thank you. Our team will review your home training request and get back to you soon.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button asChild className="bg-[#FFB70F] hover:bg-[#e0a00d] text-black font-semibold">
+              <Link href="/training-login">Go to Training Login</Link>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="border-gray-600 text-white hover:bg-gray-800"
+              onClick={() => {
+                setSubmittedId(null)
+                setCreatedRequest(null)
+              }}
+            >
+              Submit another
+            </Button>
+            <Button asChild variant="outline" className="border-gray-600 text-white hover:bg-gray-800">
+              <Link href="/">Back to home</Link>
+            </Button>
+          </div>
         </div>
-      </div>
+
+        <TrainingRequestSuccessModal
+          isOpen={successModalOpen}
+          onClose={() => setSuccessModalOpen(false)}
+          requestId={createdRequest?.id || submittedId || ""}
+          programName="Home Training"
+          contactEmail={createdRequest?.contact_email || form.contact_email}
+          contactPhone={createdRequest?.contact_phone || form.contact_phone}
+          amountPaid={trainingFee}
+        />
+      </>
     )
   }
 
@@ -331,7 +350,7 @@ export default function HomeTrainingPublicForm() {
               value={form.contact_name}
               onChange={set("contact_name")}
               className={fieldClass}
-              placeholder="Full name"
+              placeholder="e.g. Suresh Reddy"
               required
             />
           </div>
@@ -402,6 +421,7 @@ export default function HomeTrainingPublicForm() {
               value={form.participant_name}
               onChange={set("participant_name")}
               className={fieldClass}
+              placeholder="e.g. Amit Reddy"
               required
             />
           </div>
@@ -447,6 +467,7 @@ export default function HomeTrainingPublicForm() {
               value={form.number_of_participants}
               onChange={set("number_of_participants")}
               className={fieldClass}
+              placeholder="e.g. 1"
             />
           </div>
           <div className="space-y-2 md:col-span-2">
@@ -474,17 +495,17 @@ export default function HomeTrainingPublicForm() {
             <Label className="text-gray-300">
               City <span className="text-[#FFB70F]">*</span>
             </Label>
-            <Input value={form.city} onChange={set("city")} className={fieldClass} required />
+            <Input value={form.city} onChange={set("city")} className={fieldClass} placeholder="e.g. Hyderabad" required />
           </div>
           <div className="space-y-2">
             <Label className="text-gray-300">
               State <span className="text-[#FFB70F]">*</span>
             </Label>
-            <Input value={form.state} onChange={set("state")} className={fieldClass} required />
+            <Input value={form.state} onChange={set("state")} className={fieldClass} placeholder="e.g. Telangana" required />
           </div>
           <div className="space-y-2">
             <Label className="text-gray-300">Pincode</Label>
-            <Input value={form.pincode} onChange={set("pincode")} className={fieldClass} />
+            <Input value={form.pincode} onChange={set("pincode")} className={fieldClass} placeholder="e.g. 500081" />
           </div>
         </div>
       </div>
@@ -546,6 +567,7 @@ export default function HomeTrainingPublicForm() {
               value={form.notes}
               onChange={set("notes")}
               className={`min-h-[60px] ${fieldClass}`}
+              placeholder="Any additional details or special requests..."
             />
           </div>
         </div>

@@ -258,37 +258,53 @@ export default function ResidentialTrainingPublicForm() {
 
   if (submitted) {
     return (
-      <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-8 md:p-10 text-center max-w-xl mx-auto space-y-4">
-        <CheckCircle2 className="w-14 h-14 text-[#FFB70F] mx-auto" />
-        <h2 className="text-2xl font-bold text-white">Request submitted</h2>
-        <p className="text-gray-300">
-          Thank you. Our team will review your residential training request and contact you soon.
-        </p>
-        <div className="text-sm text-gray-400 space-y-1">
-          {submitted.fee_total_inr && submitted.fee_total_inr > 0 ? (
-            <>
-              <p>Amount Paid: <span className="text-[#FFB70F] font-semibold">{formatInr(submitted.fee_total_inr)}</span></p>
-              <p>Payment Status: <span className="text-emerald-400 font-medium">Paid</span></p>
-            </>
-          ) : null}
+      <>
+        <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-8 md:p-10 text-center max-w-xl mx-auto space-y-4">
+          <CheckCircle2 className="w-14 h-14 text-[#FFB70F] mx-auto" />
+          <h2 className="text-2xl font-bold text-white">Request submitted</h2>
+          <p className="text-gray-300">
+            Thank you. Our team will review your residential training request and contact you soon.
+          </p>
+          <div className="text-sm text-gray-400 space-y-1">
+            {submitted.fee_total_inr && submitted.fee_total_inr > 0 ? (
+              <>
+                <p>Amount Paid: <span className="text-[#FFB70F] font-semibold">{formatInr(submitted.fee_total_inr)}</span></p>
+                <p>Payment Status: <span className="text-emerald-400 font-medium">Paid</span></p>
+              </>
+            ) : null}
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
+            <Button asChild className="bg-[#FFB70F] hover:bg-[#e0a00d] text-black font-semibold">
+              <Link href="/training-login">Go to Training Login</Link>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="border-gray-600 text-white hover:bg-gray-800"
+              onClick={() => {
+                setSubmitted(null)
+                setCreatedRequest(null)
+                setError(null)
+              }}
+            >
+              Submit another
+            </Button>
+            <Button asChild variant="outline" className="border-gray-600 text-white hover:bg-gray-800">
+              <Link href="/">Back to home</Link>
+            </Button>
+          </div>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
-          <Button
-            type="button"
-            variant="outline"
-            className="border-gray-600 text-white hover:bg-gray-800"
-            onClick={() => {
-              setSubmitted(null)
-              setError(null)
-            }}
-          >
-            Submit another
-          </Button>
-          <Button asChild variant="outline" className="border-gray-600 text-white hover:bg-gray-800">
-            <Link href="/">Back to home</Link>
-          </Button>
-        </div>
-      </div>
+
+        <TrainingRequestSuccessModal
+          isOpen={successModalOpen}
+          onClose={() => setSuccessModalOpen(false)}
+          requestId={createdRequest?.id || submitted?.id || ""}
+          programName="Residential Training Program"
+          contactEmail={createdRequest?.contact_email || form.contact_email}
+          contactPhone={createdRequest?.contact_phone || form.contact_phone}
+          amountPaid={residentialFee}
+        />
+      </>
     )
   }
 
@@ -324,7 +340,7 @@ export default function ResidentialTrainingPublicForm() {
               value={form.participant_name}
               onChange={set("participant_name")}
               className={fieldClass}
-              placeholder="Full name of participant"
+              placeholder="e.g. Rohan Verma"
               required
             />
           </div>
@@ -400,7 +416,7 @@ export default function ResidentialTrainingPublicForm() {
               value={form.contact_name}
               onChange={set("contact_name")}
               className={fieldClass}
-              placeholder="Parent / Guardian / Self"
+              placeholder="e.g. Anita Verma (Parent / Self)"
               required
             />
           </div>
@@ -421,7 +437,7 @@ export default function ResidentialTrainingPublicForm() {
               value={form.contact_email}
               onChange={set("contact_email")}
               className={fieldClass}
-              placeholder="Contact email address"
+              placeholder="anita@example.com"
             />
           </div>
           <div className="space-y-2 md:col-span-2">
@@ -439,7 +455,7 @@ export default function ResidentialTrainingPublicForm() {
               value={form.emergency_contact_name}
               onChange={set("emergency_contact_name")}
               className={fieldClass}
-              placeholder="Emergency contact person"
+              placeholder="e.g. Ramesh Verma (Father / Guardian)"
             />
           </div>
           <div className="space-y-2">
@@ -448,7 +464,7 @@ export default function ResidentialTrainingPublicForm() {
               value={form.emergency_contact_phone}
               onChange={set("emergency_contact_phone")}
               className={fieldClass}
-              placeholder="Emergency phone number"
+              placeholder="e.g. 9876543210"
             />
           </div>
           <div className="space-y-2">
@@ -526,7 +542,7 @@ export default function ResidentialTrainingPublicForm() {
               value={form.notes}
               onChange={set("notes")}
               className={`min-h-[60px] ${fieldClass}`}
-              placeholder="Any other details you'd like to share"
+              placeholder="Any additional details or special requests..."
             />
           </div>
         </div>
