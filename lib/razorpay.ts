@@ -152,7 +152,7 @@ export const openRazorpayCheckout = async (
     throw new Error('Failed to initialize Razorpay')
   }
 
-  razorpay.on('payment.failed', (response: { error?: { description?: string; code?: string } }) => {
+  razorpay.on('payment.failed', (response: any) => {
     console.error('[openRazorpayCheckout] payment.failed', response)
     const msg =
       response?.error?.description ||

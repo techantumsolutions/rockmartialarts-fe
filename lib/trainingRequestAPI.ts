@@ -192,6 +192,10 @@ export type TrainingRequest = {
   created_at?: string
   updated_at?: string
   payment_status?: string | null
+  chat_last_message?: string | null
+  chat_last_message_at?: string | null
+  chat_unread_student_count?: number | null
+  chat_unread_coach_count?: number | null
   fee_total_inr?: number | null
   fee_pay_now_inr?: number | null
   amount_paise?: number | null
@@ -329,6 +333,16 @@ function coachHeaders(json = false): HeadersInit {
   return h
 }
 
+function submissionHeaders(hasPassword?: boolean): HeadersInit {
+  if (hasPassword) {
+    return {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-cache",
+    }
+  }
+  return authHeaders(true, true)
+}
+
 function authHeaders(json = false, optional = false): HeadersInit {
   const token = BranchManagerAuth.getToken() || TokenManager.getToken()
   const h: Record<string, string> = { "Cache-Control": "no-cache" }
@@ -380,7 +394,7 @@ class TrainingRequestAPI {
   async submitHome(payload: HomeTrainingCreatePayload) {
     const res = await fetch(getBackendApiUrl("training-requests/home"), {
       method: "POST",
-      headers: authHeaders(true, true),
+      headers: submissionHeaders(Boolean(payload.password)),
       body: JSON.stringify(payload),
     })
     if (!res.ok) throw new Error(await parseError(res))
@@ -390,7 +404,7 @@ class TrainingRequestAPI {
   async submitSchool(payload: SchoolTrainingCreatePayload) {
     const res = await fetch(getBackendApiUrl("training-requests/school"), {
       method: "POST",
-      headers: authHeaders(true, true),
+      headers: submissionHeaders(Boolean(payload.password)),
       body: JSON.stringify(payload),
     })
     if (!res.ok) throw new Error(await parseError(res))
@@ -400,7 +414,7 @@ class TrainingRequestAPI {
   async submitCollege(payload: CollegeTrainingCreatePayload) {
     const res = await fetch(getBackendApiUrl("training-requests/college"), {
       method: "POST",
-      headers: authHeaders(true, true),
+      headers: submissionHeaders(Boolean(payload.password)),
       body: JSON.stringify(payload),
     })
     if (!res.ok) throw new Error(await parseError(res))
@@ -410,7 +424,7 @@ class TrainingRequestAPI {
   async submitCorporate(payload: CorporateTrainingCreatePayload) {
     const res = await fetch(getBackendApiUrl("training-requests/corporate"), {
       method: "POST",
-      headers: authHeaders(true, true),
+      headers: submissionHeaders(Boolean(payload.password)),
       body: JSON.stringify(payload),
     })
     if (!res.ok) throw new Error(await parseError(res))
@@ -428,7 +442,7 @@ class TrainingRequestAPI {
   async submitResidential(payload: ResidentialTrainingCreatePayload) {
     const res = await fetch(getBackendApiUrl("training-requests/residential"), {
       method: "POST",
-      headers: authHeaders(true, true),
+      headers: submissionHeaders(Boolean(payload.password)),
       body: JSON.stringify(payload),
     })
     if (!res.ok) throw new Error(await parseError(res))

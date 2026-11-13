@@ -14,6 +14,7 @@ import {
   Loader2,
   Menu,
   X,
+  MessageSquare,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { TokenManager, type UserData } from "@/lib/tokenManager"
@@ -63,6 +64,12 @@ export default function TrainingDashboardLayout({
       label: "My Requests",
       icon: ClipboardList,
       active: pathname === "/training-dashboard",
+    },
+    {
+      href: "/training-dashboard/chat",
+      label: "Messages & Chat",
+      icon: MessageSquare,
+      active: pathname?.startsWith("/training-dashboard/chat"),
     },
     {
       href: "/training-dashboard/new-request",

@@ -15,6 +15,10 @@ type Props = {
   onVerified: (verified: boolean, token?: string) => void
   disabled?: boolean
   required?: boolean
+  label?: string
+  placeholder?: string
+  className?: string
+  fieldClass?: string
 }
 
 export function TrainingPhoneOtpSection({
@@ -24,6 +28,10 @@ export function TrainingPhoneOtpSection({
   onVerified,
   disabled = false,
   required = true,
+  label = "Phone number",
+  placeholder = "Enter 10-digit mobile number",
+  className = "",
+  fieldClass = "bg-gray-950/60 border-gray-700 text-white placeholder:text-gray-500 focus-visible:ring-[#FFB70F]",
 }: Props) {
   const [otp, setOtp] = useState<string[]>(() => Array(DIGITS).fill(""))
   const [sendBusy, setSendBusy] = useState(false)
@@ -136,7 +144,7 @@ export function TrainingPhoneOtpSection({
         return
       }
       onVerified(true, data.token || "verified")
-      setMsg("Phone number successfully verified!")
+      setMsg("Mobile number successfully verified!")
       setErr(null)
     } catch {
       setErr("Network error while verifying OTP.")
@@ -146,13 +154,13 @@ export function TrainingPhoneOtpSection({
   }
 
   return (
-    <div className="space-y-2">
+    <div className={`space-y-2 ${className}`}>
       <div className="flex items-center justify-between">
-        <Label htmlFor="contact_phone" className="text-sm font-medium text-foreground">
-          Contact Phone {required && <span className="text-[#FFB70F]">*</span>}
+        <Label htmlFor="contact_phone" className="text-gray-300 text-sm font-medium">
+          {label} {required && <span className="text-[#FFB70F]">*</span>}
         </Label>
         {isVerified && (
-          <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+          <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-400 bg-emerald-950/70 px-2.5 py-0.5 rounded-full border border-emerald-700/60 shadow-sm">
             <CheckCircle2 className="h-3.5 w-3.5" />
             Verified
           </span>
@@ -164,13 +172,17 @@ export function TrainingPhoneOtpSection({
           <Input
             id="contact_phone"
             type="tel"
-            placeholder="e.g. 9876543210"
+            placeholder={placeholder}
             value={phone}
             onChange={handlePhoneInputChange}
             disabled={disabled || isVerified}
-            className={`border-input bg-background/50 focus-visible:ring-[#FFB70F] ${
-              isVerified ? "border-emerald-500 bg-emerald-50/20" : ""
+            className={`h-10 ${fieldClass} ${
+              isVerified ? "border-emerald-600/80 bg-emerald-950/20 text-emerald-200" : ""
             }`}
+            style={{
+              color: isVerified ? "#a7f3d0" : "#ffffff",
+              backgroundColor: isVerified ? "rgba(6, 78, 59, 0.2)" : "rgba(3, 7, 18, 0.6)",
+            }}
           />
         </div>
 
@@ -180,7 +192,7 @@ export function TrainingPhoneOtpSection({
             variant="outline"
             onClick={sendOtp}
             disabled={!isValidPhone || sendBusy || countdown > 0 || disabled}
-            className="border-[#FFB70F] text-[#B87D00] hover:bg-[#FFB70F]/10 hover:text-[#946400] shrink-0 font-medium text-xs px-3"
+            className="border-[#FFB70F] text-[#FFB70F] hover:bg-[#FFB70F] hover:text-black shrink-0 font-semibold text-xs px-3.5 h-10 transition-colors"
           >
             {sendBusy ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -197,15 +209,15 @@ export function TrainingPhoneOtpSection({
 
       {/* OTP verification input section */}
       {!isVerified && otpSent && (
-        <div className="mt-3 p-3.5 rounded-lg border border-[#FFB70F]/30 bg-amber-500/5 space-y-3">
+        <div className="mt-3 p-4 rounded-xl border border-gray-700 bg-gray-900/90 shadow-xl space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-foreground flex items-center gap-1.5">
+            <span className="text-xs font-medium text-gray-200 flex items-center gap-1.5">
               <ShieldCheck className="h-4 w-4 text-[#FFB70F]" />
-              Enter 6-digit OTP sent to {phone}
+              Enter 6-digit OTP sent to <span className="font-semibold text-white">{phone}</span>
             </span>
           </div>
 
-          <div className="flex items-center gap-2 justify-between max-w-xs">
+          <div className="flex items-center gap-2 justify-between max-w-sm">
             {otp.map((digit, idx) => (
               <input
                 key={idx}
@@ -219,14 +231,19 @@ export function TrainingPhoneOtpSection({
                 onChange={(e) => handleOtpChange(idx, e.target.value)}
                 onKeyDown={(e) => handleKeyDown(idx, e)}
                 disabled={disabled || verifyBusy}
-                className="w-10 h-11 text-center font-bold text-base rounded-md border border-input bg-background focus:border-[#FFB70F] focus:ring-2 focus:ring-[#FFB70F]/30 outline-none transition-all"
+                className="w-11 h-12 text-center font-bold text-xl rounded-lg border-2 border-gray-600 bg-gray-950 text-white focus:border-[#FFB70F] focus:ring-2 focus:ring-[#FFB70F]/50 outline-none transition-all placeholder:text-gray-600 shadow-inner"
+                style={{
+                  color: "#ffffff",
+                  backgroundColor: "#030712",
+                  caretColor: "#FFB70F",
+                }}
               />
             ))}
             <Button
               type="button"
               onClick={verifyOtp}
               disabled={otp.join("").length < DIGITS || verifyBusy || disabled}
-              className="bg-[#FFB70F] hover:bg-[#E5A40E] text-black font-semibold text-xs px-3.5 h-11 shrink-0"
+              className="bg-[#FFB70F] hover:bg-[#E5A40E] text-black font-bold text-xs px-4 h-12 rounded-lg shrink-0 shadow-md"
             >
               {verifyBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
             </Button>
@@ -234,9 +251,8 @@ export function TrainingPhoneOtpSection({
         </div>
       )}
 
-      {msg && <p className="text-xs text-emerald-600 font-medium mt-1">{msg}</p>}
-      {err && <p className="text-xs text-red-500 font-medium mt-1">{err}</p>}
+      {msg && <p className="text-xs text-emerald-400 font-medium mt-1">{msg}</p>}
+      {err && <p className="text-xs text-red-400 font-medium mt-1">{err}</p>}
     </div>
   )
 }
-
