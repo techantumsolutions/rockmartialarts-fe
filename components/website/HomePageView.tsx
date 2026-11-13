@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { motion, useReducedMotion } from "framer-motion"
 import { ArrowRight, Building2, Handshake, MapPin, Phone, Play } from "lucide-react"
 import { sanitizeRichHtmlClient } from "@/lib/sanitizeClientHtml"
@@ -153,6 +153,128 @@ function HomepageMediaPlayer({
       >
         <source src={resolvedVideo} type="video/mp4" />
       </video>
+    </div>
+  )
+}
+
+function AchievementsInfiniteMarquee({
+  items,
+  reducedMotion,
+}: {
+  items: ShowcaseAchievementItem[]
+  reducedMotion: boolean
+}) {
+  const trackRef = useRef<HTMLDivElement>(null)
+  const [isPaused, setIsPaused] = useState(false)
+  const offsetRef = useRef(0)
+  const lastTimeRef = useRef<number | null>(null)
+  const isDraggingRef = useRef(false)
+  const startXRef = useRef(0)
+  const dragStartOffsetRef = useRef(0)
+
+  // Ensure enough cards so that one full loop comfortably spans wide viewports
+  const baseItems = useMemo(() => {
+    if (items.length === 0) return []
+    let list = [...items]
+    while (list.length < 6) {
+      list = [...list, ...items]
+    }
+    return list
+  }, [items])
+
+  const loopItems = useMemo(() => [...baseItems, ...baseItems], [baseItems])
+
+  useEffect(() => {
+    if (reducedMotion || items.length <= 1) return
+
+    let rafId: number
+    const speedPxPerSec = 40
+
+    const step = (now: number) => {
+      if (lastTimeRef.current == null) {
+        lastTimeRef.current = now
+      }
+      const dt = Math.min((now - lastTimeRef.current) / 1000, 0.05)
+      lastTimeRef.current = now
+
+      const el = trackRef.current
+      if (el && !isPaused && !isDraggingRef.current) {
+        offsetRef.current += speedPxPerSec * dt
+        const halfWidth = el.scrollWidth / 2
+        if (halfWidth > 0 && offsetRef.current >= halfWidth) {
+          offsetRef.current -= halfWidth
+        }
+        el.style.transform = `translate3d(-${offsetRef.current}px, 0, 0)`
+      }
+
+      rafId = requestAnimationFrame(step)
+    }
+
+    rafId = requestAnimationFrame(step)
+    return () => {
+      cancelAnimationFrame(rafId)
+      lastTimeRef.current = null
+    }
+  }, [items.length, isPaused, reducedMotion])
+
+  if (items.length === 0) return null
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (items.length <= 1) return
+    isDraggingRef.current = true
+    startXRef.current = e.clientX
+    dragStartOffsetRef.current = offsetRef.current
+    setIsPaused(true)
+  }
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return
+    const el = trackRef.current
+    if (!el) return
+    const deltaX = e.clientX - startXRef.current
+    let nextOffset = dragStartOffsetRef.current - deltaX
+    const halfWidth = el.scrollWidth / 2
+    if (halfWidth > 0) {
+      while (nextOffset < 0) nextOffset += halfWidth
+      while (nextOffset >= halfWidth) nextOffset -= halfWidth
+    }
+    offsetRef.current = nextOffset
+    el.style.transform = `translate3d(-${nextOffset}px, 0, 0)`
+  }
+
+  const handlePointerUp = () => {
+    if (isDraggingRef.current) {
+      isDraggingRef.current = false
+      setIsPaused(false)
+    }
+  }
+
+  return (
+    <div
+      className="relative overflow-hidden w-full pt-3 pb-6 select-none cursor-grab active:cursor-grabbing"
+      style={{ touchAction: "pan-y" }}
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => {
+        if (!isDraggingRef.current) setIsPaused(false)
+      }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+    >
+      <div
+        ref={trackRef}
+        className="flex flex-nowrap gap-5 md:gap-6 w-max will-change-transform"
+      >
+        {loopItems.map((a, i) => (
+          <div
+            key={`${a.id || "ach"}-${i}`}
+            className="w-[260px] sm:w-[290px] shrink-0 min-w-0 [&>div]:p-3.5 sm:[&>div]:p-4 [&>div]:bg-[#292E40] [&>div]:border-[#383D4D] [&>div]:rounded-2xl [&>div]:shadow-[0_8px_24px_rgba(0,0,0,0.25)] [&>div]:transition-all [&>div]:duration-300 [&>div]:ease-out [&>div:hover]:-translate-y-2 [&>div:hover]:scale-100 [&>div:hover]:border-[#FFB70F]/50 [&>div:hover]:shadow-[0_18px_40px_rgba(255,183,15,0.18)] [&>div>div:first-child]:!aspect-auto [&>div>div:first-child]:!h-[150px] [&>div>div:first-child]:!max-h-[150px] [&>div>div:first-child]:rounded-xl [&>div>div:first-child]:border [&>div>div:first-child]:border-[#383D4D]/70 [&>div>div:first-child]:mb-3 [&>div>div:first-child]:overflow-hidden [&>div>div:first-child_.object-cover]:object-top [&>div>div:nth-child(2)]:!p-0 [&>div>div:nth-child(2)>div:first-child>span:first-child]:rounded-full [&>div>div:nth-child(2)>div:first-child>span:first-child]:overflow-hidden [&_.relative>span]:transition-transform [&_.relative>span]:duration-700 [&_.relative>span]:ease-out [&>div:hover_.relative>span]:scale-110 [&_.bg-gray-950]:bg-[#222635] [&_.text-gray-400]:text-[#AEB4C2]"
+          >
+            <ShowcaseAchievementCard item={a} />
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -659,15 +781,15 @@ export default function HomePageView({
                 key={`${t.name}-${idx}`}
                 className="group bg-[#292E40] rounded-2xl p-6 border border-[#383D4D] shadow-[0_8px_24px_rgba(0,0,0,0.25)] h-full flex flex-col items-center text-center transition-all duration-300 ease-out hover:-translate-y-2 hover:border-[#FFB70F]/50 hover:shadow-[0_18px_40px_rgba(255,183,15,0.18)]"
               >
-                <div className="w-[180px] h-[340px] max-w-full shrink-0 rounded-xl overflow-hidden border-2 border-[#FFB70F]/40 mb-4 bg-[#222635] transition-colors duration-300 group-hover:border-[#FFB70F]">
+                <div className="w-[180px] h-[200px] max-w-full shrink-0 rounded-xl overflow-hidden border-2 border-[#FFB70F]/40 mb-4 bg-[#222635] transition-colors duration-300 group-hover:border-[#FFB70F]">
                   <SafeImage
                     src={t.img || DEFAULT_IMAGE_PLACEHOLDER}
                     alt={t.name}
                     loading="lazy"
                     decoding="async"
                     width={180}
-                    height={340}
-                    className="w-full h-full object-cover"
+                    height={200}
+                    className="w-full h-full object-cover object-top"
                     wrapperClassName="transition-transform duration-700 ease-out group-hover:scale-110"
                   />
                 </div>
@@ -678,19 +800,6 @@ export default function HomePageView({
                     ? t.about
                     : "Experienced instructor dedicated to helping every student grow with discipline and skill."}
                 </p>
-                {typeof t.rating === "number" && t.rating > 0 ? (
-                  <p className="mt-3 text-[#FFB70F] text-sm font-semibold" aria-label={`Rating ${t.rating} out of 5`}>
-                    ★ {t.rating.toFixed(1)} / 5
-                  </p>
-                ) : (
-                  <img
-                    src="/assets/img/courses/stars.png"
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    className="mt-3 w-24 h-auto opacity-90"
-                  />
-                )}
               </div>
             ))}
           </AnimatedStaggerGrid>
@@ -796,20 +905,10 @@ export default function HomePageView({
           {showcaseAchievements.length === 0 ? (
             <p className="text-center text-[#AEB4C2] py-12 text-sm">No achievements yet</p>
           ) : (
-            <AnimatedStaggerGrid
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6"
-              staggerDelay={0.08}
-              childClassName="h-full min-w-0"
-            >
-              {showcaseAchievements.slice(0, 9).map((a, i) => (
-                <div
-                  key={a.id || i}
-                  className="h-full min-w-0 max-w-full [&>div]:bg-[#292E40] [&>div]:border-[#383D4D] [&>div]:rounded-2xl [&>div]:shadow-[0_8px_24px_rgba(0,0,0,0.25)] [&>div]:transition-all [&>div]:duration-300 [&>div]:ease-out [&>div:hover]:-translate-y-2 [&>div:hover]:scale-100 [&>div:hover]:border-[#FFB70F]/50 [&>div:hover]:shadow-[0_18px_40px_rgba(255,183,15,0.18)] [&_.relative>span]:transition-transform [&_.relative>span]:duration-700 [&_.relative>span]:ease-out [&>div:hover_.relative>span]:scale-110 [&_.bg-gray-950]:bg-[#222635] [&_.text-gray-400]:text-[#AEB4C2]"
-                >
-                  <ShowcaseAchievementCard item={a} />
-                </div>
-              ))}
-            </AnimatedStaggerGrid>
+            <AchievementsInfiniteMarquee
+              items={showcaseAchievements}
+              reducedMotion={Boolean(shouldReduceMotion)}
+            />
           )}
         </div>
       </section>
