@@ -15,6 +15,9 @@ function PaymentSuccessContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [studentName, setStudentName] = useState<string>("Student")
+  const [studentEmail, setStudentEmail] = useState<string | undefined>(undefined)
+  const [studentPhone, setStudentPhone] = useState<string | undefined>(undefined)
+  const [invoiceNumber, setInvoiceNumber] = useState<string | undefined>(undefined)
   const [loading, setLoading] = useState(true)
   const [invoiceId, setInvoiceId] = useState<string | null>(null)
   const [whatsappHint, setWhatsappHint] = useState<string | null>(null)
@@ -25,7 +28,7 @@ function PaymentSuccessContent() {
   const orderId = searchParams.get("order_id") || paymentId
   const amount = parseFloat(searchParams.get("amount") || "0")
   const courseName = searchParams.get("course_name") || "Course Enrollment"
-  const branchName = searchParams.get("branch_name") || "Main Branch"
+  const branchName = searchParams.get("branch_name") || "Balaji Nagar"
   const isRenewal = searchParams.get("renewal") === "1"
   const newEndDateRaw = searchParams.get("new_end_date")
   const newEndDateLabel = (() => {
@@ -49,7 +52,10 @@ function PaymentSuccessContent() {
 
         const response = await studentProfileAPI.getProfile(token)
         const profile = response.profile
-        setStudentName(profile.full_name || `${profile.first_name} ${profile.last_name}`)
+        const name = (profile.full_name || `${profile.first_name || ""} ${profile.last_name || ""}`).trim()
+        if (name) setStudentName(name)
+        if (profile.email) setStudentEmail(profile.email)
+        if (profile.phone) setStudentPhone(profile.phone)
       } catch (error) {
         console.error("Error fetching profile:", error)
       } finally {
@@ -68,6 +74,9 @@ function PaymentSuccessContent() {
       .then(async (inv) => {
         if (cancelled || !inv?.id) return
         setInvoiceId(inv.id)
+        if (inv.invoice_number) setInvoiceNumber(inv.invoice_number)
+        if (inv.customer?.email) setStudentEmail((prev) => prev || inv.customer?.email)
+        if (inv.customer?.phone) setStudentPhone((prev) => prev || inv.customer?.phone)
         try {
           const full = await invoicesAPI.get(inv.id)
           const st = (full.whatsapp_delivery?.status || "").toLowerCase()
@@ -151,6 +160,10 @@ function PaymentSuccessContent() {
           branchName={branchName}
           date={new Date().toISOString()}
           studentName={studentName}
+          studentEmail={studentEmail}
+          studentPhone={studentPhone}
+          invoiceNumber={invoiceNumber}
+          isRenewal={isRenewal}
           currency="INR"
         />
 

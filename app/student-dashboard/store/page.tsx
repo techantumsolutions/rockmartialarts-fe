@@ -37,12 +37,15 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
+import { useStudentSubscription } from "@/hooks/use-student-subscription"
 import { loadRazorpayScript } from "@/lib/razorpay"
 import { generateStoreReceipt } from "@/lib/generateStoreReceipt"
 
 export default function StudentStorePage() {
   const router = useRouter()
   const { toast } = useToast()
+  const subscriptionStatus = useStudentSubscription()
+  const isTenureExpired = !subscriptionStatus.isActive && !subscriptionStatus.loading
 
   // State
   const [activeTab, setActiveTab] = useState<"browse" | "purchased">("browse")
@@ -125,6 +128,15 @@ export default function StudentStorePage() {
   }, [isPartnerStudent])
 
   const openBuyModal = (product: StoreProduct) => {
+    if (isTenureExpired) {
+      toast({
+        title: "Action Restricted",
+        description: "Merchandise purchases are restricted while your course tenure is expired. Please renew your course on the Payments page.",
+        variant: "destructive",
+      })
+      router.push("/student-dashboard/payments")
+      return
+    }
     setSelectedProduct(product)
     setBuyQuantity(1)
     setBuyModalOpen(true)

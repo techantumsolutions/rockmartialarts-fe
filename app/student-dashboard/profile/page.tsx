@@ -15,6 +15,8 @@ import { getBackendApiUrl } from "@/lib/config"
 import { formatRegisteredDateTime } from "@/lib/formatRegisteredDate"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { getEnrollmentUiStatus, formatEnrollmentUiStatusLabel } from "@/lib/student-enrollment-status"
+import { useToast } from "@/hooks/use-toast"
+import { useStudentSubscription } from "@/hooks/use-student-subscription"
 
 type ProfileEnrollment = StudentProfile["enrollments"][number]
 
@@ -57,6 +59,9 @@ function dedupeProfileEnrollments(enrollments: ProfileEnrollment[] = []): Profil
 
 export default function StudentProfilePage() {
   const router = useRouter()
+  const { toast } = useToast()
+  const subscriptionStatus = useStudentSubscription()
+  const isTenureExpired = !subscriptionStatus.isActive && !subscriptionStatus.loading
   const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null)
   const [attendanceRate, setAttendanceRate] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
@@ -179,7 +184,29 @@ export default function StudentProfilePage() {
   }
 
   const handleEditProfile = () => {
+    if (isTenureExpired) {
+      toast({
+        title: "Action Restricted",
+        description: "Your course tenure has expired. Please renew your course on the Payments page to edit your profile.",
+        variant: "destructive",
+      })
+      router.push("/student-dashboard/payments")
+      return
+    }
     router.push("/student-dashboard/profile/edit")
+  }
+
+  const handlePhotoClick = () => {
+    if (isTenureExpired) {
+      toast({
+        title: "Action Restricted",
+        description: "Your course tenure has expired. Please renew your course on the Payments page to update your photo.",
+        variant: "destructive",
+      })
+      router.push("/student-dashboard/payments")
+      return
+    }
+    setPhotoSheetOpen(true)
   }
 
   const applyProfileImage = (url: string) => {
@@ -300,7 +327,7 @@ export default function StudentProfilePage() {
               <CardHeader className="text-center">
                 <button
                   type="button"
-                  onClick={() => setPhotoSheetOpen(true)}
+                  onClick={handlePhotoClick}
                   className="relative mx-auto mb-4 block rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 touch-manipulation"
                   aria-label="Change profile photo"
                 >

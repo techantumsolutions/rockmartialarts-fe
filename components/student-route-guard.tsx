@@ -1,10 +1,11 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { createContext, useContext, useEffect, useState } from "react"
+import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { useStudentSubscription } from "@/hooks/use-student-subscription"
-import SubscriptionExpiredModal from "@/components/subscription-expired-modal"
-import { Loader2 } from "lucide-react"
+import { useStudentSubscription, type SubscriptionStatus } from "@/hooks/use-student-subscription"
+import { AlertCircle, CreditCard, Loader2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { TokenManager } from "@/lib/tokenManager"
 import { buildLoginUrl, safeStudentReturnUrl } from "@/lib/sessionAuth"
 import StudentDeactivatedScreen from "@/components/student-deactivated-screen"
@@ -13,6 +14,21 @@ import {
   fetchStudentSessionStatus,
   type StudentSessionStatus,
 } from "@/lib/studentSessionStatus"
+
+export interface StudentSubscriptionContextValue extends SubscriptionStatus {
+  isExpired: boolean
+}
+
+export const StudentSubscriptionContext = createContext<StudentSubscriptionContextValue>({
+  isActive: true,
+  hasActiveEnrollment: true,
+  loading: false,
+  isExpired: false,
+})
+
+export function useStudentSubscriptionContext() {
+  return useContext(StudentSubscriptionContext)
+}
 
 interface StudentRouteGuardProps {
   children: React.ReactNode
@@ -31,21 +47,23 @@ function GuardLoading({ message }: { message: string }) {
 
 /**
  * Route guard for student pages.
- * Restricts access to most pages when subscription is inactive,
- * but keeps payment and course management pages accessible for renewals/new purchases.
+ * When course tenure is expired:
+ * - Allows viewing all existing dashboard pages (dashboard, courses, attendance, performance, progress, syllabus, invoices, billing, profile).
+ * - Allows full access to payment page for renewals and adding new students.
+ * - Restricts profile editing (profile/edit) with a renewal prompt.
+ * - Displays a persistent view-only tenure expiry banner across dashboard pages.
  */
 export default function StudentRouteGuard({ children }: StudentRouteGuardProps) {
   const pathname = usePathname()
   const router = useRouter()
   const subscriptionStatus = useStudentSubscription()
-  const [showModal, setShowModal] = useState(false)
   const [hasSession, setHasSession] = useState<boolean | null>(null)
   const [statusChecked, setStatusChecked] = useState(false)
   const [sessionStatus, setSessionStatus] = useState<StudentSessionStatus | null>(null)
 
   const isPaymentPage = pathname.startsWith("/student-dashboard/payments")
-  const isCoursesPage = pathname.startsWith("/student-dashboard/courses")
-  const isSubscriptionAccessPage = isPaymentPage || isCoursesPage
+  const isAddStudentPage = pathname.startsWith("/student-dashboard/add-student")
+  const isActionOnlyRoute = pathname.startsWith("/student-dashboard/profile/edit")
 
   useEffect(() => {
     const authed = TokenManager.isAuthenticated()
@@ -91,23 +109,6 @@ export default function StudentRouteGuard({ children }: StudentRouteGuardProps) 
 
   const isDeactivated = sessionStatus?.is_active === false
 
-  useEffect(() => {
-    if (subscriptionStatus.loading || hasSession !== true || isDeactivated) return
-
-    const user = localStorage.getItem("user")
-    if (!user) return
-
-    const userData = JSON.parse(user)
-
-    if (userData.role !== "student") return
-
-    if (!subscriptionStatus.isActive && !isSubscriptionAccessPage) {
-      setShowModal(true)
-    } else {
-      setShowModal(false)
-    }
-  }, [subscriptionStatus, isSubscriptionAccessPage, hasSession, isDeactivated])
-
   if (hasSession !== true) {
     return <GuardLoading message="Redirecting to login..." />
   }
@@ -130,43 +131,74 @@ export default function StudentRouteGuard({ children }: StudentRouteGuardProps) 
     return <GuardLoading message="Verifying subscription status..." />
   }
 
-  if (!subscriptionStatus.isActive && !isSubscriptionAccessPage) {
+  const isExpired = !subscriptionStatus.isActive
+
+  // Restrict access to action-only routes when tenure is expired
+  if (isExpired && isActionOnlyRoute) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
-        <SubscriptionExpiredModal
-          isOpen={showModal}
-          expiryDate={subscriptionStatus.expiryDate}
-          paymentStatus={subscriptionStatus.paymentStatus}
-          onClose={() => {
-            // Prevent closing - user must go to payment page
-          }}
-        />
-        <div className="text-center max-w-md">
-          <div className="bg-white rounded-lg shadow-lg p-8">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
-              <svg
-                className="h-10 w-10 text-red-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                />
-              </svg>
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Restricted</h2>
-            <p className="text-gray-600 mb-4">
-              Your subscription has expired. Please renew your subscription to continue accessing the platform.
-            </p>
+      <div className="min-h-[60vh] flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 max-w-md w-full text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100">
+            <AlertCircle className="h-7 w-7 text-amber-600" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Action Restricted</h2>
+          <p className="text-sm text-gray-600 mb-6">
+            Your course tenure has completed. Dashboard actions are restricted until you renew your course. You can still view all your existing dashboard records.
+          </p>
+          <div className="flex flex-col gap-2.5">
+            <Button
+              asChild
+              className="w-full bg-[#FFB70F] hover:bg-[#e0a20d] text-[#171A26] font-semibold"
+            >
+              <Link href="/student-dashboard/payments">
+                <CreditCard className="w-4 h-4 mr-2" /> Renew Course / Go to Payment
+              </Link>
+            </Button>
+            <Button
+              variant="outline"
+              asChild
+              className="w-full"
+            >
+              <Link href="/student-dashboard">
+                Return to Dashboard
+              </Link>
+            </Button>
           </div>
         </div>
       </div>
     )
   }
 
-  return <>{children}</>
+  return (
+    <StudentSubscriptionContext.Provider
+      value={{
+        ...subscriptionStatus,
+        isExpired,
+      }}
+    >
+      {isExpired && !isPaymentPage && !isAddStudentPage && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50/90 p-4 text-amber-950 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-start sm:items-center gap-3 text-sm">
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
+            <div>
+              <p className="font-semibold text-amber-900">Course Tenure Completed</p>
+              <p className="text-amber-800 text-xs sm:text-sm">
+                Your course tenure has expired. You can view all existing dashboard records, but actions remain restricted until renewal.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            asChild
+            className="bg-[#FFB70F] hover:bg-[#e0a20d] text-[#171A26] font-semibold shrink-0 shadow-xs w-full sm:w-auto"
+          >
+            <Link href="/student-dashboard/payments">
+              <CreditCard className="w-4 h-4 mr-1.5" /> Renew Course / Pay Now
+            </Link>
+          </Button>
+        </div>
+      )}
+      {children}
+    </StudentSubscriptionContext.Provider>
+  )
 }
