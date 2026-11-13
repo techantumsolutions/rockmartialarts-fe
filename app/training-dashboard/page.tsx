@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   Calendar,
   Clock,
@@ -19,6 +20,7 @@ import {
   CheckCircle,
   AlertCircle,
   FileText,
+  MessageSquare,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -47,6 +49,7 @@ import {
 } from "@/lib/trainingRequestAPI"
 
 export default function TrainingDashboardPage() {
+  const router = useRouter()
   const [requests, setRequests] = useState<TrainingRequest[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -341,7 +344,7 @@ export default function TrainingDashboardPage() {
 
                   <div className="flex items-center justify-between">
                     <span className="text-[11px]">Assigned Coach:</span>
-                    {r.assigned_coach_name ? (
+                    {r.coach_assignment_status === "accepted" && r.assigned_coach_name ? (
                       <span className="font-semibold text-foreground flex items-center gap-1">
                         <UserCheck className="h-3 w-3 text-emerald-600" />
                         {r.assigned_coach_name}
@@ -367,20 +370,42 @@ export default function TrainingDashboardPage() {
                 </div>
 
                 {/* Footer Action */}
-                <div className="pt-2 border-t border-border/40 flex items-center justify-between">
+                <div className="pt-2 border-t border-border/40 flex items-center justify-between gap-2">
                   <span className="text-[10px] text-muted-foreground">
                     {r.created_at ? new Date(r.created_at).toLocaleDateString() : ""}
                   </span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSelectedRequest(r)}
-                    className="h-7 text-xs border-border hover:border-[#FFB70F] hover:text-[#B87D00] gap-1 px-2.5"
-                  >
-                    <Eye className="h-3 w-3" />
-                    <span>Details</span>
-                  </Button>
+                  <div className="flex items-center gap-1.5">
+                    {r.coach_assignment_status === "accepted" && r.assigned_coach_id ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => router.push(`/training-dashboard/chat?request_id=${r.id}`)}
+                        className="h-7 text-xs bg-[#FFB70F] hover:bg-[#E5A40E] text-black font-semibold gap-1 px-2.5 shadow-sm"
+                      >
+                        <MessageSquare className="h-3 w-3" />
+                        <span>Chat</span>
+                        {Boolean(r.chat_unread_student_count) && (
+                          <span className="ml-0.5 px-1.5 py-0.2 rounded-full bg-red-600 text-white text-[9px] font-bold">
+                            {r.chat_unread_student_count}
+                          </span>
+                        )}
+                      </Button>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground italic mr-1">
+                        Chat pending confirmation
+                      </span>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedRequest(r)}
+                      className="h-7 text-xs border-border hover:border-[#FFB70F] hover:text-[#B87D00] gap-1 px-2.5"
+                    >
+                      <Eye className="h-3 w-3" />
+                      <span>Details</span>
+                    </Button>
+                  </div>
                 </div>
               </div>
             )
@@ -418,7 +443,9 @@ export default function TrainingDashboardPage() {
                 <span className="text-[11px] text-muted-foreground block">Assigned Trainer</span>
                 <span className="text-xs font-bold text-foreground flex items-center gap-1 mt-1">
                   <UserCheck className="h-3.5 w-3.5 text-[#FFB70F]" />
-                  {selectedRequest.assigned_coach_name || "Pending Assignment"}
+                  {selectedRequest.coach_assignment_status === "accepted" && selectedRequest.assigned_coach_name
+                    ? selectedRequest.assigned_coach_name
+                    : "Pending Confirmation"}
                 </span>
               </div>
             </div>
@@ -479,7 +506,26 @@ export default function TrainingDashboardPage() {
               </div>
             )}
 
-            <div className="pt-2 flex justify-end">
+            <div className="pt-2 flex items-center justify-between border-t border-border/40 gap-2">
+              {selectedRequest.coach_assignment_status === "accepted" && selectedRequest.assigned_coach_id ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    const reqId = selectedRequest.id
+                    setSelectedRequest(null)
+                    router.push(`/training-dashboard/chat?request_id=${reqId}`)
+                  }}
+                  className="text-xs bg-[#FFB70F] hover:bg-[#E5A40E] text-black font-semibold gap-1.5"
+                >
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  <span>Chat with Coach ({selectedRequest.assigned_coach_name || "Trainer"})</span>
+                </Button>
+              ) : (
+                <span className="text-[11px] text-muted-foreground italic">
+                  Coach assignment in progress. Chat will unlock once accepted.
+                </span>
+              )}
               <Button
                 type="button"
                 variant="outline"
