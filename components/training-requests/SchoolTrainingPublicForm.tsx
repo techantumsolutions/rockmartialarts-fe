@@ -14,9 +14,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { trainingRequestAPI } from "@/lib/trainingRequestAPI"
+import { trainingRequestAPI, type TrainingRequest } from "@/lib/trainingRequestAPI"
 import { settingsAPI } from "@/lib/settingsAPI"
 import { openRazorpayCheckout } from "@/lib/razorpay"
+import { TrainingPhoneOtpSection } from "./TrainingPhoneOtpSection"
+import { TrainingPasswordSection } from "./TrainingPasswordSection"
+import { TrainingRequestSuccessModal } from "./TrainingRequestSuccessModal"
 
 type BranchOpt = { id: string; name: string }
 
@@ -92,6 +95,13 @@ export default function SchoolTrainingPublicForm() {
   const [error, setError] = useState<string | null>(null)
   const [submittedId, setSubmittedId] = useState<string | null>(null)
 
+  // Password & OTP Verification state
+  const [phoneVerified, setPhoneVerified] = useState(false)
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [successModalOpen, setSuccessModalOpen] = useState(false)
+  const [createdRequest, setCreatedRequest] = useState<TrainingRequest | null>(null)
+
   useEffect(() => {
     settingsAPI
       .getPublicSettings()
@@ -126,6 +136,12 @@ export default function SchoolTrainingPublicForm() {
     if (!form.contact_name.trim()) return "Please enter the contact person name"
     if (!form.contact_phone.trim() || form.contact_phone.trim().length < 5)
       return "Please enter a valid contact phone"
+    if (!phoneVerified)
+      return "Please verify your mobile number with OTP before submitting"
+    if (!password || password.length < 6)
+      return "Please set up an account password of at least 6 characters"
+    if (password !== confirmPassword)
+      return "Passwords do not match"
     if (!form.school_name.trim()) return "Please enter the school name"
     if (!form.address_line1.trim()) return "Please enter the school address"
     if (!form.city.trim()) return "Please enter the city"
@@ -146,6 +162,8 @@ export default function SchoolTrainingPublicForm() {
       contact_name: form.contact_name.trim(),
       contact_phone: form.contact_phone.trim(),
       contact_email: form.contact_email.trim() || undefined,
+      password: password.trim(),
+      is_phone_verified: true,
       branch_id: form.branch_id || undefined,
       branch_name: branch?.name,
       source: "website",
@@ -174,7 +192,11 @@ export default function SchoolTrainingPublicForm() {
       },
     })
     setSubmittedId(result.request?.id || "ok")
+    setCreatedRequest(result.request || null)
+    setSuccessModalOpen(true)
     setForm(INITIAL)
+    setPassword("")
+    setConfirmPassword("")
   }
 
   const onSubmit = async (e: FormEvent) => {
@@ -225,8 +247,8 @@ export default function SchoolTrainingPublicForm() {
           onDismiss: () => {
             setSubmitting(false)
           },
-          onPaymentFailure: (err) => {
-            setError(err?.description || "Payment failed. Please try again.")
+          onPaymentFailure: (err: string) => {
+            setError(err || "Payment failed. Please try again.")
             setSubmitting(false)
           },
         })
@@ -335,15 +357,13 @@ export default function SchoolTrainingPublicForm() {
             />
           </div>
           <div className="space-y-2">
-            <Label className="text-gray-300">
-              Phone number <span className="text-[#FFB70F]">*</span>
-            </Label>
-            <Input
-              value={form.contact_phone}
-              onChange={set("contact_phone")}
-              className={fieldClass}
-              placeholder="10-digit mobile number"
-              required
+            <TrainingPhoneOtpSection
+              phone={form.contact_phone}
+              onPhoneChange={(p) => setForm((prev) => ({ ...prev, contact_phone: p }))}
+              isVerified={phoneVerified}
+              onVerified={(verified) => setPhoneVerified(verified)}
+              disabled={submitting}
+              required={true}
             />
           </div>
           <div className="space-y-2">
@@ -354,6 +374,15 @@ export default function SchoolTrainingPublicForm() {
               onChange={set("contact_email")}
               className={fieldClass}
               placeholder="school@example.com"
+            />
+          </div>
+          <div className="space-y-2 md:col-span-2">
+            <TrainingPasswordSection
+              password={password}
+              confirmPassword={confirmPassword}
+              onPasswordChange={setPassword}
+              onConfirmPasswordChange={setConfirmPassword}
+              disabled={submitting}
             />
           </div>
           <div className="space-y-2">
@@ -553,6 +582,16 @@ export default function SchoolTrainingPublicForm() {
           )}
         </Button>
       </div>
+
+      <TrainingRequestSuccessModal
+        isOpen={successModalOpen}
+        onClose={() => setSuccessModalOpen(false)}
+        requestId={createdRequest?.id || submittedId || ""}
+        programName="School Training"
+        contactEmail={createdRequest?.contact_email || form.contact_email}
+        contactPhone={createdRequest?.contact_phone || form.contact_phone}
+        amountPaid={trainingFee}
+      />
     </form>
   )
 }

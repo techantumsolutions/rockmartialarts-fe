@@ -218,6 +218,8 @@ export type HomeTrainingCreatePayload = {
   contact_name: string
   contact_phone: string
   contact_email?: string
+  password?: string
+  is_phone_verified?: boolean
   branch_id?: string
   branch_name?: string
   source?: string
@@ -232,6 +234,8 @@ export type SchoolTrainingCreatePayload = {
   contact_name: string
   contact_phone: string
   contact_email?: string
+  password?: string
+  is_phone_verified?: boolean
   branch_id?: string
   branch_name?: string
   source?: string
@@ -246,6 +250,8 @@ export type CollegeTrainingCreatePayload = {
   contact_name: string
   contact_phone: string
   contact_email?: string
+  password?: string
+  is_phone_verified?: boolean
   branch_id?: string
   branch_name?: string
   source?: string
@@ -260,6 +266,8 @@ export type CorporateTrainingCreatePayload = {
   contact_name: string
   contact_phone: string
   contact_email?: string
+  password?: string
+  is_phone_verified?: boolean
   branch_id?: string
   branch_name?: string
   source?: string
@@ -274,6 +282,8 @@ export type ResidentialTrainingCreatePayload = {
   contact_name: string
   contact_phone: string
   contact_email?: string
+  password?: string
+  is_phone_verified?: boolean
   branch_id?: string
   branch_name?: string
   source?: string
@@ -615,6 +625,54 @@ class TrainingRequestAPI {
     )
     if (!res.ok) throw new Error(await parseError(res))
     return res.json() as Promise<{ message: string; request: TrainingRequest }>
+  }
+
+  async trainingLogin(email: string, password: string) {
+    const res = await fetch(getBackendApiUrl("training-requests/auth/login"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    })
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{
+      access_token: string
+      token_type: string
+      user: {
+        id: string
+        email: string
+        phone: string
+        first_name: string
+        last_name: string
+        full_name: string
+        role: string
+        [key: string]: unknown
+      }
+    }>
+  }
+
+  async getMyRequests(params: {
+    status?: string
+    type?: string
+    search?: string
+    skip?: number
+    limit?: number
+  } = {}) {
+    const qs = new URLSearchParams()
+    if (params.status && params.status !== "all") qs.set("status", params.status)
+    if (params.type && params.type !== "all") qs.set("type", params.type)
+    if (params.search && params.search.trim()) qs.set("search", params.search.trim())
+    qs.set("skip", String(params.skip ?? 0))
+    qs.set("limit", String(params.limit ?? 50))
+
+    const res = await fetch(getBackendApiUrl(`training-requests/my-requests?${qs.toString()}`), {
+      headers: authHeaders(),
+      cache: "no-store",
+    })
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{
+      requests: TrainingRequest[]
+      total: number
+    }>
   }
 }
 
