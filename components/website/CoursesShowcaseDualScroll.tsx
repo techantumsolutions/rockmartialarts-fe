@@ -378,11 +378,11 @@ export default function CoursesShowcaseDualScroll({
           }
         }
         .rma-marquee-up {
-          animation: rmaScrollUp 18s linear infinite;
+          animation: rmaScrollUp 58s linear infinite;
           will-change: transform;
         }
         .rma-marquee-down {
-          animation: rmaScrollDown 18s linear infinite;
+          animation: rmaScrollDown 58s linear infinite;
           will-change: transform;
         }
         .rma-gallery-container:hover .rma-marquee-up,
@@ -396,10 +396,10 @@ export default function CoursesShowcaseDualScroll({
         }
         @media (max-width: 640px) {
           .rma-marquee-up {
-            animation-duration: 14s;
+            animation-duration: 50s;
           }
           .rma-marquee-down {
-            animation-duration: 14s;
+            animation-duration: 50s;
           }
         }
       `}</style>
