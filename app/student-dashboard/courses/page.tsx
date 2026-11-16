@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { useRazorpay } from "@/hooks/use-razorpay"
+import { useToast } from "@/hooks/use-toast"
+import { useStudentSubscription } from "@/hooks/use-student-subscription"
 import { useRouter, usePathname } from "next/navigation"
 import StudentDashboardLayout from "@/components/student-dashboard-layout"
 import { Button } from "@/components/ui/button"
@@ -318,6 +320,9 @@ function mergeDuplicateEnrollments(items: EnrolledCourse[]): EnrolledCourse[] {
 export default function StudentCoursesPage() {
   const router = useRouter()
   const pathname = usePathname()
+  const { toast } = useToast()
+  const subscriptionStatus = useStudentSubscription()
+  const isTenureExpired = !subscriptionStatus.isActive && !subscriptionStatus.loading
   const { initiatePayment, loading: paymentLoading } = useRazorpay()
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -633,17 +638,19 @@ export default function StudentCoursesPage() {
       if (course.enrollment) {
         handleRenewEnrollment(course.enrollment)
       } else {
-        setIsRenewalDialog(true)
-        setSelectedCourse(course)
-        setSelectedBranch(branchId)
-        setBatchOptions([])
-        setSelectedBatchRef("")
-        setAdminDurationOptions([])
-        setDurationOptions([])
-        setSelectedDurationKey("")
-        setEnrollAmount(null)
-        setShowEnrollDialog(true)
+        router.push("/student-dashboard/payments")
       }
+      return
+    }
+
+    // If existing tenure is completed, restrict enrolling in new courses until renewal
+    if (isTenureExpired) {
+      toast({
+        title: "Course Renewal Required",
+        description: "Your course tenure has expired. Please renew your course on the Payments page before enrolling in new courses.",
+        variant: "destructive",
+      })
+      router.push("/student-dashboard/payments")
       return
     }
     console.log("📋 Opening enrollment dialog. Branches available:", branches.length, branches)

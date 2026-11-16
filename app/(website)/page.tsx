@@ -255,7 +255,7 @@ async function getShowcaseAchievementsFromApi(): Promise<
   try {
     // Prefer local FastAPI (same DB the admin featured toggle writes to).
     // Do not hit NEXT_PUBLIC_SITE_URL first — that can be production and ignore local featured flags.
-    const qs = `limit=12`
+    const qs = `limit=500&include_all=true`
     const backendUrl = getBackendProxyBaseUrl()
     const res = await fetch(`${backendUrl.replace(/\/$/, "")}/api/achievements/public/global?${qs}`, {
       cache: "no-store",

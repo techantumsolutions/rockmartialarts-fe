@@ -51,6 +51,11 @@ export type HomeTrainingDetails = {
   training_type?: string | null
   training_goals?: string | null
   special_requirements?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  formatted_address?: string | null
+  google_maps_url?: string | null
+  location_shared?: boolean | null
 }
 
 export type SchoolTrainingDetails = {
@@ -71,6 +76,11 @@ export type SchoolTrainingDetails = {
   training_type?: string | null
   training_goals?: string | null
   special_requirements?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  formatted_address?: string | null
+  google_maps_url?: string | null
+  location_shared?: boolean | null
 }
 
 export type CollegeTrainingDetails = {
@@ -92,6 +102,11 @@ export type CollegeTrainingDetails = {
   training_type?: string | null
   training_goals?: string | null
   special_requirements?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  formatted_address?: string | null
+  google_maps_url?: string | null
+  location_shared?: boolean | null
 }
 
 export type CorporateTrainingDetails = {
@@ -113,6 +128,11 @@ export type CorporateTrainingDetails = {
   training_type?: string | null
   training_goals?: string | null
   special_requirements?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  formatted_address?: string | null
+  google_maps_url?: string | null
+  location_shared?: boolean | null
 }
 
 export type ResidentialPackage = {
@@ -203,6 +223,12 @@ export type TrainingRequest = {
   razorpay_order_id?: string | null
   razorpay_payment_id?: string | null
   paid_at?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  location_address?: string | null
+  formatted_address?: string | null
+  google_maps_url?: string | null
+  location_shared?: boolean | null
 }
 
 export type StatusHistoryEntry = {
