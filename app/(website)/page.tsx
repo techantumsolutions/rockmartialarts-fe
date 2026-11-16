@@ -47,16 +47,34 @@ async function getCMSContent() {
 
 async function getCourses(): Promise<{ courses: any[]; fromApi: boolean }> {
   try {
-    const backendUrl = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8003"
-    const res = await fetch(`${backendUrl}/api/courses/public/all?limit=500`, {
+    const backendUrl = getBackendProxyBaseUrl()
+    const res = await fetch(`${backendUrl.replace(/\/$/, "")}/api/courses/public/all?limit=500`, {
       cache: "no-store",
       headers: { "Content-Type": "application/json" },
     })
-    if (!res.ok) return { courses: [], fromApi: true }
-    const data = await res.json()
-    const list = data.courses ?? data ?? []
-    const arr = Array.isArray(list) ? list : []
-    return { courses: arr, fromApi: true }
+    if (res.ok) {
+      const data = await res.json()
+      const list = data.courses ?? data ?? []
+      const arr = Array.isArray(list) ? list : []
+      return { courses: arr, fromApi: true }
+    }
+
+    const siteOrigin =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "")
+    if (siteOrigin) {
+      const proxyRes = await fetch(`${siteOrigin.replace(/\/$/, "")}/api/backend/courses/public/all?limit=500`, {
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+      })
+      if (proxyRes.ok) {
+        const data = await proxyRes.json()
+        const list = data.courses ?? data ?? []
+        const arr = Array.isArray(list) ? list : []
+        return { courses: arr, fromApi: true }
+      }
+    }
+    return { courses: [], fromApi: true }
   } catch {
     return { courses: [], fromApi: false }
   }
@@ -428,6 +446,27 @@ export default async function HomePage() {
         ? [{ id: "explore", name: "Explore our courses", img: "/assets/img/courses/choose_img1.png", href: "/courses" }]
         : []
 
+  /* Dual auto-scrolling showcase courses list */
+  const showcaseCourses = activeCourses.map((c: any) => {
+    const rawImg = getCourseImage(c)
+    const img = (rawImg && (resolvePublicAssetUrl(rawImg) || rawImg)) || "/assets/img/courses/choose_img1.png"
+    const matchedCategory = apiCategories.find(
+      (cat: any) => String(cat?.id) === String(c?.category_id) || String(cat?.id) === String(c?.sub_category)
+    )
+    const categoryName =
+      matchedCategory?.name ||
+      c.category_name ||
+      c.difficulty_level ||
+      "Martial Arts"
+    return {
+      id: String(c.id || c._id || toCourseSlug(c)),
+      title: String(c.title || c.name || c.code || "Course"),
+      category: categoryName,
+      img,
+      href: `/courses/${toCourseSlug(c)}`,
+    }
+  })
+
   const branchCards = apiBranches
     .filter((b: any) => b && b.is_active !== false)
     .map((b: any) => {
@@ -624,6 +663,10 @@ export default async function HomePage() {
       defaultTestimonialQuote={(homepage.default_testimonial_quote || "").trim()}
       showcaseTestimonials={showcaseTestimonials}
       showcaseAchievements={showcaseAchievements}
+      courseShowcaseTag={homepage.course_showcase_tag}
+      courseShowcaseTitle={homepage.course_showcase_title}
+      courseShowcaseDescription={homepage.course_showcase_description}
+      showcaseCourses={showcaseCourses}
     />
   )
 }

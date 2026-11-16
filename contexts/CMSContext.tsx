@@ -28,6 +28,9 @@ interface HomepageSection {
   registration_media_url?: string
   registration_media_type?: string
   popup_form?: PopupFormSettings
+  course_showcase_tag?: string
+  course_showcase_title?: string
+  course_showcase_description?: string
 }
 
 interface FooterContent {
