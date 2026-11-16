@@ -25,9 +25,19 @@ export function isDashboardPath(pathname: string | null | undefined): boolean {
   return false
 }
 
+export function isLoginPath(pathname: string | null | undefined): boolean {
+  if (!pathname) return false
+  const p = (pathname.split("?")[0] || "").replace(/\/+$/, "")
+  if (p === "/login" || p.startsWith("/login/")) return true
+  if (p.endsWith("/login") || p.includes("/login/")) return true
+  if (p === "/training-login" || p.startsWith("/training-login/") || p.endsWith("-login")) return true
+  return false
+}
+
 export function FixedTopNavWrapper() {
   const pathname = usePathname()
   if (isDashboardPath(pathname)) return null
+  if (isLoginPath(pathname)) return null
   if (pathname != null && pathname.startsWith("/residential-camp")) return null
   // Partner org site uses its own isolated navbar
   if (isPartnerOrgSitePath(pathname)) return null
