@@ -68,6 +68,9 @@ interface HomepageSection {
   registration_media_url?: string
   registration_media_type?: string
   popup_form?: PopupFormSettings
+  course_showcase_tag?: string
+  course_showcase_title?: string
+  course_showcase_description?: string
 }
 
 interface FooterContent {
@@ -1001,6 +1004,49 @@ export default function CMSPage() {
                 <div className="space-y-2">
                   <Label>Courses Subtitle (small label above title)</Label>
                   <Textarea value={homepage.courses_subtitle || ""} onChange={(e) => setHomepage({ ...homepage, courses_subtitle: e.target.value })} placeholder='Small label (e.g. "Choose")' rows={2} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-[#4F5077]">Courses Showcase Section (Below Training Program)</CardTitle>
+              <p className="text-sm text-gray-500 mt-1">
+                Configure the dual-column auto-scrolling courses showcase on the homepage.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-2">
+                  <Label>Tag (badge above title)</Label>
+                  <Input
+                    value={homepage.course_showcase_tag ?? ""}
+                    onChange={(e) => setHomepage({ ...homepage, course_showcase_tag: e.target.value })}
+                    placeholder="• LEARN. PRACTICE. ADVANCE."
+                  />
+                  <p className="text-xs text-gray-400">Default: • LEARN. PRACTICE. ADVANCE.</p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Title (main heading)</Label>
+                  <Textarea
+                    value={homepage.course_showcase_title ?? ""}
+                    onChange={(e) => setHomepage({ ...homepage, course_showcase_title: e.target.value })}
+                    placeholder={"Skills that move with you.\nTrain. Perform. Grow."}
+                    rows={2}
+                  />
+                  <p className="text-xs text-gray-400">
+                    Supports two lines. The second line will automatically be highlighted in gold.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Description</Label>
+                  <Textarea
+                    value={homepage.course_showcase_description ?? ""}
+                    onChange={(e) => setHomepage({ ...homepage, course_showcase_description: e.target.value })}
+                    placeholder="Discover expert-led courses designed to build real-world skills, boost confidence, and help every learner achieve their potential."
+                    rows={3}
+                  />
                 </div>
               </div>
             </CardContent>

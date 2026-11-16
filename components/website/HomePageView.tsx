@@ -22,6 +22,7 @@ import {
 import { SafeImage, DEFAULT_IMAGE_PLACEHOLDER } from "@/components/ui/safe-image"
 import { LazySection } from "@/components/ui/LazySection"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
+import CoursesShowcaseDualScroll, { type CourseShowcaseItem } from "@/components/website/CoursesShowcaseDualScroll"
 /* ---------- Types (mirror server data shape; no API change) ---------- */
 
 export interface HomePageViewProps {
@@ -81,6 +82,11 @@ export interface HomePageViewProps {
   showcaseTestimonials?: TestimonialCardItem[]
   /** Marketing achievements from MongoDB (`student_showcase_achievements`) */
   showcaseAchievements?: ShowcaseAchievementItem[]
+  /** Dual auto-scrolling courses showcase section below Training Program */
+  courseShowcaseTag?: string
+  courseShowcaseTitle?: string
+  courseShowcaseDescription?: string
+  showcaseCourses?: CourseShowcaseItem[]
 }
 
 /* ---------- Homepage with Cult.fit-style animations ---------- */
@@ -316,6 +322,10 @@ export default function HomePageView({
   defaultTestimonialQuote,
   showcaseTestimonials = [],
   showcaseAchievements = [],
+  courseShowcaseTag,
+  courseShowcaseTitle,
+  courseShowcaseDescription,
+  showcaseCourses = [],
 }: HomePageViewProps) {
   const shouldReduceMotion = useReducedMotion()
   const [safeAboutHtml, setSafeAboutHtml] = useState("")
@@ -470,6 +480,14 @@ export default function HomePageView({
           </AnimatedStaggerGrid>
         </div>
       </section>
+
+      {/* Courses Showcase - Dual parallel auto-scrolling columns (below Training Program / Courses) */}
+      <CoursesShowcaseDualScroll
+        tag={courseShowcaseTag}
+        title={courseShowcaseTitle}
+        description={courseShowcaseDescription}
+        courses={showcaseCourses}
+      />
 
       {/* Branches section directly below main categories / courses */}
       {branches.length > 0 ? (
