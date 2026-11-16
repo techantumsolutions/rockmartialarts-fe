@@ -38,6 +38,16 @@ export interface ChatMessagesResponse {
     email: string
   } | null
   request_id: string
+  location?: {
+    address?: string
+    latitude?: number | null
+    longitude?: number | null
+    google_maps_url?: string | null
+    city?: string | null
+    state?: string | null
+    pincode?: string | null
+    location_shared?: boolean | null
+  } | null
 }
 
 function getChatAuthHeaders(role: "student" | "coach" = "student"): HeadersInit {

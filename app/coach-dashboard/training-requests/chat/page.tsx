@@ -26,6 +26,8 @@ import {
   Phone,
   Mail,
   Building2,
+  Navigation,
+  ExternalLink,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -98,6 +100,7 @@ function CoachChatPane({
     typingUserName,
     unreadCount,
     loadingHistory,
+    locationInfo,
     sendMessage,
     sendTyping,
     markAsRead,
@@ -153,6 +156,27 @@ function CoachChatPane({
     .join("")
     .slice(0, 2)
     .toUpperCase()
+
+  const reqDetails = (activeRequest.details || {}) as Record<string, any>
+  const locLat = activeRequest.latitude ?? reqDetails.latitude ?? locationInfo?.latitude
+  const locLng = activeRequest.longitude ?? reqDetails.longitude ?? locationInfo?.longitude
+  const mapsUrl =
+    activeRequest.google_maps_url ||
+    reqDetails.google_maps_url ||
+    locationInfo?.google_maps_url ||
+    (locLat && locLng ? `https://www.google.com/maps?q=${locLat},${locLng}` : null)
+
+  const address =
+    activeRequest.location_address ||
+    reqDetails.formatted_address ||
+    locationInfo?.address ||
+    [reqDetails.address_line1, reqDetails.address_line2, reqDetails.city, reqDetails.state, reqDetails.pincode]
+      .filter(Boolean)
+      .join(", ")
+
+  const isGpsShared = Boolean(
+    activeRequest.location_shared || reqDetails.location_shared || locationInfo?.location_shared || (locLat && locLng)
+  )
 
   return (
     <div className="flex flex-col h-full bg-white rounded-2xl border border-gray-200/90 shadow-sm overflow-hidden">
@@ -254,6 +278,49 @@ function CoachChatPane({
           <span>Verified Student Client</span>
         </div>
       </div>
+
+      {/* Pinned Training Location Banner */}
+      {(address || mapsUrl) && (
+        <div className="mx-4 mt-2.5 mb-1 p-3 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50/70 border border-amber-200/90 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+          <div className="flex items-start gap-2.5 min-w-0">
+            <div className="p-2 rounded-lg bg-amber-500/15 text-amber-800 shrink-0 mt-0.5">
+              <MapPin className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-900">
+                  Student Training Location
+                </span>
+                {isGpsShared && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    Live GPS Shared
+                  </span>
+                )}
+              </div>
+              <p className="text-xs font-semibold text-gray-900 truncate mt-0.5" title={address}>
+                {address || "Coordinates available"}
+              </p>
+              {locLat && locLng && (
+                <p className="text-[10px] text-gray-500 font-mono mt-0.5">
+                  GPS: {Number(locLat).toFixed(5)}, {Number(locLng).toFixed(5)}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {mapsUrl && (
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-yellow-400 hover:bg-yellow-500 text-gray-900 text-xs font-bold shrink-0 shadow-xs transition-colors self-start sm:self-center"
+            >
+              <Navigation className="w-3.5 h-3.5" />
+              <span>Open in Google Maps</span>
+            </a>
+          )}
+        </div>
+      )}
 
       {/* Message Thread */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/30 min-h-[360px]">
@@ -681,6 +748,71 @@ function CoachChatContent() {
                 )}
               </div>
             </div>
+
+            {/* Google Maps Location Section */}
+            {(activeRequest.location_address ||
+              (activeRequest.details as any)?.formatted_address ||
+              (activeRequest.details as any)?.address_line1 ||
+              activeRequest.google_maps_url ||
+              (activeRequest.details as any)?.latitude) && (
+              <div className="space-y-2">
+                <h5 className="text-xs font-bold uppercase tracking-wider text-gray-700 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Training Location &amp; Google Maps</span>
+                </h5>
+                <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl space-y-2 text-xs">
+                  <div>
+                    <span className="text-gray-500 block text-[11px]">Address:</span>
+                    <span className="font-medium text-gray-900">
+                      {activeRequest.location_address ||
+                        (activeRequest.details as any)?.formatted_address ||
+                        [
+                          (activeRequest.details as any)?.address_line1,
+                          (activeRequest.details as any)?.address_line2,
+                          (activeRequest.details as any)?.city,
+                          (activeRequest.details as any)?.state,
+                          (activeRequest.details as any)?.pincode,
+                        ]
+                          .filter(Boolean)
+                          .join(", ")}
+                    </span>
+                  </div>
+
+                  {(activeRequest.latitude || (activeRequest.details as any)?.latitude) && (
+                    <div>
+                      <span className="text-gray-500 block text-[11px]">GPS Coordinates:</span>
+                      <span className="font-mono text-gray-700 text-[11px]">
+                        {Number(activeRequest.latitude ?? (activeRequest.details as any)?.latitude).toFixed(5)},{" "}
+                        {Number(activeRequest.longitude ?? (activeRequest.details as any)?.longitude).toFixed(5)}
+                      </span>
+                    </div>
+                  )}
+
+                  {(activeRequest.google_maps_url ||
+                    (activeRequest.details as any)?.google_maps_url ||
+                    ((activeRequest.latitude || (activeRequest.details as any)?.latitude) &&
+                      (activeRequest.longitude || (activeRequest.details as any)?.longitude))) && (
+                    <div className="pt-1">
+                      <a
+                        href={
+                          activeRequest.google_maps_url ||
+                          (activeRequest.details as any)?.google_maps_url ||
+                          `https://www.google.com/maps?q=${
+                            activeRequest.latitude ?? (activeRequest.details as any)?.latitude
+                          },${activeRequest.longitude ?? (activeRequest.details as any)?.longitude}`
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-yellow-400 hover:bg-yellow-500 text-gray-900 text-xs font-bold transition-all shadow-xs"
+                      >
+                        <Navigation className="w-3.5 h-3.5" />
+                        <span>Navigate on Google Maps</span>
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Details Fields */}
             <div className="space-y-2">

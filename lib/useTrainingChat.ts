@@ -24,6 +24,16 @@ export interface UseTrainingChatResult {
   unreadCount: number
   loadingHistory: boolean
   error: string | null
+  locationInfo?: {
+    address?: string
+    latitude?: number | null
+    longitude?: number | null
+    google_maps_url?: string | null
+    city?: string | null
+    state?: string | null
+    pincode?: string | null
+    location_shared?: boolean | null
+  } | null
   sendMessage: (content: string) => Promise<boolean>
   sendTyping: (isTyping: boolean) => void
   markAsRead: () => Promise<void>
@@ -65,6 +75,16 @@ export function useTrainingChat(
   const [unreadCount, setUnreadCount] = useState(0)
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [locationInfo, setLocationInfo] = useState<{
+    address?: string
+    latitude?: number | null
+    longitude?: number | null
+    google_maps_url?: string | null
+    city?: string | null
+    state?: string | null
+    pincode?: string | null
+    location_shared?: boolean | null
+  } | null>(null)
 
   const socketRef = useRef<Socket | null>(null)
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -77,6 +97,9 @@ export function useTrainingChat(
     setError(null)
     try {
       const res = await trainingChatAPI.getMessages(requestId, role, 0, 50)
+      if (res && res.location) {
+        setLocationInfo(res.location)
+      }
       if (res && Array.isArray(res.messages)) {
         setMessages((prev) => {
           // Merge: Keep any pending optimistic messages that haven't landed yet
@@ -353,6 +376,7 @@ export function useTrainingChat(
     unreadCount,
     loadingHistory,
     error,
+    locationInfo,
     sendMessage,
     sendTyping,
     markAsRead,

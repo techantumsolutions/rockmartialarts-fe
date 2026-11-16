@@ -15,6 +15,8 @@ import {
   MessageSquare,
   Shield,
   Calendar,
+  MapPin,
+  Navigation,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -96,6 +98,7 @@ export default function TrainingRequestChatDrawer({
     typingUserName,
     unreadCount,
     loadingHistory,
+    locationInfo,
     sendMessage,
     sendTyping,
     markAsRead,
@@ -296,6 +299,47 @@ export default function TrainingRequestChatDrawer({
               <span>End-to-End Verified</span>
             </div>
           </div>
+
+          {/* Pinned Training Location Banner */}
+          {locationInfo && (locationInfo.address || locationInfo.google_maps_url) && (
+            <div className="mx-4 mt-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-start justify-between gap-2.5 shrink-0 text-xs">
+              <div className="flex items-start gap-2 min-w-0">
+                <MapPin className="w-4 h-4 text-[#FFB70F] shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-[#FFB70F] text-[11px] uppercase tracking-wider">
+                      Training Location
+                    </span>
+                    {locationInfo.location_shared && (
+                      <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.2 rounded font-semibold border border-emerald-500/30">
+                        GPS Verified
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-foreground/90 font-medium truncate mt-0.5 text-xs" title={locationInfo.address || ""}>
+                    {locationInfo.address || "Location captured"}
+                  </p>
+                  {locationInfo.latitude && locationInfo.longitude && (
+                    <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                      GPS: {Number(locationInfo.latitude).toFixed(5)}, {Number(locationInfo.longitude).toFixed(5)}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {locationInfo.google_maps_url && (
+                <a
+                  href={locationInfo.google_maps_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#FFB70F] hover:bg-[#e0a00d] text-black text-xs font-bold shrink-0 shadow-xs transition-colors self-center"
+                >
+                  <Navigation className="w-3 h-3" />
+                  <span>Map</span>
+                </a>
+              )}
+            </div>
+          )}
 
           {/* Messages Area */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-muted/5">

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react"
 import Link from "next/link"
-import { CheckCircle2, Loader2, Home, CreditCard } from "lucide-react"
+import { CheckCircle2, Loader2, Home, CreditCard, MapPin, Navigation, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,6 +14,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { trainingRequestAPI, type TrainingRequest } from "@/lib/trainingRequestAPI"
 import { settingsAPI } from "@/lib/settingsAPI"
 import { openRazorpayCheckout } from "@/lib/razorpay"
@@ -99,6 +106,18 @@ export default function HomeTrainingPublicForm() {
   const [successModalOpen, setSuccessModalOpen] = useState(false)
   const [createdRequest, setCreatedRequest] = useState<TrainingRequest | null>(null)
 
+  // Location state (Google Maps API integration)
+  const [locationLoading, setLocationLoading] = useState(false)
+  const [locationError, setLocationError] = useState<string | null>(null)
+  const [locationData, setLocationData] = useState<{
+    latitude: number
+    longitude: number
+    formattedAddress: string
+    googleMapsUrl: string
+    isShared: boolean
+  } | null>(null)
+  const [locationPromptOpen, setLocationPromptOpen] = useState(false)
+
   useEffect(() => {
     if (!submittedId) return
     successRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
@@ -159,11 +178,93 @@ export default function HomeTrainingPublicForm() {
     return null
   }
 
-  const sendSubmission = async (paymentDetails?: {
-    razorpay_order_id?: string
-    razorpay_payment_id?: string
-    razorpay_signature?: string
-  }) => {
+  const detectCurrentLocation = async (): Promise<boolean> => {
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      setLocationError("Geolocation is not supported by your browser.")
+      return false
+    }
+
+    setLocationLoading(true)
+    setLocationError(null)
+
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          try {
+            const { latitude, longitude } = position.coords
+            const res = await fetch(
+              `/api/geocode?lat=${encodeURIComponent(latitude)}&lng=${encodeURIComponent(longitude)}`
+            )
+            const data = await res.json()
+
+            const formatted =
+              data.formatted_address || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
+            const mapsUrl =
+              data.google_maps_url || `https://www.google.com/maps?q=${latitude},${longitude}`
+
+            const loc = {
+              latitude,
+              longitude,
+              formattedAddress: formatted,
+              googleMapsUrl: mapsUrl,
+              isShared: true,
+            }
+            setLocationData(loc)
+
+            // Auto-fill empty address fields
+            setForm((prev) => ({
+              ...prev,
+              address_line1: prev.address_line1.trim() ? prev.address_line1 : data.address_line1 || formatted,
+              address_line2: prev.address_line2.trim() ? prev.address_line2 : data.address_line2 || prev.address_line2,
+              city: prev.city.trim() ? prev.city : data.city || prev.city,
+              state: prev.state.trim() ? prev.state : data.state || prev.state,
+              pincode: prev.pincode.trim() ? prev.pincode : data.pincode || prev.pincode,
+            }))
+
+            setLocationLoading(false)
+            resolve(true)
+          } catch (err) {
+            console.warn("Geocoding failed, using coordinates:", err)
+            const { latitude, longitude } = position.coords
+            const loc = {
+              latitude,
+              longitude,
+              formattedAddress: `GPS: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
+              googleMapsUrl: `https://www.google.com/maps?q=${latitude},${longitude}`,
+              isShared: true,
+            }
+            setLocationData(loc)
+            setLocationLoading(false)
+            resolve(true)
+          }
+        },
+        (err) => {
+          let msg = "Could not fetch current location."
+          if (err.code === err.PERMISSION_DENIED) {
+            msg = "Location permission denied. Please enable location access in browser or enter address manually."
+          } else if (err.code === err.POSITION_UNAVAILABLE) {
+            msg = "Location information unavailable. Please enter address manually."
+          } else if (err.code === err.TIMEOUT) {
+            msg = "Location request timed out. Please try again."
+          }
+          setLocationError(msg)
+          setLocationLoading(false)
+          resolve(false)
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      )
+    })
+  }
+
+  const sendSubmission = async (
+    paymentDetails?: {
+      razorpay_order_id?: string
+      razorpay_payment_id?: string
+      razorpay_signature?: string
+    },
+    overrideLoc?: typeof locationData
+  ) => {
+    const activeLoc = overrideLoc !== undefined ? overrideLoc : locationData
     const branch = branches.find((b) => b.id === form.branch_id)
     const age = form.participant_age ? parseInt(form.participant_age, 10) : undefined
     const result = await trainingRequestAPI.submitHome({
@@ -195,25 +296,27 @@ export default function HomeTrainingPublicForm() {
         training_type: form.training_type.trim() || undefined,
         training_goals: form.training_goals.trim() || undefined,
         special_requirements: form.special_requirements.trim() || undefined,
+        latitude: activeLoc?.latitude ?? null,
+        longitude: activeLoc?.longitude ?? null,
+        formatted_address: activeLoc?.formattedAddress ?? null,
+        google_maps_url: activeLoc?.googleMapsUrl ?? (
+          activeLoc?.latitude && activeLoc?.longitude
+            ? `https://www.google.com/maps?q=${activeLoc.latitude},${activeLoc.longitude}`
+            : null
+        ),
+        location_shared: Boolean(activeLoc?.isShared),
       },
     })
     setSubmittedId(result.request?.id || "ok")
     setCreatedRequest(result.request || null)
     setSuccessModalOpen(true)
     setForm(INITIAL)
+    setLocationData(null)
     setPassword("")
     setConfirmPassword("")
   }
 
-  const onSubmit = async (e: FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    const v = validate()
-    if (v) {
-      setError(v)
-      return
-    }
-
+  const executeOrderAndPayment = async (locToUse?: typeof locationData) => {
     setSubmitting(true)
     try {
       const orderData = await trainingRequestAPI.createOrder({
@@ -243,7 +346,7 @@ export default function HomeTrainingPublicForm() {
                 razorpay_order_id: rpResponse.razorpay_order_id,
                 razorpay_payment_id: rpResponse.razorpay_payment_id,
                 razorpay_signature: rpResponse.razorpay_signature,
-              })
+              }, locToUse)
             } catch (err) {
               setError(err instanceof Error ? err.message : "Payment succeeded but request submission failed")
             } finally {
@@ -259,13 +362,31 @@ export default function HomeTrainingPublicForm() {
           },
         })
       } else {
-        await sendSubmission()
+        await sendSubmission(undefined, locToUse)
         setSubmitting(false)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to process request")
       setSubmitting(false)
     }
+  }
+
+  const onSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    const v = validate()
+    if (v) {
+      setError(v)
+      return
+    }
+
+    // Ask user for current location if not captured yet
+    if (!locationData?.isShared) {
+      setLocationPromptOpen(true)
+      return
+    }
+
+    await executeOrderAndPayment(locationData)
   }
 
   if (submittedId) {
@@ -470,6 +591,81 @@ export default function HomeTrainingPublicForm() {
               placeholder="e.g. 1"
             />
           </div>
+          <div className="space-y-2 md:col-span-2 pt-1">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-[#FFB70F] flex items-center justify-center shrink-0">
+                  <MapPin className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-white">Current Training Location</p>
+                  <p className="text-[11px] text-gray-400">
+                    Fetch GPS coordinates via Google Maps so your assigned coach can reach you accurately
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                onClick={detectCurrentLocation}
+                disabled={locationLoading}
+                className="bg-[#FFB70F] hover:bg-[#e0a00d] text-black text-xs font-semibold shrink-0 gap-1.5 h-8 px-3 rounded-lg"
+              >
+                {locationLoading ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Detecting via Google Maps...</span>
+                  </>
+                ) : (
+                  <>
+                    <Navigation className="w-3.5 h-3.5" />
+                    <span>Share Current Location</span>
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {locationData?.isShared && (
+              <div className="p-3 rounded-xl border border-emerald-500/40 bg-emerald-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-semibold text-emerald-300">
+                      Location captured via Google Maps
+                    </span>
+                    <p className="text-gray-300 text-[11px] mt-0.5">{locationData.formattedAddress}</p>
+                    <p className="text-gray-400 text-[10px] font-mono mt-0.5">
+                      GPS: {locationData.latitude.toFixed(5)}, {locationData.longitude.toFixed(5)}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+                  <a
+                    href={locationData.googleMapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] text-[#FFB70F] hover:underline flex items-center gap-1 font-semibold"
+                  >
+                    <span>View Map Pin</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                  <button
+                    type="button"
+                    onClick={detectCurrentLocation}
+                    className="text-[11px] text-gray-400 hover:text-white underline"
+                  >
+                    Re-detect
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {locationError && (
+              <p className="text-xs text-amber-400 bg-amber-950/30 border border-amber-800/40 rounded-lg p-2.5">
+                {locationError}
+              </p>
+            )}
+          </div>
+
           <div className="space-y-2 md:col-span-2">
             <Label className="text-gray-300">
               Address line 1 <span className="text-[#FFB70F]">*</span>
@@ -607,6 +803,69 @@ export default function HomeTrainingPublicForm() {
         contactPhone={createdRequest?.contact_phone || form.contact_phone}
         amountPaid={trainingFee}
       />
+
+      {/* Ask for Current Location Dialog on Submit */}
+      <Dialog open={locationPromptOpen} onOpenChange={setLocationPromptOpen}>
+        <DialogContent className="sm:max-w-md bg-gray-950 border-gray-800 text-white rounded-2xl p-6">
+          <DialogHeader className="space-y-2">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-[#FFB70F] flex items-center justify-center mx-auto mb-1">
+              <MapPin className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-center text-lg font-bold text-white">
+              Share Your Current Location?
+            </DialogTitle>
+            <DialogDescription className="text-center text-xs text-gray-400">
+              Sharing your live location via Google Maps allows your assigned coach to easily navigate directly to your home training venue.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="p-3 bg-gray-900/70 border border-gray-800 rounded-xl text-xs text-gray-300 space-y-1">
+            <p className="font-semibold text-[#FFB70F]">Address entered:</p>
+            <p className="text-gray-200">
+              {[form.address_line1, form.address_line2, form.city, form.state, form.pincode]
+                .filter(Boolean)
+                .join(", ") || "No address entered"}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2 pt-2">
+            <Button
+              type="button"
+              disabled={locationLoading}
+              onClick={async () => {
+                await detectCurrentLocation()
+                setLocationPromptOpen(false)
+                await executeOrderAndPayment()
+              }}
+              className="w-full bg-[#FFB70F] hover:bg-[#e0a00d] text-black font-semibold h-11 rounded-xl gap-2 shadow-sm"
+            >
+              {locationLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Detecting Location via Google Maps...</span>
+                </>
+              ) : (
+                <>
+                  <Navigation className="w-4 h-4" />
+                  <span>Share Current Location &amp; Proceed</span>
+                </>
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={locationLoading}
+              onClick={() => {
+                setLocationPromptOpen(false)
+                void executeOrderAndPayment()
+              }}
+              className="w-full border-gray-700 text-gray-300 hover:text-white hover:bg-gray-800 h-10 rounded-xl"
+            >
+              Continue with Entered Address
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </form>
   )
 }
