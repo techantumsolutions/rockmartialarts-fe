@@ -31,48 +31,26 @@ import {
   enrollmentCartStaffBlockedMessage,
   getEnrollmentCartAccess,
 } from "@/lib/enrollmentCartAccess"
-
-/* ------------------------------------------------------------------ */
-/* Types                                                               */
-/* ------------------------------------------------------------------ */
-
-type CourseInfoSection = { title?: string; content?: string; bullet_points?: string[]; image?: string; layout?: "image_left" | "image_right" }
-type SectionHeading = { sub?: string; title?: string }
-
-type PageContent = {
-  section_visibility?: Partial<Record<string, boolean>>
-  hero_section?: { title?: string; subtitle?: string; description?: string; hero_image?: string; cta_text?: string; cta_link?: string }
-  course_info?: { location?: string; duration?: string; price?: string; training_time?: string }
-  course_info_sections?: CourseInfoSection[]
-  about_section?: {
-    title?: string
-    aboutTitle?: string
-    description?: string
-    aboutDescription?: string
-    secondary_description?: string
-    image1?: string
-    image2?: string
-    /** Legacy seeded data — not editable in admin; ignored on public page. */
-    content_blocks?: unknown[]
-  }
-  benefits?: { title: string; description: string; icon?: string }[]
-  learning_section?: { title?: string; description?: string; video_url?: string; thumbnail?: string }
-  gallery_images?: string[]
-  instructors?: { name: string; designation: string; bio?: string; photo?: string }[]
-  testimonials?: { name: string; designation: string; text: string; photo?: string }[]
-  pdf_attachments?: { title: string; file_url: string }[]
-  /** Optional headings for public page sections (set from admin / CMS JSON) */
-  section_headings?: Partial<{
-    benefits: SectionHeading
-    learning: SectionHeading
-    gallery: SectionHeading
-    instructors: SectionHeading
-    testimonials: SectionHeading
-    attachments: SectionHeading
-    course_content: SectionHeading
-  }>
-  cta_section?: { headline?: string }
-}
+import {
+  isSectionEnabled,
+  type CourseInfoSection,
+  type PageContent,
+} from "@/lib/coursePageContent"
+import {
+  CourseAboutSection,
+  CourseFactGrid,
+  CourseFinalCta,
+  CourseHeroBlock,
+  CourseLearnCards,
+  CourseLineage,
+  CoursePhilosophyPillars,
+  CourseQualities,
+  CourseSportAndAudience,
+  CourseStyleCards,
+  CourseTrainingPrograms,
+  CourseWhoCanJoin,
+} from "@/components/course-detail/CourseDetailSections"
+import { applyCourseDetailDefaults } from "@/lib/courseDetailDefaults"
 
 type CourseData = {
   id: string
@@ -545,11 +523,50 @@ function CourseDetailPageInner() {
     </main>
   )
 
-  const pc = course.page_content || {}
+  const media = (course.media_resources || {}) as {
+    course_image_url?: string
+    promo_video_url?: string
+    video_poster_url?: string
+  }
+  const courseContentRaw = (course.course_content || {}) as {
+    syllabus?: string
+    equipment_required?: string[]
+  }
+  const existingSyllabus = (courseContentRaw.syllabus || "")
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+  const existingEquipment = (courseContentRaw.equipment_required || []).filter(Boolean)
+  const provisionalTitle =
+    (course.page_content?.hero_section?.title ||
+      course.title ||
+      course.course_name ||
+      "").trim() ||
+    (typeof course.code === "string" ? course.code : "Course")
+  const rawExistingHero = (
+    course.page_content?.hero_section?.hero_image ||
+    media.course_image_url ||
+    ""
+  ).trim()
+
+  const defaults = applyCourseDetailDefaults(
+    provisionalTitle,
+    course.page_content,
+    {
+      existingSyllabus,
+      existingEquipment,
+      existingHeroImage: rawExistingHero
+        ? resolveUploadUrl(rawExistingHero)
+        : undefined,
+    }
+  )
+  const pc = defaults.page_content
   const hero = pc.hero_section || {}
   const info = pc.course_info || {}
   const about = pc.about_section || {}
-  const aboutTitle = String(course.aboutTitle ?? about.aboutTitle ?? about.title ?? "").trim()
+  const aboutTitle = String(
+    course.aboutTitle ?? about.aboutTitle ?? about.title ?? ""
+  ).trim()
   const aboutDescription = String(
     course.aboutDescription ?? about.aboutDescription ?? about.description ?? ""
   ).trim()
@@ -563,23 +580,34 @@ function CourseDetailPageInner() {
   const testimonials = pc.testimonials || []
   const attachments = pc.pdf_attachments || []
   const courseInfoSections = (pc.course_info_sections || []) as CourseInfoSection[]
-  const visibility = (pc.section_visibility || {}) as Partial<Record<string, boolean>>
-  const enabled = (key: string) => visibility[key] !== false
-  const courseContent = (course.course_content || {}) as { syllabus?: string; equipment_required?: string[] }
-  const media = (course.media_resources || {}) as {
-    course_image_url?: string
-    promo_video_url?: string
-    video_poster_url?: string
-  }
+  const visibility = pc.section_visibility
+  const enabled = (key: Parameters<typeof isSectionEnabled>[1]) =>
+    isSectionEnabled(visibility, key)
+  const layoutVariant = pc.layout_variant || "standard"
+  const isHeritage = layoutVariant === "heritage"
+  const isGoalBased = layoutVariant === "goal_based"
+  const learnCards = pc.learn_cards || []
+  const whoCanJoin = pc.who_can_join || {}
+  const trainingPrograms = pc.training_programs || []
+  const whyRmaa = pc.why_rmaa || {}
+  const lineage = pc.lineage || {}
+  const philosophyPillars = pc.philosophy_pillars || []
+  const qualities = pc.qualities || []
+  const sportSpotlight = pc.sport_spotlight || {}
+  const styleCards = pc.style_cards || []
+  const finalCta = pc.final_cta || {}
+  const syllabusLines = defaults.syllabusLines
+  const equipmentLines = defaults.equipment
+  const learnVariant = defaults.learnVariant
   const headings = (pc.section_headings || {}) as PageContent["section_headings"]
 
   const displayTitle =
     (hero.title || course.title || course.course_name || "").trim() ||
     (typeof course.code === "string" ? course.code : "Course")
   const rawHeroImg = (hero.hero_image || media.course_image_url || "").trim()
-  const heroImg = rawHeroImg ? resolveUploadUrl(rawHeroImg) : ""
-  const aboutImage = resolveUploadUrl(about.image1 || about.image2 || "")
-
+  const heroImg = rawHeroImg
+    ? resolveUploadUrl(rawHeroImg)
+    : defaults.heroImageFallback || ""
   const branches = (course.branch_assignments || []) as { branch_id: string; branch_name: string; location: string }[]
   const durations = (course.available_durations || []) as { id: string; name?: string; duration_months?: number; code?: string }[]
   const feePerDuration = (course.fee_per_duration || {}) as Record<string, number>
@@ -674,30 +702,20 @@ function CourseDetailPageInner() {
 
   return (
     <main className="min-h-screen text-gray-300">
-      {/* ============ 1. HERO ============ */}
+      {/* ============ 1. HERO (left copy + right image) ============ */}
       {enabled("hero") && (
-        <section
-          className={`relative min-h-[70vh] flex items-end overflow-hidden ${heroImg ? "" : "bg-gradient-to-br from-[#171A26] via-[#252a3d] to-black"}`}
-          style={
-            heroImg
-              ? { backgroundImage: `url(${heroImg})`, backgroundSize: "cover", backgroundPosition: "center" }
-              : undefined
-          }
-        >
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-black/30" />
-          <div className="site-content relative z-10 px-0 sm:px-1 pb-16 pt-32">
-            <h1 className="text-4xl md:text-6xl font-extrabold text-white uppercase leading-tight mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>
-              {displayTitle}
-            </h1>
-            {hero.subtitle && <p className="text-lg md:text-xl text-gray-200 max-w-2xl mb-3">{hero.subtitle}</p>}
-            {hero.description && <p className="text-gray-300 max-w-2xl mb-6">{hero.description}</p>}
-            {hero.cta_text && (
-              <Link href={courseRegistrationHref(hero.cta_link)} className="inline-block rounded-lg bg-[#FFB70F] px-8 py-3.5 text-base font-bold text-[#171A26] hover:brightness-110 hover:shadow-[0_10px_28px_rgba(255,183,15,0.35)] transition-all">
-                {hero.cta_text}
-              </Link>
-            )}
-          </div>
-        </section>
+        <CourseHeroBlock
+          title={displayTitle}
+          subtitle={hero.subtitle}
+          description={hero.description}
+          imageUrl={heroImg}
+          featureIcons={hero.feature_icons}
+          primaryLabel={hero.cta_text || "Join Now"}
+          primaryHref={courseRegistrationHref(hero.cta_link)}
+          secondaryCtas={hero.secondary_ctas}
+          showAddToCart={Boolean(course?.id && effectiveLocationId && durations.length > 0)}
+          onAddToCart={handleAddToCartClick}
+        />
       )}
 
       {/* ============ 2. INFO BAR (location / duration / price / timings) ============ */}
@@ -915,253 +933,121 @@ function CourseDetailPageInner() {
         </section>
       )}
 
-      {/* ============ 3. ABOUT COURSE ============ */}
+      {/* ============ ABOUT ============ */}
       {enabled("about") &&
-        (aboutTitle ||
-          aboutDescription ||
-          about.secondary_description ||
-          about.image1 ||
-          about.image2) && (
-        <section className="py-16 md:py-20 bg-[#171A26] text-white">
+        (aboutTitle || aboutDescription || about.secondary_description) && (
+        <CourseAboutSection
+          title={aboutTitle || `About ${displayTitle}`}
+          description={aboutDescription}
+          secondary={about.secondary_description}
+        />
+      )}
+
+      {/* Shaolin-only heritage blocks */}
+      {isHeritage && enabled("lineage") && (lineage.title || lineage.body) ? (
+        <CourseLineage content={lineage} />
+      ) : null}
+      {isHeritage && enabled("philosophy") && philosophyPillars.length > 0 ? (
+        <CoursePhilosophyPillars items={philosophyPillars} />
+      ) : null}
+
+      {/* What You'll Learn — own section, 6 cards in 1 row */}
+      {enabled("learn_cards") && learnCards.length > 0 ? (
+        <CourseLearnCards
+          title={
+            headings?.learn_cards?.title ||
+            (isGoalBased ? "What You'll Get" : "What You'll Learn")
+          }
+          items={learnCards}
+          variant={learnVariant}
+          light={isHeritage || learnVariant === "icon"}
+        />
+      ) : null}
+
+      {isHeritage && enabled("qualities") && qualities.length > 0 ? (
+        <CourseQualities items={qualities} />
+      ) : null}
+
+      {/* Who Can Join — own full-width row (not paired with Learn) */}
+      {!isHeritage &&
+      enabled("who_can_join") &&
+      ((whoCanJoin.items || []).length > 0 || whoCanJoin.note) ? (
+        <CourseWhoCanJoin content={whoCanJoin} />
+      ) : null}
+
+      {/* Optional sport spotlight (Kickboxing / MMA) — never pairs Who */}
+      {!isHeritage &&
+      enabled("sport_spotlight") &&
+      (sportSpotlight.title || sportSpotlight.body) ? (
+        <CourseSportAndAudience sport={sportSpotlight} />
+      ) : null}
+
+      {/* Western Dance style cards */}
+      {!isHeritage && enabled("style_cards") && styleCards.length > 0 ? (
+        <CourseStyleCards
+          title={headings?.style_cards?.title || "Dance Styles We Teach"}
+          items={styleCards}
+        />
+      ) : null}
+
+      {/* Training Program */}
+      {!isHeritage && enabled("training_programs") && trainingPrograms.length > 0 ? (
+        <CourseTrainingPrograms
+          title={headings?.training_programs?.title || "Training Program"}
+          subtitle={
+            headings?.training_programs?.sub ||
+            (isGoalBased
+              ? "Choose a goal-based training program based on your fitness needs."
+              : "Choose the right training path based on your goal.")
+          }
+          programs={trainingPrograms}
+          goalBased={isGoalBased || trainingPrograms.length > 2}
+        />
+      ) : null}
+
+      {/* Fact grid: syllabus / equipment / benefits / why RMAA */}
+      {!isHeritage &&
+      (enabled("course_content") || enabled("benefits") || enabled("why_rmaa")) &&
+      (syllabusLines.length > 0 ||
+        equipmentLines.length > 0 ||
+        (enabled("benefits") && benefits.length > 0) ||
+        (enabled("why_rmaa") && (whyRmaa.body || (whyRmaa.items || []).length > 0))) ? (
+        <CourseFactGrid
+          syllabusLines={enabled("course_content") ? syllabusLines : undefined}
+          equipment={enabled("course_content") ? equipmentLines : undefined}
+          equipmentTitle={
+            headings?.course_content?.title?.trim() || "Equipment Required"
+          }
+          benefits={enabled("benefits") ? benefits : undefined}
+          whyRmaa={enabled("why_rmaa") ? whyRmaa : undefined}
+        />
+      ) : null}
+
+      {/* Heritage gallery only */}
+      {isHeritage && enabled("gallery") && gallery.length > 0 && (
+        <section className="bg-[#0B0C10] py-14 md:py-20">
           <div className="site-content px-0 sm:px-1">
-            <div className="flex flex-col lg:flex-row lg:items-center gap-8">
-              {/* LEFT: text content (60%) */}
-              <div className="w-full lg:w-[60%]">
-                <p className="text-[#FFB70F] uppercase tracking-[0.2em] text-sm font-semibold mb-2">About {displayTitle}</p>
-                <h2 className="text-3xl md:text-4xl font-extrabold text-white uppercase mb-6" style={{ fontFamily: "'Oswald', sans-serif" }}>
-                  {aboutTitle || "Start Today and Change Your Life"}
-                </h2>
-                <div className="space-y-4 text-[#D8DCE6] leading-relaxed">
-                  {aboutDescription && <p>{aboutDescription}</p>}
-                  {about.secondary_description && <p>{about.secondary_description}</p>}
-                </div>
-              </div>
-              {/* RIGHT: image (40%) */}
-              {aboutImage && (
-                <div className="w-full lg:w-[40%]">
-                  <img
-                    src={aboutImage}
-                    alt="About Course"
-                    className="rounded-xl border border-[#383D4D] w-full h-auto object-cover"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ============ CTA (Ready to Start Your Journey?) ============ */}
-      {enabled("cta") && (
-        <section className="px-4 py-8 md:bg-[#222635] md:border-y md:border-[#383D4D] md:px-0 md:py-12">
-          <div className="site-content rounded-2xl bg-[#292E40] border border-[#383D4D] px-5 py-8 text-center sm:px-8 md:rounded-none md:border-0 md:bg-transparent md:px-4 md:py-0">
-            <h2 className="text-2xl md:text-3xl font-extrabold text-white uppercase mb-5 md:mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>
-              {pc.cta_section?.headline?.trim() || "Ready to Start Your Journey?"}
-            </h2>
-            <div className="mx-auto grid max-w-xl grid-cols-1 items-center gap-3 md:grid-cols-2 md:gap-4">
-              <Link
-                href={courseRegistrationHref(hero.cta_link)}
-                className="inline-flex w-full items-center justify-center rounded-lg bg-[#FFB70F] px-4 py-3.5 text-base font-bold text-[#171A26] hover:brightness-110 hover:shadow-[0_10px_28px_rgba(255,183,15,0.35)] transition-all shadow-lg sm:px-10 md:py-4"
-              >
-                {hero.cta_text?.trim() || "Join Now"}
-              </Link>
-              {course?.id && effectiveLocationId && durations.length > 0 ? (
-                <button
-                  type="button"
-                  onClick={handleAddToCartClick}
-                  className="inline-flex w-full items-center justify-center rounded-lg border-2 border-[#383D4D] bg-[#292E40] px-4 py-3.5 text-base font-bold text-white hover:border-[#FFB70F] hover:text-[#FFB70F] transition-colors sm:px-8 md:py-4"
-                >
-                  Add to cart
-                </button>
-              ) : null}
-              <Link href="/courses" onClick={handleBackNavigation} className="col-span-full mt-1 inline-flex items-center justify-self-center gap-2 text-white font-semibold hover:text-[#FFB70F] transition-colors md:col-span-2 md:mt-0">
-                <ArrowLeft className="w-4 h-4" /> View All Courses
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ============ 3a. COURSE INFO SECTIONS (60-40 / 40-60 alternating) ============ */}
-      {enabled("course_info_sections") && courseInfoSections.length > 0 && (
-        <section className="py-16 md:py-20 bg-[#171A26] text-white">
-          <div className="site-content px-0 sm:px-1 space-y-16">
-            {courseInfoSections.map((sec, idx) => {
-              const textLeft = sec.layout !== "image_left"
-              const hasImage = Boolean(sec.image)
-              return (
-                <div
-                  key={idx}
-                  className={
-                    hasImage
-                      ? "grid grid-cols-1 gap-8 md:gap-12 items-center sm:grid-cols-5"
-                      : "grid grid-cols-1 gap-6"
-                  }
-                >
-                  <div className={hasImage ? (textLeft ? "sm:col-span-3" : "sm:col-span-3 sm:order-2") : ""}>
-                    {sec.title && <h2 className="text-2xl md:text-3xl font-extrabold text-white uppercase mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>{sec.title}</h2>}
-                    {sec.content && (
-                      <div className="text-[#D8DCE6] leading-relaxed space-y-3 mb-4">
-                        {sec.content
-                          .split(/\r?\n\s*\r?\n+/)
-                          .map((paragraph) => paragraph.trim())
-                          .filter(Boolean)
-                          .map((paragraph, paragraphIndex) => (
-                            <p key={paragraphIndex} className="whitespace-pre-line">
-                              {paragraph}
-                            </p>
-                          ))}
-                      </div>
-                    )}
-                    {sec.bullet_points && sec.bullet_points.length > 0 && (
-                      <ul className="list-none space-y-2">
-                        {sec.bullet_points.filter(Boolean).map((bp, i) => (
-                          <li key={i} className="flex items-start gap-2">
-                            <span className="text-[#FFB70F] font-bold shrink-0">&gt;&gt;</span>
-                            <span className="text-[#D8DCE6]">{bp}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                  {hasImage && (
-                    <div className={textLeft ? "sm:col-span-2" : "sm:col-span-2 sm:order-1"}>
-                      <img
-                        src={resolveUploadUrl(sec.image)}
-                        alt={sec.title || ""}
-                        className="rounded-lg w-full object-cover"
-                      />
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* ============ COURSE CONTENT (syllabus / equipment) ============ */}
-      {enabled("course_content") && (courseContent.syllabus || (courseContent.equipment_required && courseContent.equipment_required.length > 0)) && (
-        <section className="pt-16 pb-4 md:pt-20 md:pb-6 bg-[#1E2130]">
-          <div className="site-content px-0 sm:px-1">
-            {headings?.course_content?.sub?.trim() || headings?.course_content?.title?.trim() ? (
-              <SectionLabel sub={headings?.course_content?.sub} title={headings?.course_content?.title} />
-            ) : (
-              <h2 className="sr-only">Syllabus and equipment — {displayTitle}</h2>
-            )}
-            <div className="max-w-4xl mx-auto border border-gray-800 rounded-xl p-6 md:p-8 space-y-6">
-              {courseContent.syllabus && (
-                <div>
-                  <h3 className="text-xl font-bold text-[#FFB70F] uppercase mb-3" style={{ fontFamily: "'Oswald', sans-serif" }}>
-                    Syllabus
-                  </h3>
-                  <div className="text-gray-300 leading-relaxed whitespace-pre-line">
-                    {courseContent.syllabus}
-                  </div>
-                </div>
-              )}
-              {courseContent.equipment_required && courseContent.equipment_required.filter(Boolean).length > 0 && (
-                <div>
-                  <h3 className="text-xl font-bold text-[#FFB70F] uppercase mb-3" style={{ fontFamily: "'Oswald', sans-serif" }}>
-                    Equipment Required
-                  </h3>
-                  <ul className="list-none space-y-2">
-                    {courseContent.equipment_required.filter(Boolean).map((eq, i) => (
-                      <li key={i} className="flex items-start gap-2">
-                        <span className="text-[#FFB70F] font-bold shrink-0">&gt;&gt;</span>
-                        <span className="text-gray-300">{eq}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ============ 4. BENEFITS ============ */}
-      {enabled("benefits") && benefits.length > 0 && (
-        <section className="pt-4 pb-16 md:pt-6 md:pb-20 bg-[#1E2130]">
-          <div className="site-content px-0 sm:px-1">
-            {headings?.benefits?.sub?.trim() || headings?.benefits?.title?.trim() ? (
-              <SectionLabel sub={headings?.benefits?.sub} title={headings?.benefits?.title} />
-            ) : (
-              <h2 className="sr-only">Benefits — {displayTitle}</h2>
-            )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {benefits.map((b, i) => (
-                <div key={i} className="border border-gray-800 rounded-xl p-6 hover:border-[#FFB70F] transition-colors text-center">
-                  {b.icon && <span className="text-3xl block mb-3">{b.icon}</span>}
-                  <h3 className="text-xl font-bold text-[#FFB70F] uppercase mb-2" style={{ fontFamily: "'Oswald', sans-serif" }}>{b.title}</h3>
-                  <p className="text-gray-400 text-sm">{b.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ============ 5. LEARNING / VIDEO ============ */}
-      {enabled("learning") && (learning.title || effectiveLearningVideo || learning.description) && (
-        <section className="py-16 md:py-20">
-          <div className="site-content px-0 sm:px-1">
-            {headings?.learning?.sub?.trim() || headings?.learning?.title?.trim() || learning.title?.trim() ? (
-              <SectionLabel
-                sub={headings?.learning?.sub}
-                title={headings?.learning?.title?.trim() ? headings.learning.title : learning.title}
-              />
-            ) : (
-              <h2 className="sr-only">Classes and learning — {displayTitle}</h2>
-            )}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
-              <div className="text-gray-400 leading-relaxed space-y-4">
-                {learning.description && learning.description.split("\n").map((p, i) => <p key={i}>{p}</p>)}
-              </div>
-              {effectiveLearningVideo && (
-                <LearningVideoPlayer
-                  videoUrl={effectiveLearningVideo}
-                  posterUrl={learningPoster || undefined}
-                />
-              )}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ============ 6. GALLERY ============ */}
-      {enabled("gallery") && gallery.length > 0 && (
-        <section className="py-16 md:py-20 bg-[#1E2130]">
-          <div className="site-content px-0 sm:px-1">
-            {headings?.gallery?.sub?.trim() || headings?.gallery?.title?.trim() ? (
-              <SectionLabel sub={headings?.gallery?.sub} title={headings?.gallery?.title} />
-            ) : (
-              <h2 className="sr-only">Gallery — {displayTitle}</h2>
-            )}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <SectionLabel
+              sub={headings?.gallery?.sub || "Training"}
+              title={headings?.gallery?.title || "Training Gallery"}
+            />
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 lg:grid-cols-5">
               {gallery.map((url, i) => {
                 const resolvedUrl = resolveUploadUrl(url)
                 return (
-                  <div
+                  <button
                     key={i}
+                    type="button"
                     onClick={() => setSelectedGalleryImg(resolvedUrl)}
-                    className="relative overflow-hidden rounded-lg group h-56 sm:h-64 border border-gray-800 flex items-center justify-center cursor-pointer shadow-md hover:border-[#FFB70F]/50 transition-colors"
+                    className="relative h-44 overflow-hidden border border-[#FFB70F]/35 sm:h-52"
                   >
-                    {/* Ambient blurred backdrop so portrait and landscape images fill the card gracefully */}
-                    <img
-                      src={resolvedUrl}
-                      alt=""
-                      className="absolute inset-0 w-full h-full object-cover blur-xl opacity-30 scale-110 pointer-events-none select-none"
-                      aria-hidden="true"
-                    />
-                    {/* Main image: object-contain prevents head/feet cropping and keeps full subject visible */}
                     <img
                       src={resolvedUrl}
                       alt={`Gallery ${i + 1}`}
-                      className="relative z-10 max-h-full max-w-full object-contain p-2 scale-105 transition-transform duration-500"
+                      className="h-full w-full object-cover"
                       loading="lazy"
                     />
-                  </div>
+                  </button>
                 )
               })}
             </div>
@@ -1169,127 +1055,19 @@ function CourseDetailPageInner() {
         </section>
       )}
 
-      {/* ============ 7. INSTRUCTORS ============ */}
-      {enabled("instructors") && instructors.length > 0 && (
-        <section className="py-16 md:py-20">
-          <div className="site-content px-0 sm:px-1">
-            {headings?.instructors?.sub?.trim() || headings?.instructors?.title?.trim() ? (
-              <SectionLabel sub={headings?.instructors?.sub} title={headings?.instructors?.title} />
-            ) : (
-              <SectionLabel sub="Expert" title="Our Coaches" />
-            )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-              {instructors.map((inst, i) => (
-                <div key={i} className="text-center group">
-                  <div className="relative w-48 h-48 mx-auto mb-4 rounded-full overflow-hidden border-4 border-[#383D4D] group-hover:border-[#FFB70F] transition-colors bg-[#222635]">
-                    <SafeImage
-                      src={inst.photo}
-                      alt={inst.name}
-                      className="w-full h-full object-cover"
-                      fallbackSrc={DEFAULT_IMAGE_PLACEHOLDER}
-                    />
-                  </div>
-                  <h3 className="text-lg font-bold text-[#FFB70F] uppercase" style={{ fontFamily: "'Oswald', sans-serif" }}>{inst.name}</h3>
-                  <p className="text-gray-400 text-sm">{inst.designation}</p>
-                  {inst.bio ? <p className="text-gray-500 text-xs mt-2 px-2">{inst.bio}</p> : null}
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Student achievements (marketing showcase — MongoDB) */}
-      <section className="py-16 md:py-20 bg-[#1E2130]">
-        <div className="site-content px-0 sm:px-1">
-          <SectionLabel sub="Celebrate" title="Student Achievements" />
-          {showcaseLoading ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="w-10 h-10 animate-spin text-[#FFB70F]" />
-            </div>
-          ) : showcaseAchievements.length === 0 ? (
-            <p className="text-center text-gray-500 py-8 text-sm">No achievements yet</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {showcaseAchievements.map((a, i) => (
-                <ShowcaseAchievementCard key={a.id || i} item={a} />
-              ))}
-            </div>
+      {/* Final journey CTA */}
+      {enabled("final_cta") &&
+      (finalCta.headline || finalCta.tagline) ? (
+        <CourseFinalCta
+          content={finalCta}
+          primaryHref={courseRegistrationHref(
+            finalCta.primary_cta_link || hero.cta_link
           )}
-        </div>
-      </section>
-
-      {/* ============ 8. TESTIMONIALS ============ */}
-      {enabled("testimonials") && testimonials.length > 0 && (
-        <section className="py-16 md:py-20 bg-[#1E2130]">
-          <div className="site-content px-0 sm:px-1">
-            {headings?.testimonials?.sub?.trim() || headings?.testimonials?.title?.trim() ? (
-              <SectionLabel sub={headings?.testimonials?.sub} title={headings?.testimonials?.title} />
-            ) : (
-              <h2 className="sr-only">Testimonials — {displayTitle}</h2>
-            )}
-            <div className="max-w-4xl mx-auto">
-              {/* Active testimonial */}
-              <div className="border border-gray-800 rounded-xl p-8 md:p-10 text-center relative">
-                <Quote className="w-10 h-10 text-[#FFB70F] mx-auto mb-4 opacity-50" />
-                <p className="text-gray-300 text-lg leading-relaxed mb-6 italic">&ldquo;{testimonials[testimonialIdx]?.text}&rdquo;</p>
-                <p className="text-[#FFB70F] font-bold uppercase">{testimonials[testimonialIdx]?.name}</p>
-                <p className="text-gray-500 text-sm">{testimonials[testimonialIdx]?.designation}</p>
-              </div>
-              {/* Carousel nav */}
-              {testimonials.length > 1 && (
-                <div className="flex items-center justify-center gap-6 mt-6">
-                  <button onClick={() => setTestimonialIdx((p) => (p - 1 + testimonials.length) % testimonials.length)} className="w-10 h-10 rounded-full border border-gray-700 flex items-center justify-center text-gray-400 hover:border-[#FFB70F] hover:text-[#FFB70F] transition-colors">
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
-                  <div className="flex gap-2">
-                    {testimonials.map((_, i) => (
-                      <button key={i} onClick={() => setTestimonialIdx(i)} className={`w-3 h-3 rounded-full transition-colors ${i === testimonialIdx ? "bg-[#FFB70F]" : "bg-gray-700"}`} />
-                    ))}
-                  </div>
-                  <button onClick={() => setTestimonialIdx((p) => (p + 1) % testimonials.length)} className="w-10 h-10 rounded-full border border-gray-700 flex items-center justify-center text-gray-400 hover:border-[#FFB70F] hover:text-[#FFB70F] transition-colors">
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
-                </div>
-              )}
-              {/* Thumbnail row */}
-              {testimonials.length > 1 && (
-                <div className="flex justify-center gap-4 mt-6">
-                  {testimonials.map((t, i) => (
-                    <button key={i} onClick={() => setTestimonialIdx(i)} className={`flex flex-col items-center transition-opacity ${i === testimonialIdx ? "opacity-100" : "opacity-50 hover:opacity-80"}`}>
-                      <div className={`w-14 h-14 rounded-full overflow-hidden border-2 ${i === testimonialIdx ? "border-[#FFB70F]" : "border-gray-700"}`}>
-                        <SafeImage src={t.photo} alt={t.name} className="w-full h-full object-cover" />
-                      </div>
-                      <span className="text-[10px] text-gray-400 mt-1 max-w-[70px] truncate">{t.name}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ============ 9. PDF ATTACHMENTS ============ */}
-      {enabled("attachments") && attachments.length > 0 && (
-        <section className="py-16 md:py-20">
-          <div className="site-content px-0 sm:px-1">
-            {headings?.attachments?.sub?.trim() || headings?.attachments?.title?.trim() ? (
-              <SectionLabel sub={headings?.attachments?.sub} title={headings?.attachments?.title} />
-            ) : (
-              <h2 className="sr-only">Downloads — {displayTitle}</h2>
-            )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-3xl mx-auto">
-              {attachments.map((a, i) => (
-                <a key={i} href={a.file_url} target="_blank" rel="noopener noreferrer" download className="flex items-center gap-3 bg-[#1E2130] border border-gray-800 rounded-lg px-5 py-4 hover:border-[#FFB70F] transition-colors group">
-                  <Download className="w-6 h-6 text-[#FFB70F] group-hover:scale-110 transition-transform" />
-                  <span className="text-gray-300 font-medium">{a.title || "Download"}</span>
-                </a>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
+          canAddToCart={Boolean(course?.id && effectiveLocationId && durations.length > 0)}
+          onAddToCart={handleAddToCartClick}
+          highlightWord={displayTitle}
+        />
+      ) : null}
 
       {course?.id && effectiveLocationId ? (
         <AddToCartModal

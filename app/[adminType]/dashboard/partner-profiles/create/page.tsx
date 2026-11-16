@@ -11,6 +11,7 @@ import {
   Loader2,
   Mail,
   MapPin,
+  MessageSquare,
   Users,
   Banknote,
 } from "lucide-react"
@@ -67,6 +68,8 @@ export default function CreatePartnerPage() {
   const [address, setAddress] = useState("")
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("offline")
   const [sendInviteEmail, setSendInviteEmail] = useState(true)
+  const [smsAllocated, setSmsAllocated] = useState("1000")
+  const [whatsappAllocated, setWhatsappAllocated] = useState("500")
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -80,6 +83,8 @@ export default function CreatePartnerPage() {
       phone: phone.trim(),
       address: address.trim(),
       payment_method: paymentMethod,
+      sms_allocated: Math.max(0, Math.floor(Number(smsAllocated) || 0)),
+      whatsapp_allocated: Math.max(0, Math.floor(Number(whatsappAllocated) || 0)),
     }
     if (!body.name || !body.email || !body.phone || !body.address) {
       toast({
@@ -270,6 +275,44 @@ export default function CreatePartnerPage() {
                 className="min-h-[88px] resize-none rounded-xl border-gray-200 bg-white shadow-sm"
                 required
               />
+            </div>
+          </FormSection>
+
+          <FormSection
+            icon={MessageSquare}
+            title="Messaging Quota Configuration"
+            subtitle="Independent SMS and WhatsApp allocations (0 disables a channel)"
+            tone="blue"
+          >
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="smsAllocated" className={fieldLabel}>
+                  SMS Message Limit
+                </Label>
+                <Input
+                  id="smsAllocated"
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={smsAllocated}
+                  onChange={(e) => setSmsAllocated(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="whatsappAllocated" className={fieldLabel}>
+                  WhatsApp Message Limit
+                </Label>
+                <Input
+                  id="whatsappAllocated"
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={whatsappAllocated}
+                  onChange={(e) => setWhatsappAllocated(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
             </div>
           </FormSection>
 
