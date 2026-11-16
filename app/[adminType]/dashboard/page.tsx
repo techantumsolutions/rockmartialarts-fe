@@ -42,6 +42,7 @@ import { branchAPI } from "@/lib/branchAPI"
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { getActiveBranchId } from "@/lib/activeBranch"
+import PartnerMessagingUsageCards from "@/components/dashboard/PartnerMessagingUsageCards"
 
 interface CourseCoachReference {
   id?: string
@@ -704,6 +705,8 @@ export default function SuperAdminDashboard() {
           <span>{error}</span>
         </div>
       ) : null}
+
+      {role === "partner_super_admin" ? <PartnerMessagingUsageCards /> : null}
 
       {/* Hero KPI cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

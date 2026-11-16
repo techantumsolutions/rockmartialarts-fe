@@ -11,6 +11,7 @@ import {
   ImageIcon,
   LayoutDashboard,
   Loader2,
+  MessageSquare,
   Settings,
   Shield,
   Tags,
@@ -25,7 +26,11 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
-import { partnerOrgAPI, type PartnerOrg } from "@/lib/partnerOrgAPI"
+import {
+  partnerOrgAPI,
+  type PartnerMessagingQuotaSummary,
+  type PartnerOrg,
+} from "@/lib/partnerOrgAPI"
 import { PARTNER_FEATURE_DEFS } from "@/lib/partnerFeaturePermissions"
 import { AdminStatusPill } from "@/components/dashboard/AdminPageShell"
 import type { LucideIcon } from "lucide-react"
@@ -89,6 +94,11 @@ export function PartnerProfileAdminControls({ partner, open, onUpdated }: Props)
   const [loadingFeatures, setLoadingFeatures] = useState(false)
   const [savingValidity, setSavingValidity] = useState(false)
   const [savingFeatures, setSavingFeatures] = useState(false)
+  const [quota, setQuota] = useState<PartnerMessagingQuotaSummary | null>(null)
+  const [smsAllocated, setSmsAllocated] = useState("0")
+  const [whatsappAllocated, setWhatsappAllocated] = useState("0")
+  const [loadingQuota, setLoadingQuota] = useState(false)
+  const [savingQuota, setSavingQuota] = useState(false)
 
   const loadFeatures = useCallback(async () => {
     setLoadingFeatures(true)
@@ -106,14 +116,36 @@ export function PartnerProfileAdminControls({ partner, open, onUpdated }: Props)
     }
   }, [partner.id, toast])
 
+  const loadQuota = useCallback(async () => {
+    setLoadingQuota(true)
+    try {
+      const data = await partnerOrgAPI.getMessagingQuota(partner.id)
+      const q = data.messaging_quota
+      setQuota(q)
+      setSmsAllocated(String(q?.sms?.allocated ?? 0))
+      setWhatsappAllocated(String(q?.whatsapp?.allocated ?? 0))
+    } catch (e: unknown) {
+      toast({
+        title: "Could not load messaging quota",
+        description: e instanceof Error ? e.message : "Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingQuota(false)
+    }
+  }, [partner.id, toast])
+
   useEffect(() => {
     setValidFrom(formatValidity(partner.valid_from))
     setValidUntil(formatValidity(partner.valid_until))
   }, [partner.valid_from, partner.valid_until])
 
   useEffect(() => {
-    if (open) void loadFeatures()
-  }, [open, loadFeatures])
+    if (open) {
+      void loadFeatures()
+      void loadQuota()
+    }
+  }, [open, loadFeatures, loadQuota])
 
   async function saveValidity() {
     setSavingValidity(true)
@@ -150,6 +182,31 @@ export function PartnerProfileAdminControls({ partner, open, onUpdated }: Props)
       })
     } finally {
       setSavingFeatures(false)
+    }
+  }
+
+  async function saveQuota() {
+    const sms = Math.max(0, Math.floor(Number(smsAllocated) || 0))
+    const wa = Math.max(0, Math.floor(Number(whatsappAllocated) || 0))
+    setSavingQuota(true)
+    try {
+      const res = await partnerOrgAPI.patchMessagingQuota(partner.id, {
+        sms_allocated: sms,
+        whatsapp_allocated: wa,
+      })
+      setQuota(res.messaging_quota)
+      setSmsAllocated(String(res.messaging_quota?.sms?.allocated ?? sms))
+      setWhatsappAllocated(String(res.messaging_quota?.whatsapp?.allocated ?? wa))
+      if (res.partner) onUpdated(res.partner)
+      toast({ title: "Messaging quota updated", description: res.message || "Saved." })
+    } catch (e: unknown) {
+      toast({
+        title: "Quota save failed",
+        description: e instanceof Error ? e.message : "Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setSavingQuota(false)
     }
   }
 
@@ -277,6 +334,99 @@ export function PartnerProfileAdminControls({ partner, open, onUpdated }: Props)
             Save features
           </Button>
         </div>
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-[#E2E8F0] bg-white p-4 sm:p-5 shadow-sm">
+        <div className="mb-4 flex items-center gap-2 border-b border-[#F1F5F9] pb-3">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#ECFDF5] text-[#047857]">
+            <MessageSquare className="h-4 w-4" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-[#171A26]">Messaging Quota Configuration</p>
+            <p className="text-xs text-[#64748B]">
+              Independent SMS and WhatsApp limits (0 disables the channel)
+            </p>
+          </div>
+        </div>
+
+        {loadingQuota ? (
+          <div className="flex items-center gap-2 py-6 text-sm text-[#64748B]">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading quota…
+          </div>
+        ) : (
+          <>
+            <div className="mb-4 overflow-x-auto rounded-xl border border-[#E2E8F0]">
+              <table className="w-full min-w-[320px] text-left text-sm">
+                <thead className="bg-[#F8FAFC] text-xs uppercase text-[#64748B]">
+                  <tr>
+                    <th className="px-3 py-2 font-semibold">Message type</th>
+                    <th className="px-3 py-2 font-semibold text-right">Allocated</th>
+                    <th className="px-3 py-2 font-semibold text-right">Utilized</th>
+                    <th className="px-3 py-2 font-semibold text-right">Remaining</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-t border-[#E2E8F0]">
+                    <td className="px-3 py-2 font-medium text-[#171A26]">SMS</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{quota?.sms?.allocated ?? "—"}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{quota?.sms?.utilized ?? "—"}</td>
+                    <td className="px-3 py-2 text-right tabular-nums font-semibold">
+                      {quota?.sms?.remaining ?? "—"}
+                    </td>
+                  </tr>
+                  <tr className="border-t border-[#E2E8F0]">
+                    <td className="px-3 py-2 font-medium text-[#171A26]">WhatsApp</td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {quota?.whatsapp?.allocated ?? "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {quota?.whatsapp?.utilized ?? "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums font-semibold">
+                      {quota?.whatsapp?.remaining ?? "—"}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <Label className="text-xs text-[#64748B]">SMS Message Limit</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={smsAllocated}
+                  onChange={(e) => setSmsAllocated(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-[#64748B]">WhatsApp Message Limit</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={whatsappAllocated}
+                  onChange={(e) => setWhatsappAllocated(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              size="sm"
+              className="mt-4"
+              loading={savingQuota}
+              loadingText="Saving…"
+              onClick={() => void saveQuota()}
+            >
+              Save messaging quota
+            </Button>
+          </>
+        )}
       </div>
     </div>
   )

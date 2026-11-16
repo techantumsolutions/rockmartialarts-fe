@@ -30,85 +30,14 @@ import {
 } from "lucide-react"
 import { uploadFile } from "@/lib/upload"
 import { useToast } from "@/hooks/use-toast"
+import {
+  LAYOUT_VARIANT_OPTIONS,
+  type CourseLayoutVariant,
+  type CourseSectionKey,
+  type PageContent,
+} from "@/lib/coursePageContent"
 
-/* ------------------------------------------------------------------ */
-/* Types                                                               */
-/* ------------------------------------------------------------------ */
-
-export interface PageContent {
-  /**
-   * Controls which sections are visible on the public course detail page.
-   * Default behavior: any key not explicitly set to false is treated as enabled.
-   */
-  section_visibility?: Partial<Record<
-    | "hero"
-    | "info_bar"
-    | "about"
-    | "cta"
-    | "course_info_sections"
-    | "course_content"
-    | "benefits"
-    | "learning"
-    | "gallery"
-    | "instructors"
-    | "testimonials"
-    | "attachments",
-    boolean
-  >>
-  hero_section?: {
-    title?: string
-    subtitle?: string
-    description?: string
-    hero_image?: string
-    cta_text?: string
-    cta_link?: string
-  }
-  course_info?: {
-    location?: string
-    duration?: string
-    price?: string
-    training_time?: string
-  }
-  course_info_sections?: {
-    title?: string
-    content?: string
-    bullet_points?: string[]
-    image?: string
-    layout?: "image_left" | "image_right"
-  }[]
-  about_section?: {
-    title?: string
-    aboutTitle?: string
-    description?: string
-    aboutDescription?: string
-    secondary_description?: string
-    image1?: string
-    image2?: string
-    /** Legacy demo blocks — stripped on course edit load; not shown on public site */
-    content_blocks?: unknown[]
-  }
-  benefits?: { title: string; description: string; icon?: string }[]
-  learning_section?: {
-    title?: string
-    description?: string
-    video_url?: string
-    thumbnail?: string
-  }
-  gallery_images?: string[]
-  instructors?: {
-    name: string
-    designation: string
-    bio?: string
-    photo?: string
-  }[]
-  testimonials?: {
-    name: string
-    designation: string
-    text: string
-    photo?: string
-  }[]
-  pdf_attachments?: { title: string; file_url: string }[]
-}
+export type { PageContent } from "@/lib/coursePageContent"
 
 interface Props {
   value: PageContent
@@ -203,9 +132,21 @@ export default function CourseFormSections({ value, onChange }: Props) {
   const testimonials = pc.testimonials || []
   const attachments = pc.pdf_attachments || []
   const visibility = pc.section_visibility || {}
+  const learnCards = pc.learn_cards || []
+  const whoCanJoin = pc.who_can_join || {}
+  const trainingPrograms = pc.training_programs || []
+  const whyRmaa = pc.why_rmaa || {}
+  const lineage = pc.lineage || {}
+  const philosophy = pc.philosophy_pillars || []
+  const qualities = pc.qualities || []
+  const sportSpotlight = pc.sport_spotlight || {}
+  const styleCards = pc.style_cards || []
+  const finalCta = pc.final_cta || {}
+  const heroFeatures = hero.feature_icons || []
+  const secondaryCtas = hero.secondary_ctas || []
 
-  const enabled = (key: keyof NonNullable<PageContent["section_visibility"]>) => visibility[key] !== false
-  const setEnabled = (key: keyof NonNullable<PageContent["section_visibility"]>, on: boolean) =>
+  const enabled = (key: CourseSectionKey) => visibility[key] !== false
+  const setEnabled = (key: CourseSectionKey, on: boolean) =>
     set("section_visibility", { ...(visibility || {}), [key]: on })
 
   const VisibilityBadge = ({ on }: { on: boolean }) => (
@@ -220,6 +161,35 @@ export default function CourseFormSections({ value, onChange }: Props) {
 
   return (
     <div className="space-y-5">
+      <div className="rounded-xl border border-gray-100 bg-[#FAFBFC] p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <Layout className="h-4 w-4 text-[#4F5077]" />
+          <h4 className="text-sm font-semibold text-[#2F3153]">Page Layout Variant</h4>
+        </div>
+        <p className="mb-3 text-xs text-gray-500">
+          Controls optional section emphasis. All courses still use one dynamic page.
+        </p>
+        <select
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          value={pc.layout_variant || "standard"}
+          onChange={(e) =>
+            set("layout_variant", (e.target.value as CourseLayoutVariant) || "standard")
+          }
+        >
+          {LAYOUT_VARIANT_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <p className="mt-2 text-[11px] text-gray-500">
+          {
+            LAYOUT_VARIANT_OPTIONS.find((o) => o.value === (pc.layout_variant || "standard"))
+              ?.hint
+          }
+        </p>
+      </div>
+
       {/* Section visibility grid (mockup-style) */}
       <div className="rounded-xl border border-gray-100 bg-[#FAFBFC] p-4">
         <div className="mb-3 flex items-center gap-2">
@@ -235,14 +205,24 @@ export default function CourseFormSections({ value, onChange }: Props) {
             ["info_bar", "Info Bar"],
             ["about", "About Course"],
             ["cta", "CTA Banner"],
+            ["learn_cards", "What You'll Learn Cards"],
+            ["who_can_join", "Who Can Join"],
+            ["training_programs", "Training Programs"],
             ["course_info_sections", "Course Info Blocks"],
-            ["course_content", "Course Content"],
+            ["course_content", "Syllabus / Equipment"],
             ["benefits", "Benefits"],
-            ["learning", "What You Will Learn"],
+            ["why_rmaa", "Why Learn at RMAA"],
+            ["learning", "Learning Video"],
+            ["lineage", "Lineage (Heritage)"],
+            ["philosophy", "Philosophy Pillars"],
+            ["qualities", "Warrior Qualities"],
+            ["sport_spotlight", "Sport Spotlight"],
+            ["style_cards", "Style Cards"],
             ["gallery", "Gallery"],
             ["instructors", "Instructors"],
             ["testimonials", "Testimonials"],
             ["attachments", "Downloads / PDFs"],
+            ["final_cta", "Final Journey CTA"],
           ] as const).map(([key, label]) => (
             <div
               key={key}
@@ -287,13 +267,131 @@ export default function CourseFormSections({ value, onChange }: Props) {
           <FileUpload accept="image/*" label="Hero Background Image" currentUrl={hero.hero_image} onUploaded={(url) => set("hero_section", { ...hero, hero_image: url })} />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>CTA Button Text</Label>
-              <Input value={hero.cta_text || ""} onChange={(e) => set("hero_section", { ...hero, cta_text: e.target.value })} placeholder="Register Now" />
+              <Label>Primary CTA Text</Label>
+              <Input value={hero.cta_text || ""} onChange={(e) => set("hero_section", { ...hero, cta_text: e.target.value })} placeholder="Join Now" />
             </div>
             <div className="space-y-1">
-              <Label>CTA Button Link</Label>
+              <Label>Primary CTA Link</Label>
               <Input value={hero.cta_link || ""} onChange={(e) => set("hero_section", { ...hero, cta_link: e.target.value })} placeholder="/register" />
             </div>
+          </div>
+          <div className="space-y-2 rounded-lg border border-dashed border-gray-200 p-3">
+            <Label>Hero Feature Icons</Label>
+            <p className="text-xs text-gray-500">Shown under the hero tagline (e.g. Flexibility, Self-Defense).</p>
+            {heroFeatures.map((f, i) => (
+              <div key={i} className="grid grid-cols-1 gap-2 rounded-md border p-2 md:grid-cols-3">
+                <Input
+                  value={f.label || ""}
+                  placeholder="Label"
+                  onChange={(e) => {
+                    const n = [...heroFeatures]
+                    n[i] = { ...f, label: e.target.value }
+                    set("hero_section", { ...hero, feature_icons: n })
+                  }}
+                />
+                <Input
+                  value={f.icon || ""}
+                  placeholder="Emoji / icon"
+                  onChange={(e) => {
+                    const n = [...heroFeatures]
+                    n[i] = { ...f, icon: e.target.value }
+                    set("hero_section", { ...hero, feature_icons: n })
+                  }}
+                />
+                <div className="flex gap-2">
+                  <Input
+                    value={f.image || ""}
+                    placeholder="Image URL"
+                    onChange={(e) => {
+                      const n = [...heroFeatures]
+                      n[i] = { ...f, image: e.target.value }
+                      set("hero_section", { ...hero, feature_icons: n })
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-500"
+                    onClick={() =>
+                      set("hero_section", {
+                        ...hero,
+                        feature_icons: heroFeatures.filter((_, idx) => idx !== i),
+                      })
+                    }
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                set("hero_section", {
+                  ...hero,
+                  feature_icons: [...heroFeatures, { label: "", icon: "" }],
+                })
+              }
+            >
+              <Plus className="mr-1 h-4 w-4" /> Add feature icon
+            </Button>
+          </div>
+          <div className="space-y-2 rounded-lg border border-dashed border-gray-200 p-3">
+            <Label>Secondary Hero CTAs</Label>
+            {secondaryCtas.map((c, i) => (
+              <div key={i} className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                <Input
+                  value={c.label || ""}
+                  placeholder="Label (e.g. View All Courses)"
+                  onChange={(e) => {
+                    const n = [...secondaryCtas]
+                    n[i] = { ...c, label: e.target.value }
+                    set("hero_section", { ...hero, secondary_ctas: n })
+                  }}
+                />
+                <div className="flex gap-2">
+                  <Input
+                    value={c.link || ""}
+                    placeholder="Link"
+                    onChange={(e) => {
+                      const n = [...secondaryCtas]
+                      n[i] = { ...c, link: e.target.value }
+                      set("hero_section", { ...hero, secondary_ctas: n })
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-500"
+                    onClick={() =>
+                      set("hero_section", {
+                        ...hero,
+                        secondary_ctas: secondaryCtas.filter((_, idx) => idx !== i),
+                      })
+                    }
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                set("hero_section", {
+                  ...hero,
+                  secondary_ctas: [...secondaryCtas, { label: "", link: "/courses" }],
+                })
+              }
+            >
+              <Plus className="mr-1 h-4 w-4" /> Add secondary CTA
+            </Button>
           </div>
         </AccordionContent>
       </AccordionItem>
@@ -582,6 +680,263 @@ export default function CourseFormSections({ value, onChange }: Props) {
           <Button type="button" variant="outline" className="w-full border-dashed" onClick={() => set("pdf_attachments", [...attachments, { title: "", file_url: "" }])}>
             <Plus className="h-4 w-4 mr-2" /> Add PDF Attachment
           </Button>
+        </AccordionContent>
+      </AccordionItem>
+
+      {/* ---- Learn cards ---- */}
+      <AccordionItem value="learnCards" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
+        <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
+          <span className="flex items-center gap-2">
+            <GraduationCap className="h-4 w-4" /> What You&apos;ll Learn Cards ({learnCards.length})
+            <VisibilityBadge on={enabled("learn_cards")} />
+          </span>
+        </AccordionTrigger>
+        <AccordionContent className="space-y-3 pb-4">
+          {learnCards.map((card, i) => (
+            <div key={i} className="relative space-y-2 rounded-lg border p-3">
+              <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1 text-red-500" onClick={() => set("learn_cards", learnCards.filter((_, idx) => idx !== i))}>
+                <X className="h-4 w-4" />
+              </Button>
+              <Input value={card.title} placeholder="Title" onChange={(e) => { const n = [...learnCards]; n[i] = { ...card, title: e.target.value }; set("learn_cards", n) }} />
+              <Input value={card.subtitle || ""} placeholder="Subtitle" onChange={(e) => { const n = [...learnCards]; n[i] = { ...card, subtitle: e.target.value }; set("learn_cards", n) }} />
+              <Textarea value={card.description || ""} rows={2} placeholder="Description" onChange={(e) => { const n = [...learnCards]; n[i] = { ...card, description: e.target.value }; set("learn_cards", n) }} />
+              <Input value={card.icon || ""} placeholder="Icon / emoji" onChange={(e) => { const n = [...learnCards]; n[i] = { ...card, icon: e.target.value }; set("learn_cards", n) }} />
+              <FileUpload accept="image/*" label="Card image" currentUrl={card.image} onUploaded={(url) => { const n = [...learnCards]; n[i] = { ...card, image: url }; set("learn_cards", n) }} />
+              <Textarea
+                value={(card.bullet_points || []).join("\n")}
+                rows={3}
+                placeholder="Bullet points (one per line)"
+                onChange={(e) => {
+                  const n = [...learnCards]
+                  n[i] = {
+                    ...card,
+                    bullet_points: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean),
+                  }
+                  set("learn_cards", n)
+                }}
+              />
+            </div>
+          ))}
+          <Button type="button" variant="outline" className="w-full border-dashed" onClick={() => set("learn_cards", [...learnCards, { title: "" }])}>
+            <Plus className="mr-2 h-4 w-4" /> Add learn card
+          </Button>
+        </AccordionContent>
+      </AccordionItem>
+
+      {/* ---- Who can join ---- */}
+      <AccordionItem value="whoCanJoin" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
+        <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
+          <span className="flex items-center gap-2">
+            <Users className="h-4 w-4" /> Who Can Join
+            <VisibilityBadge on={enabled("who_can_join")} />
+          </span>
+        </AccordionTrigger>
+        <AccordionContent className="space-y-3 pb-4">
+          <Input value={whoCanJoin.title || ""} placeholder="Section title" onChange={(e) => set("who_can_join", { ...whoCanJoin, title: e.target.value })} />
+          <Textarea
+            value={(whoCanJoin.items || []).join("\n")}
+            rows={6}
+            placeholder={"Kids (6+ Years)\nTeenagers\nAdults\n..."}
+            onChange={(e) =>
+              set("who_can_join", {
+                ...whoCanJoin,
+                items: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean),
+              })
+            }
+          />
+          <Input
+            value={whoCanJoin.note || ""}
+            placeholder="Footer note (default: No previous experience required.)"
+            onChange={(e) => set("who_can_join", { ...whoCanJoin, note: e.target.value })}
+          />
+        </AccordionContent>
+      </AccordionItem>
+
+      {/* ---- Training programs ---- */}
+      <AccordionItem value="trainingPrograms" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
+        <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
+          <span className="flex items-center gap-2">
+            <Layout className="h-4 w-4" /> Training Programs ({trainingPrograms.length})
+            <VisibilityBadge on={enabled("training_programs")} />
+          </span>
+        </AccordionTrigger>
+        <AccordionContent className="space-y-3 pb-4">
+          <p className="text-xs text-gray-500">Marketing cards only — not separate checkout SKUs.</p>
+          {trainingPrograms.map((p, i) => (
+            <div key={i} className="relative space-y-2 rounded-lg border p-3">
+              <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1 text-red-500" onClick={() => set("training_programs", trainingPrograms.filter((_, idx) => idx !== i))}>
+                <X className="h-4 w-4" />
+              </Button>
+              <Input value={p.title} placeholder="Title (e.g. Regular Training)" onChange={(e) => { const n = [...trainingPrograms]; n[i] = { ...p, title: e.target.value }; set("training_programs", n) }} />
+              <Input value={p.subtitle || ""} placeholder="Subtitle" onChange={(e) => { const n = [...trainingPrograms]; n[i] = { ...p, subtitle: e.target.value }; set("training_programs", n) }} />
+              <Input value={p.kind || ""} placeholder="Kind: regular | professional | goal" onChange={(e) => { const n = [...trainingPrograms]; n[i] = { ...p, kind: e.target.value }; set("training_programs", n) }} />
+              <Textarea value={p.description || ""} rows={2} placeholder="Description" onChange={(e) => { const n = [...trainingPrograms]; n[i] = { ...p, description: e.target.value }; set("training_programs", n) }} />
+              <Textarea
+                value={(p.bullet_points || []).join("\n")}
+                rows={4}
+                placeholder="Bullets (one per line)"
+                onChange={(e) => {
+                  const n = [...trainingPrograms]
+                  n[i] = { ...p, bullet_points: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean) }
+                  set("training_programs", n)
+                }}
+              />
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                <Input value={p.schedule_label || ""} placeholder="Schedule label" onChange={(e) => { const n = [...trainingPrograms]; n[i] = { ...p, schedule_label: e.target.value }; set("training_programs", n) }} />
+                <Input value={p.duration_label || ""} placeholder="Duration label" onChange={(e) => { const n = [...trainingPrograms]; n[i] = { ...p, duration_label: e.target.value }; set("training_programs", n) }} />
+              </div>
+              <FileUpload accept="image/*" label="Program image" currentUrl={p.image} onUploaded={(url) => { const n = [...trainingPrograms]; n[i] = { ...p, image: url }; set("training_programs", n) }} />
+            </div>
+          ))}
+          <Button type="button" variant="outline" className="w-full border-dashed" onClick={() => set("training_programs", [...trainingPrograms, { title: "", kind: "regular" }])}>
+            <Plus className="mr-2 h-4 w-4" /> Add training program
+          </Button>
+        </AccordionContent>
+      </AccordionItem>
+
+      {/* ---- Why RMAA ---- */}
+      <AccordionItem value="whyRmaa" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
+        <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
+          <span className="flex items-center gap-2">
+            <Star className="h-4 w-4" /> Why Learn at RMAA
+            <VisibilityBadge on={enabled("why_rmaa")} />
+          </span>
+        </AccordionTrigger>
+        <AccordionContent className="space-y-3 pb-4">
+          <Input value={whyRmaa.title || ""} placeholder="Title" onChange={(e) => set("why_rmaa", { ...whyRmaa, title: e.target.value })} />
+          <Textarea value={whyRmaa.body || ""} rows={3} placeholder="Paragraph" onChange={(e) => set("why_rmaa", { ...whyRmaa, body: e.target.value })} />
+          <Textarea
+            value={(whyRmaa.items || []).join("\n")}
+            rows={5}
+            placeholder="Bullet items (one per line)"
+            onChange={(e) =>
+              set("why_rmaa", {
+                ...whyRmaa,
+                items: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean),
+              })
+            }
+          />
+        </AccordionContent>
+      </AccordionItem>
+
+      {/* ---- Heritage / optional ---- */}
+      <AccordionItem value="lineage" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
+        <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
+          <span className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4" /> Lineage (Heritage)
+            <VisibilityBadge on={enabled("lineage")} />
+          </span>
+        </AccordionTrigger>
+        <AccordionContent className="space-y-3 pb-4">
+          <Input value={lineage.title || ""} placeholder="Title" onChange={(e) => set("lineage", { ...lineage, title: e.target.value })} />
+          <Textarea value={lineage.body || ""} rows={4} placeholder="Body" onChange={(e) => set("lineage", { ...lineage, body: e.target.value })} />
+          <Input value={lineage.founder_name || ""} placeholder="Founder name" onChange={(e) => set("lineage", { ...lineage, founder_name: e.target.value })} />
+          <Input value={lineage.founder_title || ""} placeholder="Founder title" onChange={(e) => set("lineage", { ...lineage, founder_title: e.target.value })} />
+          <FileUpload accept="image/*" label="Lineage image" currentUrl={lineage.image} onUploaded={(url) => set("lineage", { ...lineage, image: url })} />
+        </AccordionContent>
+      </AccordionItem>
+
+      <AccordionItem value="philosophy" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
+        <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
+          <span className="flex items-center gap-2">
+            <Star className="h-4 w-4" /> Philosophy Pillars ({philosophy.length})
+            <VisibilityBadge on={enabled("philosophy")} />
+          </span>
+        </AccordionTrigger>
+        <AccordionContent className="space-y-3 pb-4">
+          {philosophy.map((p, i) => (
+            <div key={i} className="relative space-y-2 rounded-lg border p-3">
+              <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1 text-red-500" onClick={() => set("philosophy_pillars", philosophy.filter((_, idx) => idx !== i))}><X className="h-4 w-4" /></Button>
+              <Input value={p.title} placeholder="Title" onChange={(e) => { const n = [...philosophy]; n[i] = { ...p, title: e.target.value }; set("philosophy_pillars", n) }} />
+              <Textarea value={p.description || ""} rows={2} placeholder="Description" onChange={(e) => { const n = [...philosophy]; n[i] = { ...p, description: e.target.value }; set("philosophy_pillars", n) }} />
+              <Input value={p.icon || ""} placeholder="Icon" onChange={(e) => { const n = [...philosophy]; n[i] = { ...p, icon: e.target.value }; set("philosophy_pillars", n) }} />
+            </div>
+          ))}
+          <Button type="button" variant="outline" className="w-full border-dashed" onClick={() => set("philosophy_pillars", [...philosophy, { title: "" }])}><Plus className="mr-2 h-4 w-4" /> Add pillar</Button>
+        </AccordionContent>
+      </AccordionItem>
+
+      <AccordionItem value="qualities" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
+        <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
+          <span className="flex items-center gap-2">
+            <Star className="h-4 w-4" /> Warrior Qualities ({qualities.length})
+            <VisibilityBadge on={enabled("qualities")} />
+          </span>
+        </AccordionTrigger>
+        <AccordionContent className="space-y-3 pb-4">
+          {qualities.map((q, i) => (
+            <div key={i} className="grid grid-cols-1 gap-2 rounded-lg border p-2 md:grid-cols-3">
+              <Input value={q.title} placeholder="Title" onChange={(e) => { const n = [...qualities]; n[i] = { ...q, title: e.target.value }; set("qualities", n) }} />
+              <Input value={q.description || ""} placeholder="Tagline" onChange={(e) => { const n = [...qualities]; n[i] = { ...q, description: e.target.value }; set("qualities", n) }} />
+              <div className="flex gap-2">
+                <Input value={q.icon || ""} placeholder="Icon" onChange={(e) => { const n = [...qualities]; n[i] = { ...q, icon: e.target.value }; set("qualities", n) }} />
+                <Button type="button" variant="ghost" size="sm" className="text-red-500" onClick={() => set("qualities", qualities.filter((_, idx) => idx !== i))}><X className="h-4 w-4" /></Button>
+              </div>
+            </div>
+          ))}
+          <Button type="button" variant="outline" className="w-full border-dashed" onClick={() => set("qualities", [...qualities, { title: "" }])}><Plus className="mr-2 h-4 w-4" /> Add quality</Button>
+        </AccordionContent>
+      </AccordionItem>
+
+      <AccordionItem value="sportSpotlight" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
+        <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
+          <span className="flex items-center gap-2">
+            <Info className="h-4 w-4" /> Sport Spotlight
+            <VisibilityBadge on={enabled("sport_spotlight")} />
+          </span>
+        </AccordionTrigger>
+        <AccordionContent className="space-y-3 pb-4">
+          <Input value={sportSpotlight.title || ""} placeholder="Title" onChange={(e) => set("sport_spotlight", { ...sportSpotlight, title: e.target.value })} />
+          <Textarea value={sportSpotlight.body || ""} rows={4} placeholder="Body" onChange={(e) => set("sport_spotlight", { ...sportSpotlight, body: e.target.value })} />
+          <FileUpload accept="image/*" label="Image" currentUrl={sportSpotlight.image} onUploaded={(url) => set("sport_spotlight", { ...sportSpotlight, image: url })} />
+        </AccordionContent>
+      </AccordionItem>
+
+      <AccordionItem value="styleCards" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
+        <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
+          <span className="flex items-center gap-2">
+            <ImageIcon className="h-4 w-4" /> Style Cards ({styleCards.length})
+            <VisibilityBadge on={enabled("style_cards")} />
+          </span>
+        </AccordionTrigger>
+        <AccordionContent className="space-y-3 pb-4">
+          {styleCards.map((s, i) => (
+            <div key={i} className="relative space-y-2 rounded-lg border p-3">
+              <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1 text-red-500" onClick={() => set("style_cards", styleCards.filter((_, idx) => idx !== i))}><X className="h-4 w-4" /></Button>
+              <Input value={s.title} placeholder="Style name" onChange={(e) => { const n = [...styleCards]; n[i] = { ...s, title: e.target.value }; set("style_cards", n) }} />
+              <Textarea value={s.description || ""} rows={2} placeholder="Description" onChange={(e) => { const n = [...styleCards]; n[i] = { ...s, description: e.target.value }; set("style_cards", n) }} />
+              <FileUpload accept="image/*" label="Image" currentUrl={s.image} onUploaded={(url) => { const n = [...styleCards]; n[i] = { ...s, image: url }; set("style_cards", n) }} />
+            </div>
+          ))}
+          <Button type="button" variant="outline" className="w-full border-dashed" onClick={() => set("style_cards", [...styleCards, { title: "" }])}><Plus className="mr-2 h-4 w-4" /> Add style card</Button>
+        </AccordionContent>
+      </AccordionItem>
+
+      <AccordionItem value="finalCta" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
+        <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
+          <span className="flex items-center gap-2">
+            <Layout className="h-4 w-4" /> Final Journey CTA
+            <VisibilityBadge on={enabled("final_cta")} />
+          </span>
+        </AccordionTrigger>
+        <AccordionContent className="space-y-3 pb-4">
+          <Input value={finalCta.headline || ""} placeholder="Headline" onChange={(e) => set("final_cta", { ...finalCta, headline: e.target.value })} />
+          <Input value={finalCta.tagline || ""} placeholder="Tagline (MOVE BETTER | ...)" onChange={(e) => set("final_cta", { ...finalCta, tagline: e.target.value })} />
+          <FileUpload accept="image/*" label="Background image" currentUrl={finalCta.background_image} onUploaded={(url) => set("final_cta", { ...finalCta, background_image: url })} />
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+            <Input value={finalCta.primary_cta_text || ""} placeholder="Primary CTA text" onChange={(e) => set("final_cta", { ...finalCta, primary_cta_text: e.target.value })} />
+            <Input value={finalCta.primary_cta_link || ""} placeholder="Primary CTA link" onChange={(e) => set("final_cta", { ...finalCta, primary_cta_link: e.target.value })} />
+          </div>
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 text-sm">
+              <Switch checked={finalCta.show_add_to_cart !== false} onCheckedChange={(v) => set("final_cta", { ...finalCta, show_add_to_cart: v })} />
+              Show Add to Cart
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Switch checked={finalCta.show_view_all !== false} onCheckedChange={(v) => set("final_cta", { ...finalCta, show_view_all: v })} />
+              Show View All Courses
+            </label>
+          </div>
         </AccordionContent>
       </AccordionItem>
     </Accordion>

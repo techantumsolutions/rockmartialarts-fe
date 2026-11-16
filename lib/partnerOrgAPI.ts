@@ -1,6 +1,21 @@
 import { getBackendApiUrl } from "./config"
 import { TokenManager } from "./tokenManager"
 
+export type PartnerMessagingChannelQuota = {
+  allocated: number
+  utilized: number
+  reserved?: number
+  remaining: number
+  disabled?: boolean
+  state?: "ok" | "low" | "exhausted" | "disabled" | string
+}
+
+export type PartnerMessagingQuotaSummary = {
+  sms: PartnerMessagingChannelQuota
+  whatsapp: PartnerMessagingChannelQuota
+  updated_at?: string | null
+}
+
 export type PartnerOrg = {
   id: string
   name: string
@@ -21,6 +36,13 @@ export type PartnerOrg = {
   valid_until?: string | null
   effective_status?: "active" | "expired" | "deactivated" | string
   feature_permissions?: Record<string, boolean>
+  sms_allocated?: number | null
+  whatsapp_allocated?: number | null
+  sms_utilized?: number | null
+  whatsapp_utilized?: number | null
+  sms_reserved?: number | null
+  whatsapp_reserved?: number | null
+  messaging_quota?: PartnerMessagingQuotaSummary
 }
 
 export type PartnerOrgCreateBody = {
@@ -29,6 +51,8 @@ export type PartnerOrgCreateBody = {
   phone: string
   address: string
   payment_method: "online" | "offline"
+  sms_allocated?: number
+  whatsapp_allocated?: number
 }
 
 function authHeaders(json = false): HeadersInit {
@@ -43,6 +67,13 @@ async function parseError(res: Response): Promise<string> {
   try {
     const data = await res.json()
     if (typeof data?.detail === "string") return data.detail
+    if (data?.detail && typeof data.detail === "object" && !Array.isArray(data.detail)) {
+      return (
+        data.detail.message ||
+        data.detail.code ||
+        JSON.stringify(data.detail)
+      )
+    }
     if (Array.isArray(data?.detail)) {
       return data.detail.map((d: { msg?: string }) => d.msg || JSON.stringify(d)).join("; ")
     }
@@ -189,6 +220,55 @@ class PartnerOrgAPI {
     return res.json() as Promise<{
       partner_org_id: string
       feature_permissions: Record<string, boolean>
+    }>
+  }
+
+  async getMessagingQuota(partnerOrgId: string) {
+    const res = await fetch(
+      getBackendApiUrl(
+        `partner-organizations/${encodeURIComponent(partnerOrgId)}/messaging-quota`
+      ),
+      { headers: authHeaders(), cache: "no-store" }
+    )
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{
+      partner_org_id: string
+      messaging_quota: PartnerMessagingQuotaSummary
+      partner?: PartnerOrg
+    }>
+  }
+
+  async patchMessagingQuota(
+    partnerOrgId: string,
+    body: { sms_allocated?: number; whatsapp_allocated?: number; reason?: string }
+  ) {
+    const res = await fetch(
+      getBackendApiUrl(
+        `partner-organizations/${encodeURIComponent(partnerOrgId)}/messaging-quota`
+      ),
+      {
+        method: "PATCH",
+        headers: authHeaders(true),
+        body: JSON.stringify(body),
+      }
+    )
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{
+      message?: string
+      messaging_quota: PartnerMessagingQuotaSummary
+      partner?: PartnerOrg
+    }>
+  }
+
+  async getMyMessagingQuota() {
+    const res = await fetch(getBackendApiUrl("partner-organizations/me/messaging-quota"), {
+      headers: authHeaders(),
+      cache: "no-store",
+    })
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{
+      partner_org_id: string
+      messaging_quota: PartnerMessagingQuotaSummary
     }>
   }
 
