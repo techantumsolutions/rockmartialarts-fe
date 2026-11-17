@@ -32,6 +32,10 @@ const nextConfig = {
       { source: "/favicon.ico", destination: "/favicon.svg", permanent: false },
       { source: "/branch-manager-dashboard", destination: "/dashboard", permanent: true },
       { source: "/branch-manager-dashboard/:path*", destination: "/dashboard/:path*", permanent: true },
+      // Partner directories are not a public website surface — partner branches
+      // appear as normal branches. Keep /partner-orgs/:slug and /partners/:slug intact.
+      { source: "/partner-orgs", destination: "/branches", permanent: false },
+      { source: "/partners", destination: "/branches", permanent: false },
       // Static HTML → Next.js website routes
       { source: "/landing.html", destination: "/", permanent: true },
       { source: "/courses-details.html", destination: "/courses", permanent: true },

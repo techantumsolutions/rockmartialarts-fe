@@ -57,7 +57,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
-import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
+import { useDashboardBasePath, useDashboardRole } from "@/lib/useDashboardBasePath"
 
 interface Branch {
   id: string
@@ -112,6 +112,8 @@ export default function BranchesList() {
   const router = useRouter()
   const pathname = usePathname()
   const basePath = useDashboardBasePath()
+  const dashboardRole = useDashboardRole()
+  const canCreateBranch = dashboardRole === "super_admin"
   const [showAssignPopup, setShowAssignPopup] = useState(false)
 
   // Branch admin cannot access branches — redirect to dashboard
@@ -657,13 +659,15 @@ const itemsPerPage = 10
         <Users className="mr-2 h-4 w-4 text-[#1F9D57]" />
         Branch Managers
       </Button>
-      <Button
-        type="button"
-        className="h-10 shrink-0 bg-[#E1BB33] font-semibold text-[#3d3e5c] hover:bg-[#d4ae2a]"
-        onClick={() => router.push(`${basePath}/create-branch`)}
-      >
-        + Add Branch
-      </Button>
+      {canCreateBranch ? (
+        <Button
+          type="button"
+          className="h-10 shrink-0 bg-[#E1BB33] font-semibold text-[#3d3e5c] hover:bg-[#d4ae2a]"
+          onClick={() => router.push(`${basePath}/create-branch`)}
+        >
+          + Add Branch
+        </Button>
+      ) : null}
     </>
   )
 

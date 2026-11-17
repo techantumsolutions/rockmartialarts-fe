@@ -9,9 +9,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Search, Edit, ToggleLeft, ToggleRight, Eye } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useRouter, usePathname } from "next/navigation"
-import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
+import { useDashboardBasePath, useDashboardRole } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { usePartnerFeaturePermissions } from "@/hooks/usePartnerFeaturePermissions"
 
 interface Course {
   id: string
@@ -51,8 +52,13 @@ export default function CourseListPage() {
   const router = useRouter()
   const pathname = usePathname()
   const basePath = useDashboardBasePath()
+  const dashboardRole = useDashboardRole()
+  const { coursePermissions } = usePartnerFeaturePermissions(dashboardRole)
   const isBranchAdmin =
     typeof pathname === "string" && pathname.startsWith("/branch-admin")
+  const isPartner = dashboardRole === "partner_super_admin"
+  const canAddCourse = !isPartner || !!coursePermissions.can_create_courses
+  const canEditCourse = !isPartner || !!coursePermissions.can_edit_courses
   const [searchTerm, setSearchTerm] = useState("")
   const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
@@ -186,12 +192,14 @@ export default function CourseListPage() {
       <main className="w-full p-4 lg:px-8 lg:py-6">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-[#4F5077]">Course list</h1>
-          <Button
-            onClick={() => router.push(`${basePath}/create-course`)}
-            className="bg-yellow-400 hover:bg-yellow-500 text-white px-6 py-2 rounded-lg font-medium"
-          >
-            + Add Course
-          </Button>
+          {canAddCourse ? (
+            <Button
+              onClick={() => router.push(`${basePath}/create-course`)}
+              className="bg-yellow-400 hover:bg-yellow-500 text-white px-6 py-2 rounded-lg font-medium"
+            >
+              + Add Course
+            </Button>
+          ) : null}
         </div>
 
         <div className="mb-6">
@@ -251,15 +259,17 @@ export default function CourseListPage() {
                           >
                             <Eye className="w-4 h-4 text-blue-600" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEditClick(course.id)}
-                            className="p-1 h-8 w-8"
-                            title="Edit Course"
-                          >
-                            <Edit className="w-4 h-4 text-gray-600" />
-                          </Button>
+                          {canEditCourse ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditClick(course.id)}
+                              className="p-1 h-8 w-8"
+                              title="Edit Course"
+                            >
+                              <Edit className="w-4 h-4 text-gray-600" />
+                            </Button>
+                          ) : null}
                           {!isBranchAdmin && (
                           <Button
                             variant="ghost"

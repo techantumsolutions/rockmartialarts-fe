@@ -11,7 +11,6 @@ import { isPartnerOrgSitePath } from "@/lib/partnerOrgSitePath"
 const quickLinks = [
   { label: "Courses", href: "/courses" },
   { label: "Branches", href: "/branches" },
-  { label: "Partners", href: "/partner-orgs" },
   { label: "Champions", href: "/champions" },
   { label: "Events", href: "/events" },
   { label: "My registrations", href: "/events/my-registrations" },

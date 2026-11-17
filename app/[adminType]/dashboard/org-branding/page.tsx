@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ImageIcon, Loader2, Save, Trash2, Upload } from "lucide-react"
+import { ImageIcon, Loader2, Save, Trash2, Upload, ShieldAlert } from "lucide-react"
 import {
   partnerOrgAPI,
+  type PartnerBrandingEditPermission,
   type PartnerOrgSiteAchievement,
   type PartnerOrgSiteBranch,
 } from "@/lib/partnerOrgAPI"
@@ -45,8 +46,10 @@ export default function PartnerOrgBrandingPage() {
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [requesting, setRequesting] = useState(false)
   const [uploading, setUploading] = useState<"logo" | "banner" | "footerLogo" | null>(null)
   const [hasBranding, setHasBranding] = useState(false)
+  const [editPermission, setEditPermission] = useState<PartnerBrandingEditPermission | null>(null)
   const [orgName, setOrgName] = useState("")
   const [orgSlug, setOrgSlug] = useState("")
   const [branches, setBranches] = useState<PartnerOrgSiteBranch[]>([])
@@ -102,6 +105,7 @@ export default function PartnerOrgBrandingPage() {
       setLoading(true)
       const data = await partnerOrgAPI.getMyBranding()
       setHasBranding(!!data.has_branding)
+      setEditPermission(data.edit_permission || null)
       setOrgName(str(data.org_snapshot?.name))
       setOrgSlug(str(data.org_snapshot?.slug))
       setBranches(Array.isArray(data.branches) ? data.branches : [])
@@ -162,8 +166,43 @@ export default function PartnerOrgBrandingPage() {
     loadBranding()
   }, [role, router, loadBranding])
 
+  const canEdit = !!editPermission?.can_edit
+  const canRequest = !!editPermission?.can_request
+  const permissionLabel = editPermission?.permission || "none"
+
+  async function handleRequestEditAccess() {
+    try {
+      setRequesting(true)
+      const result = await partnerOrgAPI.requestBrandingEditAccess()
+      if (result.permission) setEditPermission(result.permission)
+      else await loadBranding()
+      toast({
+        title: "Request submitted",
+        description:
+          result.message ||
+          "Your branding edit request has been submitted for Super Admin approval.",
+      })
+    } catch (e: unknown) {
+      toast({
+        title: "Request failed",
+        description: e instanceof Error ? e.message : "Could not submit request",
+        variant: "destructive",
+      })
+    } finally {
+      setRequesting(false)
+    }
+  }
+
   async function handleUpload(kind: "logo" | "banner" | "footerLogo", file: File | undefined) {
     if (!file) return
+    if (!canEdit) {
+      toast({
+        title: "Edit not approved",
+        description: "Request Super Admin approval before uploading branding media.",
+        variant: "destructive",
+      })
+      return
+    }
     try {
       setUploading(kind)
       const result = await uploadFile(file)
@@ -191,6 +230,14 @@ export default function PartnerOrgBrandingPage() {
   }
 
   async function handleSave() {
+    if (!canEdit) {
+      toast({
+        title: "Edit not approved",
+        description: "Request Super Admin approval before saving branding changes.",
+        variant: "destructive",
+      })
+      return
+    }
     try {
       setSaving(true)
       const data = await partnerOrgAPI.upsertMyBranding({
@@ -297,7 +344,7 @@ export default function PartnerOrgBrandingPage() {
         </div>
         <Button
           onClick={handleSave}
-          disabled={saving || loading}
+          disabled={saving || loading || !canEdit}
           className="bg-[#FFC403] text-[#1a2332] hover:bg-[#e6b003]"
         >
           {saving ? (
@@ -309,12 +356,55 @@ export default function PartnerOrgBrandingPage() {
         </Button>
       </div>
 
+      {!loading && !canEdit && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-start gap-2 text-sm text-amber-950">
+            <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0" />
+            <div>
+              {permissionLabel === "pending" ? (
+                <p>
+                  Your branding edit request is pending Rock Martial Arts Super Admin approval.
+                  Branding remains view-only until approved.
+                </p>
+              ) : permissionLabel === "rejected" ? (
+                <p>
+                  Your previous branding edit request was rejected. You may submit a new request.
+                </p>
+              ) : permissionLabel === "revoked" ? (
+                <p>
+                  Branding edit access was revoked. Request approval again to make changes. Existing
+                  branding is preserved.
+                </p>
+              ) : (
+                <p>
+                  Editing your branding page requires Rock Martial Arts Super Admin approval.
+                </p>
+              )}
+            </div>
+          </div>
+          {canRequest ? (
+            <Button
+              type="button"
+              onClick={handleRequestEditAccess}
+              disabled={requesting}
+              className="bg-[#FFC403] text-[#1a2332] hover:bg-[#e6b003] shrink-0"
+            >
+              {requesting ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : null}
+              Request Edit Access
+            </Button>
+          ) : null}
+        </div>
+      )}
+
       {loading ? (
         <div className="flex items-center justify-center py-16 text-sm text-gray-500">
           <Loader2 className="w-5 h-5 mr-2 animate-spin" /> Loading branding…
         </div>
       ) : (
         <>
+          <fieldset disabled={!canEdit} className="space-y-6 disabled:opacity-90">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Navbar logo & cover banner</CardTitle>
@@ -721,6 +811,7 @@ export default function PartnerOrgBrandingPage() {
               />
             </CardContent>
           </Card>
+          </fieldset>
         </>
       )}
     </div>

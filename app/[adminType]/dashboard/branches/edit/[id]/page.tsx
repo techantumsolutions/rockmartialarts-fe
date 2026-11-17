@@ -16,6 +16,7 @@ import { uploadFile } from "@/lib/upload"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import { useRouter, useParams } from "next/navigation"
 import { useDashboardBasePath, useDashboardRole } from "@/lib/useDashboardBasePath"
+import { partnerOrgAPI } from "@/lib/partnerOrgAPI"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
 import { dropdownAPI, DropdownOption } from "@/lib/dropdownAPI"
@@ -188,6 +189,11 @@ interface FormData {
   cover_image_url?: string
   description?: string
   map_link?: string
+  /** Optional WGS84 coordinates for visitor→branch distance */
+  latitude?: number | null
+  longitude?: number | null
+  /** White-label partner org (1:1). Rock SA only. */
+  partner_org_id?: string | null
 }
 
 export default function EditBranch() {
@@ -268,8 +274,35 @@ export default function EditBranch() {
     cover_image_url: "",
     description: "",
     map_link: "",
+    latitude: null,
+    longitude: null,
+    partner_org_id: null,
   })
   const [uploadingCover, setUploadingCover] = useState(false)
+  const [partnerOrgs, setPartnerOrgs] = useState<{ id: string; name: string }[]>([])
+  const canAssignPartner = dashboardRole === "super_admin"
+
+  useEffect(() => {
+    if (!canAssignPartner) return
+    let cancelled = false
+    partnerOrgAPI
+      .list({ limit: 200, include_inactive: false })
+      .then((data) => {
+        if (cancelled) return
+        const list = Array.isArray(data.partners) ? data.partners : []
+        setPartnerOrgs(
+          list
+            .filter((p) => p?.id && p?.name)
+            .map((p) => ({ id: String(p.id), name: String(p.name) }))
+        )
+      })
+      .catch(() => {
+        if (!cancelled) setPartnerOrgs([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [canAssignPartner])
 
   // Auto-generate branch code
   const generateBranchCode = () => {
@@ -470,6 +503,19 @@ export default function EditBranch() {
           cover_image_url: branchData.cover_image_url || "",
           description: branchData.description || "",
           map_link: branchData.map_link || "",
+          latitude:
+            typeof branchData.latitude === "number"
+              ? branchData.latitude
+              : branchData.latitude != null && branchData.latitude !== ""
+                ? Number(branchData.latitude)
+                : null,
+          longitude:
+            typeof branchData.longitude === "number"
+              ? branchData.longitude
+              : branchData.longitude != null && branchData.longitude !== ""
+                ? Number(branchData.longitude)
+                : null,
+          partner_org_id: branchData.partner_org_id || null,
         })
 
         setIsLoading(false)
@@ -1058,6 +1104,15 @@ export default function EditBranch() {
         cover_image_url: formData.cover_image_url || "",
         description: formData.description || "",
         map_link: formData.map_link || "",
+        latitude:
+          formData.latitude === null || formData.latitude === undefined || Number.isNaN(Number(formData.latitude))
+            ? null
+            : Number(formData.latitude),
+        longitude:
+          formData.longitude === null || formData.longitude === undefined || Number.isNaN(Number(formData.longitude))
+            ? null
+            : Number(formData.longitude),
+        partner_org_id: formData.partner_org_id || null,
       }
       if (canToggleCollaborationPartner) {
         submitData.is_collaboration_partner = !!formData.is_collaboration_partner
@@ -1224,6 +1279,48 @@ export default function EditBranch() {
                   placeholder="https://maps.google.com/..."
                 />
               </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="branchLatitude">Latitude (optional)</Label>
+                  <Input
+                    id="branchLatitude"
+                    type="number"
+                    step="any"
+                    min={-90}
+                    max={90}
+                    value={formData.latitude ?? ""}
+                    onChange={(e) => {
+                      const raw = e.target.value
+                      setFormData({
+                        ...formData,
+                        latitude: raw === "" ? null : Number(raw),
+                      })
+                    }}
+                    placeholder="e.g. 17.4578"
+                  />
+                  <p className="text-xs text-muted-foreground">WGS84, −90 to 90. Used for visitor distance.</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="branchLongitude">Longitude (optional)</Label>
+                  <Input
+                    id="branchLongitude"
+                    type="number"
+                    step="any"
+                    min={-180}
+                    max={180}
+                    value={formData.longitude ?? ""}
+                    onChange={(e) => {
+                      const raw = e.target.value
+                      setFormData({
+                        ...formData,
+                        longitude: raw === "" ? null : Number(raw),
+                      })
+                    }}
+                    placeholder="e.g. 78.5369"
+                  />
+                  <p className="text-xs text-muted-foreground">WGS84, −180 to 180.</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -1267,6 +1364,36 @@ export default function EditBranch() {
                   {errors.branchCode && <p className="text-xs text-red-500">{errors.branchCode}</p>}
                 </div>
               </div>
+
+              {canAssignPartner ? (
+                <div className="space-y-2">
+                  <Label htmlFor="partnerOrgId">Partner organization</Label>
+                  <Select
+                    value={formData.partner_org_id || "none"}
+                    onValueChange={(value) =>
+                      setFormData({
+                        ...formData,
+                        partner_org_id: value === "none" ? null : value,
+                      })
+                    }
+                  >
+                    <SelectTrigger id="partnerOrgId">
+                      <SelectValue placeholder="No partner (Rock branch)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No partner (Rock branch)</SelectItem>
+                      {partnerOrgs.map((org) => (
+                        <SelectItem key={org.id} value={org.id}>
+                          {org.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Assign this branch to a white-label partner (1 partner ↔ 1 branch). Partner branding applies once linked.
+                  </p>
+                </div>
+              ) : null}
 
               <div className="flex items-center justify-between rounded-md border border-gray-100 bg-gray-50 px-3 py-3 gap-3">
                 <div className="space-y-0.5">

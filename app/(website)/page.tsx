@@ -3,6 +3,10 @@ import { toCategoryHref } from "@/lib/category-slug"
 import { toCourseSlug } from "@/lib/course-slug"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import { getBackendProxyBaseUrl } from "@/lib/serverBackendUrl"
+import {
+  MOCK_SHOWCASE_ACHIEVEMENTS,
+  MOCK_WARRIOR_TESTIMONIALS,
+} from "@/lib/imagePlaceholders"
 import HomePageView from "@/components/website/HomePageView"
 
 export const metadata = {
@@ -160,16 +164,6 @@ async function getHomepageBranches(): Promise<any[]> {
   return Array.isArray(list) ? list : []
 }
 
-async function getHomepagePartnerBranches(): Promise<{ collabPartners: any[]; partnerOrgs: any[] }> {
-  const [collabRes, orgRes] = await Promise.all([
-    fetchPublicEndpointJson("collaboration-partners/public/partners?limit=100"),
-    fetchPublicEndpointJson("partner-organizations/public/directory?limit=100"),
-  ])
-  const collabPartners = Array.isArray(collabRes.data?.partners) ? collabRes.data.partners : []
-  const partnerOrgs = Array.isArray(orgRes.data?.partners) ? orgRes.data.partners : []
-  return { collabPartners, partnerOrgs }
-}
-
 const coachImageFallback = "/assets/img/courses/kung-fu-trainer.png"
 
 async function getHomepageAboutFromApi(): Promise<{
@@ -253,11 +247,32 @@ function mapPublicAchievements(items: any[]) {
   return items.map((a: any) => ({
     id: a.id,
     student_name: a.student_name || "Student",
-    student_photo: null as string | null,
-    achievement_title: a.title || "Achievement",
+    student_photo: (a.student_photo || a.profile_image_url || a.profile_image || null) as string | null,
+    achievement_title: a.title || a.achievement_title || "Achievement",
     description: a.description || null,
-    image: Array.isArray(a.images) && a.images.length > 0 ? a.images[0] : null,
+    image: Array.isArray(a.images) && a.images.length > 0 ? a.images[0] : a.image || null,
   }))
+}
+
+function mergeUniqueAchievements<T extends { id?: string; student_name?: string; achievement_title?: string }>(
+  primary: T[],
+  fallback: T[],
+  minCount = 4
+): T[] {
+  const seen = new Set<string>()
+  const out: T[] = []
+  const push = (item: T) => {
+    const key = String(
+      item.id ||
+        `${(item.student_name || "").trim().toLowerCase()}|${(item.achievement_title || "").trim().toLowerCase()}`
+    )
+    if (!key || seen.has(key)) return
+    seen.add(key)
+    out.push(item)
+  }
+  primary.forEach(push)
+  if (out.length < minCount) fallback.forEach(push)
+  return out
 }
 
 async function getShowcaseAchievementsFromApi(): Promise<
@@ -365,7 +380,6 @@ export default async function HomePage() {
     coursesResult,
     categoriesResult,
     apiBranches,
-    partnerData,
     cms,
     trainers,
     showcaseTestimonials,
@@ -375,7 +389,6 @@ export default async function HomePage() {
     getCourses(),
     getMainCategories(),
     getHomepageBranches(),
-    getHomepagePartnerBranches(),
     getCMSContent(),
     getHomepageCoaches(),
     getShowcaseTestimonialsFromApi(),
@@ -469,113 +482,35 @@ export default async function HomePage() {
 
   const branchCards = apiBranches
     .filter((b: any) => b && b.is_active !== false)
-    .map((b: any) => {
+    .map((b: any, idx: number) => {
       const name = String(b.branch?.name || b.name || b.code || "Branch")
       const addr = b.branch?.address || b.address || {}
       const location = [addr.city, addr.state].filter(Boolean).join(", ")
+      const area = [addr.area, addr.city].filter(Boolean).join(", ") || location
       const address = [addr.line1, addr.area, addr.city, addr.state, addr.pincode].filter(Boolean).join(", ")
       const phone = String(b.branch?.phone || b.phone || "").trim()
       const slug = String(b.slug || branchNameToSlug(name)).trim()
+      const offered = Array.isArray(b.operational_details?.courses_offered)
+        ? b.operational_details.courses_offered.map((x: any) => String(x || "").trim()).filter(Boolean)
+        : []
+      const coverRaw = b.cover_image_url || ""
+      const cover =
+        (coverRaw && (resolvePublicAssetUrl(coverRaw) || coverRaw)) ||
+        `/assets/img/glry_img${(idx % 9) + 1}.jpg`
       return {
         id: String(b.id || slug || name),
         name,
         location,
+        area,
         address,
         phone: phone || undefined,
         href: `/branches/${encodeURIComponent(slug || String(b.id || ""))}`,
+        img: cover,
+        tags: offered.slice(0, 3),
+        rating: typeof b.rating === "number" ? b.rating : null,
+        reviewCount: typeof b.review_count === "number" ? b.review_count : null,
       }
     })
-
-  const partnerSeen = new Set<string>()
-  const partnerBranchCards: {
-    id: string
-    name: string
-    location?: string
-    description?: string
-    img?: string
-    href: string
-  }[] = []
-
-  const addPartnerCard = (item: {
-    key: string
-    id: string
-    name: string
-    location?: string
-    description?: string
-    img?: string
-    href: string
-  }) => {
-    const norm = item.key.trim().toLowerCase()
-    if (!norm || partnerSeen.has(norm)) return
-    partnerSeen.add(norm)
-    partnerBranchCards.push({
-      id: item.id,
-      name: item.name,
-      location: item.location || undefined,
-      description: item.description || undefined,
-      img: item.img || undefined,
-      href: item.href,
-    })
-  }
-
-  for (const p of partnerData.collabPartners) {
-    const name = String(p?.name || p?.code || "Partner Branch").trim()
-    const slug = String(p?.slug || branchNameToSlug(name)).trim()
-    const coverRaw = p?.cover_banner_url || p?.logo_url || ""
-    const img = coverRaw ? resolvePublicAssetUrl(coverRaw) || String(coverRaw) : ""
-    const location = [p?.city, p?.state].filter(Boolean).join(", ")
-    addPartnerCard({
-      key: slug || p?.branch_id || name,
-      id: String(p?.branch_id || slug || name),
-      name,
-      location,
-      description: p?.short_description ? String(p.short_description) : undefined,
-      img: img || undefined,
-      href: p?.partner_url || `/partners/${encodeURIComponent(slug || String(p?.branch_id || ""))}`,
-    })
-  }
-
-  for (const org of partnerData.partnerOrgs) {
-    const name = String(org?.name || "Partner").trim()
-    const slug = String(org?.slug || branchNameToSlug(name)).trim()
-    const coverRaw = org?.cover_banner_url || org?.logo_url || ""
-    const img = coverRaw ? resolvePublicAssetUrl(coverRaw) || String(coverRaw) : ""
-    addPartnerCard({
-      key: slug || org?.partner_org_id || name,
-      id: String(org?.partner_org_id || slug || name),
-      name,
-      location: org?.address ? String(org.address) : undefined,
-      description: org?.tagline || org?.short_description ? String(org.tagline || org.short_description) : undefined,
-      img: img || undefined,
-      href: org?.landing_path || `/partner-orgs/${encodeURIComponent(slug || String(org?.partner_org_id || ""))}`,
-    })
-  }
-
-  if (partnerBranchCards.length === 0) {
-    for (const b of apiBranches) {
-      if (!b || b.is_active === false) continue
-      const isPartner = Boolean(b.partner_org_id || b.allows_collaboration || b.is_collaboration_partner)
-      if (!isPartner) continue
-      const name = String(b.branch?.name || b.name || b.code || "Partner Branch")
-      const addr = b.branch?.address || b.address || {}
-      const location = [addr.city, addr.state].filter(Boolean).join(", ")
-      const address = [addr.line1, addr.area, addr.city, addr.state, addr.pincode].filter(Boolean).join(", ")
-      const slug = String(b.slug || branchNameToSlug(name)).trim()
-      addPartnerCard({
-        key: slug || b.id || name,
-        id: String(b.id || slug || name),
-        name,
-        location: location || undefined,
-        description: address || undefined,
-        href:
-          b.allows_collaboration || b.is_collaboration_partner
-            ? `/partners/${encodeURIComponent(slug || String(b.id || ""))}`
-            : `/branches/${encodeURIComponent(slug || String(b.id || ""))}`,
-      })
-    }
-  }
-
-  const partnerDirectoryHref = partnerData.partnerOrgs.length > 0 ? "/partner-orgs" : "/partners"
 
   /* Hero content from CMS — no hardcoded title/CTA fallbacks; show only when set in admin */
   const heroTitle = (homepage.hero_title || "").trim()
@@ -610,6 +545,15 @@ export default async function HomePage() {
   const testimonialsTitle = homepage.testimonials_title || "Success stories"
   const testimonialsSubtitle = homepage.testimonials_subtitle || "Testimonials"
   const testimonialsEnabled = homepage.testimonials_enabled !== false
+  const resolvedShowcaseTestimonials =
+    showcaseTestimonials.length > 0
+      ? showcaseTestimonials
+      : MOCK_WARRIOR_TESTIMONIALS.map((t) => ({ ...t }))
+  const resolvedShowcaseAchievements = mergeUniqueAchievements(
+    showcaseAchievements,
+    MOCK_SHOWCASE_ACHIEVEMENTS.map((a) => ({ ...a })),
+    4
+  )
   const testimonials: { name: string; role: string; quote?: string; image?: string; achievement?: string }[] = []
 
   const ctaTitle = homepage.cta_title || "Learn martial arts with discipline energy enhance your physical and mental well-being with our holistic tai-chi training."
@@ -646,8 +590,6 @@ export default async function HomePage() {
       testimonialsEnabled={testimonialsEnabled}
       classCards={classCards}
       branches={branchCards}
-      partnerBranches={partnerBranchCards}
-      partnerDirectoryHref={partnerDirectoryHref}
       physicalBenefits={
         Array.isArray(homepage.physical_benefits)
           ? homepage.physical_benefits.filter((x: any) => String(x || "").trim())
@@ -661,8 +603,8 @@ export default async function HomePage() {
       trainers={trainers}
       testimonials={testimonials}
       defaultTestimonialQuote={(homepage.default_testimonial_quote || "").trim()}
-      showcaseTestimonials={showcaseTestimonials}
-      showcaseAchievements={showcaseAchievements}
+      showcaseTestimonials={resolvedShowcaseTestimonials}
+      showcaseAchievements={resolvedShowcaseAchievements}
       courseShowcaseTag={homepage.course_showcase_tag}
       courseShowcaseTitle={homepage.course_showcase_title}
       courseShowcaseDescription={homepage.course_showcase_description}

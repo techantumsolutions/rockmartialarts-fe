@@ -741,7 +741,7 @@ function CourseDetailPageInner() {
                             aria-expanded={locationOpen}
                             aria-haspopup="listbox"
                             aria-label="Select location"
-                            className="mt-1 flex w-full min-w-0 items-center justify-between gap-2 text-left text-[12px] font-semibold leading-tight"
+                            className="mt-1 flex w-full min-w-0 items-center justify-between gap-2 rounded text-left text-[12px] font-semibold leading-tight text-white transition hover:text-[#FFB70F]"
                           >
                             <span className="truncate">
                               {selectedBranch?.branch_name || branches.find((branch) => branch.branch_id === effectiveLocationId)?.branch_name || info.location}
@@ -749,7 +749,11 @@ function CourseDetailPageInner() {
                             <ChevronDown className={`h-4 w-4 shrink-0 transition-transform duration-200 ${locationOpen ? "rotate-180" : ""}`} />
                           </button>
                         </PopoverTrigger>
-                        <PopoverContent align="start" className="z-50 w-[var(--radix-popover-trigger-width)] min-w-[180px] border-white/10 p-1 text-white">
+                        <PopoverContent
+                          align="start"
+                          sideOffset={6}
+                          className="z-[200] w-[var(--radix-popover-trigger-width)] min-w-[200px] border border-[#FFB70F]/40 bg-[#171A26] p-1.5 text-white shadow-2xl"
+                        >
                           <div role="listbox" aria-label="Locations" className="max-h-60 overflow-y-auto">
                             {branches.map((branch) => {
                               const selected = branch.branch_id === effectiveLocationId
@@ -763,7 +767,7 @@ function CourseDetailPageInner() {
                                     persistBranchAndUrl(branch.branch_id || null)
                                     setLocationOpen(false)
                                   }}
-                                  className={`w-full rounded px-3 py-2 text-left text-sm hover:bg-white/10 ${selected ? "bg-white/10 font-semibold" : ""}`}
+                                  className={`w-full rounded-md px-3 py-2.5 text-left text-sm text-white transition hover:bg-[#FFB70F] hover:text-[#171A26] ${selected ? "bg-[#FFB70F]/20 font-semibold" : ""}`}
                                 >
                                   {branch.branch_name || branch.location}
                                 </button>
@@ -795,7 +799,7 @@ function CourseDetailPageInner() {
                             aria-expanded={durationOpen}
                             aria-haspopup="listbox"
                             aria-label="Select course duration"
-                            className="mt-1 flex w-full min-w-0 items-center justify-between gap-2 text-left text-[12px] font-semibold leading-tight"
+                            className="mt-1 flex w-full min-w-0 items-center justify-between gap-2 rounded text-left text-[12px] font-semibold leading-tight text-white transition hover:text-[#FFB70F]"
                           >
                             <span className="truncate">
                               {selectedDuration?.name ||
@@ -805,7 +809,11 @@ function CourseDetailPageInner() {
                             <ChevronDown className={`h-4 w-4 shrink-0 transition-transform duration-200 ${durationOpen ? "rotate-180" : ""}`} />
                           </button>
                         </PopoverTrigger>
-                        <PopoverContent align="start" className="z-50 w-[var(--radix-popover-trigger-width)] min-w-[180px] border-white/10 p-1 text-white">
+                        <PopoverContent
+                          align="start"
+                          sideOffset={6}
+                          className="z-[200] w-[var(--radix-popover-trigger-width)] min-w-[200px] border border-[#FFB70F]/40 bg-[#171A26] p-1.5 text-white shadow-2xl"
+                        >
                           <div role="listbox" aria-label="Course durations" className="max-h-60 overflow-y-auto">
                             {durations.map((duration) => {
                               const selected = duration.id === effectiveDurationKey
@@ -819,7 +827,7 @@ function CourseDetailPageInner() {
                                     setSelectedDurationKey(duration.id || null)
                                     setDurationOpen(false)
                                   }}
-                                  className={`w-full rounded px-3 py-2 text-left text-sm hover:bg-white/10 ${selected ? "bg-white/10 font-semibold" : ""}`}
+                                  className={`w-full rounded-md px-3 py-2.5 text-left text-sm text-white transition hover:bg-[#FFB70F] hover:text-[#171A26] ${selected ? "bg-[#FFB70F]/20 font-semibold" : ""}`}
                                 >
                                   {duration.name || duration.code || `${duration.duration_months ?? ""} month(s)`}
                                 </button>
@@ -884,7 +892,7 @@ function CourseDetailPageInner() {
                         <PopoverContent
                           align="start"
                           sideOffset={8}
-                          className="border border-gray-700/80 rounded-xl shadow-2xl p-3 text-white z-50 w-auto min-w-[280px] sm:min-w-[340px] max-w-[min(94vw,420px)]"
+                          className="z-[200] w-auto min-w-[280px] max-w-[min(94vw,420px)] rounded-xl border border-[#FFB70F]/40 bg-[#171A26] p-3 text-white shadow-2xl sm:min-w-[340px]"
                         >
                           <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10 text-xs font-semibold text-gray-300">
                             <span className="flex items-center gap-1.5 text-[#FFB70F]">
@@ -910,7 +918,7 @@ function CourseDetailPageInner() {
                                 >
                                   <span className="leading-snug">{batch}</span>
                                   {isSelected ? (
-                                    <Check className="w-4 h-4 shrink-0 text-white" />
+                                    <Check className="w-4 h-4 shrink-0 text-[#171A26]" />
                                   ) : (
                                     <span className="text-[10px] text-gray-400 uppercase tracking-wider shrink-0">Batch {idx + 1}</span>
                                   )}

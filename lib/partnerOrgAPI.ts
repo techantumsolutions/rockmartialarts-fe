@@ -36,6 +36,10 @@ export type PartnerOrg = {
   valid_until?: string | null
   effective_status?: "active" | "expired" | "deactivated" | string
   feature_permissions?: Record<string, boolean>
+  course_permissions?: {
+    can_create_courses?: boolean
+    can_edit_courses?: boolean
+  }
   sms_allocated?: number | null
   whatsapp_allocated?: number | null
   sms_utilized?: number | null
@@ -51,6 +55,8 @@ export type PartnerOrgCreateBody = {
   phone: string
   address: string
   payment_method: "online" | "offline"
+  /** Required when payment_method is offline — actual cash amount received */
+  cash_amount?: number
   sms_allocated?: number
   whatsapp_allocated?: number
 }
@@ -211,6 +217,49 @@ class PartnerOrgAPI {
     }>
   }
 
+  async getCoursePermissions(partnerOrgId: string) {
+    const res = await fetch(
+      getBackendApiUrl(
+        `partner-organizations/${encodeURIComponent(partnerOrgId)}/course-permissions`
+      ),
+      { headers: authHeaders(), cache: "no-store" }
+    )
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{
+      partner_org_id: string
+      course_permissions: {
+        can_create_courses: boolean
+        can_edit_courses: boolean
+      }
+      partner?: PartnerOrg
+    }>
+  }
+
+  async patchCoursePermissions(
+    partnerOrgId: string,
+    body: { can_create_courses: boolean; can_edit_courses: boolean }
+  ) {
+    const res = await fetch(
+      getBackendApiUrl(
+        `partner-organizations/${encodeURIComponent(partnerOrgId)}/course-permissions`
+      ),
+      {
+        method: "PATCH",
+        headers: authHeaders(true),
+        body: JSON.stringify(body),
+      }
+    )
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{
+      message?: string
+      course_permissions: {
+        can_create_courses: boolean
+        can_edit_courses: boolean
+      }
+      partner?: PartnerOrg
+    }>
+  }
+
   async getMyFeaturePermissions() {
     const res = await fetch(getBackendApiUrl("partner-organizations/me/feature-permissions"), {
       headers: authHeaders(),
@@ -220,6 +269,10 @@ class PartnerOrgAPI {
     return res.json() as Promise<{
       partner_org_id: string
       feature_permissions: Record<string, boolean>
+      course_permissions?: {
+        can_create_courses?: boolean
+        can_edit_courses?: boolean
+      }
     }>
   }
 
@@ -336,6 +389,99 @@ class PartnerOrgAPI {
     return res.json() as Promise<{ message?: string; branding: PartnerOrgBranding }>
   }
 
+  async getMyBrandingEditPermission() {
+    const res = await fetch(
+      getBackendApiUrl("partner-organizations/me/branding-edit-permission"),
+      { headers: authHeaders(), cache: "no-store" }
+    )
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<PartnerBrandingEditPermission>
+  }
+
+  async requestBrandingEditAccess(note?: string) {
+    const res = await fetch(
+      getBackendApiUrl("partner-organizations/me/branding-edit-request"),
+      {
+        method: "POST",
+        headers: authHeaders(true),
+        body: JSON.stringify({ note: note || undefined }),
+      }
+    )
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{
+      message?: string
+      request?: PartnerBrandingEditRequest
+      permission?: PartnerBrandingEditPermission
+    }>
+  }
+
+  async listBrandingEditRequests(params?: {
+    status?: string
+    skip?: number
+    limit?: number
+  }) {
+    const qs = new URLSearchParams()
+    if (params?.status) qs.set("status", params.status)
+    if (params?.skip != null) qs.set("skip", String(params.skip))
+    if (params?.limit != null) qs.set("limit", String(params.limit))
+    const res = await fetch(
+      `${getBackendApiUrl("partner-organizations/branding-edit-requests")}?${qs.toString()}`,
+      { headers: authHeaders(), cache: "no-store" }
+    )
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{
+      requests: PartnerBrandingEditRequest[]
+      total: number
+      skip: number
+      limit: number
+    }>
+  }
+
+  async approveBrandingEditRequest(requestId: string, reason?: string) {
+    const res = await fetch(
+      getBackendApiUrl(
+        `partner-organizations/branding-edit-requests/${encodeURIComponent(requestId)}/approve`
+      ),
+      {
+        method: "POST",
+        headers: authHeaders(true),
+        body: JSON.stringify({ reason: reason || undefined }),
+      }
+    )
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json()
+  }
+
+  async rejectBrandingEditRequest(requestId: string, reason?: string) {
+    const res = await fetch(
+      getBackendApiUrl(
+        `partner-organizations/branding-edit-requests/${encodeURIComponent(requestId)}/reject`
+      ),
+      {
+        method: "POST",
+        headers: authHeaders(true),
+        body: JSON.stringify({ reason: reason || undefined }),
+      }
+    )
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json()
+  }
+
+  async revokeBrandingEditAccess(partnerOrgId: string, reason?: string) {
+    const res = await fetch(
+      getBackendApiUrl(
+        `partner-organizations/${encodeURIComponent(partnerOrgId)}/branding-edit-revoke`
+      ),
+      {
+        method: "POST",
+        headers: authHeaders(true),
+        body: JSON.stringify({ reason: reason || undefined }),
+      }
+    )
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json()
+  }
+
   async publicDirectory(params?: { q?: string; skip?: number; limit?: number }) {
     const qs = new URLSearchParams()
     if (params?.q) qs.set("q", params.q)
@@ -417,10 +563,39 @@ export type PartnerOrgSiteAchievement = {
   is_featured?: boolean
 }
 
+export type PartnerBrandingEditRequest = {
+  id?: string
+  partner_org_id?: string
+  partner_name?: string
+  partner_slug?: string
+  requested_by?: string
+  requested_by_name?: string
+  requested_by_email?: string
+  requested_at?: string
+  status?: "pending" | "approved" | "rejected" | "revoked" | string
+  reviewed_by?: string
+  reviewed_by_name?: string
+  reviewed_at?: string
+  review_reason?: string | null
+  access_revoked_at?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+export type PartnerBrandingEditPermission = {
+  partner_org_id: string
+  permission: "none" | "pending" | "approved" | "rejected" | "revoked" | string
+  can_edit: boolean
+  can_request: boolean
+  pending_request?: PartnerBrandingEditRequest | null
+  latest_request?: PartnerBrandingEditRequest | null
+}
+
 export type PartnerOrgBranding = {
   id?: string | null
   partner_org_id: string
   has_branding?: boolean
+  edit_permission?: PartnerBrandingEditPermission
   media?: {
     logo_url?: string | null
     logo_alt?: string | null

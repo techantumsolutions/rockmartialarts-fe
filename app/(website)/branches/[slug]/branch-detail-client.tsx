@@ -266,31 +266,65 @@ export default function BranchDetailPage() {
     )
   }
 
+  const branding = branch.site_branding
   const coverImage =
-    (branch as BranchData & { gallery_images?: string[] }).gallery_images?.[0] ?? null
-  const isPartnerBranch = !!(
-    (branch as BranchData & { is_collaboration_partner?: boolean; allows_collaboration?: boolean })
-      .is_collaboration_partner ||
-    (branch as BranchData & { allows_collaboration?: boolean }).allows_collaboration
-  )
-  const partnerLandingHref = `/partners/${encodeURIComponent(
-    String(branch.slug || slug).trim()
-  )}`
+    resolvePublicAssetUrl(branding?.cover_banner_url || "") ||
+    resolvePublicAssetUrl(branch.cover_image_url || "") ||
+    branch.gallery_images?.[0] ||
+    null
+
+  // Prefer branch/org contact when this branch has its own branding.
+  const contactBranch: BranchData = branding?.contact
+    ? {
+        ...branch,
+        branch: {
+          ...(branch.branch || {}),
+          phone: branding.contact.phone || branch.branch?.phone,
+          email: branding.contact.email || branch.branch?.email,
+          address: branding.contact.address
+            ? {
+                ...(branch.branch?.address || {}),
+                line1: branding.contact.address,
+              }
+            : branch.branch?.address,
+        },
+      }
+    : branch
+
+  const aboutHtml =
+    (branding?.about_content || branding?.our_story || branding?.short_description || "").trim()
+  const aboutTagline = (branding?.tagline || branding?.why_choose_us || "").trim()
+  const ownFacilities =
+    Array.isArray(branding?.facilities) && branding!.facilities!.length > 0
+      ? branding!.facilities!
+      : null
+  const displayBranch: BranchData =
+    ownFacilities && (!branch.facilities || branch.facilities.length === 0)
+      ? { ...contactBranch, facilities: ownFacilities }
+      : contactBranch
 
   return (
     <main className="min-h-screen">
-      <BranchHero branch={branch} coverImageUrl={coverImage} />
-      {isPartnerBranch ? (
-        <div className="site-content px-0 sm:px-1 -mt-4 mb-6 relative z-20">
-          <Link
-            href={partnerLandingHref}
-            className="inline-flex items-center gap-2 text-sm text-[#FFB70F] hover:text-white transition-colors"
-          >
-            View full partner page →
-          </Link>
-        </div>
+      <BranchHero branch={displayBranch} coverImageUrl={coverImage} />
+      {aboutHtml || aboutTagline ? (
+        <section className="py-8 md:py-10 relative z-10">
+          <div className="site-content px-0 sm:px-1 max-w-3xl mx-auto text-center">
+            <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
+            {aboutTagline ? (
+              <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">{aboutTagline}</p>
+            ) : null}
+            <h2 className="text-3xl md:text-4xl font-bold text-[#FFB70F] mb-4">About</h2>
+            {aboutHtml ? (
+              <div
+                className="text-gray-300 text-sm md:text-base leading-relaxed whitespace-pre-line"
+              >
+                {aboutHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()}
+              </div>
+            ) : null}
+          </div>
+        </section>
       ) : null}
-      <BranchCourses branch={branch} />
+      <BranchCourses branch={displayBranch} />
       <section className="py-8 md:py-10 relative z-10">
         <div className="site-content px-0 sm:px-1">
           <div className="text-center mb-12" data-aos="fade-up">
@@ -360,7 +394,7 @@ export default function BranchDetailPage() {
                 Our people
               </p>
               <h2 className="text-3xl md:text-4xl font-bold text-[#FFB70F]">
-                Partner Team
+                Our Team
               </h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -407,10 +441,10 @@ export default function BranchDetailPage() {
         </section>
       ) : null}
       <BranchAchievements branchId={branch.id} />
-      <BranchFacilities branch={branch} />
-      <BranchInfoCards branch={branch} />
-      <BranchMap branch={branch} />
-      <BranchContact branch={branch} />
+      <BranchFacilities branch={displayBranch} />
+      <BranchInfoCards branch={displayBranch} />
+      <BranchMap branch={displayBranch} />
+      <BranchContact branch={displayBranch} />
     </main>
   )
 }

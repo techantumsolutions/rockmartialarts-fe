@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
+import { DEFAULT_REALISTIC_IMAGE } from "@/lib/imagePlaceholders"
 import { cn } from "@/lib/utils"
 
-/** Neutral brand placeholder — never shows a broken image icon */
-export const DEFAULT_IMAGE_PLACEHOLDER = "/placeholder.jpg"
+/** Realistic academy photo — never shows a broken image icon */
+export const DEFAULT_IMAGE_PLACEHOLDER = DEFAULT_REALISTIC_IMAGE
 
 export type SafeImageProps = React.ImgHTMLAttributes<HTMLImageElement> & {
   /** Shown when src is missing or fails to load */
@@ -56,7 +57,7 @@ export function SafeImage({
       data-placeholder={fallbackSrc}
       className={cn(
         className,
-        useFallback && "object-contain bg-neutral-100",
+        useFallback && "object-cover bg-[#222635]",
         showLoader && loading && "opacity-0",
         showLoader && !loading && "opacity-100 transition-opacity duration-300"
       )}

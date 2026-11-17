@@ -26,20 +26,38 @@ export function AchievementsAutoScrollCarousel({
   const offsetRef = useRef(0)
   const rafRef = useRef<number | null>(null)
 
+  const uniqueItems = useMemo(() => {
+    const seen = new Set<string>()
+    const out: ShowcaseAchievementItem[] = []
+    for (const item of items) {
+      const key = String(
+        item.id ||
+          `${(item.student_name || "").trim().toLowerCase()}|${(item.achievement_title || "").trim().toLowerCase()}`
+      )
+      if (!key || seen.has(key)) continue
+      seen.add(key)
+      out.push(item)
+    }
+    return out
+  }, [items])
+
   const loopItems = useMemo(
-    () => (items.length > 1 ? [...items, ...items] : items),
-    [items]
+    () => (uniqueItems.length > 1 ? [...uniqueItems, ...uniqueItems] : uniqueItems),
+    [uniqueItems]
   )
 
+  const canAnimate = !reduceMotion && uniqueItems.length > 1
+
   useEffect(() => {
-    if (reduceMotion || items.length <= 1) return
+    if (!canAnimate) return
+    offsetRef.current = 0
     const step = () => {
       const el = trackRef.current
       if (el && !paused) {
-        offsetRef.current += 0.35
+        offsetRef.current += 0.45
         const half = el.scrollWidth / 2
         if (half > 0 && offsetRef.current >= half) {
-          offsetRef.current = 0
+          offsetRef.current -= half
         }
         el.style.transform = `translate3d(${-offsetRef.current}px, 0, 0)`
       }
@@ -49,19 +67,19 @@ export function AchievementsAutoScrollCarousel({
     return () => {
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
     }
-  }, [items.length, paused, reduceMotion])
+  }, [canAnimate, uniqueItems.length, paused])
 
-  if (items.length === 0) {
+  if (uniqueItems.length === 0) {
     return null
   }
 
-  if (reduceMotion || items.length === 1) {
+  if (!canAnimate) {
     return (
       <div
         className={`flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 -mx-2 px-2 ${className}`}
         aria-label="Student achievements"
       >
-        {items.map((item, i) => (
+        {uniqueItems.map((item, i) => (
           <div
             key={item.id || i}
             className="min-w-[min(100%,18rem)] sm:min-w-[20rem] shrink-0 snap-start"

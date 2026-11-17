@@ -119,6 +119,43 @@ export interface BranchData {
   map_link?: string
   coordinates?: { lat: number; lng: number }
   facilities?: string[]
+  cover_image_url?: string | null
+  partner_org_id?: string | null
+  partner_org_slug?: string | null
+  partner_org_name?: string | null
+  has_own_branding?: boolean
+  allows_collaboration?: boolean
+  is_collaboration_partner?: boolean
+  /** Present for partner-org branches — their own branding (not platform CMS). */
+  site_branding?: {
+    org_name?: string | null
+    org_slug?: string | null
+    logo_url?: string | null
+    cover_banner_url?: string | null
+    tagline?: string | null
+    short_description?: string | null
+    about_content?: string | null
+    vision?: string | null
+    mission?: string | null
+    our_story?: string | null
+    why_choose_us?: string | null
+    facilities?: string[]
+    parking_info?: string | null
+    location_highlights?: string[]
+    map_embed_url?: string | null
+    social_links?: Record<string, string | null | undefined>
+    contact?: {
+      headline?: string | null
+      intro?: string | null
+      address?: string | null
+      phone?: string | null
+      email?: string | null
+    }
+    footer?: {
+      logo_url?: string | null
+      description?: string | null
+    }
+  } | null
 }
 
 export function getBranchName(b: BranchData): string {

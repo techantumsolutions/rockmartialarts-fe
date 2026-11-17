@@ -91,9 +91,12 @@ export function PartnerProfileAdminControls({ partner, open, onUpdated }: Props)
   const [validFrom, setValidFrom] = useState(formatValidity(partner.valid_from))
   const [validUntil, setValidUntil] = useState(formatValidity(partner.valid_until))
   const [featurePerms, setFeaturePerms] = useState<Record<string, boolean>>({})
+  const [canCreateCourses, setCanCreateCourses] = useState(false)
+  const [canEditCourses, setCanEditCourses] = useState(false)
   const [loadingFeatures, setLoadingFeatures] = useState(false)
   const [savingValidity, setSavingValidity] = useState(false)
   const [savingFeatures, setSavingFeatures] = useState(false)
+  const [savingCoursePerms, setSavingCoursePerms] = useState(false)
   const [quota, setQuota] = useState<PartnerMessagingQuotaSummary | null>(null)
   const [smsAllocated, setSmsAllocated] = useState("0")
   const [whatsappAllocated, setWhatsappAllocated] = useState("0")
@@ -103,8 +106,13 @@ export function PartnerProfileAdminControls({ partner, open, onUpdated }: Props)
   const loadFeatures = useCallback(async () => {
     setLoadingFeatures(true)
     try {
-      const data = await partnerOrgAPI.getFeaturePermissions(partner.id)
+      const [data, courseData] = await Promise.all([
+        partnerOrgAPI.getFeaturePermissions(partner.id),
+        partnerOrgAPI.getCoursePermissions(partner.id),
+      ])
       setFeaturePerms(data.feature_permissions || {})
+      setCanCreateCourses(!!courseData.course_permissions?.can_create_courses)
+      setCanEditCourses(!!courseData.course_permissions?.can_edit_courses)
     } catch (e: unknown) {
       toast({
         title: "Could not load feature permissions",
@@ -182,6 +190,28 @@ export function PartnerProfileAdminControls({ partner, open, onUpdated }: Props)
       })
     } finally {
       setSavingFeatures(false)
+    }
+  }
+
+  async function saveCoursePermissions() {
+    setSavingCoursePerms(true)
+    try {
+      const res = await partnerOrgAPI.patchCoursePermissions(partner.id, {
+        can_create_courses: canCreateCourses,
+        can_edit_courses: canEditCourses,
+      })
+      if (res.partner) onUpdated(res.partner)
+      setCanCreateCourses(!!res.course_permissions?.can_create_courses)
+      setCanEditCourses(!!res.course_permissions?.can_edit_courses)
+      toast({ title: "Course permissions updated", description: res.message || "Saved." })
+    } catch (e: unknown) {
+      toast({
+        title: "Save failed",
+        description: e instanceof Error ? e.message : "Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setSavingCoursePerms(false)
     }
   }
 
@@ -334,6 +364,49 @@ export function PartnerProfileAdminControls({ partner, open, onUpdated }: Props)
             Save features
           </Button>
         </div>
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-[#E2E8F0] bg-white p-4 sm:p-5 shadow-sm">
+        <div className="mb-4 flex items-center gap-2 border-b border-[#F1F5F9] pb-3">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#FFF8E1] text-[#C9971A]">
+            <BookOpen className="h-4 w-4" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-[#171A26]">Course Permissions</p>
+            <p className="text-xs text-[#64748B]">
+              Allow this partner to create or edit courses (view remains via Courses feature)
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <label className="flex cursor-pointer items-center justify-between gap-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5">
+            <span className="text-[13px] font-medium text-[#171A26]">Allow Course Creation</span>
+            <Switch
+              checked={canCreateCourses}
+              disabled={locked || loadingFeatures}
+              onCheckedChange={setCanCreateCourses}
+            />
+          </label>
+          <label className="flex cursor-pointer items-center justify-between gap-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5">
+            <span className="text-[13px] font-medium text-[#171A26]">Allow Course Editing</span>
+            <Switch
+              checked={canEditCourses}
+              disabled={locked || loadingFeatures}
+              onCheckedChange={setCanEditCourses}
+            />
+          </label>
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          className="mt-4"
+          loading={savingCoursePerms}
+          loadingText="Saving…"
+          disabled={locked || loadingFeatures}
+          onClick={() => void saveCoursePermissions()}
+        >
+          Save course permissions
+        </Button>
       </div>
 
       <div className="mt-4 rounded-2xl border border-[#E2E8F0] bg-white p-4 sm:p-5 shadow-sm">

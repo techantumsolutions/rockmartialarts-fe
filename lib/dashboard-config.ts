@@ -96,6 +96,7 @@ const ROCK_ONLY_PATH_SUFFIXES = [
   "/attendance/devices",
   "/attendance/biometric-mapping",
   "/partner-profiles",
+  "/partner-profiles/branding-approvals",
   "/store/products",
   "/store/categories",
   "/store/orders",
@@ -298,6 +299,13 @@ const SUPER_ADMIN_MENU: NavItem[] = [
             label: "Partner Profiles",
             path: `${SUPER_ADMIN_BASE}/partner-profiles`,
             icon: Handshake,
+            permissionId: "partners",
+          },
+          {
+            id: "partner-branding-approvals",
+            label: "Branding Approvals",
+            path: `${SUPER_ADMIN_BASE}/partner-profiles/branding-approvals`,
+            icon: UserCheck,
             permissionId: "partners",
           },
         ],
@@ -901,12 +909,18 @@ export function getHeaderActionsForRole(role: DashboardRole, basePathOverride?: 
           : "")
   switch (role) {
     case "super_admin":
-    case "partner_super_admin":
       return [
         { label: "Add Course", shortLabel: "Course", path: `${base}/create-course` },
         { label: "Add Coach", shortLabel: "Coach", path: `${base}/add-coach` },
         { label: "Add Branch Manager", shortLabel: "Manager", path: `${base}/branch-managers/create` },
         { label: "Add New Branch", shortLabel: "Branch", path: `${base}/create-branch` },
+      ]
+    case "partner_super_admin":
+      // Partners cannot create branches. Course create requires SA-granted permission
+      // (filtered in Header). Branch Manager assignment is Super Admin only.
+      return [
+        { label: "Add Course", shortLabel: "Course", path: `${base}/create-course` },
+        { label: "Add Coach", shortLabel: "Coach", path: `${base}/add-coach` },
       ]
     case "branch_admin":
       return [

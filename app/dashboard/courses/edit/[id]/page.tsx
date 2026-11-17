@@ -35,12 +35,15 @@ import { TokenManager } from "@/lib/tokenManager"
 import { CourseMediaResourcesFields } from "@/components/dashboard/CourseMediaResourcesFields"
 import CourseFormSections, { PageContent } from "@/components/dashboard/CourseFormSections"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { useDashboardRole } from "@/lib/useDashboardBasePath"
+import { usePartnerFeaturePermissions } from "@/hooks/usePartnerFeaturePermissions"
 
 function resolveCoursesDashboardBase(pathname: string | null): string {
   if (!pathname) return "/super-admin/dashboard"
   if (pathname.startsWith("/branch-admin")) return "/branch-admin/dashboard"
   if (pathname.startsWith("/branch-manager-dashboard")) return "/branch-manager-dashboard"
   if (pathname.startsWith("/super-admin")) return "/super-admin/dashboard"
+  if (pathname.startsWith("/partner-admin")) return "/partner-admin/dashboard"
   return "/dashboard"
 }
 
@@ -55,12 +58,31 @@ export default function EditCoursePage() {
   const courseId = params.id as string
   const { toast } = useToast()
   const { user } = useAuth()
+  const dashboardRole = useDashboardRole()
+  const { coursePermissions } = usePartnerFeaturePermissions(dashboardRole)
   const coursesBasePath = useMemo(() => resolveCoursesDashboardBase(pathname), [pathname])
   // Branch admin gets the same full edit form as other admins.
   const isBranchFeeOnly = false
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    if (dashboardRole !== "partner_super_admin") return
+    if (coursePermissions.can_edit_courses) return
+    toast({
+      title: "Course editing not permitted",
+      description: "Ask Rock Super Admin to enable course editing for your organization.",
+      variant: "destructive",
+    })
+    router.replace(`${coursesBasePath}/courses`)
+  }, [
+    dashboardRole,
+    coursePermissions.can_edit_courses,
+    router,
+    coursesBasePath,
+    toast,
+  ])
 
   // State
   const [categories, setCategories] = useState<any[]>([])

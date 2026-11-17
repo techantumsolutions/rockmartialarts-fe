@@ -1,8 +1,9 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { getHeaderActionsForRole, type DashboardRole } from "@/lib/dashboard-config"
+import { usePartnerFeaturePermissions } from "@/hooks/usePartnerFeaturePermissions"
 import add_icon from "@/public/images/add_icon.png"
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react"
 import { useRouter } from "next/navigation"
@@ -16,7 +17,18 @@ interface HeaderProps {
 
 export default function Header({ title, role, subtitle, children }: HeaderProps) {
   const router = useRouter()
-  const actions = getHeaderActionsForRole(role)
+  const { coursePermissions } = usePartnerFeaturePermissions(role)
+  const actions = useMemo(() => {
+    const raw = getHeaderActionsForRole(role)
+    if (role !== "partner_super_admin") return raw
+    // Partner Add Course only when Super Admin granted can_create_courses.
+    return raw.filter((a) => {
+      if (a.path.endsWith("/create-course")) {
+        return !!coursePermissions.can_create_courses
+      }
+      return true
+    })
+  }, [role, coursePermissions.can_create_courses])
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(false)

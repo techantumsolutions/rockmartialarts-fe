@@ -12,6 +12,9 @@ interface PaymentSelectionSectionProps {
   onPaymentMethodChange: (val: "razorpay" | "physical_cash") => void
   cashNotes: string
   onCashNotesChange: (val: string) => void
+  cashAmount?: string
+  onCashAmountChange?: (val: string) => void
+  cashAmountError?: string
   pricing: RegistrationPricing | null
   isLoadingPricing?: boolean
 }
@@ -21,6 +24,9 @@ export default function PaymentSelectionSection({
   onPaymentMethodChange,
   cashNotes,
   onCashNotesChange,
+  cashAmount = "",
+  onCashAmountChange,
+  cashAmountError,
   pricing,
   isLoadingPricing = false,
 }: PaymentSelectionSectionProps) {
@@ -113,23 +119,49 @@ export default function PaymentSelectionSection({
         </RadioGroup>
       </div>
 
-      {/* Cash Reference Field */}
+      {/* Cash amount + reference */}
       {paymentMethod === "physical_cash" && (
-        <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-4 space-y-2">
-          <Label htmlFor="cash_notes" className="text-xs font-semibold text-emerald-900 uppercase tracking-wide">
-            Physical Cash Receipt Note (Optional)
-          </Label>
-          <Input
-            id="cash_notes"
-            type="text"
-            placeholder="e.g., Hand cash collected at desk by coach/manager"
-            value={cashNotes}
-            onChange={(e) => onCashNotesChange(e.target.value)}
-            className="bg-white border-emerald-200 text-sm h-11"
-          />
-          <p className="text-[11px] text-emerald-700">
-            An official invoice with payment method &ldquo;Physical Hand Cash&rdquo; will be generated and logged to the cash revenue ledger.
-          </p>
+        <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-4 space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="cash_amount" className="text-xs font-semibold text-emerald-900 uppercase tracking-wide">
+              Cash Payment Amount <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="cash_amount"
+              type="number"
+              inputMode="decimal"
+              min={0.01}
+              step="0.01"
+              placeholder="Enter amount received (₹)"
+              value={cashAmount}
+              onChange={(e) => onCashAmountChange?.(e.target.value)}
+              className="bg-white border-emerald-200 text-sm h-11"
+              required
+            />
+            {cashAmountError ? (
+              <p className="text-[11px] text-red-600">{cashAmountError}</p>
+            ) : (
+              <p className="text-[11px] text-emerald-700">
+                Enter the actual cash amount received. Partial payments are allowed; the invoice will reflect this amount (not the full course fee unless fully paid).
+              </p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="cash_notes" className="text-xs font-semibold text-emerald-900 uppercase tracking-wide">
+              Physical Cash Receipt Note (Optional)
+            </Label>
+            <Input
+              id="cash_notes"
+              type="text"
+              placeholder="e.g., Hand cash collected at desk by coach/manager"
+              value={cashNotes}
+              onChange={(e) => onCashNotesChange(e.target.value)}
+              className="bg-white border-emerald-200 text-sm h-11"
+            />
+            <p className="text-[11px] text-emerald-700">
+              An official invoice with payment method &ldquo;Physical Hand Cash&rdquo; will be generated and logged to the cash revenue ledger.
+            </p>
+          </div>
         </div>
       )}
 

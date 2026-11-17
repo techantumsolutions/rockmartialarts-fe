@@ -36,6 +36,7 @@ import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { getActiveBranchId } from "@/lib/activeBranch"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { useDashboardRole } from "@/lib/useDashboardBasePath"
+import { usePartnerFeaturePermissions } from "@/hooks/usePartnerFeaturePermissions"
 import { partnerOrgAPI, type PartnerOrg } from "@/lib/partnerOrgAPI"
 import { CourseMediaResourcesFields } from "@/components/dashboard/CourseMediaResourcesFields"
 import CourseFormSections, { PageContent } from "@/components/dashboard/CourseFormSections"
@@ -45,10 +46,28 @@ export default function CreateCoursePage() {
   const basePath = useDashboardBasePath()
   const dashboardRole = useDashboardRole()
   const isRockSuperAdmin = dashboardRole === "super_admin"
+  const { coursePermissions } = usePartnerFeaturePermissions(dashboardRole)
   const { toast } = useToast()
   const { user } = useAuth()
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (dashboardRole !== "partner_super_admin") return
+    if (coursePermissions.can_create_courses) return
+    toast({
+      title: "Course creation not permitted",
+      description: "Ask Rock Super Admin to enable course creation for your organization.",
+      variant: "destructive",
+    })
+    router.replace(`${basePath}/courses`)
+  }, [
+    dashboardRole,
+    coursePermissions.can_create_courses,
+    router,
+    basePath,
+    toast,
+  ])
 
   // State
   const [categories, setCategories] = useState<any[]>([])

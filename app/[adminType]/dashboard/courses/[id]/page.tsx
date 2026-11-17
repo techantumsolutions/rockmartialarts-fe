@@ -26,7 +26,8 @@ import {
 } from "lucide-react"
 import { TokenManager } from "@/lib/tokenManager"
 import { getBackendApiUrl } from "@/lib/config"
-import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
+import { useDashboardBasePath, useDashboardRole } from "@/lib/useDashboardBasePath"
+import { usePartnerFeaturePermissions } from "@/hooks/usePartnerFeaturePermissions"
 import { loadCourseEnrollmentsForAdmin, mapPageContentReviews } from "@/lib/courseAdminDetail"
 import { parseCourseModulesFromApi } from "@/lib/courseModulesFromApi"
 
@@ -112,6 +113,10 @@ export default function CourseDetailPage() {
   const params = useParams()
   const router = useRouter()
   const basePath = useDashboardBasePath()
+  const dashboardRole = useDashboardRole()
+  const { coursePermissions } = usePartnerFeaturePermissions(dashboardRole)
+  const isPartner = dashboardRole === "partner_super_admin"
+  const canEditCourse = !isPartner || !!coursePermissions.can_edit_courses
   const isBranchAdminDashboard = basePath.startsWith("/branch-admin/")
   const courseId = params.id as string
 
@@ -443,13 +448,15 @@ export default function CourseDetailPage() {
                 </span>
               </div>
             </div>
-            <Button
-              onClick={handleEdit}
-              className="h-11 shrink-0 rounded-xl bg-[#F5C518] px-5 font-semibold text-[#2F3153] hover:bg-[#e6b800]"
-            >
-              <Edit className="mr-2 h-4 w-4" />
-              Edit Course
-            </Button>
+            {canEditCourse ? (
+              <Button
+                onClick={handleEdit}
+                className="h-11 shrink-0 rounded-xl bg-[#F5C518] px-5 font-semibold text-[#2F3153] hover:bg-[#e6b800]"
+              >
+                <Edit className="mr-2 h-4 w-4" />
+                Edit Course
+              </Button>
+            ) : null}
           </div>
         </div>
 
@@ -827,10 +834,14 @@ export default function CourseDetailPage() {
               <h3 className="mb-3 text-base font-semibold text-[#2F3153]">Quick Actions</h3>
               <div className="space-y-1">
                 {[
-                  {
-                    label: "Edit Course Details",
-                    onClick: () => router.push(`${basePath}/courses/edit/${courseId}`),
-                  },
+                  ...(canEditCourse
+                    ? [
+                        {
+                          label: "Edit Course Details",
+                          onClick: () => router.push(`${basePath}/courses/edit/${courseId}`),
+                        },
+                      ]
+                    : []),
                   {
                     label: "View Enrolled Students",
                     onClick: () => router.push(`${basePath}/students?course_id=${courseId}`),

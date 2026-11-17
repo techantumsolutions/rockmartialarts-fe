@@ -1,10 +1,14 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useLayoutEffect, useState } from "react"
-import { Building2, Loader2, Mail, MapPin, Phone, Search } from "lucide-react"
+import { useEffect, useLayoutEffect, useMemo, useState } from "react"
+import { Building2, Loader2, Search } from "lucide-react"
 import { branchNameToSlug } from "@/lib/branch-slug"
 import { useGeographyDropdowns } from "@/hooks/use-geography-dropdowns"
+import { BranchDistanceControls } from "@/components/website/BranchDistanceLabel"
+import { NearbyAcademyCard, type NearbyAcademyCardData } from "@/components/website/NearbyAcademyCard"
+import { useVisitorBranchDistances } from "@/hooks/useVisitorBranchDistances"
+import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import {
   Select,
   SelectContent,
@@ -20,6 +24,9 @@ type Branch = {
   slug?: string
   email?: string
   phone?: string
+  cover_image_url?: string | null
+  rating?: number | null
+  review_count?: number | null
   address?: {
     line1?: string
     area?: string
@@ -35,27 +42,17 @@ type Branch = {
     phone?: string
     address?: Branch["address"]
   }
+  operational_details?: {
+    courses_offered?: string[]
+  }
 }
 
 function getBranchName(b: Branch): string {
   return b.branch?.name || b.name || b.code || "Branch"
 }
 
-function getBranchEmail(b: Branch): string | undefined {
-  return b.branch?.email || b.email
-}
-
-function getBranchPhone(b: Branch): string | undefined {
-  return b.branch?.phone || b.phone
-}
-
 function getBranchAddress(b: Branch) {
   return b.branch?.address || b.address
-}
-
-function formatAddress(addr: Branch["address"]): string {
-  if (!addr) return ""
-  return [addr.line1, addr.area, addr.city, addr.state, addr.pincode, addr.country].filter(Boolean).join(", ")
 }
 
 function formatLocation(addr: Branch["address"]): string {
@@ -66,6 +63,31 @@ function formatLocation(addr: Branch["address"]): string {
 function branchHref(b: Branch): string {
   const slug = (b.slug || branchNameToSlug(getBranchName(b))).trim()
   return `/branches/${encodeURIComponent(slug || b.id)}`
+}
+
+function toAcademyCard(b: Branch, idx: number): NearbyAcademyCardData {
+  const addr = getBranchAddress(b)
+  const location = formatLocation(addr)
+  const area = [addr?.area, addr?.city].filter(Boolean).join(", ") || location
+  const name = getBranchName(b)
+  const coverRaw = b.cover_image_url || ""
+  const cover =
+    (coverRaw && (resolvePublicAssetUrl(coverRaw) || coverRaw)) ||
+    `/assets/img/glry_img${(idx % 9) + 1}.jpg`
+  const tags = Array.isArray(b.operational_details?.courses_offered)
+    ? b.operational_details!.courses_offered!.map((x) => String(x || "").trim()).filter(Boolean).slice(0, 3)
+    : []
+  return {
+    id: b.id,
+    name,
+    location,
+    area,
+    href: branchHref(b),
+    img: cover,
+    tags,
+    rating: typeof b.rating === "number" ? b.rating : null,
+    reviewCount: typeof b.review_count === "number" ? b.review_count : null,
+  }
 }
 
 const selectClass =
@@ -174,6 +196,23 @@ export default function BranchesDiscoveryPage() {
 
   const hasFilters = Boolean(geography.selectedStateId || geography.selectedCityId || q)
   const cityDisabled = geography.hasStates && !geography.selectedStateId
+  const branchIds = useMemo(() => branches.map((b) => b.id).filter(Boolean), [branches])
+  const branchDistances = useVisitorBranchDistances({ branchIds, autoRequest: true })
+  const orderedBranches = useMemo(() => {
+    const cards = branches.map((b, i) => toAcademyCard(b, i))
+    const byId = branchDistances.byId
+    cards.sort((a, b) => {
+      const da = byId[a.id]?.distance_km
+      const db = byId[b.id]?.distance_km
+      const aOk = typeof da === "number" && !Number.isNaN(da)
+      const bOk = typeof db === "number" && !Number.isNaN(db)
+      if (aOk && bOk) return (da as number) - (db as number)
+      if (aOk) return -1
+      if (bOk) return 1
+      return 0
+    })
+    return cards
+  }, [branches, branchDistances.byId])
 
   const clearFilters = () => {
     geography.setSelectedStateId("")
@@ -316,106 +355,33 @@ export default function BranchesDiscoveryPage() {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {branches.map((b) => {
-                const addr = getBranchAddress(b)
-                const location = formatLocation(addr)
-                const fullAddress = formatAddress(addr)
-                const phone = getBranchPhone(b)
-                const email = getBranchEmail(b)
-                const branchName = getBranchName(b)
-                return (
-                  <div
-                    key={b.id}
-                    className="flex flex-col justify-between rounded-xl border border-gray-800 bg-gray-900/50 p-6 hover:border-[#FFB70F] transition-colors h-full min-h-[310px]"
-                  >
-                    <div>
-                      {/* Header */}
-                      <div className="flex items-start gap-3 mb-4">
-                        <div className="w-12 h-12 rounded-lg bg-[#FFB70F]/10 flex items-center justify-center flex-shrink-0">
-                          <Building2 className="w-6 h-6 text-[#FFB70F]" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h2 className="text-xl font-bold text-[#FFB70F] truncate" title={branchName}>
-                            {branchName}
-                          </h2>
-                          <p className="text-gray-400 text-sm flex items-center gap-1 mt-1 truncate min-h-[1.25rem]">
-                            {location ? (
-                              <>
-                                <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
-                                <span className="truncate" title={location}>
-                                  {location}
-                                </span>
-                              </>
-                            ) : (
-                              <span className="invisible select-none">&nbsp;</span>
-                            )}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Details */}
-                      <div className="space-y-3">
-                        {/* Address: fixed height container with line clamp */}
-                        <div className="flex items-start gap-2 text-gray-300 text-sm h-[4.5rem]">
-                          <MapPin className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                          <span
-                            className="line-clamp-3 leading-relaxed flex-1"
-                            style={{
-                              display: '-webkit-box',
-                              WebkitBoxOrient: 'vertical',
-                              WebkitLineClamp: 3,
-                              overflow: 'hidden',
-                            }}
-                            title={fullAddress || undefined}
-                          >
-                            {fullAddress ? fullAddress : <span className="text-gray-500 italic">Address not available</span>}
-                          </span>
-                        </div>
-
-                        {/* Phone */}
-                        <div className="flex items-center gap-2 text-gray-300 text-sm h-5 overflow-hidden">
-                          <Phone className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                          {phone ? (
-                            <a href={`tel:${phone}`} className="hover:text-[#FFB70F] transition-colors truncate">
-                              {phone}
-                            </a>
-                          ) : (
-                            <span className="text-gray-500 italic">Not available</span>
-                          )}
-                        </div>
-
-                        {/* Email */}
-                        <div className="flex items-center gap-2 text-gray-300 text-sm h-5 overflow-hidden">
-                          <Mail className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                          {email ? (
-                            <a
-                              href={`mailto:${email}`}
-                              className="hover:text-[#FFB70F] transition-colors truncate"
-                              title={email}
-                            >
-                              {email}
-                            </a>
-                          ) : (
-                            <span className="text-gray-500 italic">Not available</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Button pinned at fixed bottom position */}
-                    <div className="mt-auto pt-4 border-t border-gray-800/60">
-                      <Link
-                        href={branchHref(b)}
-                        className="inline-flex items-center text-sm font-medium text-[#FFB70F] hover:text-white transition-colors"
-                      >
-                        View branch details →
-                      </Link>
-                    </div>
-                  </div>
-                )
-              })}
+            <>
+            <BranchDistanceControls
+              supported={branchDistances.supported}
+              status={branchDistances.status}
+              loading={branchDistances.loading}
+              hasCoords={Boolean(branchDistances.coords)}
+              errorMessage={branchDistances.errorMessage}
+              onRequest={branchDistances.requestLocation}
+              onRefresh={branchDistances.refreshLocation}
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 md:gap-6">
+              {orderedBranches.map((card) => (
+                <NearbyAcademyCard
+                  key={card.id}
+                  branch={card}
+                  distance={branchDistances.byId[card.id]}
+                  distanceLoading={
+                    !branchDistances.byId[card.id]?.distance_label &&
+                    (branchDistances.loading ||
+                      branchDistances.status === "prompting" ||
+                      branchDistances.status === "idle")
+                  }
+                  isNearest={branchDistances.nearestBranchId === card.id}
+                />
+              ))}
             </div>
+            </>
           )}
         </div>
       </section>

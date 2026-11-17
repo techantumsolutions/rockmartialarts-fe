@@ -1,6 +1,7 @@
 "use client"
 
-import { SafeImage, DEFAULT_IMAGE_PLACEHOLDER } from "@/components/ui/safe-image"
+import { SafeImage } from "@/components/ui/safe-image"
+import { realisticPlaceholder } from "@/lib/imagePlaceholders"
 
 export type TestimonialCardItem = {
   id?: string
@@ -20,18 +21,19 @@ export type TestimonialCardItem = {
 export function TestimonialCard({ item }: { item: TestimonialCardItem }) {
   const name = item.student_name || item.name || "Student"
   const text = item.testimonial_text || item.quote || item.content || ""
-  const photo = item.student_photo || item.image
+  const photo = item.student_photo || item.image || realisticPlaceholder(item.id || name)
   const rating = typeof item.rating === "number" ? item.rating : null
 
   return (
     <div className="bg-gray-900/50 rounded-xl p-6 border border-gray-800 h-full flex flex-col items-center text-center min-h-[280px]">
       <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-[#FFB70F]/50 mb-4 flex-shrink-0">
         <SafeImage
-          src={photo || DEFAULT_IMAGE_PLACEHOLDER}
+          src={photo}
           alt={name}
           loading="lazy"
           decoding="async"
-          resolveUrl={Boolean(photo)}
+          resolveUrl={Boolean(item.student_photo || item.image)}
+          fallbackSrc={realisticPlaceholder(item.id || name)}
           className="w-full h-full object-cover"
         />
       </div>

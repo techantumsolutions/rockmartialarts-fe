@@ -100,6 +100,7 @@ export default function CreateStudent() {
   // Payment states
   const [paymentMethod, setPaymentMethod] = useState<"razorpay" | "physical_cash">("physical_cash")
   const [cashNotes, setCashNotes] = useState("")
+  const [cashAmount, setCashAmount] = useState("")
   const [pricing, setPricing] = useState<RegistrationPricing | null>(null)
   const [isLoadingPricing, setIsLoadingPricing] = useState(false)
 
@@ -478,11 +479,18 @@ export default function CreateStudent() {
         return
       } else {
         // Physical hand cash flow
+        const cashNum = Number(cashAmount)
+        if (!cashAmount.trim() || !Number.isFinite(cashNum) || cashNum <= 0) {
+          setErrors({ submit: "Cash Payment Amount is required and must be a positive amount." })
+          setIsSubmitting(false)
+          return
+        }
         await submitRegistrationPayment(
           {
             ...studentPayload,
             payment_method: "physical_cash",
             cash_notes: cashNotes || undefined,
+            cash_amount: cashNum,
           },
           token
         )
@@ -939,6 +947,8 @@ export default function CreateStudent() {
                     onPaymentMethodChange={setPaymentMethod}
                     cashNotes={cashNotes}
                     onCashNotesChange={setCashNotes}
+                    cashAmount={cashAmount}
+                    onCashAmountChange={setCashAmount}
                   />
                 )}
               </div>

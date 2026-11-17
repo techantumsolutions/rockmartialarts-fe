@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { motion, useReducedMotion } from "framer-motion"
-import { ArrowRight, Building2, Handshake, MapPin, Phone, Play } from "lucide-react"
+import { Play } from "lucide-react"
 import { sanitizeRichHtmlClient } from "@/lib/sanitizeClientHtml"
 import { ScrollZoomContinuous } from "@/components/ScrollZoomContinuous"
 import {
@@ -23,6 +23,13 @@ import { SafeImage, DEFAULT_IMAGE_PLACEHOLDER } from "@/components/ui/safe-image
 import { LazySection } from "@/components/ui/LazySection"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import CoursesShowcaseDualScroll, { type CourseShowcaseItem } from "@/components/website/CoursesShowcaseDualScroll"
+import { BranchDistanceControls } from "@/components/website/BranchDistanceLabel"
+import {
+  NearbyAcademyCard,
+  NearbyAcademiesSection,
+  type NearbyAcademyCardData,
+} from "@/components/website/NearbyAcademyCard"
+import { useVisitorBranchDistances } from "@/hooks/useVisitorBranchDistances"
 /* ---------- Types (mirror server data shape; no API change) ---------- */
 
 export interface HomePageViewProps {
@@ -63,16 +70,7 @@ export interface HomePageViewProps {
   testimonialsSubtitle: string
   testimonialsEnabled: boolean
   classCards: { id?: string; name: string; img: string; href: string }[]
-  branches?: { id: string; name: string; location: string; address: string; phone?: string; href: string }[]
-  partnerBranches?: {
-    id: string
-    name: string
-    location?: string
-    description?: string
-    img?: string
-    href: string
-  }[]
-  partnerDirectoryHref?: string
+  branches?: NearbyAcademyCardData[]
   physicalBenefits: string[]
   mentalBenefits: string[]
   trainers: { name: string; role: string; img: string; about?: string; rating?: number | null }[]
@@ -178,23 +176,38 @@ function AchievementsInfiniteMarquee({
   const startXRef = useRef(0)
   const dragStartOffsetRef = useRef(0)
 
-  // Ensure enough cards so that one full loop comfortably spans wide viewports
-  const baseItems = useMemo(() => {
-    if (items.length === 0) return []
-    let list = [...items]
-    while (list.length < 6) {
-      list = [...list, ...items]
+  // Deduplicate so the same student/achievement is not padded into a fake loop
+  const uniqueItems = useMemo(() => {
+    const seen = new Set<string>()
+    const out: ShowcaseAchievementItem[] = []
+    for (const item of items) {
+      const key = String(
+        item.id ||
+          `${(item.student_name || "").trim().toLowerCase()}|${(item.achievement_title || "").trim().toLowerCase()}`
+      )
+      if (!key || seen.has(key)) continue
+      seen.add(key)
+      out.push(item)
     }
-    return list
+    return out
   }, [items])
 
-  const loopItems = useMemo(() => [...baseItems, ...baseItems], [baseItems])
+  // One seamless copy of the unique set (never repeat a single card N times)
+  const loopItems = useMemo(() => {
+    if (uniqueItems.length === 0) return []
+    if (uniqueItems.length === 1) return uniqueItems
+    return [...uniqueItems, ...uniqueItems]
+  }, [uniqueItems])
+
+  const canAnimate = !reducedMotion && uniqueItems.length > 1
 
   useEffect(() => {
-    if (reducedMotion || items.length <= 1) return
+    if (!canAnimate) return
 
     let rafId: number
-    const speedPxPerSec = 40
+    const speedPxPerSec = 42
+    offsetRef.current = 0
+    lastTimeRef.current = null
 
     const step = (now: number) => {
       if (lastTimeRef.current == null) {
@@ -221,16 +234,31 @@ function AchievementsInfiniteMarquee({
       cancelAnimationFrame(rafId)
       lastTimeRef.current = null
     }
-  }, [items.length, isPaused, reducedMotion])
+  }, [canAnimate, uniqueItems.length, isPaused])
 
-  if (items.length === 0) return null
+  if (uniqueItems.length === 0) return null
+
+  const cardClass =
+    "w-[260px] sm:w-[290px] shrink-0 min-w-0 [&>div]:p-3.5 sm:[&>div]:p-4 [&>div]:bg-[#292E40] [&>div]:border-[#383D4D] [&>div]:rounded-2xl [&>div]:shadow-[0_8px_24px_rgba(0,0,0,0.25)] [&>div]:transition-all [&>div]:duration-300 [&>div]:ease-out [&>div:hover]:-translate-y-2 [&>div:hover]:scale-100 [&>div:hover]:border-[#FFB70F]/50 [&>div:hover]:shadow-[0_18px_40px_rgba(255,183,15,0.18)] [&>div>div:first-child]:!aspect-auto [&>div>div:first-child]:!h-[150px] [&>div>div:first-child]:!max-h-[150px] [&>div>div:first-child]:rounded-xl [&>div>div:first-child]:border [&>div>div:first-child]:border-[#383D4D]/70 [&>div>div:first-child]:mb-3 [&>div>div:first-child]:overflow-hidden [&>div>div:first-child_.object-cover]:object-top [&>div>div:nth-child(2)]:!p-0 [&>div>div:nth-child(2)>div:first-child>span:first-child]:rounded-full [&>div>div:nth-child(2)>div:first-child>span:first-child]:overflow-hidden [&_.relative>span]:transition-transform [&_.relative>span]:duration-700 [&_.relative>span]:ease-out [&>div:hover_.relative>span]:scale-110 [&_.bg-gray-950]:bg-[#222635] [&_.text-gray-400]:text-[#AEB4C2]"
+
+  if (!canAnimate) {
+    return (
+      <div className="flex flex-wrap justify-center gap-5 md:gap-6 pt-3 pb-6">
+        {uniqueItems.map((a, i) => (
+          <div key={`${a.id || "ach"}-${i}`} className={cardClass}>
+            <ShowcaseAchievementCard item={a} />
+          </div>
+        ))}
+      </div>
+    )
+  }
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (items.length <= 1) return
     isDraggingRef.current = true
     startXRef.current = e.clientX
     dragStartOffsetRef.current = offsetRef.current
     setIsPaused(true)
+    ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
   }
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -273,10 +301,7 @@ function AchievementsInfiniteMarquee({
         className="flex flex-nowrap gap-5 md:gap-6 w-max will-change-transform"
       >
         {loopItems.map((a, i) => (
-          <div
-            key={`${a.id || "ach"}-${i}`}
-            className="w-[260px] sm:w-[290px] shrink-0 min-w-0 [&>div]:p-3.5 sm:[&>div]:p-4 [&>div]:bg-[#292E40] [&>div]:border-[#383D4D] [&>div]:rounded-2xl [&>div]:shadow-[0_8px_24px_rgba(0,0,0,0.25)] [&>div]:transition-all [&>div]:duration-300 [&>div]:ease-out [&>div:hover]:-translate-y-2 [&>div:hover]:scale-100 [&>div:hover]:border-[#FFB70F]/50 [&>div:hover]:shadow-[0_18px_40px_rgba(255,183,15,0.18)] [&>div>div:first-child]:!aspect-auto [&>div>div:first-child]:!h-[150px] [&>div>div:first-child]:!max-h-[150px] [&>div>div:first-child]:rounded-xl [&>div>div:first-child]:border [&>div>div:first-child]:border-[#383D4D]/70 [&>div>div:first-child]:mb-3 [&>div>div:first-child]:overflow-hidden [&>div>div:first-child_.object-cover]:object-top [&>div>div:nth-child(2)]:!p-0 [&>div>div:nth-child(2)>div:first-child>span:first-child]:rounded-full [&>div>div:nth-child(2)>div:first-child>span:first-child]:overflow-hidden [&_.relative>span]:transition-transform [&_.relative>span]:duration-700 [&_.relative>span]:ease-out [&>div:hover_.relative>span]:scale-110 [&_.bg-gray-950]:bg-[#222635] [&_.text-gray-400]:text-[#AEB4C2]"
-          >
+          <div key={`${a.id || "ach"}-${i}`} className={cardClass}>
             <ShowcaseAchievementCard item={a} />
           </div>
         ))}
@@ -313,8 +338,6 @@ export default function HomePageView({
   testimonialsEnabled,
   classCards,
   branches = [],
-  partnerBranches = [],
-  partnerDirectoryHref = "/partner-orgs",
   physicalBenefits,
   mentalBenefits,
   trainers,
@@ -329,6 +352,23 @@ export default function HomePageView({
 }: HomePageViewProps) {
   const shouldReduceMotion = useReducedMotion()
   const [safeAboutHtml, setSafeAboutHtml] = useState("")
+  const branchIds = useMemo(() => branches.map((b) => b.id).filter(Boolean), [branches])
+  const branchDistances = useVisitorBranchDistances({ branchIds, autoRequest: true })
+  const orderedBranches = useMemo(() => {
+    const list = [...branches]
+    const byId = branchDistances.byId
+    list.sort((a, b) => {
+      const da = byId[a.id]?.distance_km
+      const db = byId[b.id]?.distance_km
+      const aOk = typeof da === "number" && !Number.isNaN(da)
+      const bOk = typeof db === "number" && !Number.isNaN(db)
+      if (aOk && bOk) return (da as number) - (db as number)
+      if (aOk) return -1
+      if (bOk) return 1
+      return 0
+    })
+    return list
+  }, [branches, branchDistances.byId])
 
   useEffect(() => {
     setSafeAboutHtml(sanitizeRichHtmlClient(aboutContentHtml || ""))
@@ -489,165 +529,38 @@ export default function HomePageView({
         courses={showcaseCourses}
       />
 
-      {/* Branches section directly below main categories / courses */}
+      {/* Nearby Academies / Branches */}
       {branches.length > 0 ? (
-        <section
-          id="branches"
-          className="py-14 md:py-20 scroll-mt-24 relative z-10 border-t border-[#383D4D] bg-[#222635]/40"
+        <NearbyAcademiesSection
+          controls={
+            <BranchDistanceControls
+              supported={branchDistances.supported}
+              status={branchDistances.status}
+              loading={branchDistances.loading}
+              hasCoords={Boolean(branchDistances.coords)}
+              errorMessage={branchDistances.errorMessage}
+              onRequest={branchDistances.requestLocation}
+              onRefresh={branchDistances.refreshLocation}
+            />
+          }
         >
-          <div className="site-content px-0 sm:px-1">
-            <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
-              <div className="w-16 h-1 rounded-full bg-[#FFB70F] mx-auto mb-4" />
-              <p className="text-[#FFB70F] font-semibold uppercase tracking-[0.2em] text-xs mb-2">
-                Locations
-              </p>
-              <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
-                Our Branches
-              </h2>
-            </AnimatedSection>
-            <AnimatedStaggerGrid
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8"
-              staggerDelay={0.12}
-              childClassName="group"
-              amount="some"
-            >
-              {branches.map((b) => (
-                <ScrollZoomContinuous key={b.id}>
-                  <Link
-                    href={b.href}
-                    className="group h-full flex flex-col justify-between rounded-2xl border border-[#383D4D] bg-[#292E40] p-5 shadow-[0_8px_24px_rgba(0,0,0,0.25)] transition-all duration-300 ease-out hover:-translate-y-2 hover:border-[#FFB70F]/50 hover:shadow-[0_18px_40px_rgba(255,183,15,0.18)]"
-                  >
-                    <div>
-                      <div className="flex items-start gap-3 mb-4">
-                        <div className="w-11 h-11 rounded-xl bg-[#FFB70F]/15 border border-[#FFB70F]/30 flex items-center justify-center text-[#FFB70F] shrink-0 transition-transform duration-300 group-hover:scale-105">
-                          <Building2 className="w-5 h-5" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h3 className="text-lg font-bold text-white group-hover:text-[#FFB70F] transition-colors duration-300 truncate" title={b.name}>
-                            {b.name}
-                          </h3>
-                          {b.location ? (
-                            <p className="text-xs sm:text-sm text-[#AEB4C2] flex items-center gap-1 mt-1 truncate" title={b.location}>
-                              <MapPin className="w-3.5 h-3.5 text-[#FFB70F] shrink-0" />
-                              <span className="truncate">{b.location}</span>
-                            </p>
-                          ) : null}
-                        </div>
-                      </div>
-                      <div className="space-y-2 text-sm text-[#D8DCE6]">
-                        {b.address ? (
-                          <p className="line-clamp-2 text-[#AEB4C2] leading-relaxed" title={b.address}>
-                            {b.address}
-                          </p>
-                        ) : null}
-                        {b.phone ? (
-                          <p className="flex items-center gap-2 text-xs sm:text-sm text-[#D8DCE6]">
-                            <Phone className="w-3.5 h-3.5 text-[#FFB70F] shrink-0" />
-                            <span className="truncate">{b.phone}</span>
-                          </p>
-                        ) : null}
-                      </div>
-                    </div>
-                    <span className="mt-5 inline-flex items-center justify-center gap-2 rounded-lg bg-[#FFB70F] px-5 py-2.5 text-sm font-semibold text-[#171A26] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:brightness-110 hover:shadow-[0_10px_28px_rgba(255,183,15,0.35)]">
-                      Explore Branch
-                      <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
-                    </span>
-                  </Link>
-                </ScrollZoomContinuous>
-              ))}
-            </AnimatedStaggerGrid>
-            <div className="text-center mt-10">
-              <Link
-                href="/branches"
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#383D4D] bg-[#292E40] px-6 py-3 text-sm font-semibold text-white transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-[#FFB70F] hover:text-[#FFB70F] hover:shadow-[0_10px_28px_rgba(255,183,15,0.18)]"
-              >
-                View All Branches
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-6">
+            {orderedBranches.map((b) => (
+              <NearbyAcademyCard
+                key={b.id}
+                branch={b}
+                distance={branchDistances.byId[b.id]}
+                distanceLoading={
+                  !branchDistances.byId[b.id]?.distance_label &&
+                  (branchDistances.loading ||
+                    branchDistances.status === "prompting" ||
+                    branchDistances.status === "idle")
+                }
+                isNearest={branchDistances.nearestBranchId === b.id}
+              />
+            ))}
           </div>
-        </section>
-      ) : null}
-
-      {/* Partner Branches section directly below Our Branches */}
-      {partnerBranches.length > 0 ? (
-        <section
-          id="partner-branches"
-          className="py-14 md:py-20 scroll-mt-24 relative z-10 border-t border-[#383D4D] bg-[#171A26]"
-        >
-          <div className="site-content px-0 sm:px-1">
-            <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
-              <div className="w-16 h-1 rounded-full bg-[#FFB70F] mx-auto mb-4" />
-              <p className="text-[#FFB70F] font-semibold uppercase tracking-[0.2em] text-xs mb-2">
-                Network
-              </p>
-              <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
-                Partner Branches
-              </h2>
-            </AnimatedSection>
-            <AnimatedStaggerGrid
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8"
-              staggerDelay={0.12}
-              childClassName="group"
-              amount="some"
-            >
-              {partnerBranches.map((pb) => (
-                <ScrollZoomContinuous key={pb.id}>
-                  <Link
-                    href={pb.href}
-                    className="group h-full flex flex-col justify-between rounded-2xl border border-[#383D4D] bg-[#292E40] p-4 shadow-[0_8px_24px_rgba(0,0,0,0.25)] transition-all duration-300 ease-out hover:-translate-y-2 hover:border-[#FFB70F]/50 hover:shadow-[0_18px_40px_rgba(255,183,15,0.18)]"
-                  >
-                    <div>
-                      <div className="relative mb-4 overflow-hidden rounded-xl aspect-[16/9] bg-[#222635] border border-[#383D4D]/70">
-                        {pb.img ? (
-                          <SafeImage
-                            src={pb.img}
-                            alt={pb.name}
-                            loading="lazy"
-                            decoding="async"
-                            className="w-full h-full object-cover"
-                            wrapperClassName="transition-transform duration-700 ease-out group-hover:scale-110"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-[#FFB70F]/80">
-                            <Handshake className="w-9 h-9 transition-transform duration-500 ease-out group-hover:scale-110" />
-                          </div>
-                        )}
-                      </div>
-                      <h3 className="text-lg font-bold text-white group-hover:text-[#FFB70F] transition-colors duration-300 truncate" title={pb.name}>
-                        {pb.name}
-                      </h3>
-                      {pb.location ? (
-                        <p className="text-xs sm:text-sm text-[#AEB4C2] flex items-center gap-1 mt-1 truncate" title={pb.location}>
-                          <MapPin className="w-3.5 h-3.5 text-[#FFB70F] shrink-0" />
-                          <span className="truncate">{pb.location}</span>
-                        </p>
-                      ) : null}
-                      {pb.description ? (
-                        <p className="text-sm text-[#AEB4C2] mt-2 line-clamp-2 leading-relaxed">
-                          {pb.description}
-                        </p>
-                      ) : null}
-                    </div>
-                    <span className="mt-5 inline-flex items-center justify-center gap-2 rounded-lg bg-[#FFB70F] px-5 py-2.5 text-sm font-semibold text-[#171A26] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:brightness-110 hover:shadow-[0_10px_28px_rgba(255,183,15,0.35)]">
-                      Explore Partner
-                      <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
-                    </span>
-                  </Link>
-                </ScrollZoomContinuous>
-              ))}
-            </AnimatedStaggerGrid>
-            <div className="text-center mt-10">
-              <Link
-                href={partnerDirectoryHref}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#383D4D] bg-[#292E40] px-6 py-3 text-sm font-semibold text-white transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-[#FFB70F] hover:text-[#FFB70F] hover:shadow-[0_10px_28px_rgba(255,183,15,0.18)]"
-              >
-                View All Partner Branches
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
-          </div>
-        </section>
+        </NearbyAcademiesSection>
       ) : null}
 
       {/* M22-S02: Video section below Courses, above About */}

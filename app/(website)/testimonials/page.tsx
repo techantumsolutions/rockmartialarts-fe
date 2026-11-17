@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { TestimonialCard, type TestimonialCardItem } from "@/components/testimonials"
+import { MOCK_WARRIOR_TESTIMONIALS } from "@/lib/imagePlaceholders"
 
 /* ---------- fetch CMS content ---------- */
 
@@ -78,7 +79,8 @@ export default async function TestimonialsPage() {
   const homepage = cms?.homepage || {}
   const testimonialsTitle = homepage.testimonials_title || "Success stories"
   const testimonialsSubtitle = homepage.testimonials_subtitle || "Testimonials"
-  const testimonials: TestimonialCardItem[] = mongoList
+  const testimonials: TestimonialCardItem[] =
+    mongoList.length > 0 ? mongoList : MOCK_WARRIOR_TESTIMONIALS.map((t) => ({ ...t }))
 
   return (
     <main className="min-h-screen">
@@ -96,9 +98,6 @@ export default async function TestimonialsPage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8 pt-2">
-          {testimonials.length === 0 ? (
-            <p className="text-gray-400 col-span-full text-center py-12">No testimonials available</p>
-          ) : null}
           {testimonials.map((t, i) => (
             <TestimonialCard key={t.id || i} item={t} />
           ))}

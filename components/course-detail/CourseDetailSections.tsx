@@ -1,17 +1,28 @@
 "use client"
 
-import type { ReactNode } from "react"
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react"
 import Link from "next/link"
+import { motion, useReducedMotion } from "framer-motion"
 import {
   BarChart3,
   BookOpen,
   Calendar,
   Check,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
   LayoutGrid,
   ShoppingCart,
   Star,
   Trophy,
   Dumbbell,
+  Users,
 } from "lucide-react"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import type {
@@ -40,33 +51,82 @@ function resolveUrl(url?: string) {
 /** Shared section vertical rhythm — wide, breathable gaps matching Kickboxing mock */
 export const sectionPad = "py-14 md:py-20 lg:py-24"
 
+/** Fade/slide-in when section enters viewport */
+export function SectionReveal({
+  children,
+  className,
+  delay = 0,
+}: {
+  children: ReactNode
+  className?: string
+  delay?: number
+}) {
+  const reduce = useReducedMotion()
+  if (reduce) return <div className={className}>{children}</div>
+  return (
+    <motion.div
+      className={className}
+      initial={{ opacity: 0, y: 28 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.15 }}
+      transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1], delay }}
+    >
+      {children}
+    </motion.div>
+  )
+}
+
 function SlashTitle({
   title,
   className,
   light,
   compact,
+  subtitle,
+  subtitleAside,
 }: {
   title: string
   className?: string
   light?: boolean
   compact?: boolean
+  subtitle?: string
+  /** When true, subtitle sits to the right of the title on large screens */
+  subtitleAside?: boolean
 }) {
   return (
-    <div className={cn(compact ? "mb-6 md:mb-8" : "mb-8 md:mb-10", className)}>
-      <div className="mb-3 flex items-center gap-1.5" aria-hidden>
-        <span className="inline-block h-[1.15rem] w-1.5 -skew-x-12 bg-[#FFB70F] md:h-5" />
-        <span className="inline-block h-[1.15rem] w-1.5 -skew-x-12 bg-[#FFB70F]/65 md:h-5" />
+    <div
+      className={cn(
+        compact ? "mb-6 md:mb-8" : "mb-8 md:mb-10",
+        subtitleAside && "md:mb-10 md:flex md:items-end md:justify-between md:gap-6",
+        className
+      )}
+    >
+      <div>
+        <div className="mb-3 flex items-center gap-1.5" aria-hidden>
+          <span className="inline-block h-[1.15rem] w-1.5 -skew-x-12 bg-[#FFB70F] transition group-hover:brightness-110 md:h-5" />
+          <span className="inline-block h-[1.15rem] w-1.5 -skew-x-12 bg-[#FFB70F]/65 md:h-5" />
+        </div>
+        <h2
+          className={cn(
+            "font-extrabold uppercase italic tracking-tight",
+            compact ? "text-2xl md:text-3xl" : "text-2xl md:text-3xl lg:text-[2.35rem]",
+            light ? "text-white" : "text-[#171A26]"
+          )}
+          style={{ fontFamily: "'Oswald', sans-serif" }}
+        >
+          {title}
+        </h2>
       </div>
-      <h2
-        className={cn(
-          "font-extrabold uppercase italic tracking-tight",
-          compact ? "text-2xl md:text-3xl" : "text-2xl md:text-3xl lg:text-[2.35rem]",
-          light ? "text-white" : "text-[#171A26]"
-        )}
-        style={{ fontFamily: "'Oswald', sans-serif" }}
-      >
-        {title}
-      </h2>
+      {subtitle?.trim() ? (
+        <p
+          className={cn(
+            "mt-2 max-w-xl text-sm text-gray-600 md:text-[15px]",
+            subtitleAside && "md:mt-0 md:mb-1 md:text-right",
+            light && "text-white/70"
+          )}
+        >
+          {subtitle}
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -74,7 +134,7 @@ function SlashTitle({
 export function CourseHeroFeatures({ items }: { items: HeroFeatureIcon[] }) {
   if (!items?.length) return null
   return (
-    <ul className="mt-7 grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-5 sm:gap-x-5">
+    <ul className="mt-5 grid grid-cols-3 gap-x-3 gap-y-4 sm:grid-cols-5 sm:gap-x-5">
       {items
         .filter((i) => i.label?.trim())
         .slice(0, 5)
@@ -107,9 +167,9 @@ export function CourseHeroFeatures({ items }: { items: HeroFeatureIcon[] }) {
 }
 
 const btnPrimary =
-  "inline-flex w-full items-center justify-center rounded-md bg-[#FFB70F] px-6 py-3.5 text-sm font-bold text-[#171A26] transition hover:brightness-110 hover:shadow-[0_8px_24px_rgba(255,183,15,0.3)] sm:w-auto"
+  "inline-flex w-full items-center justify-center rounded-md bg-[#FFB70F] px-6 py-3.5 text-sm font-bold text-[#171A26] transition duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:shadow-[0_10px_28px_rgba(255,183,15,0.4)] active:translate-y-0 sm:w-auto"
 const btnGhost =
-  "inline-flex w-full items-center justify-center gap-2 rounded-md border-2 border-white/85 px-6 py-3.5 text-sm font-bold text-white transition hover:bg-white hover:text-[#171A26] sm:w-auto"
+  "inline-flex w-full items-center justify-center gap-2 rounded-md border-2 border-white/85 px-6 py-3.5 text-sm font-bold text-white transition duration-200 hover:-translate-y-0.5 hover:border-white hover:bg-white hover:text-[#171A26] active:translate-y-0 sm:w-auto"
 
 export function CourseHeroCtas({
   primaryLabel,
@@ -127,7 +187,7 @@ export function CourseHeroCtas({
   viewAllHref?: string
 }) {
   return (
-    <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+    <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
       {primaryLabel?.trim() ? (
         <Link href={primaryHref} className={btnPrimary}>
           {primaryLabel}
@@ -195,7 +255,7 @@ export function CourseHeroBlock({
   const img = (imageUrl || "").trim()
   return (
     <section
-      className="relative flex min-h-[70vh] items-end overflow-hidden bg-[#0B0C10] md:min-h-[78vh]"
+      className="relative flex min-h-[60vh] items-end overflow-hidden bg-[#0B0C10]"
       style={
         img
           ? {
@@ -208,20 +268,25 @@ export function CourseHeroBlock({
     >
       <div className="absolute inset-0 bg-gradient-to-r from-black via-black/82 to-black/20" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/92 via-transparent to-black/45" />
-      <div className="site-content relative z-10 w-full px-0 pb-14 pt-28 sm:px-1 md:pb-20 md:pt-36">
-        <div className="max-w-3xl">
+      <div className="site-content relative z-10 w-full px-0 pb-10 pt-24 sm:px-1 md:pb-12 md:pt-28">
+        <motion.div
+          className="max-w-3xl"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+        >
           <h1
-            className="mb-3 text-4xl font-extrabold uppercase italic leading-[0.9] tracking-tight text-white md:text-6xl lg:text-7xl"
+            className="mb-2 text-3xl font-extrabold uppercase italic leading-[0.92] tracking-tight text-white sm:text-4xl md:text-5xl lg:text-6xl"
             style={{ fontFamily: "'Oswald', sans-serif" }}
           >
             {title}
           </h1>
           <div
-            className="mb-5 h-2 w-44 -skew-x-12 bg-[#FFB70F] md:w-60"
+            className="mb-4 h-1.5 w-36 -skew-x-12 bg-[#FFB70F] md:w-48"
             aria-hidden
           />
           {subtitle?.trim() ? (
-            <div className="mb-4 flex max-w-2xl items-stretch gap-3">
+            <div className="mb-3 flex max-w-2xl items-stretch gap-3">
               <span className="w-1 shrink-0 bg-[#FFB70F]" aria-hidden />
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/95 sm:text-sm">
                 {subtitle}
@@ -241,7 +306,7 @@ export function CourseHeroBlock({
             showAddToCart={showAddToCart}
             onAddToCart={onAddToCart}
           />
-        </div>
+        </motion.div>
       </div>
     </section>
   )
@@ -260,26 +325,95 @@ export function CourseAboutSection({
   return (
     <section className={cn("bg-[#F3F3F5] text-[#171A26]", sectionPad)}>
       <div className="site-content px-0 sm:px-1">
-        <div className="grid grid-cols-1 items-center gap-6 md:grid-cols-[minmax(12rem,18rem)_auto_minmax(0,1fr)] md:gap-10 lg:gap-14">
-          <h2
-            className="text-3xl font-extrabold uppercase italic leading-[1.05] tracking-tight text-[#171A26] md:text-4xl lg:text-[2.75rem]"
-            style={{ fontFamily: "'Oswald', sans-serif" }}
-          >
-            {title}
-          </h2>
-          <div
-            className="hidden w-px self-stretch bg-[#FFB70F] md:block md:min-h-[5.5rem]"
-            aria-hidden
-          />
-          <div className="border-t border-[#FFB70F]/45 pt-5 md:border-0 md:pt-0">
-            <div className="max-w-3xl space-y-4 text-[15px] leading-relaxed text-gray-700 md:text-base">
-              {description?.trim() ? <p>{description}</p> : null}
-              {secondary?.trim() ? <p>{secondary}</p> : null}
+        <SectionReveal>
+          <div className="grid grid-cols-1 items-center gap-6 md:grid-cols-[minmax(12rem,18rem)_auto_minmax(0,1fr)] md:gap-10 lg:gap-14">
+            <h2
+              className="text-3xl font-extrabold uppercase italic leading-[1.05] tracking-tight text-[#171A26] md:text-4xl lg:text-[2.75rem]"
+              style={{ fontFamily: "'Oswald', sans-serif" }}
+            >
+              {title}
+            </h2>
+            <div
+              className="hidden w-px self-stretch bg-[#FFB70F] md:block md:min-h-[5.5rem]"
+              aria-hidden
+            />
+            <div className="border-t border-[#FFB70F]/45 pt-5 md:border-0 md:pt-0">
+              <div className="max-w-3xl space-y-4 text-[15px] leading-relaxed text-gray-700 md:text-base">
+                {description?.trim() ? <p>{description}</p> : null}
+                {secondary?.trim() ? <p>{secondary}</p> : null}
+              </div>
             </div>
           </div>
-        </div>
+        </SectionReveal>
       </div>
     </section>
+  )
+}
+
+function LearnCardTile({
+  card,
+  mode,
+  dark,
+}: {
+  card: LearnCard
+  mode: "image" | "icon"
+  dark?: boolean
+}) {
+  if (mode === "image") {
+    return (
+      <article className="group min-w-0 snap-start">
+        <div
+          className="relative overflow-hidden border-2 border-[#FFB70F] bg-black/40 shadow-[0_8px_28px_rgba(0,0,0,0.12)] transition duration-300 group-hover:border-[#FFD24A] group-hover:shadow-[0_12px_32px_rgba(255,183,15,0.25)]"
+          style={{ clipPath: "polygon(8% 0, 100% 0, 92% 100%, 0 100%)" }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={resolveUrl(card.image)}
+            alt={card.title}
+            className="aspect-[3/4] w-full object-cover transition duration-500 group-hover:scale-[1.05]"
+            loading="lazy"
+          />
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/55 to-transparent px-2.5 pb-2.5 pt-8 sm:px-3 sm:pb-3">
+            <h3
+              className="text-[11px] font-bold uppercase leading-tight tracking-wide text-[#FFB70F] sm:text-xs md:text-sm"
+              style={{ fontFamily: "'Oswald', sans-serif" }}
+            >
+              {card.title}
+            </h3>
+          </div>
+        </div>
+        {(card.description || card.subtitle) && (
+          <p
+            className={cn(
+              "mt-2 px-0.5 text-[11px] leading-snug sm:text-xs",
+              dark ? "text-white/70" : "text-gray-600"
+            )}
+          >
+            {card.description || card.subtitle}
+          </p>
+        )}
+      </article>
+    )
+  }
+  return (
+    <article className="group flex min-h-[5.75rem] snap-start flex-col items-center justify-center gap-2 rounded-md border border-[#FFB70F]/55 bg-white/5 px-3 py-4 text-center transition duration-300 hover:border-[#FFB70F] hover:bg-white/10">
+      <div className="flex h-9 w-9 items-center justify-center text-[#FFB70F] transition group-hover:scale-110">
+        <span className="text-xl" aria-hidden>
+          {card.icon?.trim() || "★"}
+        </span>
+      </div>
+      <h3
+        className="text-[11px] font-bold uppercase text-[#FFB70F] sm:text-xs"
+        style={{ fontFamily: "'Oswald', sans-serif" }}
+      >
+        {card.title}
+      </h3>
+      {card.subtitle || card.description ? (
+        <p className="text-[10px] text-white/60">
+          {card.subtitle || card.description}
+        </p>
+      ) : null}
+    </article>
   )
 }
 
@@ -296,145 +430,123 @@ export function CourseLearnCards({
   embedded?: boolean
   variant?: "auto" | "image" | "icon"
 }) {
-  const cards = (items || []).filter((c) => c.title?.trim()).slice(0, 6)
-  if (!cards.length) return null
+  const cards = (items || []).filter((c) => c.title?.trim())
+  const scrollerRef = useRef<HTMLDivElement>(null)
+  const [canPrev, setCanPrev] = useState(false)
+  const [canNext, setCanNext] = useState(false)
+  const [isNarrow, setIsNarrow] = useState(false)
 
   const hasImages = cards.some((c) => Boolean(c.image))
   const mode = variant === "auto" ? (hasImages ? "image" : "icon") : variant
+  const darkBand = Boolean(light) || mode === "icon"
+
+  const updateArrows = useCallback(() => {
+    const el = scrollerRef.current
+    if (!el) return
+    const max = el.scrollWidth - el.clientWidth
+    setCanPrev(el.scrollLeft > 8)
+    setCanNext(el.scrollLeft < max - 8)
+  }, [])
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1279px)")
+    const apply = () => setIsNarrow(mq.matches)
+    apply()
+    mq.addEventListener("change", apply)
+    return () => mq.removeEventListener("change", apply)
+  }, [])
+
+  useEffect(() => {
+    updateArrows()
+    const el = scrollerRef.current
+    if (!el) return
+    el.addEventListener("scroll", updateArrows, { passive: true })
+    window.addEventListener("resize", updateArrows)
+    return () => {
+      el.removeEventListener("scroll", updateArrows)
+      window.removeEventListener("resize", updateArrows)
+    }
+  }, [cards.length, updateArrows])
+
+  if (!cards.length) return null
+
+  const useCarousel = isNarrow || cards.length > 6
+  const showDesktopGrid = !useCarousel
+
+  const scrollByCard = (dir: -1 | 1) => {
+    const el = scrollerRef.current
+    if (!el) return
+    const card = el.querySelector("article")
+    const step = card ? (card as HTMLElement).offsetWidth + 12 : el.clientWidth * 0.7
+    el.scrollBy({ left: dir * step, behavior: "smooth" })
+  }
 
   const body = (
-    <>
-      <SlashTitle title={title} light={light} />
-      {mode === "image" ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 xl:grid-cols-6 xl:gap-3">
-          {cards.map((card, i) => (
-            <article key={`${card.title}-${i}`} className="group min-w-0">
-              <div
-                className="relative overflow-hidden border-2 border-[#FFB70F] bg-black/40 shadow-[0_8px_28px_rgba(0,0,0,0.12)]"
-                style={{ clipPath: "polygon(8% 0, 100% 0, 92% 100%, 0 100%)" }}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={resolveUrl(card.image)}
-                  alt={card.title}
-                  className="aspect-[4/5] w-full object-cover transition duration-500 group-hover:scale-[1.04] sm:aspect-[3/4]"
-                  loading="lazy"
-                />
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/55 to-transparent px-2.5 pb-2.5 pt-8 sm:px-3 sm:pb-3">
-                  <h3
-                    className="text-[11px] font-bold uppercase leading-tight tracking-wide text-[#FFB70F] sm:text-xs md:text-sm"
-                    style={{ fontFamily: "'Oswald', sans-serif" }}
-                  >
-                    {card.title}
-                  </h3>
-                </div>
-              </div>
-              {(card.description || card.subtitle) && (
-                <p
-                  className={cn(
-                    "mt-2 px-0.5 text-[11px] leading-snug sm:text-xs",
-                    light ? "text-white/70" : "text-gray-600"
-                  )}
-                >
-                  {card.description || card.subtitle}
-                </p>
-              )}
-            </article>
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-          {cards.map((card, i) => (
-            <article
-              key={`${card.title}-${i}`}
-              className={cn(
-                "flex min-h-[5.5rem] flex-col items-center justify-center gap-2 rounded-md border px-3 py-4 text-center",
-                light
-                  ? "border-[#FFB70F]/55 bg-white/5"
-                  : "border-[#FFB70F]/40 bg-[#0B0C10] text-white"
-              )}
-            >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center text-[#FFB70F]">
-                {card.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={resolveUrl(card.image)}
-                    alt=""
-                    className="h-7 w-7 object-contain"
-                  />
-                ) : (
-                  <span className="text-xl" aria-hidden>
-                    {card.icon?.trim() || "★"}
-                  </span>
-                )}
-              </div>
-              <div className="min-w-0">
-                <h3
-                  className="text-[11px] font-bold uppercase leading-snug tracking-wide text-[#FFB70F] sm:text-xs"
-                  style={{ fontFamily: "'Oswald', sans-serif" }}
-                >
-                  {card.title}
-                </h3>
-                {card.subtitle || card.description ? (
-                  <p
-                    className={cn(
-                      "mt-1 text-[10px] leading-snug",
-                      light ? "text-white/55" : "text-white/60"
-                    )}
-                  >
-                    {card.subtitle || card.description}
-                  </p>
-                ) : null}
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
-    </>
-  )
-  if (embedded) return <div className="min-w-0">{body}</div>
-  const darkBand = Boolean(light) || mode === "icon"
-  return (
-    <section className={cn(sectionPad, darkBand ? "bg-[#0B0C10]" : "bg-white")}>
-      <div className="site-content px-0 sm:px-1">
-        {darkBand && mode === "icon" ? (
+    <SectionReveal>
+      <div className="relative">
+        <SlashTitle title={title} light={darkBand} />
+        {useCarousel ? (
           <>
-            <SlashTitle title={title} light />
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+            <div
+              ref={scrollerRef}
+              className="flex gap-3 overflow-x-auto scroll-smooth pb-2 [-ms-overflow-style:none] [scrollbar-width:none] snap-x snap-mandatory [&::-webkit-scrollbar]:hidden"
+            >
               {cards.map((card, i) => (
-                <article
+                <div
                   key={`${card.title}-${i}`}
-                  className="flex min-h-[5.5rem] flex-col items-center justify-center gap-2 rounded-md border border-[#FFB70F]/55 bg-white/5 px-3 py-4 text-center"
+                  className="w-[42%] min-w-[42%] shrink-0 sm:w-[30%] sm:min-w-[30%] md:w-[22%] md:min-w-[22%] xl:w-[15.5%] xl:min-w-[15.5%]"
                 >
-                  <div className="flex h-9 w-9 items-center justify-center text-[#FFB70F]">
-                    <span className="text-xl" aria-hidden>
-                      {card.icon?.trim() || "★"}
-                    </span>
-                  </div>
-                  <h3
-                    className="text-[11px] font-bold uppercase text-[#FFB70F] sm:text-xs"
-                    style={{ fontFamily: "'Oswald', sans-serif" }}
-                  >
-                    {card.title}
-                  </h3>
-                  {card.subtitle || card.description ? (
-                    <p className="text-[10px] text-white/60">
-                      {card.subtitle || card.description}
-                    </p>
-                  ) : null}
-                </article>
+                  <LearnCardTile card={card} mode={mode} dark={darkBand} />
+                </div>
               ))}
             </div>
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                aria-label="Previous cards"
+                disabled={!canPrev}
+                onClick={() => scrollByCard(-1)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#FFB70F] text-[#FFB70F] transition hover:bg-[#FFB70F] hover:text-[#171A26] disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                aria-label="Next cards"
+                disabled={!canNext}
+                onClick={() => scrollByCard(1)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#FFB70F] text-[#FFB70F] transition hover:bg-[#FFB70F] hover:text-[#171A26] disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
           </>
-        ) : (
-          body
-        )}
+        ) : null}
+        {showDesktopGrid ? (
+          <div className="grid grid-cols-6 gap-3">
+            {cards.slice(0, 6).map((card, i) => (
+              <LearnCardTile
+                key={`${card.title}-${i}`}
+                card={card}
+                mode={mode}
+                dark={darkBand}
+              />
+            ))}
+          </div>
+        ) : null}
       </div>
+    </SectionReveal>
+  )
+
+  if (embedded) return <div className="min-w-0">{body}</div>
+  return (
+    <section className={cn(sectionPad, darkBand ? "bg-[#0B0C10]" : "bg-white")}>
+      <div className="site-content px-0 sm:px-1">{body}</div>
     </section>
   )
 }
 
-/** Full-width Who Can Join row (separate from What You'll Learn) */
+/** Who Can Join — black band, people icon, 2-col checks, yellow pill note */
 export function CourseWhoCanJoin({
   content,
   embed,
@@ -445,30 +557,35 @@ export function CourseWhoCanJoin({
   const items = (content.items || []).filter((x) => x?.trim())
   if (!items.length && !content.note?.trim()) return null
   const inner = (
-    <div className="w-full">
-      <SlashTitle title={content.title?.trim() || "Who Can Join?"} light={!embed} />
-      <ul className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 md:grid-cols-6">
+    <SectionReveal>
+      <div className="flex items-center gap-3 mb-8">
+        <Users className="h-8 w-8 shrink-0 text-[#FFB70F]" strokeWidth={2} />
+        <h2
+          className="text-2xl font-extrabold uppercase italic tracking-tight text-white md:text-3xl lg:text-[2.35rem]"
+          style={{ fontFamily: "'Oswald', sans-serif" }}
+        >
+          {content.title?.trim() || "Who Can Join?"}
+        </h2>
+      </div>
+      <ul className="grid grid-cols-1 gap-x-12 gap-y-5 sm:grid-cols-2 max-w-3xl">
         {items.map((item, i) => (
-          <li
-            key={i}
-            className={cn(
-              "flex items-start gap-2 text-sm",
-              embed ? "text-white/90" : "text-white/90"
-            )}
-          >
-            <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#FFB70F]" strokeWidth={3} />
+          <li key={i} className="flex items-center gap-3 text-[15px] text-white md:text-base">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#FFB70F] transition hover:scale-110">
+              <Check className="h-3.5 w-3.5 text-black" strokeWidth={3} />
+            </span>
             <span>{item}</span>
           </li>
         ))}
       </ul>
-      <div className="mt-6 inline-flex items-center rounded-sm bg-[#FFB70F] px-4 py-2.5 text-sm font-bold text-[#171A26]">
-        ✓ {content.note?.trim() || "No previous experience required."}
+      <div className="mt-10 inline-flex w-full max-w-xl items-center justify-center gap-2 rounded-full bg-[#FFB70F] px-6 py-3.5 text-sm font-bold text-[#171A26] shadow-[0_8px_24px_rgba(255,183,15,0.25)] transition hover:brightness-110 sm:w-auto md:text-base">
+        <Check className="h-4 w-4 shrink-0" strokeWidth={3} />
+        {content.note?.trim() || "No previous experience required."}
       </div>
-    </div>
+    </SectionReveal>
   )
   if (embed) return inner
   return (
-    <section className={cn("bg-[#0B0C10]", sectionPad)}>
+    <section className={cn("bg-black", sectionPad)}>
       <div className="site-content px-0 sm:px-1">{inner}</div>
     </section>
   )
@@ -536,15 +653,126 @@ export function CourseSportAndAudience({
 function trainingHeaderIcon(title: string, index: number) {
   const t = title.toLowerCase()
   if (t.includes("pro") || t.includes("compet") || t.includes("advance")) {
-    return <Trophy className="h-5 w-5 text-[#171A26]" />
+    return <Trophy className="h-5 w-5 text-[#FFB70F]" />
   }
   if (t.includes("regular") || t.includes("basic") || t.includes("begin")) {
-    return <Calendar className="h-5 w-5 text-[#171A26]" />
+    return <Calendar className="h-5 w-5 text-[#FFB70F]" />
   }
   return index % 2 === 0 ? (
-    <Calendar className="h-5 w-5 text-[#171A26]" />
+    <Calendar className="h-5 w-5 text-[#FFB70F]" />
   ) : (
-    <Trophy className="h-5 w-5 text-[#171A26]" />
+    <Trophy className="h-5 w-5 text-[#FFB70F]" />
+  )
+}
+
+/** Goal-based cards: image + slanted yellow label + 3 checks (Yoga/Gym mock) */
+function GoalTrainingCard({ p }: { p: TrainingProgramCard }) {
+  const points = (p.bullet_points || []).filter(Boolean).slice(0, 3)
+  const img = (p.image || "").trim()
+  return (
+    <article className="group relative flex flex-col">
+      <div className="relative overflow-hidden rounded-xl bg-[#171A26]">
+        {img ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={resolveUrl(img)}
+            alt={p.title}
+            className="aspect-[16/11] w-full object-cover transition duration-500 group-hover:scale-[1.04]"
+            loading="lazy"
+          />
+        ) : (
+          <div className="aspect-[16/11] w-full bg-gradient-to-br from-[#222635] to-[#0B0C10]" />
+        )}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/40 to-transparent" />
+      </div>
+      <div className="relative z-10 mx-auto -mt-5 w-[88%]">
+        <div className="-skew-x-12 rounded-sm bg-[#FFB70F] px-3 py-2.5 text-center shadow-[0_8px_20px_rgba(255,183,15,0.35)] transition group-hover:brightness-110">
+          <h3
+            className="skew-x-12 text-[11px] font-extrabold uppercase italic leading-tight text-[#171A26] sm:text-xs md:text-[13px]"
+            style={{ fontFamily: "'Oswald', sans-serif" }}
+          >
+            {p.title}
+          </h3>
+        </div>
+      </div>
+      <ul className="mt-5 space-y-2.5 px-1">
+        {points.map((bp, j) => (
+          <li key={j} className="flex items-start gap-2.5 text-sm text-gray-700">
+            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#FFB70F]/15">
+              <Check className="h-3 w-3 text-[#FFB70F]" strokeWidth={3} />
+            </span>
+            <span>{bp}</span>
+          </li>
+        ))}
+      </ul>
+    </article>
+  )
+}
+
+/** Regular / Professional path cards (Taekwondo-style mock) */
+function PathTrainingCard({ p, index }: { p: TrainingProgramCard; index: number }) {
+  const points = (p.bullet_points || []).filter(Boolean)
+  const scheduleLine = [p.schedule_label, p.duration_label]
+    .filter(Boolean)
+    .join(" | ")
+  return (
+    <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_12px_40px_rgba(0,0,0,0.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_48px_rgba(0,0,0,0.12)]">
+      <div className="relative z-10 -mb-1 w-[min(100%,18rem)] -skew-x-12 bg-[#171A26] px-5 py-3 shadow-md transition group-hover:bg-black sm:w-[min(100%,20rem)]">
+        <div className="flex skew-x-12 items-center gap-2.5">
+          {trainingHeaderIcon(p.title, index)}
+          <div className="min-w-0">
+            <h3
+              className="text-sm font-extrabold uppercase italic tracking-wide text-[#FFB70F] sm:text-base"
+              style={{ fontFamily: "'Oswald', sans-serif" }}
+            >
+              {p.title}
+            </h3>
+            {p.subtitle ? (
+              <p className="text-[11px] italic text-white/80">{p.subtitle}</p>
+            ) : null}
+          </div>
+        </div>
+      </div>
+      <div className="flex flex-1 flex-col gap-4 px-5 pb-4 pt-6 sm:flex-row sm:items-stretch sm:gap-2">
+        <div className="min-w-0 flex-1">
+          <ul className="space-y-2.5">
+            {points.map((bp, j) => (
+              <li key={j} className="flex items-start gap-2.5 text-sm text-gray-700">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#FFB70F]" strokeWidth={3} />
+                <span>{bp}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        {p.image ? (
+          <div className="relative mx-auto flex w-36 shrink-0 items-end justify-center self-end sm:w-40 md:w-44">
+            <div
+              className="absolute inset-x-2 bottom-0 top-6 rounded-t-full bg-gradient-to-t from-[#FFB70F]/50 via-[#FFB70F]/15 to-transparent"
+              aria-hidden
+            />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={resolveUrl(p.image)}
+              alt=""
+              className="relative z-[1] h-auto max-h-48 w-full object-contain object-bottom drop-shadow-lg transition duration-500 group-hover:scale-[1.03]"
+              loading="lazy"
+            />
+          </div>
+        ) : null}
+      </div>
+      {scheduleLine ? (
+        <div className="mx-4 mb-4 flex items-center gap-2 rounded-xl bg-[#171A26] px-4 py-3 text-xs font-semibold text-white sm:text-[13px]">
+          <Clock className="h-4 w-4 shrink-0 text-[#FFB70F]" />
+          <span>
+            {p.schedule_label && p.duration_label
+              ? `Schedule: ${p.schedule_label} | Duration: ${p.duration_label}`
+              : p.schedule_label
+                ? `Schedule: ${p.schedule_label}`
+                : `Duration: ${p.duration_label}`}
+          </span>
+        </div>
+      ) : null}
+    </article>
   )
 }
 
@@ -561,96 +789,43 @@ export function CourseTrainingPrograms({
 }) {
   const cards = (programs || []).filter((p) => p.title?.trim())
   if (!cards.length) return null
+  const isGoal = Boolean(goalBased || cards.length > 2)
   return (
-    <section
-      className={cn("relative bg-[#F5F5F7]", sectionPad)}
-      style={{
-        backgroundImage:
-          "radial-gradient(rgba(23,26,38,0.04) 1px, transparent 1px)",
-        backgroundSize: "18px 18px",
-      }}
-    >
+    <section className={cn("relative bg-[#F7F7F8]", sectionPad)}>
       <div className="site-content px-0 sm:px-1">
-        <SlashTitle title={title} />
-        <p className="-mt-4 mb-10 max-w-2xl text-[15px] text-gray-600 md:text-base">
-          {subtitle?.trim() || "Choose the right training path based on your goal."}
-        </p>
-        <div
-          className={cn(
-            "grid gap-6 lg:gap-8",
-            goalBased || cards.length > 2
-              ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4"
-              : "grid-cols-1 md:grid-cols-2"
-          )}
-        >
-          {cards.map((p, i) => (
-            <article
-              key={`${p.title}-${i}`}
-              className="relative flex flex-col overflow-hidden rounded-sm border border-gray-200/80 bg-white shadow-[0_10px_36px_rgba(0,0,0,0.08)]"
-            >
-              <div className="flex items-center gap-3 bg-[#FFB70F] px-5 py-3.5">
-                {trainingHeaderIcon(p.title, i)}
-                <div className="min-w-0">
-                  <h3
-                    className="text-base font-extrabold uppercase italic tracking-wide text-[#171A26] md:text-lg"
-                    style={{ fontFamily: "'Oswald', sans-serif" }}
-                  >
-                    {p.title}
-                  </h3>
-                  {p.subtitle ? (
-                    <p className="mt-0.5 text-xs font-medium text-[#171A26]/75">
-                      {p.subtitle}
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-              <div className="flex flex-1 flex-col gap-4 p-5 sm:flex-row sm:items-end sm:gap-3">
-                <div className="min-w-0 flex-1">
-                  {p.description ? (
-                    <p className="mb-4 text-sm text-gray-600">{p.description}</p>
-                  ) : null}
-                  <ul className="space-y-2.5">
-                    {(p.bullet_points || []).filter(Boolean).map((bp, j) => (
-                      <li
-                        key={j}
-                        className="flex items-start gap-2.5 text-sm text-gray-700"
-                      >
-                        <Check
-                          className="mt-0.5 h-4 w-4 shrink-0 text-[#FFB70F]"
-                          strokeWidth={3}
-                        />
-                        <span>{bp}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                {p.image ? (
-                  <div className="mx-auto w-28 shrink-0 self-end sm:w-32 md:w-36">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={resolveUrl(p.image)}
-                      alt=""
-                      className="h-auto w-full object-contain object-bottom drop-shadow-md"
-                      loading="lazy"
-                    />
-                  </div>
-                ) : null}
-              </div>
-              {(p.schedule_label || p.duration_label) && (
-                <div className="mt-auto flex flex-wrap items-center justify-between gap-2 bg-[#171A26] px-5 py-3 text-xs font-semibold uppercase tracking-wide text-white">
-                  {p.schedule_label ? (
-                    <span>Schedule: {p.schedule_label}</span>
-                  ) : (
-                    <span />
+        <SectionReveal>
+          <SlashTitle
+            title={title}
+            subtitle={
+              subtitle?.trim() ||
+              (isGoal
+                ? "Choose a goal-based training program based on your fitness needs."
+                : "Choose the right training path based on your goal.")
+            }
+            subtitleAside={isGoal}
+          />
+          {isGoal ? (
+            <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 xl:grid-cols-4 xl:gap-0">
+              {cards.map((p, i) => (
+                <div
+                  key={`${p.title}-${i}`}
+                  className={cn(
+                    "px-0 xl:px-5",
+                    i > 0 && "xl:border-l xl:border-[#FFB70F]/45"
                   )}
-                  {p.duration_label ? (
-                    <span>Duration: {p.duration_label}</span>
-                  ) : null}
+                >
+                  <GoalTrainingCard p={p} />
                 </div>
-              )}
-            </article>
-          ))}
-        </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:gap-8">
+              {cards.map((p, i) => (
+                <PathTrainingCard key={`${p.title}-${i}`} p={p} index={i} />
+              ))}
+            </div>
+          )}
+        </SectionReveal>
       </div>
     </section>
   )
@@ -732,45 +907,47 @@ export function CourseFactGrid({
   return (
     <section className={cn("bg-white", sectionPad)}>
       <div className="site-content px-0 sm:px-1">
-        <div
-          className={cn(
-            "grid gap-10 md:gap-12",
-            hasWhy && cols.length >= 2
-              ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4"
-              : cols.length + (hasWhy ? 1 : 0) >= 3
-                ? "grid-cols-1 sm:grid-cols-3"
-                : "grid-cols-1 sm:grid-cols-2"
-          )}
-        >
-          {cols.map((col) => (
-            <div key={col.key}>
-              <div className="mb-4 flex items-center gap-2.5">
-                <span aria-hidden>{FACT_ICONS[col.key] || null}</span>
-                <h3
-                  className="text-lg font-extrabold uppercase italic text-[#171A26] md:text-xl"
-                  style={{ fontFamily: "'Oswald', sans-serif" }}
-                >
-                  {col.title}
-                </h3>
-              </div>
-              <ul className="space-y-2.5">
-                {col.lines.map((line, i) => (
-                  <li
-                    key={i}
-                    className="flex items-start gap-2.5 text-sm text-gray-700"
+        <SectionReveal>
+          <div
+            className={cn(
+              "grid gap-10 md:gap-12",
+              hasWhy && cols.length >= 2
+                ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4"
+                : cols.length + (hasWhy ? 1 : 0) >= 3
+                  ? "grid-cols-1 sm:grid-cols-3"
+                  : "grid-cols-1 sm:grid-cols-2"
+            )}
+          >
+            {cols.map((col) => (
+              <div key={col.key}>
+                <div className="mb-4 flex items-center gap-2.5">
+                  <span aria-hidden>{FACT_ICONS[col.key] || null}</span>
+                  <h3
+                    className="text-lg font-extrabold uppercase italic text-[#171A26] md:text-xl"
+                    style={{ fontFamily: "'Oswald', sans-serif" }}
                   >
-                    <Check
-                      className="mt-0.5 h-4 w-4 shrink-0 text-[#FFB70F]"
-                      strokeWidth={3}
-                    />
-                    <span>{line}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-          {hasWhy && whyRmaa ? <CourseWhyRmaa content={whyRmaa} /> : null}
-        </div>
+                    {col.title}
+                  </h3>
+                </div>
+                <ul className="space-y-2.5">
+                  {col.lines.map((line, i) => (
+                    <li
+                      key={i}
+                      className="flex items-start gap-2.5 text-sm text-gray-700"
+                    >
+                      <Check
+                        className="mt-0.5 h-4 w-4 shrink-0 text-[#FFB70F]"
+                        strokeWidth={3}
+                      />
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+            {hasWhy && whyRmaa ? <CourseWhyRmaa content={whyRmaa} /> : null}
+          </div>
+        </SectionReveal>
       </div>
     </section>
   )

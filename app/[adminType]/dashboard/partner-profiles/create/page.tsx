@@ -67,6 +67,7 @@ export default function CreatePartnerPage() {
   const [phone, setPhone] = useState("")
   const [address, setAddress] = useState("")
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("offline")
+  const [cashAmount, setCashAmount] = useState("")
   const [sendInviteEmail, setSendInviteEmail] = useState(true)
   const [smsAllocated, setSmsAllocated] = useState("1000")
   const [whatsappAllocated, setWhatsappAllocated] = useState("500")
@@ -77,7 +78,8 @@ export default function CreatePartnerPage() {
       router.push("/superadmin/login")
       return
     }
-    const body = {
+    const cashNum = Number(cashAmount)
+    const body: Parameters<typeof partnerOrgAPI.createOffline>[0] = {
       name: name.trim(),
       email: email.trim(),
       phone: phone.trim(),
@@ -93,6 +95,17 @@ export default function CreatePartnerPage() {
         variant: "destructive",
       })
       return
+    }
+    if (paymentMethod === "offline") {
+      if (!cashAmount.trim() || !Number.isFinite(cashNum) || cashNum <= 0) {
+        toast({
+          title: "Cash Payment Amount required",
+          description: "Enter a valid positive cash amount received for Offline (Hand Cash).",
+          variant: "destructive",
+        })
+        return
+      }
+      body.cash_amount = cashNum
     }
 
     setSaving(true)
@@ -357,6 +370,29 @@ export default function CreatePartnerPage() {
                 </button>
               </div>
             </div>
+
+            {paymentMethod === "offline" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="cashAmount" className={fieldLabel}>
+                  Cash Payment Amount <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="cashAmount"
+                  type="number"
+                  inputMode="decimal"
+                  min={0.01}
+                  step="0.01"
+                  value={cashAmount}
+                  onChange={(e) => setCashAmount(e.target.value)}
+                  placeholder="Enter amount received (₹)"
+                  className={inputClass}
+                  required
+                />
+                <p className="text-xs text-[#6B7A99]">
+                  Actual cash amount received. An invoice will be generated for this amount.
+                </p>
+              </div>
+            )}
 
             <div className="flex flex-col gap-4 rounded-xl border border-[#E1BB33]/25 bg-[#FFFBEB] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-3">

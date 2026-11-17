@@ -15,7 +15,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Building, MapPin, Clock, Users, CreditCard, X, Plus, Trash2, Calendar } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
+import { useDashboardBasePath, useDashboardRole } from "@/lib/useDashboardBasePath"
+import { partnerOrgAPI } from "@/lib/partnerOrgAPI"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
 import { dropdownAPI, DropdownOption } from "@/lib/dropdownAPI"
@@ -166,6 +167,11 @@ interface FormData {
   admission_fee: number
   /** M21 — collaboration partner branch (default No) */
   is_collaboration_partner?: boolean
+  /** Optional WGS84 coordinates for visitor→branch distance */
+  latitude?: number | null
+  longitude?: number | null
+  /** White-label partner org (1:1). Rock SA only. */
+  partner_org_id?: string | null
 }
 
 type CreateBranchPageProps = {
@@ -255,11 +261,14 @@ function OperatingTimePicker({ label, value, onChange }: OperatingTimePickerProp
 export default function CreateBranchPage({ asPartner = false }: CreateBranchPageProps) {
   const router = useRouter()
   const basePath = useDashboardBasePath()
+  const dashboardRole = useDashboardRole()
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
   const listPath = asPartner ? `${basePath}/partner-profiles` : `${basePath}/branches`
+  const [partnerOrgs, setPartnerOrgs] = useState<{ id: string; name: string }[]>([])
+  const canAssignPartner = dashboardRole === "super_admin"
 
   // API data state
   const [courses, setCourses] = useState<Course[]>([])
@@ -320,7 +329,45 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
     },
     admission_fee: 0,
     is_collaboration_partner: false,
+    latitude: null,
+    longitude: null,
+    partner_org_id: null,
   })
+
+  // Partners cannot create branches — redirect to their dashboard.
+  useEffect(() => {
+    if (dashboardRole === "partner_super_admin") {
+      toast({
+        title: "Partners cannot create branches",
+        description:
+          "Ask Rock Super Admin to assign your organization to a branch or create a partner-driven branch.",
+        variant: "destructive",
+      })
+      router.replace(basePath)
+    }
+  }, [dashboardRole, router, basePath, toast])
+
+  useEffect(() => {
+    if (!canAssignPartner) return
+    let cancelled = false
+    partnerOrgAPI
+      .list({ limit: 200, include_inactive: false })
+      .then((data) => {
+        if (cancelled) return
+        const list = Array.isArray(data.partners) ? data.partners : []
+        setPartnerOrgs(
+          list
+            .filter((p) => p?.id && p?.name)
+            .map((p) => ({ id: String(p.id), name: String(p.name) }))
+        )
+      })
+      .catch(() => {
+        if (!cancelled) setPartnerOrgs([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [canAssignPartner])
 
   // Auto-generate branch code without wiping other form fields (courses/fees).
   const generateBranchCode = (branchName?: string, force = false) => {
@@ -893,6 +940,15 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
         // Own-branch create defaults to false; partner create page forces true.
         is_collaboration_partner: !!asPartner,
         allows_collaboration: !!asPartner,
+        latitude:
+          formData.latitude === null || formData.latitude === undefined || Number.isNaN(Number(formData.latitude))
+            ? null
+            : Number(formData.latitude),
+        longitude:
+          formData.longitude === null || formData.longitude === undefined || Number.isNaN(Number(formData.longitude))
+            ? null
+            : Number(formData.longitude),
+        partner_org_id: formData.partner_org_id || null,
       }
 
       console.log("Submitting branch data:", JSON.stringify(submitData, null, 2))
@@ -1232,6 +1288,79 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              {canAssignPartner ? (
+                <div className="space-y-2">
+                  <Label htmlFor="partnerOrgId">Partner organization (optional)</Label>
+                  <Select
+                    value={formData.partner_org_id || "none"}
+                    onValueChange={(value) =>
+                      setFormData({
+                        ...formData,
+                        partner_org_id: value === "none" ? null : value,
+                      })
+                    }
+                  >
+                    <SelectTrigger id="partnerOrgId">
+                      <SelectValue placeholder="No partner (Rock branch)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No partner (Rock branch)</SelectItem>
+                      {partnerOrgs.map((org) => (
+                        <SelectItem key={org.id} value={org.id}>
+                          {org.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Creates a partner-driven branch. Each partner can be linked to only one branch. Partner branding applies once linked.
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="branchLatitude">Latitude (optional)</Label>
+                  <Input
+                    id="branchLatitude"
+                    type="number"
+                    step="any"
+                    min={-90}
+                    max={90}
+                    value={formData.latitude ?? ""}
+                    onChange={(e) => {
+                      const raw = e.target.value
+                      setFormData({
+                        ...formData,
+                        latitude: raw === "" ? null : Number(raw),
+                      })
+                    }}
+                    placeholder="e.g. 17.4578"
+                  />
+                  <p className="text-xs text-muted-foreground">WGS84 (−90 to 90). Used for visitor distance.</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="branchLongitude">Longitude (optional)</Label>
+                  <Input
+                    id="branchLongitude"
+                    type="number"
+                    step="any"
+                    min={-180}
+                    max={180}
+                    value={formData.longitude ?? ""}
+                    onChange={(e) => {
+                      const raw = e.target.value
+                      setFormData({
+                        ...formData,
+                        longitude: raw === "" ? null : Number(raw),
+                      })
+                    }}
+                    placeholder="e.g. 78.5369"
+                  />
+                  <p className="text-xs text-muted-foreground">WGS84 (−180 to 180).</p>
+                </div>
               </div>
             </CardContent>
           </Card>
