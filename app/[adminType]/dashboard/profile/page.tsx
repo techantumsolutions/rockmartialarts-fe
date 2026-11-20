@@ -194,7 +194,7 @@ export default function BranchManagerProfilePage() {
               is_active: data.is_active !== undefined ? data.is_active : true,
               created_at: data.created_at || new Date().toISOString(),
               updated_at: data.updated_at || new Date().toISOString(),
-              role_label: isSuperAdmin ? "Super Admin" : "Branch Manager",
+              role_label: isSuperAdmin ? "Super Admin" : "Academy Manager",
             }
 
             setProfile(profileData)
@@ -318,7 +318,7 @@ export default function BranchManagerProfilePage() {
                 ? "Partner Admin"
                 : isSuperAdminProfile
                   ? "Super Admin"
-                  : "Branch Manager"),
+                  : "Academy Manager"),
           }
 
           setProfile(profileData)
@@ -524,7 +524,7 @@ export default function BranchManagerProfilePage() {
                     <User className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-gray-900">
-                        {profile.role_label === "Partner Admin" ? "Organization" : "Branch"}
+                        {profile.role_label === "Partner Admin" ? "Organization" : "Academy"}
                       </p>
                       <div className="text-xs text-gray-500 break-words">
                         {(profile.branch_names?.length ? profile.branch_names : [profile.branch_name]).map((name, index) => (

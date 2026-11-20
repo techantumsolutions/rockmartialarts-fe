@@ -21,6 +21,7 @@ import {
   dashboardFormCardClass,
   primaryButtonClass,
 } from "@/components/dashboard/dashboardFormStyles"
+import { AdminStickyFormActions } from "@/components/dashboard/AdminStickyFormActions"
 
 export default function EditBranchManagerPage() {
   const router = useRouter()
@@ -30,6 +31,15 @@ export default function EditBranchManagerPage() {
   const { toast } = useToast()
 
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+  useEffect(() => {
+    if (!showSuccessPopup) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [showSuccessPopup])
+
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSendingEmail, setIsSendingEmail] = useState(false)
@@ -53,7 +63,7 @@ export default function EditBranchManagerPage() {
     country: "India",
 
     // Professional Information
-    designation: "Branch Manager",
+    designation: "Academy Manager",
     experience: "",
     qualifications: "",
     certifications: "",
@@ -97,10 +107,10 @@ export default function EditBranchManagerPage() {
 
       if (!response.ok) {
         if (response.status === 404) {
-          throw new Error("Branch manager not found")
+          throw new Error("Academy manager not found")
         }
         const errorData = await response.json()
-        throw new Error(errorData.detail || errorData.message || `Failed to fetch branch manager (${response.status})`)
+        throw new Error(errorData.detail || errorData.message || `Failed to fetch academy manager (${response.status})`)
       }
 
       const manager = await response.json()
@@ -120,7 +130,7 @@ export default function EditBranchManagerPage() {
         state: manager.contact_info.address?.state || "",
         zipCode: manager.contact_info.address?.postal_code || "",
         country: manager.contact_info.address?.country || "India",
-        designation: manager.professional_info.designation || "Branch Manager",
+        designation: manager.professional_info.designation || "Academy Manager",
         experience: manager.professional_info.professional_experience || "",
         qualifications: manager.professional_info.education_qualification || "",
         certifications: manager.professional_info.certifications?.join(', ') || "",
@@ -131,10 +141,10 @@ export default function EditBranchManagerPage() {
         notes: manager.notes || "",
       })
     } catch (error) {
-      console.error('Error loading branch manager data:', error)
+      console.error('Error loading academy manager data:', error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : 'Failed to load branch manager data',
+        description: error instanceof Error ? error.message : 'Failed to load academy manager data',
         variant: "destructive",
       })
     } finally {
@@ -159,16 +169,16 @@ export default function EditBranchManagerPage() {
       })
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch branches (${response.status})`)
+        throw new Error(`Failed to fetch academies (${response.status})`)
       }
 
       const data = await response.json()
       setBranches(data.branches || data || [])
     } catch (error) {
-      console.error('Error loading branches:', error)
+      console.error('Error loading academies:', error)
       toast({
         title: "Error",
-        description: "Failed to load branches",
+        description: "Failed to load academyes",
         variant: "destructive",
       })
     } finally {
@@ -199,7 +209,7 @@ export default function EditBranchManagerPage() {
     }
 
     if (!formData.branchId) {
-      newErrors.branchId = "Branch assignment is required"
+      newErrors.branchId = "Academy assignment is required"
     }
 
     setErrors(newErrors)
@@ -280,17 +290,17 @@ export default function EditBranchManagerPage() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.detail || errorData.message || `Failed to update branch manager (${response.status})`)
+        throw new Error(errorData.detail || errorData.message || `Failed to update academy manager (${response.status})`)
       }
 
       const result = await response.json()
-      console.log("Branch manager updated successfully:", result)
+      console.log("Academy manager updated successfully:", result)
 
       setShowSuccessPopup(true)
       
       toast({
         title: "Success",
-        description: "Branch manager updated successfully",
+        description: "Academy manager updated successfully",
       })
 
       // Redirect after a short delay
@@ -299,10 +309,10 @@ export default function EditBranchManagerPage() {
       }, 1500)
 
     } catch (error) {
-      console.error('Error updating branch manager:', error)
+      console.error('Error updating academy manager:', error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : 'Failed to update branch manager',
+        description: error instanceof Error ? error.message : 'Failed to update academy manager',
         variant: "destructive",
       })
     } finally {
@@ -334,7 +344,7 @@ export default function EditBranchManagerPage() {
 
       toast({
         title: "Success",
-        description: "Credentials sent successfully to branch manager's email",
+        description: "Credentials sent successfully to academy manager's email",
       })
     } catch (error) {
       console.error('Error sending credentials:', error)
@@ -358,7 +368,7 @@ export default function EditBranchManagerPage() {
                 <div className="h-8 w-8 bg-gray-200 rounded"></div>
                 <div className="h-8 bg-gray-200 rounded w-1/4"></div>
               </div>
-              <div className="bg-white rounded-lg p-6 space-y-4">
+              <div className="relative z-[1] bg-white rounded-2xl border border-[#E8EAF0] shadow-[0_24px_80px_rgba(15,23,42,0.28)] p-6 space-y-4">
                 <div className="h-6 bg-gray-200 rounded w-1/3"></div>
                 <div className="space-y-3">
                   <div className="h-4 bg-gray-200 rounded w-full"></div>
@@ -377,13 +387,13 @@ export default function EditBranchManagerPage() {
       
       <main className="w-full py-6 px-4 lg:px-8 xl:px-10">
         <DashboardFormPageHeader
-          title="Edit Branch Manager"
-          subtitle="Update manager profile and branch assignment"
+          title="Edit Academy Manager"
+          subtitle="Update manager profile and academy assignment"
           backLabel="Back to Manager Details"
           onBack={() => router.push(`${basePath}/branch-managers/${managerId}`)}
         />
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form id="branch-manager-edit-form" onSubmit={handleSubmit} className="admin-page-with-sticky-actions space-y-6">
           {/* Personal Information */}
           <Card className={dashboardFormCardClass}>
             <CardHeader className="pb-2">
@@ -576,19 +586,19 @@ export default function EditBranchManagerPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="branchId">Branch Assignment *</Label>
+                    <Label htmlFor="branchId">Academy Assignment *</Label>
                     <Select 
                       value={formData.branchId} 
                       onValueChange={(value) => handleInputChange('branchId', value)}
                       disabled={isLoadingBranches}
                     >
                       <SelectTrigger className={errors.branchId ? "border-red-500" : ""}>
-                        <SelectValue placeholder={isLoadingBranches ? "Loading branches..." : "Select branch"} />
+                        <SelectValue placeholder={isLoadingBranches ? "Loading academies..." : "Select academy"} />
                       </SelectTrigger>
                       <SelectContent>
                         {branches.map((branch) => (
                           <SelectItem key={branch.id} value={branch.id}>
-                            {branch.branch?.name ?? branch.name ?? 'Unnamed Branch'} - {branch.branch?.address?.city ?? branch.location ?? branch.address?.city ?? 'Location not specified'}
+                            {branch.branch?.name ?? branch.name ?? 'Unnamed Academy'} - {branch.branch?.address?.city ?? branch.location ?? branch.address?.city ?? 'Location not specified'}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -682,63 +692,62 @@ export default function EditBranchManagerPage() {
               </CardContent>
             </Card>
 
-          {/* Submit Buttons */}
-          <div className="flex justify-between">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleSendCredentials}
-              disabled={isSendingEmail}
-              className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
-            >
-              {isSendingEmail ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                'Send Credentials via Email'
-              )}
-            </Button>
-
-            <div className="flex space-x-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.push(`${basePath}/branch-managers/${managerId}`)}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className={primaryButtonClass}
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Updating...
-                  </>
-                ) : (
-                  'Update Branch Manager'
-                )}
-              </Button>
-            </div>
-          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleSendCredentials}
+            disabled={isSendingEmail}
+            className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+          >
+            {isSendingEmail ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Sending...
+              </>
+            ) : (
+              "Send Credentials via Email"
+            )}
+          </Button>
         </form>
+
+        <AdminStickyFormActions>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push(`${basePath}/branch-managers/${managerId}`)}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="branch-manager-edit-form"
+            disabled={isSubmitting}
+            className={primaryButtonClass}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Updating...
+              </>
+            ) : (
+              "Update Academy Manager"
+            )}
+          </Button>
+        </AdminStickyFormActions>
 
         {/* Success Popup */}
         {showSuccessPopup && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden p-4 sm:p-6">
+        <div className="absolute inset-0 bg-[#0f172a]/55 backdrop-blur-[2px]" aria-hidden />
+            <div className="relative z-[1] bg-white rounded-2xl border border-[#E8EAF0] shadow-[0_24px_80px_rgba(15,23,42,0.28)] p-6 w-full max-w-md">
               <div className="text-center">
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Branch Manager Updated Successfully!</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Academy Manager Updated Successfully!</h3>
                 <p className="text-gray-600 mb-4">The branch manager information has been updated successfully.</p>
                 <Button
                   onClick={() => router.push(`${basePath}/branch-managers/${managerId}`)}

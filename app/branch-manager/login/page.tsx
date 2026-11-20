@@ -13,7 +13,7 @@ import { ReCaptchaWrapper, useReCaptcha, ReCaptchaComponent } from "@/components
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { TokenManager } from "@/lib/tokenManager"
 
-// Create a separate component for the branch manager login form content
+// Create a separate component for the academy manager login form content
 function BranchManagerLoginFormContent() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -30,7 +30,7 @@ function BranchManagerLoginFormContent() {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
   }
 
-  // Redirect to dashboard if already logged in as branch manager (same screens as super admin)
+  // Redirect to dashboard if already logged in as academy manager (same screens as super admin)
   useEffect(() => {
     if (sessionExpired) {
       setError("Your session has expired. Please log in again.")
@@ -85,7 +85,7 @@ function BranchManagerLoginFormContent() {
         requestBody.recaptchaToken = recaptchaToken;
       }
 
-      console.log("Branch Manager login request:", {
+      console.log("Academy Manager login request:", {
         url: `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branch-managers/login`,
         body: { ...requestBody, password: "***hidden***" }
       });
@@ -106,7 +106,7 @@ function BranchManagerLoginFormContent() {
         setLoading(false);
         return;
       }
-      console.log("Branch Manager login response:", data);
+      console.log("Academy Manager login response:", data);
 
       if (!res.ok) {
         setError(data.detail || data.message || `Login failed (${res.status})`);
@@ -127,7 +127,7 @@ function BranchManagerLoginFormContent() {
         return;
       }
 
-      // Rock branch-manager login must not inherit a partner session flag.
+      // Rock academy-manager login must not inherit a partner session flag.
       localStorage.removeItem("partner_slug")
       localStorage.removeItem("partner_name")
       localStorage.removeItem("partner_bm_session")
@@ -152,7 +152,7 @@ function BranchManagerLoginFormContent() {
         }
       });
 
-      console.log("Branch Manager login successful:", {
+      console.log("Academy Manager login successful:", {
         manager_id: userData.id,
         full_name: userData.full_name,
         email: userData.email,
@@ -165,7 +165,7 @@ function BranchManagerLoginFormContent() {
       // Redirect to dashboard (same screens as super admin)
       router.replace("/branch-admin/dashboard");
     } catch (err) {
-      console.error("Branch Manager login error:", err);
+      console.error("Academy Manager login error:", err);
       const msg = err instanceof Error ? err.message : String(err);
       const isNetwork = /fetch|network|failed to load/i.test(msg) || msg === "Load failed";
       setError(
@@ -192,7 +192,7 @@ function BranchManagerLoginFormContent() {
         />
         <div className="relative z-10 text-center text-white space-y-6 p-8">
          
-          <h1 className="text-4xl font-bold">Branch Manager Portal</h1>
+          <h1 className="text-4xl font-bold">Academy Manager Portal</h1>
           <p className="text-xl text-yellow-100">
             Manage your branch operations and oversee local activities
           </p>
@@ -211,7 +211,7 @@ function BranchManagerLoginFormContent() {
           <div className="text-center space-y-4">
             <div className="flex items-center justify-center space-x-2">
               <Building2 className="w-8 h-8 text-yellow-600" />
-              <h1 className="text-3xl font-bold text-gray-900">Branch Manager</h1>
+              <h1 className="text-3xl font-bold text-gray-900">Academy Manager</h1>
             </div>
             <div>
               
@@ -221,9 +221,9 @@ function BranchManagerLoginFormContent() {
 
           {/* Login Info 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h3 className="font-medium text-blue-800 mb-2 text-sm">Branch Manager Login</h3>
+            <h3 className="font-medium text-blue-800 mb-2 text-sm">Academy Manager Login</h3>
             <div className="space-y-1 text-xs text-blue-700">
-              <p>Use your branch manager credentials provided by the administrator.</p>
+              <p>Use your academy manager credentials provided by the administrator.</p>
               <p>If you don't have credentials, contact your system administrator.</p>
             </div>
           </div>*/}

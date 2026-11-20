@@ -130,7 +130,7 @@ export function MultiCoursePickerModal({
         if (cancelled) return
         const list = (data.branches || []).map((b: Record<string, unknown>) => ({
           id: String(b.id || ""),
-          name: String(b.name || (b.branch as { name?: string })?.name || b.code || "Branch"),
+          name: String(b.name || (b.branch as { name?: string })?.name || b.code || "Academy"),
         }))
         setBranches(list.filter((b: BranchOption) => b.id))
         if (!branchId && list[0]?.id) setBranchId(list[0].id)
@@ -141,7 +141,7 @@ export function MultiCoursePickerModal({
     return () => {
       cancelled = true
     }
-    // Only re-fetch branch list when the modal opens; branchId is set from the result when empty.
+    // Only re-fetch academy list when the modal opens; branchId is set from the result when empty.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: avoid refetch loop on branchId set
   }, [open])
 
@@ -189,7 +189,7 @@ export function MultiCoursePickerModal({
 
   async function handleAddSelected() {
     if (!branchId) {
-      toast({ title: "Select a branch", variant: "destructive" })
+      toast({ title: "Select an academy", variant: "destructive" })
       return
     }
     const selectedCourses = courses.filter((c) => selected[c.id] && !inCartCourseIds.has(c.id))
@@ -277,7 +277,7 @@ export function MultiCoursePickerModal({
     }
   }
 
-  const branchName = branches.find((b) => b.id === branchId)?.name || "Branch"
+  const branchName = branches.find((b) => b.id === branchId)?.name || "Academy"
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -292,10 +292,10 @@ export function MultiCoursePickerModal({
 
         <div className="space-y-3 py-2 flex-1 overflow-y-auto min-h-0">
           <div className="space-y-1">
-            <p className="text-xs text-gray-500 uppercase tracking-wide">Branch</p>
+            <p className="text-xs text-gray-500 uppercase tracking-wide">Academy</p>
             <Select value={branchId} onValueChange={setBranchId}>
               <SelectTrigger className="bg-gray-900 border-gray-700">
-                <SelectValue placeholder="Choose branch" />
+                <SelectValue placeholder="Choose academy" />
               </SelectTrigger>
               <SelectContent>
                 {branches.map((b) => (

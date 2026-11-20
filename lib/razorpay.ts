@@ -1,5 +1,18 @@
 // Razorpay integration utilities
 
+import { getPortalPlatformName } from "@/lib/portalIdentity"
+import { DEFAULT_PLATFORM_BRANDING } from "@/lib/platformBranding"
+
+function resolvePlatformCheckoutThemeColor(): string {
+  if (typeof document !== "undefined") {
+    const fromCss = getComputedStyle(document.documentElement)
+      .getPropertyValue("--brand-primary")
+      .trim()
+    if (fromCss) return fromCss
+  }
+  return DEFAULT_PLATFORM_BRANDING.primary_color
+}
+
 export interface RazorpayOptions {
   key: string
   amount: number
@@ -91,7 +104,7 @@ export const openRazorpayCheckout = async (
     /** Prefer server-returned publishable key (matches `/api/payments/create-order` / reg-checkout). */
     razorpayKeyId?: string
     currency?: string
-    name: string
+    name?: string
     description: string
     customerName?: string
     customerEmail?: string
@@ -129,7 +142,14 @@ export const openRazorpayCheckout = async (
     key: keyId,
     amount: amountPaise,
     currency: paymentDetails.currency || 'INR',
-    name: paymentDetails.name,
+    name: (() => {
+      const n = (paymentDetails.name || "").trim()
+      // Treat legacy hardcoded product names as "use platform branding"
+      if (!n || /^(Rock Martial Arts(?: Academy)?)$/i.test(n)) {
+        return getPortalPlatformName()
+      }
+      return n
+    })(),
     description: paymentDetails.description,
     ...(paymentDetails.orderId ? { order_id: paymentDetails.orderId } : {}),
     prefill: {
@@ -138,7 +158,7 @@ export const openRazorpayCheckout = async (
       contact: paymentDetails.customerContact,
     },
     theme: {
-      color: '#facc15', // Yellow-400 to match your theme
+      color: resolvePlatformCheckoutThemeColor(),
     },
     handler: paymentDetails.onSuccess,
     modal: {

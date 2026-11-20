@@ -29,7 +29,7 @@ export async function GET(
     const data = await response.json()
     return NextResponse.json(data)
   } catch (error) {
-    console.error("Error in branch testimonials API:", error)
+    console.error("Error in academy testimonials API:", error)
     return NextResponse.json(
       { error: "Internal server error", message: "Failed to retrieve testimonials" },
       { status: 500 }

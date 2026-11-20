@@ -37,6 +37,7 @@ import {
   graceDaysRemaining,
   ENROLLMENT_GRACE_DAYS,
 } from "@/lib/student-enrollment-status"
+import { isRenewalWindowOpen, renewalWindowMessage } from "@/lib/renewalWindow"
 import { mergeEnrollmentsByCourseBranch } from "@/lib/merge-enrollment-groups"
 import {
   Dialog,
@@ -300,7 +301,7 @@ export default function StudentPaymentsPage() {
 
           if (isRenewal) {
             // For renewal, strictly lock to the existing previous batch.
-            // If enrollment record was missing batch_ref, default to the branch's primary batch.
+            // If enrollment record was missing batch_ref, default to the academy's primary batch.
             if (!resolvedBatchRef && loadedBatches.length > 0) {
               resolvedBatchRef = loadedBatches[0].batch_ref
             }
@@ -526,6 +527,21 @@ export default function StudentPaymentsPage() {
   }
 
   const openTenureModal = (enrollment: StudentEnrollment, isRenewal: boolean) => {
+    if (
+      isRenewal &&
+      !isRenewalWindowOpen({
+        next_due_date: (enrollment as { next_due_date?: string }).next_due_date,
+        end_date: enrollment.end_date,
+      })
+    ) {
+      setError(
+        renewalWindowMessage({
+          next_due_date: (enrollment as { next_due_date?: string }).next_due_date,
+          end_date: enrollment.end_date,
+        })
+      )
+      return
+    }
     setTenureModal({ enrollment, isRenewal })
   }
 
@@ -1066,7 +1082,8 @@ export default function StudentPaymentsPage() {
                 Course Subscriptions
               </CardTitle>
               <CardDescription>
-                Manage your course enrollments and renewal dates. You can renew anytime before or after expiration.
+                Manage your course enrollments and renewal dates. Renewal opens one week before the due date
+                (and remains available after expiry).
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1248,7 +1265,13 @@ export default function StudentPaymentsPage() {
                             <Button 
                               className={`w-full sm:w-auto ${isGrace ? "bg-orange-600 hover:bg-orange-700" : "bg-red-600 hover:bg-red-700"}`}
                               onClick={() => openTenureModal(enrollment, true)}
-                              disabled={paymentProcessingId === enrollment.id}
+                              disabled={
+                                paymentProcessingId === enrollment.id ||
+                                !isRenewalWindowOpen({
+                                  next_due_date: (enrollment as { next_due_date?: string }).next_due_date,
+                                  end_date: enrollment.end_date,
+                                })
+                              }
                             >
                               {paymentProcessingId === enrollment.id ? (
                                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1283,23 +1306,45 @@ export default function StudentPaymentsPage() {
                             </Button>
                           ) : (
                             <>
-                              <Button 
-                                className="w-full sm:w-auto"
-                                onClick={() => openTenureModal(enrollment, true)}
-                                disabled={paymentProcessingId === enrollment.id}
-                              >
-                                {paymentProcessingId === enrollment.id ? (
-                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                ) : (
-                                  <ArrowRight className="h-4 w-4 mr-2" />
-                                )}
-                                {paymentProcessingId === enrollment.id ? "Processing…" : "Renew for Next Period"}
-                              </Button>
-                              {isExpiringSoon && (
-                                <p className="text-xs text-center text-muted-foreground">
-                                  Renew before {formatDate(enrollment.end_date)}
-                                </p>
-                              )}
+                              {(() => {
+                                const canRenewNext = isRenewalWindowOpen({
+                                  next_due_date: (enrollment as { next_due_date?: string })
+                                    .next_due_date,
+                                  end_date: enrollment.end_date,
+                                })
+                                return (
+                                  <>
+                                    <Button
+                                      className="w-full sm:w-auto"
+                                      onClick={() => openTenureModal(enrollment, true)}
+                                      disabled={
+                                        paymentProcessingId === enrollment.id || !canRenewNext
+                                      }
+                                    >
+                                      {paymentProcessingId === enrollment.id ? (
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                      ) : (
+                                        <ArrowRight className="h-4 w-4 mr-2" />
+                                      )}
+                                      {paymentProcessingId === enrollment.id
+                                        ? "Processing…"
+                                        : "Renew for Next Period"}
+                                    </Button>
+                                    <p className="text-xs text-center text-muted-foreground">
+                                      {canRenewNext
+                                        ? isExpiringSoon
+                                          ? `Renew before ${formatDate(enrollment.end_date)}`
+                                          : null
+                                        : renewalWindowMessage({
+                                            next_due_date: (
+                                              enrollment as { next_due_date?: string }
+                                            ).next_due_date,
+                                            end_date: enrollment.end_date,
+                                          })}
+                                    </p>
+                                  </>
+                                )
+                              })()}
                             </>
                           )}
                         </div>

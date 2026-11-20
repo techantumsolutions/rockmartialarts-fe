@@ -67,7 +67,7 @@ function availabilityLabel(row: Row, branches: BranchOption[], courses: CourseOp
     case "branch":
       return row.branch_ids
         .map((id) => branches.find((b) => b.id === id)?.name || id)
-        .join(", ") || "Branch"
+        .join(", ") || "Academy"
     case "course":
       return row.course_ids
         .map((id) => courses.find((c) => c.id === id)?.name || id)
@@ -79,7 +79,7 @@ function availabilityLabel(row: Row, branches: BranchOption[], courses: CourseOp
           const c = courses.find((x) => x.id === p.course_id)?.name || p.course_id
           return `${b} → ${c}`
         })
-        .join("; ") || "Branch + Course"
+        .join("; ") || "Academy + Course"
     default:
       return "—"
   }
@@ -104,7 +104,7 @@ export default function RegistrationFormsPage() {
 
   const bmManaged = BranchManagerAuth.getCurrentUser()?.managed_branches || []
   const selectedManagerBranch = getActiveBranchId() || bmManaged[0] || ""
-  // Rock SA + Partner SA: API already returns their branch set. Branch managers: managed only.
+  // Rock SA + Partner SA: API already returns their academy set. Academy managers: managed only.
   const branchOptions =
     isSuperAdmin || isPartnerAdmin
       ? branches
@@ -500,7 +500,7 @@ export default function RegistrationFormsPage() {
                   {canUseGlobal ? <SelectItem value="global">Global (all students)</SelectItem> : null}
                   <SelectItem value="branch">Branch-wise</SelectItem>
                   {canUseCourseOnly ? <SelectItem value="course">Course-wise</SelectItem> : null}
-                  <SelectItem value="branch_course">Branch + course combination</SelectItem>
+                  <SelectItem value="branch_course">Academy + course combination</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -537,7 +537,7 @@ export default function RegistrationFormsPage() {
 
             {form.availability_type === "branch_course" ? (
               <div className="space-y-3">
-                <Label>Branch + course combinations</Label>
+                <Label>Academy + course combinations</Label>
                 {form.branch_course_pairs.map((pair, index) => (
                   <div key={index} className="flex flex-wrap gap-2 items-end">
                     <div className="flex-1 min-w-[120px]">
@@ -549,7 +549,7 @@ export default function RegistrationFormsPage() {
                           onValueChange={(v) => updatePair(index, "branch_id", v)}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Branch" />
+                            <SelectValue placeholder="Academy" />
                           </SelectTrigger>
                           <SelectContent>
                             {branchOptions.map((b) => (

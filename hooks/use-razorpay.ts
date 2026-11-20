@@ -6,6 +6,7 @@ import {
   isSessionExpiredError,
   SESSION_EXPIRED_PAYMENT_MESSAGE,
 } from '@/lib/sessionAuth'
+import { getPortalPlatformName } from '@/lib/portalIdentity'
 
 interface RazorpayOptions {
   /** @deprecated Amount is derived from the enrollment on the server when creating the Razorpay order. */
@@ -83,9 +84,17 @@ export function useRazorpay() {
         key,
         amount: order.amount,
         currency: order.currency || 'INR',
-        name: 'Rock Martial Arts',
+        name: getPortalPlatformName(),
         description: `Enrollment: ${options.enrollmentData.course_name}`,
         order_id: order.id,
+        theme: {
+          color:
+            typeof document !== 'undefined'
+              ? getComputedStyle(document.documentElement)
+                  .getPropertyValue('--brand-primary')
+                  .trim() || '#E1BB33'
+              : '#E1BB33',
+        },
         handler: async function (response: any) {
           try {
             const activeToken = TokenManager.isAuthenticated()

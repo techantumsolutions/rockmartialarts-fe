@@ -188,7 +188,7 @@ export function generateChartData(apiData: any, categoryId: string): ReportChart
       const legacyStats = apiData.branch_reports?.branch_statistics || []
       const rows = branches.length ? branches : legacyStats
       return rows.slice(0, 12).map((item: any) => ({
-        name: item.branch_name || item.name || item.branch_info?.name || "Branch",
+        name: item.branch_name || item.name || item.branch_info?.name || "Academy",
         value:
           item.total_enrollments ||
           item.active_enrollments ||
@@ -240,7 +240,7 @@ export function generateTableData(apiData: any, categoryId: string): ReportTable
       const rows = branches.length ? branches : legacyStats
       return rows.slice(0, 50).map((item: any, index: number) => ({
         id: item.id || item._id || index + 1,
-        name: item.branch_name || item.name || "Branch",
+        name: item.branch_name || item.name || "Academy",
         value:
           item.total_enrollments ||
           item.active_enrollments ||
@@ -337,12 +337,12 @@ export const BM_REPORTS_WITH_API: Record<string, string[]> = {
     "refund-and-adjustments",
   ],
   branch: [
-    "branch-performance-overview",
-    "branch-enrollment-statistics",
-    "branch-revenue-analysis",
-    "branch-capacity-utilization",
-    "branch-staff-allocation",
-    "branch-operational-hours",
+    "academy-performance-overview",
+    "academy-enrollment-statistics",
+    "academy-revenue-analysis",
+    "academy-capacity-utilization",
+    "academy-staff-allocation",
+    "academy-operational-hours",
   ],
   coach: ["coach-overview", "coach-performance", "coach-assignments"],
   operational: ["daily-operations-summary"],

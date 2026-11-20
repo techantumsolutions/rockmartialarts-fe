@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
         try {
           data = JSON.parse(text)
         } catch {
-          console.error("[branches-with-courses] Invalid JSON from", url)
+          console.error("[academies-with-courses] Invalid JSON from", url)
           return NextResponse.json({ error: "Invalid response from server" }, { status: 502 })
         }
       }
@@ -48,9 +48,9 @@ export async function GET(request: NextRequest) {
       headers: { "Content-Type": contentType || "text/plain" },
     })
   } catch (e) {
-    console.error("[branches-with-courses] Proxy error:", url, e)
+    console.error("[academies-with-courses] Proxy error:", url, e)
     return NextResponse.json(
-      { error: "Internal server error", message: "Failed to reach branches service" },
+      { error: "Internal server error", message: "Failed to reach academies service" },
       { status: 502 }
     )
   }

@@ -20,6 +20,8 @@ import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
 import { dropdownAPI } from "@/lib/dropdownAPI"
 import { useToast } from "@/hooks/use-toast"
+import { AppModal } from "@/components/ui/AppModal"
+import { StudentPhotoUploader } from "@/components/students/StudentPhotoUploader"
 
 const DEFAULT_DURATION_OPTIONS: Array<{ id: string; name: string; code?: string }> = [
   { id: "1-month", name: "1 Month", code: "1-month" },
@@ -100,10 +102,14 @@ export default function EditStudent() {
 
   // Form state
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+
   const [errors, setErrors] = useState<FormErrors>({})
   const [selectedDate, setSelectedDate] = useState<Date>()
   const [joiningDate, setJoiningDate] = useState<Date>()
   
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState("")
+  const getEditAuthToken = () => TokenManager.getToken()
+
   const [formData, setFormData] = useState({
     // Personal Information
     firstName: "",
@@ -137,7 +143,7 @@ export default function EditStudent() {
     emergencyContactRelation: "",
   })
 
-  // Fetch student, branches and courses data
+  // Fetch student, academies and courses data
   useEffect(() => {
     const fetchData = async () => {
       if (!access_token || !studentId) return
@@ -333,7 +339,7 @@ export default function EditStudent() {
                 branchesForLocation = [
                   {
                     id: b.id || branchId,
-                    name: b.branch?.name || b.name || "Branch",
+                    name: b.branch?.name || b.name || "Academy",
                     code: b.branch?.code,
                     address: {
                       city: addr.city,
@@ -402,6 +408,12 @@ export default function EditStudent() {
         }
 
         setFormData(mappedFormData)
+        setProfilePhotoUrl(
+          studentData.profile_image ||
+            studentData.profile_photo ||
+            studentData.photo ||
+            ""
+        )
 
         if (studentData.date_of_birth) {
           setSelectedDate(new Date(studentData.date_of_birth))
@@ -431,7 +443,7 @@ export default function EditStudent() {
     }
   }, [formData.category, courses])
 
-  // Load branches when location changes
+  // Load academies when location changes
   useEffect(() => {
     const loadBranchesForLocation = async () => {
       if (!formData.location) {
@@ -447,20 +459,20 @@ export default function EditStudent() {
           const data = await response.json()
           setBranches(data.branches || [])
         } else {
-          console.error('Failed to load branches for location:', response.statusText)
+          console.error('Failed to load academyes for location:', response.statusText)
           setBranches([])
           toast({
             title: "Warning",
-            description: "Failed to load branches for selected location.",
+            description: "Failed to load academyes for selected location.",
             variant: "destructive",
           })
         }
       } catch (error) {
-        console.error('Error loading branches for location:', error)
+        console.error('Error loading academies for location:', error)
         setBranches([])
         toast({
           title: "Error",
-          description: "Failed to load branches. Please try again.",
+          description: "Failed to load academyes. Please try again.",
           variant: "destructive",
         })
       } finally {
@@ -471,10 +483,10 @@ export default function EditStudent() {
     loadBranchesForLocation()
   }, [formData.location])
 
-  // Clear branch selection when location changes
+  // Clear academy selection when location changes
   useEffect(() => {
     if (formData.branch && formData.location) {
-      // Check if current branch is still valid for the selected location
+      // Check if current academy is still valid for the selected location
       const branchExists = branches.find(branch => branch.id === formData.branch)
       if (!branchExists) {
         setFormData(prev => ({ ...prev, branch: "" }))
@@ -505,7 +517,7 @@ export default function EditStudent() {
     if (!formData.gender) newErrors.gender = "Gender is required"
     if (!formData.dob) newErrors.dob = "Date of birth is required"
     if (!formData.location) newErrors.location = "Location is required"
-    if (!formData.branch) newErrors.branch = "Branch is required"
+    if (!formData.branch) newErrors.branch = "Academy is required"
     if (!formData.course) newErrors.course = "Course is required"
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Please enter a valid email address"
@@ -617,12 +629,12 @@ export default function EditStudent() {
         </div>
 
         {isLoading ? (
-          <div className="bg-white rounded-2xl shadow-sm border p-8 text-center">
+          <div className="relative z-[1] bg-white rounded-2xl border border-[#E8EAF0] shadow-[0_24px_80px_rgba(15,23,42,0.28)] shadow-sm border p-8 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto"></div>
             <p className="mt-4 text-gray-600">Loading student data...</p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="relative z-[1] bg-white rounded-2xl border border-[#E8EAF0] shadow-[0_24px_80px_rgba(15,23,42,0.28)] shadow-sm border border-gray-200 overflow-hidden">
 
             <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-8">
               {errors.submit && (
@@ -634,6 +646,16 @@ export default function EditStudent() {
               <div className="space-y-8">
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-[#4D5077] border-b border-gray-200 pb-2">Personal Information</h3>
+                  <StudentPhotoUploader
+                    studentId={studentId}
+                    getToken={getEditAuthToken}
+                    photoUrl={profilePhotoUrl}
+                    onUploaded={(result) => {
+                      setProfilePhotoUrl(
+                        `${result.profile_image}?v=${Date.now()}`
+                      )
+                    }}
+                  />
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 text-[#7F8592]">
                     
                     <div>
@@ -879,7 +901,7 @@ export default function EditStudent() {
                     </div>
 
                     <div>
-                      <Label className="block text-sm font-medium mb-2">Branch <span className="text-red-500">*</span></Label>
+                      <Label className="block text-sm font-medium mb-2">Academy <span className="text-red-500">*</span></Label>
                       <Select
                         value={formData.branch}
                         onValueChange={(value) => handleInputChange("branch", value)}
@@ -895,10 +917,10 @@ export default function EditStudent() {
                           </div>
                           <SelectValue placeholder={
                             isLoadingBranches
-                              ? "Loading branches..."
+                              ? "Loading academies..."
                               : !formData.location
                                 ? "Select location first"
-                                : "Select Branch"
+                                : "Select Academy"
                           } />
                         </SelectTrigger>
                         <SelectContent>
@@ -908,7 +930,11 @@ export default function EditStudent() {
                                 <div className="flex flex-col">
                                   <span className="font-medium">{branch.name}</span>
                                   <span className="text-xs text-gray-500">
-                                    {branch.address?.city}, {branch.address?.state}
+                                    {typeof branch.address === "object" && branch.address
+                                      ? [branch.address.city, branch.address.state].filter(Boolean).join(", ")
+                                      : typeof branch.address === "string"
+                                        ? branch.address
+                                        : ""}
                                   </span>
                                 </div>
                               </SelectItem>
@@ -919,8 +945,8 @@ export default function EditStudent() {
                                 {!formData.location
                                   ? "Please select a location first"
                                   : isLoadingBranches
-                                    ? "Loading branches..."
-                                    : "No branches available for selected location"
+                                    ? "Loading academies..."
+                                    : "No academies available for selected location"
                                 }
                               </p>
                             </div>
@@ -938,7 +964,7 @@ export default function EditStudent() {
                   <Button 
                     type="submit" 
                     disabled={isSubmitting}
-                    className="w-full sm:w-auto h-12 bg-yellow-400 hover:bg-yellow-500 text-white font-semibold px-8 rounded-xl"
+                    className="w-full sm:w-auto h-12  font-semibold px-8 rounded-xl"
                   >
                     {isSubmitting ? (
                       <div className="flex items-center">
@@ -965,27 +991,32 @@ export default function EditStudent() {
         )}
       </main>
 
-      {showSuccessPopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Student Updated!</h3>
-              <p className="text-gray-600 mb-8 text-lg">The student details have been successfully updated.</p>
-              <Button 
-                onClick={handleSuccessOk} 
-                className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-3 rounded-xl"
-              >
-                OK
-              </Button>
-            </div>
+      <AppModal
+        open={showSuccessPopup}
+        onClose={handleSuccessOk}
+        title="Student Updated!"
+        size="sm"
+        centered
+        header={
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+            <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+            </svg>
           </div>
-        </div>
-      )}
+        }
+        footer={
+          <Button
+            onClick={handleSuccessOk}
+            className="w-full bg-[#E1BB33] text-[#171A26] hover:bg-[#d4a82a] sm:w-auto sm:ml-auto"
+          >
+            OK
+          </Button>
+        }
+      >
+        <p className="text-center text-sm leading-relaxed text-[#6B7280]">
+          The student details have been successfully updated.
+        </p>
+      </AppModal>
     </div>
   )
 }

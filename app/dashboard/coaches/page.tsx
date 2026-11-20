@@ -15,6 +15,8 @@ import { useRouter } from "next/navigation"
 import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
+import { SendCredentialsModal } from "@/components/ui/SendCredentialsModal"
+import { AppModal } from "@/components/ui/AppModal"
 
 interface Coach {
   id: string
@@ -62,7 +64,7 @@ export default function CoachesListPage() {
 const [currentPage, setCurrentPage] = useState(1)
 const itemsPerPage = 15
 
-  // Fetch branches for the assignment modal (preload on mount)
+  // Fetch academies for the assignment modal (preload on mount)
   useEffect(() => {
     const loadBranches = async () => {
       const token = TokenManager.getToken()
@@ -77,7 +79,7 @@ const itemsPerPage = 15
           setBranches(data.branches || data || [])
         }
       } catch (e) {
-        console.error("Error fetching branches:", e)
+        console.error("Error fetching academies:", e)
       } finally {
         setBranchesLoading(false)
       }
@@ -118,7 +120,7 @@ const itemsPerPage = 15
 
   const handleAssignSubmit = async () => {
     if (!assignData.branch || !assignData.coach) {
-      setAssignmentError("Please select both a branch and a coach")
+      setAssignmentError("Please select both an academy and a coach")
       return
     }
 
@@ -131,7 +133,7 @@ const itemsPerPage = 15
         throw new Error("Authentication token not found. Please login again.")
       }
 
-      // Update the branch with the new manager_id (coach)
+      // Update the academy with the new manager_id (coach)
       const response = await fetch(getBackendApiUrl(`branches/${assignData.branch}`), {
         method: 'PUT',
         headers: {
@@ -332,13 +334,13 @@ const paginatedCoaches = filteredCoaches.slice(
           <div className="flex space-x-3">
             <Button
               onClick={() => router.push("/dashboard/add-coach")}
-              className="bg-yellow-400 hover:bg-yellow-500 text-white px-6 py-2 rounded-lg font-medium"
+              className=" px-6 py-2 rounded-lg font-medium"
             >
               + Add Coach
             </Button>
             <Button
               onClick={handleAssignClick}
-              className="bg-blue-500 hover: text-white px-6"
+              className="px-6"
             >
               Assign Manager
             </Button>
@@ -475,7 +477,7 @@ const paginatedCoaches = filteredCoaches.slice(
       onClick={() => setCurrentPage(page)}
       className={`${
         currentPage === page
-          ? "bg-yellow-400 hover:bg-yellow-500 text-black"
+          ? ""
           : "bg-transparent"
       }`}
       variant={currentPage === page ? "default" : "outline"}
@@ -502,163 +504,141 @@ const paginatedCoaches = filteredCoaches.slice(
         </Card>
       </main>
 
-      {/* Assign Popup */}
-      {showAssignPopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Assign Coach as Branch Manager</h3>
-              <Button variant="ghost" onClick={() => {
+      <AppModal
+        open={showAssignPopup}
+        onClose={() => {
+          if (assignmentLoading) return
+          setShowAssignPopup(false)
+          setAssignmentError(null)
+          setAssignData({ branch: "", coach: "" })
+        }}
+        title="Assign Coach as Branch Manager"
+        size="md"
+        closeDisabled={assignmentLoading}
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => {
                 setShowAssignPopup(false)
                 setAssignmentError(null)
                 setAssignData({ branch: "", coach: "" })
-              }} className="p-1">
-                <span className="text-xl">&times;</span>
-              </Button>
-            </div>
+              }}
+              disabled={assignmentLoading}
+              className="w-full border-[#D1D5DB] text-[#4F5077] sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAssignSubmit}
+              disabled={assignmentLoading}
+              className="w-full bg-[#E1BB33] text-[#171A26] hover:bg-[#d4a82a] sm:w-auto"
+            >
+              {assignmentLoading ? "Assigning..." : "Assign as Manager"}
+            </Button>
+          </div>
+        }
+      >
+        {assignmentError && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-sm text-red-600">{assignmentError}</p>
+          </div>
+        )}
 
-            {assignmentError && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-                <p className="text-sm text-red-600">{assignmentError}</p>
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Select Branch</label>
-                <Select
-                  value={assignData.branch}
-                  onValueChange={(value) => setAssignData({ ...assignData, branch: value })}
-                  disabled={branchesLoading}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder={branchesLoading ? "Loading branches..." : branches.length === 0 ? "No branches available" : "Choose a branch..."} />
-                  </SelectTrigger>
-                  <SelectContent
-                    position="popper"
-                    className="w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]"
-                  >
-                    {branches.map((branch) => {
-                      const branchName = branch.branch?.name ?? branch.name ?? "Unnamed Branch"
-                      const address = branch.branch?.address ?? branch.address
-                      const addressText = address ? [address.area, address.city].filter(Boolean).join(", ") || "No address" : "No address"
-
-                      return (
-                        <SelectItem key={branch.id} value={branch.id} className="max-w-full">
-                          <span className="block truncate">{branchName} - {addressText}</span>
-                        </SelectItem>
-                      )
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Select Coach</label>
-                <Select
-                  value={assignData.coach}
-                  onValueChange={(value) => setAssignData({ ...assignData, coach: value })}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder={filteredCoaches.length === 0 ? "No coaches available" : "Choose a coach..."} />
-                  </SelectTrigger>
-                  <SelectContent
-                    position="popper"
-                    className="w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]"
-                  >
-                    {filteredCoaches.map((coach) => (
-                      <SelectItem key={coach.id} value={coach.id} className="max-w-full">
-                        <div className="flex flex-col min-w-0 max-w-full overflow-hidden">
-                          <span className="font-medium truncate">{coach.full_name}</span>
-                          <span className="text-sm text-gray-500 truncate">{coach.contact_info?.email}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button
-                onClick={handleAssignSubmit}
-                disabled={assignmentLoading}
-                className="w-full text-white disabled:opacity-50"
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Select Academy</label>
+            <Select
+              value={assignData.branch}
+              onValueChange={(value) => setAssignData({ ...assignData, branch: value })}
+              disabled={branchesLoading}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={branchesLoading ? "Loading academies..." : branches.length === 0 ? "No academies available" : "Choose an branch..."} />
+              </SelectTrigger>
+              <SelectContent
+                position="popper"
+                className="w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]"
               >
-                {assignmentLoading ? "Assigning..." : "Assign as Manager"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+                {branches.map((branch) => {
+                  const branchName = branch.branch?.name ?? branch.name ?? "Unnamed Academy"
+                  const address = branch.branch?.address ?? branch.address
+                  const addressText = address ? [address.area, address.city].filter(Boolean).join(", ") || "No address" : "No address"
 
-      {/* Delete Confirmation Popup */}
-      {showDeletePopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Trash2 className="w-8 h-8 text-red-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Coach</h3>
-              <p className="text-gray-600 mb-6">
-                Are you sure you want to delete this coach? This action cannot be undone.
-              </p>
-              <div className="flex space-x-3">
-                <Button variant="outline" onClick={() => setShowDeletePopup(false)} className="flex-1">
-                  Cancel
-                </Button>
-                <Button onClick={handleDeleteConfirm} className="bg-red-600 hover:bg-red-700 text-white flex-1">
-                  Delete
-                </Button>
-              </div>
-            </div>
+                  return (
+                    <SelectItem key={branch.id} value={branch.id} className="max-w-full">
+                      <span className="block truncate">{branchName} - {addressText}</span>
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Select Coach</label>
+            <Select
+              value={assignData.coach}
+              onValueChange={(value) => setAssignData({ ...assignData, coach: value })}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={filteredCoaches.length === 0 ? "No coaches available" : "Choose a coach..."} />
+              </SelectTrigger>
+              <SelectContent
+                position="popper"
+                className="w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]"
+              >
+                {filteredCoaches.map((coach) => (
+                  <SelectItem key={coach.id} value={coach.id} className="max-w-full">
+                    <div className="flex flex-col min-w-0 max-w-full overflow-hidden">
+                      <span className="font-medium truncate">{coach.full_name}</span>
+                      <span className="text-sm text-gray-500 truncate">{coach.contact_info?.email}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
-      )}
+      </AppModal>
 
-      {/* Send Credentials Confirmation Popup */}
-      {showSendCredentialsPopup && selectedCoachForCredentials && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Mail className="w-8 h-8 text-green-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Send Login Credentials</h3>
-              <p className="text-gray-600 mb-2">
-                Send login credentials to <strong>{selectedCoachForCredentials.full_name}</strong>?
-              </p>
-              <p className="text-sm text-gray-500 mb-6">
-                Email will be sent to: <strong>{selectedCoachForCredentials.contact_info.email}</strong>
-              </p>
-              <div className="flex space-x-3">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowSendCredentialsPopup(false)
-                    setSelectedCoachForCredentials(null)
-                  }}
-                  className="flex-1"
-                  disabled={isSendingCredentials}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSendCredentialsConfirm}
-                  className="bg-green-600 hover:bg-green-700 text-white flex-1"
-                  disabled={isSendingCredentials}
-                >
-                  {isSendingCredentials ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Sending...
-                    </>
-                  ) : (
-                    'Send Credentials'
-                  )}
-                </Button>
-              </div>
-            </div>
+      <AppModal
+        open={showDeletePopup}
+        onClose={() => setShowDeletePopup(false)}
+        title="Delete Coach"
+        size="sm"
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setShowDeletePopup(false)}
+              className="w-full border-[#D1D5DB] text-[#4F5077] sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm} className="w-full sm:w-auto">
+              Delete
+            </Button>
           </div>
-        </div>
-      )}
+        }
+      >
+        <p className="text-sm leading-relaxed text-[#6B7280]">
+          Are you sure you want to delete this coach? This action cannot be undone.
+        </p>
+      </AppModal>
+
+      <SendCredentialsModal
+        open={Boolean(showSendCredentialsPopup && selectedCoachForCredentials)}
+        onClose={() => {
+          if (isSendingCredentials) return
+          setShowSendCredentialsPopup(false)
+          setSelectedCoachForCredentials(null)
+        }}
+        onConfirm={handleSendCredentialsConfirm}
+        name={selectedCoachForCredentials?.full_name || ""}
+        email={selectedCoachForCredentials?.contact_info?.email || ""}
+        roleLabel="Coach"
+        sending={isSendingCredentials}
+      />
     </div>
   )
 }

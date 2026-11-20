@@ -187,7 +187,7 @@ export default function CoachAttendanceReportsPage() {
         'Date',
         'Student Name',
         'Course',
-        'Branch',
+        'Academy',
         'Status',
         'Check-in Time',
         'Check-out Time',
@@ -441,7 +441,7 @@ export default function CoachAttendanceReportsPage() {
                       <th className="text-left py-3">Date</th>
                       <th className="text-left py-3">Student</th>
                       <th className="text-left py-3">Course</th>
-                      <th className="text-left py-3">Branch</th>
+                      <th className="text-left py-3">Academy</th>
                       <th className="text-left py-3">Status</th>
                       <th className="text-left py-3">Check-in</th>
                       <th className="text-left py-3">Check-out</th>

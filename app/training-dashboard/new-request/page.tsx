@@ -69,7 +69,7 @@ export default function NewTrainingRequestDashboardPage() {
       if (user.phone) setContactPhone(user.phone)
     }
 
-    // Load branches
+    // Load academies
     fetch("/api/branches/public", { headers: { "Content-Type": "application/json" } })
       .then((res) => (res.ok ? res.json() : Promise.resolve({ branches: [] })))
       .then((data) => {
@@ -77,7 +77,7 @@ export default function NewTrainingRequestDashboardPage() {
         const opts: BranchOpt[] = (Array.isArray(list) ? list : []).map(
           (b: Record<string, any>) => ({
             id: String(b.id),
-            name: b.branch?.name || b.name || b.code || "Branch",
+            name: b.branch?.name || b.name || b.code || "Academy",
           })
         )
         setBranches(opts)
@@ -511,11 +511,11 @@ export default function NewTrainingRequestDashboardPage() {
 
             <div className="sm:col-span-2 space-y-1">
               <Label htmlFor="branch" className="text-xs font-medium">
-                Preferred Nearby Branch
+                Preferred Nearby Academy
               </Label>
               <Select value={branchId} onValueChange={setBranchId}>
                 <SelectTrigger id="branch" className="text-xs h-9">
-                  <SelectValue placeholder="Select Branch (Optional)" />
+                  <SelectValue placeholder="Select Academy (Optional)" />
                 </SelectTrigger>
                 <SelectContent>
                   {branches.map((b) => (

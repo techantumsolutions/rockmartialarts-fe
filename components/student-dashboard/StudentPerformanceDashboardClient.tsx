@@ -552,7 +552,7 @@ export function StudentPerformanceDashboardClient({
             <p className="text-sm text-slate-600">
               {canEdit
                 ? "Fee status is read from payments. Use the form below to update belt, skills, goals, feedback, and warrior stats."
-                : "Your fee status and next due date come from your enrollment and payments. Contact your branch for updates."}
+                : "Your fee status and next due date come from your enrollment and payments. Contact your academy for updates."}
             </p>
           </div>
           <div className="flex gap-2">

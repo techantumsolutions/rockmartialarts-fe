@@ -25,7 +25,7 @@ const reportCategories: ReportCategory[] = [
   {
     id: "coach",
     name: "Coach Reports",
-    description: "Comprehensive coach (coach) information and analytics for your branch",
+    description: "Comprehensive coach (coach) information and analytics for your academy",
     icon: Users,
     reports: [
       { id: "coach-overview", name: "Coach Overview", icon: Users },
@@ -35,16 +35,16 @@ const reportCategories: ReportCategory[] = [
   },
   {
     id: "branch",
-    name: "Branch Reports",
-    description: "Branch-specific analytics, performance, and operational reports",
+    name: "Academy Reports",
+    description: "Academy-specific analytics, performance, and operational reports",
     icon: TrendingUp,
     reports: [
-      { id: "branch-performance-overview", name: "Branch Performance Overview", icon: TrendingUp },
-      { id: "branch-enrollment-statistics", name: "Branch Enrollment Statistics", icon: FileText },
-      { id: "branch-revenue-analysis", name: "Branch Revenue Analysis", icon: TrendingUp },
-      { id: "branch-capacity-utilization", name: "Branch Capacity Utilization", icon: FileText },
-      { id: "branch-staff-allocation", name: "Branch Staff Allocation", icon: FileText },
-      { id: "branch-operational-hours", name: "Branch Operational Hours", icon: FileText },
+      { id: "academy-performance-overview", name: "Academy Performance Overview", icon: TrendingUp },
+      { id: "academy-enrollment-statistics", name: "Academy Enrollment Statistics", icon: FileText },
+      { id: "academy-revenue-analysis", name: "Academy Revenue Analysis", icon: TrendingUp },
+      { id: "academy-capacity-utilization", name: "Academy Capacity Utilization", icon: FileText },
+      { id: "academy-staff-allocation", name: "Academy Staff Allocation", icon: FileText },
+      { id: "academy-operational-hours", name: "Academy Operational Hours", icon: FileText },
     ]
   },
   {
@@ -142,7 +142,7 @@ export default function BranchManagerReports() {
         {/* Header */}
         <div className="flex flex-col lg:flex-row justify-between items-start py-8 mb-4 lg:items-center gap-4">
           <div>
-            <h1 className="text-2xl font-medium text-gray-600">Branch Reports</h1>
+            <h1 className="text-2xl font-medium text-gray-600">Academy Reports</h1>
             <p className="text-sm text-gray-500 mt-1">Analytics and insights for your branch operations</p>
           </div>
         </div>
@@ -222,7 +222,7 @@ export default function BranchManagerReports() {
                   <div>
                     <p className="text-sm font-medium text-gray-600">Most Popular</p>
                     <p className="text-sm font-bold text-purple-600">
-                      Branch Performance
+                      Academy Performance
                     </p>
                   </div>
                   <TrendingUp className="w-8 h-8 text-purple-500" />
@@ -262,7 +262,7 @@ export default function BranchManagerReports() {
                       <TrendingUp className="w-4 h-4 text-blue-600" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">Branch Performance Overview</p>
+                      <p className="text-sm font-medium text-gray-900">Academy Performance Overview</p>
                       <p className="text-xs text-gray-500">Generated 2 hours ago</p>
                     </div>
                   </div>

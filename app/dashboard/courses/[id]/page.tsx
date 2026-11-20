@@ -507,7 +507,7 @@ export default function CourseDetailPage() {
                   <div>
                     <h3 className="text-sm font-medium text-[#7D8592] mb-2 flex items-center">
                       <Building2 className="w-4 h-4 mr-2" />
-                      Available at Branches
+                      Available at Academies
                     </h3>
                     <div className="flex flex-wrap gap-2">
                       {course.branch_assignments.map((branch, index) => (

@@ -294,7 +294,7 @@ export default function AssignedCoursesPage() {
 
                           {course.branch_name && (
                             <div className="flex items-center justify-between text-sm">
-                              <span className="text-gray-500">Branch:</span>
+                              <span className="text-gray-500">Academy:</span>
                               <span className="font-medium">{course.branch_name}</span>
                             </div>
                           )}
@@ -336,7 +336,7 @@ export default function AssignedCoursesPage() {
                         <div className="pt-4 mt-auto">
                           <Button 
                             onClick={() => router.push(`/coach-dashboard/courses/${course.id}`)}
-                            className="w-full bg-yellow-400 hover:bg-yellow-500 text-black"
+                            className="w-full "
                           >
                             <Eye className="w-4 h-4 mr-2" />
                             View Details

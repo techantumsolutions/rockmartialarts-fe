@@ -2,8 +2,8 @@ import type { NavChild, NavItem } from "@/lib/dashboard-config"
 
 export const PARTNER_FEATURE_DEFS: { key: string; label: string }[] = [
   { key: "dashboard", label: "Dashboard" },
-  { key: "branches", label: "Branches" },
-  { key: "branch-managers", label: "Branch Managers" },
+  { key: "branches", label: "Academies" },
+  { key: "branch-managers", label: "Academy Managers" },
   { key: "coaches", label: "Coaches" },
   { key: "students", label: "Students" },
   { key: "courses", label: "Courses" },
@@ -14,7 +14,6 @@ export const PARTNER_FEATURE_DEFS: { key: string; label: string }[] = [
   { key: "leads", label: "Leads / CRM" },
   { key: "org-branding", label: "Organization Branding" },
   { key: "achievements-showcase", label: "Achievements" },
-  { key: "settings", label: "Settings" },
 ]
 
 export const PARTNER_FEATURE_STORAGE_KEY = "partner_feature_permissions"

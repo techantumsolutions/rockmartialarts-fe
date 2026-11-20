@@ -115,7 +115,7 @@ export default function BranchManagerSettingsPage() {
         const token = BranchManagerAuth.getToken()
         const branchId = currentUser?.branch_id
         if (!currentUser || !token || !branchId) {
-          throw new Error("Branch manager session or branch assignment not found")
+          throw new Error("Academy manager session or academy assignment not found")
         }
 
         const branch = await branchAPI.getBranchById(branchId, token)
@@ -137,7 +137,7 @@ export default function BranchManagerSettingsPage() {
         }))
 
         setSettingsReadOnlyNotice(
-          "Notification, security, and display preferences are not stored on the branch API yet and are shown as read-only."
+          "Notification, security, and display preferences are not stored on the academy API yet and are shown as read-only."
         )
 
       } catch (error) {
@@ -167,11 +167,11 @@ export default function BranchManagerSettingsPage() {
     const newErrors: FormErrors = {}
 
     if (!settings.branch_name.trim()) {
-      newErrors.branch_name = "Branch name is required"
+      newErrors.branch_name = "Academy name is required"
     }
 
     if (!settings.branch_email.trim()) {
-      newErrors.branch_email = "Branch email is required"
+      newErrors.branch_email = "Academy email is required"
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(settings.branch_email)) {
       newErrors.branch_email = "Please enter a valid email address"
     }
@@ -201,7 +201,7 @@ export default function BranchManagerSettingsPage() {
       const branchId = currentUser?.branch_id
 
       if (!token || !branchId || !branchRecord) {
-        throw new Error("Branch profile is not loaded")
+        throw new Error("Academy profile is not loaded")
       }
 
       const existingTimings = branchRecord.operational_details?.timings || []
@@ -250,14 +250,14 @@ export default function BranchManagerSettingsPage() {
 
       toast({
         title: "Success",
-        description: "Branch profile and operating hours saved",
+        description: "Academy profile and operating hours saved",
       })
     } catch (error) {
       console.error('Error updating settings:', error)
       const description =
         error instanceof Error
           ? error.message
-          : "Failed to update branch settings"
+          : "Failed to update academy settings"
       toast({
         title: "Unable to save",
         description,
@@ -330,7 +330,7 @@ export default function BranchManagerSettingsPage() {
           {/* Header */}
           <div className="flex flex-col lg:flex-row justify-between items-start py-8 mb-6 lg:items-center gap-4">
             <div>
-              <h1 className="text-2xl font-medium text-gray-600">Branch Settings</h1>
+              <h1 className="text-2xl font-medium text-gray-600">Academy Settings</h1>
               <p className="text-sm text-gray-500 mt-1">Configure your branch preferences and operational settings</p>
             </div>
             <div className="flex gap-3">
@@ -359,12 +359,12 @@ export default function BranchManagerSettingsPage() {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Settings className="w-5 h-5 text-blue-600" />
-                  <span>Branch Configuration</span>
+                  <span>Academy Configuration</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="branch_name">Branch Name *</Label>
+                  <Label htmlFor="branch_name">Academy Name *</Label>
                   <Input
                     id="branch_name"
                     value={settings.branch_name}
@@ -377,7 +377,7 @@ export default function BranchManagerSettingsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="branch_code">Branch Code</Label>
+                  <Label htmlFor="branch_code">Academy Code</Label>
                   <Input
                     id="branch_code"
                     value={settings.branch_code}
@@ -388,7 +388,7 @@ export default function BranchManagerSettingsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="branch_email">Branch Email *</Label>
+                  <Label htmlFor="branch_email">Academy Email *</Label>
                   <Input
                     id="branch_email"
                     type="email"
@@ -402,7 +402,7 @@ export default function BranchManagerSettingsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="branch_phone">Branch Phone</Label>
+                  <Label htmlFor="branch_phone">Academy Phone</Label>
                   <Input
                     id="branch_phone"
                     value={settings.branch_phone}

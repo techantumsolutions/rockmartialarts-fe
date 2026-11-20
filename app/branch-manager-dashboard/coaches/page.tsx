@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation"
 import Header from "@/components/layout/Header"
 import { getBackendApiUrl } from "@/lib/config"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { AppModal } from "@/components/ui/AppModal"
 
 interface Coach {
   id: string
@@ -53,7 +54,7 @@ export default function BranchManagerCoachesList() {
     }
   }, [router])
 
-  // Load coaches data for branch manager from API
+  // Load coaches data for academy manager from API
   useEffect(() => {
     const loadCoachesData = async () => {
       try {
@@ -67,11 +68,11 @@ export default function BranchManagerCoachesList() {
           throw new Error("Authentication required. Please login again.")
         }
 
-        console.log('Loading coaches for branch manager:', currentUser.full_name)
-        console.log('Branch manager branch assignment:', currentUser.branch_assignment)
+        console.log('Loading coaches for academy manager:', currentUser.full_name)
+        console.log('Academy manager academy assignment:', currentUser.branch_assignment)
 
-        // First, let's get the branches this manager manages to understand the filtering (via proxy to avoid 405/CORS)
-        console.log('🔍 DEBUGGING: Fetching branches first to understand filtering...')
+        // First, let's get the academyes this manager manages to understand the filtering (via proxy to avoid 405/CORS)
+        console.log('🔍 DEBUGGING: Fetching academies first to understand filtering...')
         const branchesResponse = await fetch(getBackendApiUrl('branches?limit=100'), {
           headers: {
             'Content-Type': 'application/json',
@@ -83,10 +84,10 @@ export default function BranchManagerCoachesList() {
           const branchesData = await branchesResponse.json()
           const managedBranches = branchesData.branches || []
           const branchIds = managedBranches.map((branch: any) => branch.id)
-          console.log('🏢 Branches managed by this branch manager:', managedBranches.length)
-          console.log('🏢 Branch IDs:', branchIds)
+          console.log('🏢 Academies managed by this academy manager:', managedBranches.length)
+          console.log('🏢 Academy IDs:', branchIds)
           managedBranches.forEach((branch: any, index: number) => {
-            console.log(`   Branch ${index + 1}: ${branch.branch?.name || 'Unknown'} (ID: ${branch.id})`)
+            console.log(`   Academy ${index + 1}: ${branch.branch?.name || 'Unknown'} (ID: ${branch.id})`)
           })
         }
 
@@ -137,7 +138,7 @@ export default function BranchManagerCoachesList() {
 
         // Debug: Show branch_id for each coach
         allCoaches.forEach((coach: any, index: number) => {
-          console.log(`   Coach ${index + 1}: ${coach.full_name || coach.first_name + ' ' + coach.last_name || 'Unknown'} - Branch ID: ${coach.branch_id || 'No branch_id'}`)
+          console.log(`   Coach ${index + 1}: ${coach.full_name || coach.first_name + ' ' + coach.last_name || 'Unknown'} - Academy ID: ${coach.branch_id || 'No branch_id'}`)
         })
 
         // Transform the API data to match our Coach interface
@@ -171,8 +172,8 @@ export default function BranchManagerCoachesList() {
         console.log('Final coaches count:', transformedCoaches.length)
 
         if (transformedCoaches.length === 0) {
-          console.log('No coaches found for branch manager')
-          setError("No coaches assigned to your branches. Please contact your administrator if you expect to see coaches here.")
+          console.log('No coaches found for academy manager')
+          setError("No coaches assigned to your academies. Please contact your administrator if you expect to see coaches here.")
         } else {
           console.log(`✅ Loaded ${transformedCoaches.length} coach(es) for ${currentUser.full_name}`)
         }
@@ -214,7 +215,7 @@ export default function BranchManagerCoachesList() {
         return
       }
 
-      // Get branch manager profile
+      // Get academy manager profile
       const profileResponse = await fetch(`/api/backend/branch-managers/me`, {
         method: 'GET',
         headers: {
@@ -224,14 +225,14 @@ export default function BranchManagerCoachesList() {
       })
 
       if (!profileResponse.ok) {
-        throw new Error(`Failed to fetch branch manager profile: ${profileResponse.status}`)
+        throw new Error(`Failed to fetch academy manager profile: ${profileResponse.status}`)
       }
 
       const profileData = await profileResponse.json()
       const branchId = profileData.branch_manager?.branch_assignment?.branch_id
 
       if (!branchId) {
-        setError("No branch assigned to this manager")
+        setError("No academy assigned to this manager")
         return
       }
 
@@ -430,7 +431,7 @@ export default function BranchManagerCoachesList() {
                     <p className="text-yellow-700 mb-4">
                       {searchTerm
                         ? `No coaches match your search "${searchTerm}"`
-                        : "You don't have any coaches assigned to your branches yet."
+                        : "You don't have any coaches assigned to your academies yet."
                       }
                     </p>
                     {!searchTerm && (
@@ -578,31 +579,30 @@ export default function BranchManagerCoachesList() {
           </div>
         </div>
 
-      {/* Delete Confirmation Modal */}
-      {showDeletePopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Confirm Delete</h3>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete this coach? This action cannot be undone.
-            </p>
-            <div className="flex justify-end space-x-3">
-              <Button
-                variant="outline"
-                onClick={() => setShowDeletePopup(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={confirmDelete}
-              >
-                Delete
-              </Button>
-            </div>
+      <AppModal
+        open={showDeletePopup}
+        onClose={() => setShowDeletePopup(false)}
+        title="Confirm Delete"
+        size="sm"
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setShowDeletePopup(false)}
+              className="w-full border-[#D1D5DB] text-[#4F5077] sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete} className="w-full sm:w-auto">
+              Delete
+            </Button>
           </div>
-        </div>
-      )}
+        }
+      >
+        <p className="text-sm leading-relaxed text-[#6B7280]">
+          Are you sure you want to delete this coach? This action cannot be undone.
+        </p>
+      </AppModal>
     </>
   )
 }

@@ -195,10 +195,10 @@ export default function PaymentTrackingPage() {
         <div className="flex items-center justify-between border-1 shadow overflow-x-auto p-6 gap-6 mb-0">
           {/* Branch Select */}
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-700">Select Branch:</span>
+            <span className="text-sm font-medium text-gray-700">Select Academy:</span>
             <Select>
               <SelectTrigger className="w-48 bg-gray-100 text-gray-600 border-0">
-                <SelectValue placeholder="Choose branch" />
+                <SelectValue placeholder="Choose academy" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="madhapur">Madhapur</SelectItem>
@@ -209,7 +209,7 @@ export default function PaymentTrackingPage() {
           </div>
 
           {/* Payment Alerts Button */}
-          <Button className="bg-yellow-400 hover:bg-yellow-500 text-[#fff] text-[10px] px-6 py-2 w-[120px] rounded-md shadow-sm">
+          <Button className="text-[10px] px-6 py-2 w-[120px] rounded-md shadow-sm">
             Payment alerts
           </Button>
 

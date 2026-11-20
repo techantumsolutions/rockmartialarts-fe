@@ -87,11 +87,11 @@ export default function AddCoachPage() {
   ]
 
   const branches = [
-    "Madhapur Branch",
-    "Hitech City Branch", 
-    "Gachibowli Branch",
-    "Kondapur Branch",
-    "Kukatpally Branch"
+    "Madhapur Academy",
+    "Hitech City Academy", 
+    "Gachibowli Academy",
+    "Kondapur Academy",
+    "Kukatpally Academy"
   ]
 
   const courses = [
@@ -468,13 +468,13 @@ export default function AddCoachPage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="branch">Assign to Branch</Label>
+                  <Label htmlFor="branch">Assign to Academy</Label>
                   <Select 
                     value={formData.branch} 
                     onValueChange={(value) => setFormData({ ...formData, branch: value })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select branch" />
+                      <SelectValue placeholder="Select academy" />
                     </SelectTrigger>
                     <SelectContent>
                       {branches.map((branch) => (
@@ -638,7 +638,7 @@ export default function AddCoachPage() {
             </Button>
             <Button
               type="submit"
-              className="bg-yellow-400 hover:bg-yellow-500 text-black"
+              className=""
               disabled={isSubmitting}
             >
               {isSubmitting ? (
@@ -664,7 +664,7 @@ export default function AddCoachPage() {
               </svg>
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Coach Created Successfully!</h3>
-            <p className="text-gray-600 mb-4">The new coach has been added to your academy.</p>
+            <p className="text-gray-600 mb-4">The new coach has been added to your branch.</p>
             <div className="w-6 h-6 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
           </div>
         </div>

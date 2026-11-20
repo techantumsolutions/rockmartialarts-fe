@@ -100,7 +100,7 @@ export async function fetchCoachAssignments(
 }
 
 /**
- * Checks whether a student is enrolled in the coach's assigned branch, course, and batch.
+ * Checks whether a student is enrolled in the coach's assigned academy, course, and batch.
  */
 export function isStudentAssignedToCoach(
   student: any,
@@ -110,7 +110,7 @@ export function isStudentAssignedToCoach(
 ): boolean {
   if (!student || !assignments) return false
 
-  // 1. Branch verification
+  // 1. Academy verification
   const coachBranchId = assignments.branch_id
   if (coachBranchId) {
     const studentBranchId =
@@ -132,7 +132,7 @@ export function isStudentAssignedToCoach(
       })
     }
 
-    // If student has explicit branch info and does not belong to coach's branch, reject
+    // If student has explicit academy info and does not belong to coach's academy, reject
     if (studentEnrolledBranchIds.size > 0 && !studentEnrolledBranchIds.has(String(coachBranchId))) {
       return false
     }

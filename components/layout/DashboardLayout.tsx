@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { usePathname } from "next/navigation"
-import { type DashboardRole } from "@/lib/dashboard-config"
+import { getPortalIdentityLabel, type DashboardRole } from "@/lib/dashboard-config"
 import Navbar from "@/components/layout/Navbar"
 import Sidebar, {
   SIDEBAR_WIDTH_COLLAPSED,
@@ -50,6 +50,31 @@ export default function DashboardLayout({ children, role }: DashboardLayoutProps
     }
   }, [])
 
+  // Keep browser tab identity in sync for client navigations within the shell.
+  useEffect(() => {
+    const portal = getPortalIdentityLabel(role)
+    const current = (document.title || "").trim()
+    if (!current || current === "Rock Martial Arts Academy" || /student portal/i.test(current)) {
+      document.title = portal
+      return
+    }
+    if (!current.includes(portal) && !current.endsWith(`| ${portal}`)) {
+      // Strip a previous portal suffix if present, then apply this role's identity.
+      const bare = current.replace(/\s*\|\s*.*Portal\s*$/i, "").trim() || portal
+      document.title = bare === portal ? portal : `${bare} | ${portal}`
+    }
+  }, [role, pathname])
+
+  const sidebarWidth = collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED
+
+  useEffect(() => {
+    if (!useSidebar) return
+    document.documentElement.style.setProperty("--admin-sidebar-w", `${sidebarWidth}px`)
+    return () => {
+      document.documentElement.style.removeProperty("--admin-sidebar-w")
+    }
+  }, [useSidebar, sidebarWidth])
+
   if (!useSidebar) {
     return (
       <div className="flex min-h-screen min-w-0 flex-col bg-gray-50">
@@ -64,8 +89,6 @@ export default function DashboardLayout({ children, role }: DashboardLayoutProps
       </div>
     )
   }
-
-  const sidebarWidth = collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED
 
   return (
     <div

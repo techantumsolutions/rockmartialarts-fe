@@ -24,7 +24,7 @@ export interface DashboardStats {
   students_registered_in_period?: number
   /** Distinct courses with at least one enrollment created in the period */
   courses_with_enrollments_in_period?: number
-  // Additional fields for branch manager dashboard
+  // Additional fields for academy manager dashboard
   total_students?: number
   total_coaches?: number
   active_coaches?: number
@@ -112,7 +112,7 @@ class DashboardAPI extends BaseAPI {
   }
 
   /**
-   * Get dashboard statistics for branch manager (automatically filters by their branch)
+   * Get dashboard statistics for academy manager (automatically filters by their academy)
    */
   async getBranchManagerDashboardStats(
     token: string,
@@ -164,7 +164,7 @@ class DashboardAPI extends BaseAPI {
   }
 
   /**
-   * Get coaches for branch manager (automatically filters by their branch)
+   * Get coaches for academy manager (automatically filters by their academy)
    */
   async getBranchManagerCoaches(token: string, params?: {
     skip?: number

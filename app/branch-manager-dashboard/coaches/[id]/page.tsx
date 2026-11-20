@@ -187,7 +187,7 @@ export default function BranchManagerCoachDetailPage() {
           difficulty_level: course.difficulty_level || "Beginner",
           enrolled_students: course.enrolled_students || 0,
           schedule: course.schedule || "Schedule TBD",
-          branch_name: course.branch_name || "Unknown Branch",
+          branch_name: course.branch_name || "Unknown Academy",
           status: course.status || 'active'
         })) || []
       } else {
@@ -305,7 +305,7 @@ export default function BranchManagerCoachDetailPage() {
 
     const getErrorDescription = () => {
       if (error.includes("permission") || error.includes("403")) {
-        return "You don't have permission to view this coach. This coach may not be working in any branches you manage."
+        return "You don't have permission to view this coach. This coach may not be working in any academies you manage."
       }
       if (error.includes("not found") || error.includes("404")) {
         return "The coach you're looking for doesn't exist or may have been removed."

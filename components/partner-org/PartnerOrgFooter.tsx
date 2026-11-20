@@ -31,7 +31,7 @@ export function PartnerOrgFooter({
   const logo = resolvePublicAssetUrl(footerLogoUrl || "") || null
   const quickLinks = [
     { label: "Courses", href: `${base}/courses` },
-    { label: "Branches", href: `${base}/branches` },
+    { label: "Academies", href: `${base}/branches` },
     { label: "Contact", href: `${base}/contact` },
   ]
   const social = Object.entries(socialLinks || {}).filter(([, v]) => !!v)

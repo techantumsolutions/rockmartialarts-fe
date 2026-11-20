@@ -17,8 +17,8 @@ import {
   ChevronDown,
   Check,
   Quote,
-  X,
 } from "lucide-react"
+import { ImageLightbox } from "@/components/ui/ImageLightbox"
 import { stripUuidFromPriceDisplay } from "@/lib/priceDisplay"
 import { formatTimingString } from "@/lib/formatWeekdayRanges"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -76,7 +76,15 @@ type CourseData = {
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
-function SectionLabel({ sub, title }: { sub?: string; title?: string }) {
+function SectionLabel({
+  sub,
+  title,
+  light,
+}: {
+  sub?: string
+  title?: string
+  light?: boolean
+}) {
   if (!sub?.trim() && !title?.trim()) return null
   return (
     <div className="text-center mb-10">
@@ -85,7 +93,12 @@ function SectionLabel({ sub, title }: { sub?: string; title?: string }) {
         <p className="text-[#FFB70F] uppercase tracking-[0.25em] text-sm font-semibold mb-2">{sub}</p>
       ) : null}
       {title?.trim() ? (
-        <h2 className="text-3xl md:text-4xl font-extrabold text-white uppercase" style={{ fontFamily: "'Oswald', sans-serif" }}>{title}</h2>
+        <h2
+          className={`text-3xl md:text-4xl font-extrabold uppercase ${light ? "text-[#171A26]" : "text-white"}`}
+          style={{ fontFamily: "'Oswald', sans-serif" }}
+        >
+          {title}
+        </h2>
       ) : null}
     </div>
   )
@@ -214,6 +227,18 @@ function flattenPublicCoursePayload(data: Record<string, unknown>): CourseData {
     }))
     .filter((b) => b.branch_id)
   const existing = Array.isArray(base.branch_assignments) ? base.branch_assignments : []
+  const byId = new Map<string, { branch_id: string; branch_name: string; location: string }>()
+  for (const row of [...existing, ...fromOffering]) {
+    const id = String((row as { branch_id?: string }).branch_id || "").trim()
+    if (!id) continue
+    const prev = byId.get(id)
+    const next = row as { branch_id: string; branch_name?: string; location?: string }
+    byId.set(id, {
+      branch_id: id,
+      branch_name: String(next.branch_name || prev?.branch_name || "").trim(),
+      location: String(next.location || prev?.location || "").trim(),
+    })
+  }
   return {
     ...base,
     assigned_coaches: (data.assigned_coaches as CourseData["assigned_coaches"]) || base.assigned_coaches,
@@ -221,7 +246,7 @@ function flattenPublicCoursePayload(data: Record<string, unknown>): CourseData {
       (data.instructor_assignments as CourseData["assigned_coaches"]) || base.instructor_assignments,
     showcase_achievements:
       (data.showcase_achievements as CourseData["showcase_achievements"]) || base.showcase_achievements,
-    branch_assignments: existing.length > 0 ? existing : fromOffering,
+    branch_assignments: Array.from(byId.values()),
   }
 }
 
@@ -300,6 +325,7 @@ function CourseDetailPageInner() {
   const [selectedDurationKey, setSelectedDurationKey] = useState<string | null>(null)
   const [branchPricingInfo, setBranchPricingInfo] = useState<BranchPricingInfo | null>(null)
   const [branchPricingLoading, setBranchPricingLoading] = useState(false)
+  const [livePaymentFee, setLivePaymentFee] = useState<number | null>(null)
   const branchInitDoneRef = useRef(false)
   const [showcaseAchievements, setShowcaseAchievements] = useState<ShowcaseAchievementItem[]>([])
   const [showcaseLoading, setShowcaseLoading] = useState(false)
@@ -369,8 +395,8 @@ function CourseDetailPageInner() {
       .finally(() => setLoading(false))
   }, [slug])
 
-  /* After course loads: pick branch from ?branchId (legacy), localStorage, or first assignment.
-     Keep branch selection in state/localStorage only — never expose branch UUID in the public URL. */
+  /* After course loads: pick academy from ?branchId (legacy), localStorage, or first assignment.
+     Keep academy selection in state/localStorage only — never expose academy UUID in the public URL. */
   useEffect(() => {
     if (loading || !course) return
     const branches = (course.branch_assignments || []) as { branch_id: string }[]
@@ -430,7 +456,7 @@ function CourseDetailPageInner() {
       } catch {
         /* ignore */
       }
-      // Public URL stays course-slug only (no branch UUID query param).
+      // Public URL stays course-slug only (no academy UUID query param).
       const pathSlug = course?.slug || slug
       if (pathSlug && searchParams.get("branchId")) {
         router.replace(`/courses/${encodeURIComponent(pathSlug)}`, { scroll: false })
@@ -453,25 +479,34 @@ function CourseDetailPageInner() {
     }
     let cancelled = false
     setBranchPricingLoading(true)
-    fetch(
-      `/api/backend/courses/public/detail/${encodeURIComponent(course.id)}/branch-info?branch_id=${encodeURIComponent(effectiveLocationForFetch)}`,
-      { headers: { "Content-Type": "application/json" }, cache: "no-store" }
-    )
-      .then(async (res) => ({ ok: res.ok, data: await res.json().catch(() => ({})) }))
-      .then(({ ok, data }) => {
+    const qs = `branch_id=${encodeURIComponent(effectiveLocationForFetch)}`
+    const base = `/api/backend/courses/public/detail/${encodeURIComponent(course.id)}`
+    ;(async () => {
+      try {
+        let res = await fetch(`${base}/academy-info?${qs}`, {
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+        })
+        let data = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          res = await fetch(`${base}/branch-info?${qs}`, {
+            headers: { "Content-Type": "application/json" },
+            cache: "no-store",
+          })
+          data = await res.json().catch(() => ({}))
+        }
         if (cancelled) return
-        if (!ok) {
+        if (!res.ok) {
           setBranchPricingInfo(null)
           return
         }
         setBranchPricingInfo(data as BranchPricingInfo)
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) setBranchPricingInfo(null)
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setBranchPricingLoading(false)
-      })
+      }
+    })()
     return () => {
       cancelled = true
     }
@@ -512,6 +547,47 @@ function CourseDetailPageInner() {
       cancelled = true
     }
   }, [course?.id, effectiveLocationForFetch])
+
+  /* Authoritative course fee from admin payment-info (batch fee_per_duration). */
+  useEffect(() => {
+    if (!course?.id || !effectiveLocationForFetch) {
+      setLivePaymentFee(null)
+      return
+    }
+    const durs = (course.available_durations || []) as {
+      id?: string
+      code?: string
+    }[]
+    const durKey =
+      selectedDurationKey ?? (durs[0]?.id ?? durs[0]?.code ?? null)
+    if (!durKey) {
+      setLivePaymentFee(null)
+      return
+    }
+    let cancelled = false
+    const qs = new URLSearchParams({
+      branch_id: effectiveLocationForFetch,
+      duration: String(durKey),
+    })
+    fetch(
+      `/api/backend/courses/${encodeURIComponent(course.id)}/payment-info?${qs.toString()}`,
+      { headers: { "Content-Type": "application/json" }, cache: "no-store" }
+    )
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error("payment-info failed")
+        const fee = data?.pricing?.course_fee
+        const n = typeof fee === "number" ? fee : parseFloat(String(fee ?? ""))
+        if (cancelled) return
+        setLivePaymentFee(Number.isFinite(n) && n > 0 ? n : null)
+      })
+      .catch(() => {
+        if (!cancelled) setLivePaymentFee(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [course?.id, course?.available_durations, effectiveLocationForFetch, selectedDurationKey])
 
   /* Loading / Error */
   if (loading) return <main className="min-h-screen flex items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-[#FFB70F]" /></main>
@@ -608,17 +684,20 @@ function CourseDetailPageInner() {
   const heroImg = rawHeroImg
     ? resolveUploadUrl(rawHeroImg)
     : defaults.heroImageFallback || ""
-  const branches = (course.branch_assignments || []) as { branch_id: string; branch_name: string; location: string }[]
-  const durations = (course.available_durations || []) as { id: string; name?: string; duration_months?: number; code?: string }[]
+  const branches = (course.branch_assignments || []) as {
+    branch_id: string
+    branch_name: string
+    location: string
+  }[]
+  const allDurations = (course.available_durations || []) as {
+    id: string
+    name?: string
+    duration_months?: number
+    code?: string
+  }[]
   const feePerDuration = (course.fee_per_duration || {}) as Record<string, number>
 
   const effectiveLocationId = selectedLocationId ?? (branches[0]?.branch_id ?? null)
-  const effectiveDurationKey = selectedDurationKey ?? (durations[0]?.id ?? durations[0]?.code ?? null)
-
-  const selectedBranch = branches.find((b) => b.branch_id === effectiveLocationId) || branches[0]
-  const selectedDuration =
-    durations.find((duration) => duration.id === effectiveDurationKey || duration.code === effectiveDurationKey) ||
-    durations[0]
 
   const branchApplies =
     !!branchPricingInfo && branchPricingInfo.branch_id === effectiveLocationId
@@ -627,31 +706,78 @@ function CourseDetailPageInner() {
   const mergedFeePerDuration =
     branchApplies && branchFeeMap && Object.keys(branchFeeMap).length > 0
       ? branchFeeMap
-      : feePerDuration
+      : effectiveLocationId
+        ? branchFeeMap || {}
+        : feePerDuration
 
-  /* Merge pricing type maps: branch-specific overrides course-level */
-  const coursePricingType = (course.pricing_type_per_duration || {}) as Record<string, string>
-  const branchPricingType = (branchPricingInfo?.pricing_type_per_duration || {}) as Record<string, string>
+  /* Prefer tenures that have live academy fees when available. */
+  const filteredDurations =
+    branchApplies && branchFeeMap && Object.keys(branchFeeMap).length > 0
+      ? allDurations.filter(
+          (d) =>
+            (d.id && branchFeeMap[d.id] != null) ||
+            (d.code && branchFeeMap[d.code] != null)
+        )
+      : allDurations
+
+  const shownDurations =
+    filteredDurations.length > 0 ? filteredDurations : allDurations
+  const durations = shownDurations
+
+  const effectiveDurationKey =
+    selectedDurationKey ??
+    (shownDurations[0]?.id ?? shownDurations[0]?.code ?? null)
+
+  const selectedBranch =
+    branches.find((b) => b.branch_id === effectiveLocationId) || branches[0]
+  const selectedDuration =
+    shownDurations.find(
+      (duration) =>
+        duration.id === effectiveDurationKey || duration.code === effectiveDurationKey
+    ) || shownDurations[0]
+
+  /* Merge pricing type maps: academy-specific overrides course-level */
+  const coursePricingType = (course.pricing_type_per_duration || {}) as Record<
+    string,
+    string
+  >
+  const branchPricingType = (branchPricingInfo?.pricing_type_per_duration ||
+    {}) as Record<string, string>
   const mergedPricingType =
     branchApplies && Object.keys(branchPricingType).length > 0
       ? branchPricingType
       : coursePricingType
 
   let priceDisplay = ""
-  if (effectiveDurationKey && mergedFeePerDuration && Object.keys(mergedFeePerDuration).length > 0) {
+  // Live payment-info (academy batch fee setup) always wins.
+  if (livePaymentFee != null && livePaymentFee > 0) {
+    priceDisplay = `₹ ${livePaymentFee.toLocaleString("en-IN", {
+      maximumFractionDigits: 0,
+    })}`
+  }
+  if (
+    !priceDisplay &&
+    effectiveDurationKey &&
+    mergedFeePerDuration &&
+    Object.keys(mergedFeePerDuration).length > 0
+  ) {
     const direct = mergedFeePerDuration[effectiveDurationKey]
-    const dur = durations.find((d) => d.id === effectiveDurationKey || d.code === effectiveDurationKey)
+    const dur = shownDurations.find(
+      (d) => d.id === effectiveDurationKey || d.code === effectiveDurationKey
+    )
     const byId = dur?.id ? mergedFeePerDuration[dur.id] : undefined
     let amount = direct ?? byId
-    if (typeof amount === "number" && !Number.isNaN(amount)) {
-      /* When pricing type is "monthly", multiply by duration months to get the total */
+    if (typeof amount === "number" && !Number.isNaN(amount) && amount > 0) {
       const durKey = dur?.id ?? effectiveDurationKey
-      const pType = mergedPricingType[durKey] || mergedPricingType[effectiveDurationKey] || ""
+      const pType =
+        mergedPricingType[durKey] || mergedPricingType[effectiveDurationKey] || ""
       const months = dur?.duration_months ?? 1
       if (pType === "monthly" && months > 1) {
         amount = amount * months
       }
-      priceDisplay = `₹ ${amount.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
+      priceDisplay = `₹ ${amount.toLocaleString("en-IN", {
+        maximumFractionDigits: 0,
+      })}`
     }
   }
   if (
@@ -662,36 +788,26 @@ function CourseDetailPageInner() {
   ) {
     priceDisplay = stripUuidFromPriceDisplay(branchPricingInfo.price_display)
   }
-  /* Avoid global CMS / default fees when branch-specific pricing is active */
-  if (!priceDisplay && !branchApplies && info.price) {
+  /* CMS course_info.price is static — only use when no academy is selected. */
+  if (!priceDisplay && !effectiveLocationId && info.price) {
     priceDisplay = stripUuidFromPriceDisplay(info.price)
   }
-  if (!priceDisplay && !branchApplies && effectiveDurationKey && feePerDuration) {
-    const direct = feePerDuration[effectiveDurationKey]
-    const dur = durations.find((d) => d.id === effectiveDurationKey || d.code === effectiveDurationKey)
-    const byId = dur?.id ? feePerDuration[dur.id] : undefined
-    let amount = direct ?? byId
-    if (typeof amount === "number" && !Number.isNaN(amount)) {
-      const durKey = dur?.id ?? effectiveDurationKey
-      const pType = coursePricingType[durKey] || coursePricingType[effectiveDurationKey] || ""
-      const months = dur?.duration_months ?? 1
-      if (pType === "monthly" && months > 1) {
-        amount = amount * months
-      }
-      priceDisplay = `₹ ${amount.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
-    }
-  }
 
-  const timingLine = (info.training_time || "").trim()
-  const rawTiming =
-    branchApplies && branchPricingInfo?.timings && branchPricingInfo.timings !== "—"
+  /* Timings: academy live schedule only when a branch is selected (never CMS static). */
+  const cmsTimingLine = (info.training_time || "").trim()
+  const liveTiming =
+    branchApplies &&
+    branchPricingInfo?.timings &&
+    branchPricingInfo.timings !== "—"
       ? branchPricingInfo.timings
-      : timingLine
+      : ""
+  const rawTiming = effectiveLocationId ? liveTiming : cmsTimingLine
   const timingDisplay = formatTimingString(rawTiming) || rawTiming
-  const timingBatches = (timingDisplay || timingLine || "")
+  const timingBatches = (timingDisplay || "")
     .split(/\s*\|\s*/)
     .map((s) => s.trim())
     .filter(Boolean)
+  const timingLine = timingDisplay
   const promoVideoUrl = media.promo_video_url || ""
   const effectiveLearningVideo = learning.video_url || promoVideoUrl
   const learningPoster =
@@ -719,7 +835,12 @@ function CourseDetailPageInner() {
       )}
 
       {/* ============ 2. INFO BAR (location / duration / price / timings) ============ */}
-      {enabled("info_bar") && (info.location || durations.length > 0 || info.price || info.training_time) && (
+      {enabled("info_bar") &&
+        (branches.length > 0 ||
+          shownDurations.length > 0 ||
+          priceDisplay ||
+          timingBatches.length > 0 ||
+          timingDisplay) && (
         <section
           className={`bg-[#222635] border-y border-[#383D4D] transition-opacity duration-300 ${
             branchPricingLoading && branches.length > 0 ? "opacity-[0.88]" : "opacity-100"
@@ -844,7 +965,7 @@ function CourseDetailPageInner() {
               )}
 
               {/* Price details for selected duration */}
-              {(priceDisplay || info.price || branchApplies) && (
+              {(priceDisplay || branchApplies || (!effectiveLocationId && info.price)) && (
                 <div className="flex items-center gap-2.5 py-3 px-3 sm:px-3.5 lg:py-3.5 lg:px-4 xl:px-5 lg:flex-1 lg:basis-0 lg:min-w-0 text-white border-b sm:border-b-0 sm:border-r lg:border-r border-white/20 lg:border-b-0 last:border-r-0">
                   <IndianRupee className="w-6 h-6 sm:w-6.5 sm:h-6.5 flex-shrink-0 opacity-90" />
                   <div className="min-w-0 flex-1">
@@ -857,8 +978,11 @@ function CourseDetailPageInner() {
                         </>
                       ) : (
                         priceDisplay ||
-                        (info.price ? stripUuidFromPriceDisplay(info.price) : "") ||
-                        (branchApplies ? "Contact branch for fees" : "")
+                        (effectiveLocationId
+                          ? "Contact academy for fees"
+                          : info.price
+                            ? stripUuidFromPriceDisplay(info.price)
+                            : "")
                       )}
                     </p>
                   </div>
@@ -973,12 +1097,16 @@ function CourseDetailPageInner() {
       ) : null}
 
       {isHeritage && enabled("qualities") && qualities.length > 0 ? (
-        <CourseQualities items={qualities} />
+        <CourseQualities
+          items={qualities}
+          title={
+            headings?.qualities?.title?.trim() || "Develop The Complete Warrior"
+          }
+        />
       ) : null}
 
       {/* Who Can Join — own full-width row (not paired with Learn) */}
-      {!isHeritage &&
-      enabled("who_can_join") &&
+      {enabled("who_can_join") &&
       ((whoCanJoin.items || []).length > 0 || whoCanJoin.note) ? (
         <CourseWhoCanJoin content={whoCanJoin} />
       ) : null}
@@ -1013,6 +1141,70 @@ function CourseDetailPageInner() {
         />
       ) : null}
 
+      {/* CMS course info blocks (image left / right) */}
+      {enabled("course_info_sections") &&
+        courseInfoSections.some((s) => s.title?.trim() || s.content?.trim()) && (
+          <section className="bg-white py-14 md:py-20">
+            <div className="site-content space-y-14 px-0 sm:px-1">
+              {courseInfoSections
+                .filter((s) => s.title?.trim() || s.content?.trim())
+                .map((sec, i) => {
+                  const imageLeft = sec.layout === "image_left"
+                  const img = (sec.image || "").trim()
+                  return (
+                    <div
+                      key={`${sec.title || "info"}-${i}`}
+                      className={`grid items-center gap-8 md:grid-cols-2 md:gap-12 ${
+                        imageLeft ? "" : "md:[&>*:first-child]:order-2"
+                      }`}
+                    >
+                      <div>
+                        {sec.title?.trim() ? (
+                          <h3
+                            className="mb-4 text-2xl font-extrabold uppercase italic tracking-tight text-[#171A26] md:text-3xl"
+                            style={{ fontFamily: "'Oswald', sans-serif" }}
+                          >
+                            {sec.title}
+                          </h3>
+                        ) : null}
+                        {sec.content?.trim() ? (
+                          <p className="text-[15px] leading-relaxed text-gray-700 md:text-base">
+                            {sec.content}
+                          </p>
+                        ) : null}
+                        {(sec.bullet_points || []).filter((b) => b?.trim()).length > 0 ? (
+                          <ul className="mt-4 space-y-2">
+                            {(sec.bullet_points || [])
+                              .filter((b) => b?.trim())
+                              .map((bp, j) => (
+                                <li key={j} className="flex items-start gap-2 text-sm text-gray-700">
+                                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#FFB70F]" />
+                                  <span>{bp}</span>
+                                </li>
+                              ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                      {img ? (
+                        <div className="overflow-hidden rounded-xl border border-[#FFB70F]/30">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={resolveUploadUrl(img)}
+                            alt=""
+                            className="aspect-[4/3] w-full object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                      ) : (
+                        <div className="aspect-[4/3] rounded-xl bg-[#171A26]/5" />
+                      )}
+                    </div>
+                  )
+                })}
+            </div>
+          </section>
+        )}
+
       {/* Fact grid: syllabus / equipment / benefits / why RMAA */}
       {!isHeritage &&
       (enabled("course_content") || enabled("benefits") || enabled("why_rmaa")) &&
@@ -1031,8 +1223,35 @@ function CourseDetailPageInner() {
         />
       ) : null}
 
-      {/* Heritage gallery only */}
-      {isHeritage && enabled("gallery") && gallery.length > 0 && (
+      {/* Learning video */}
+      {enabled("learning") && effectiveLearningVideo ? (
+        <section className="bg-[#0B0C10] py-14 md:py-20">
+          <div className="site-content px-0 sm:px-1">
+            <SectionLabel
+              sub={headings?.learning?.sub || "Watch"}
+              title={
+                headings?.learning?.title ||
+                learning.title ||
+                "Learning Experience"
+              }
+            />
+            {learning.description?.trim() ? (
+              <p className="mx-auto mb-8 max-w-2xl text-center text-sm text-white/70 md:text-base">
+                {learning.description}
+              </p>
+            ) : null}
+            <div className="mx-auto max-w-4xl">
+              <LearningVideoPlayer
+                videoUrl={effectiveLearningVideo}
+                posterUrl={learningPoster || undefined}
+              />
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {/* Gallery — all layouts */}
+      {enabled("gallery") && gallery.length > 0 && (
         <section className="bg-[#0B0C10] py-14 md:py-20">
           <div className="site-content px-0 sm:px-1">
             <SectionLabel
@@ -1049,6 +1268,7 @@ function CourseDetailPageInner() {
                     onClick={() => setSelectedGalleryImg(resolvedUrl)}
                     className="relative h-44 overflow-hidden border border-[#FFB70F]/35 sm:h-52"
                   >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={resolvedUrl}
                       alt={`Gallery ${i + 1}`}
@@ -1062,6 +1282,132 @@ function CourseDetailPageInner() {
           </div>
         </section>
       )}
+
+      {/* Instructors */}
+      {enabled("instructors") && instructors.length > 0 ? (
+        <section className="bg-white py-14 md:py-20">
+          <div className="site-content px-0 sm:px-1">
+            <SectionLabel
+              light
+              sub={headings?.instructors?.sub || "Meet"}
+              title={headings?.instructors?.title || "Instructors"}
+            />
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {instructors.map((inst, i) => (
+                <article
+                  key={`${inst.name}-${i}`}
+                  className="overflow-hidden rounded-xl border border-[#FFB70F]/25 bg-[#0B0C10] text-white shadow-sm"
+                >
+                  <div className="aspect-[4/3] overflow-hidden bg-[#171A26]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={
+                        inst.photo
+                          ? resolveUploadUrl(inst.photo)
+                          : DEFAULT_IMAGE_PLACEHOLDER
+                      }
+                      alt=""
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className="p-5">
+                    <h3
+                      className="text-lg font-extrabold uppercase italic text-[#FFB70F]"
+                      style={{ fontFamily: "'Oswald', sans-serif" }}
+                    >
+                      {inst.name}
+                    </h3>
+                    <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-white/60">
+                      {inst.designation}
+                    </p>
+                    {inst.bio?.trim() ? (
+                      <p className="mt-3 text-sm leading-relaxed text-white/75">
+                        {inst.bio}
+                      </p>
+                    ) : null}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {/* Testimonials */}
+      {enabled("testimonials") && testimonials.length > 0 ? (
+        <section className="bg-[#0B0C10] py-14 md:py-20">
+          <div className="site-content px-0 sm:px-1">
+            <SectionLabel
+              sub={headings?.testimonials?.sub || "Stories"}
+              title={headings?.testimonials?.title || "Testimonials"}
+            />
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+              {testimonials.map((t, i) => (
+                <blockquote
+                  key={`${t.name}-${i}`}
+                  className="relative rounded-xl border border-[#FFB70F]/30 bg-white/[0.03] p-6"
+                >
+                  <Quote className="mb-3 h-6 w-6 text-[#FFB70F]/80" />
+                  <p className="text-sm leading-relaxed text-white/85">
+                    {t.text}
+                  </p>
+                  <footer className="mt-5 flex items-center gap-3">
+                    {t.photo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={resolveUploadUrl(t.photo)}
+                        alt=""
+                        className="h-10 w-10 rounded-full object-cover"
+                      />
+                    ) : null}
+                    <div>
+                      <cite className="not-italic text-sm font-semibold text-[#FFB70F]">
+                        {t.name}
+                      </cite>
+                      {t.designation ? (
+                        <p className="text-xs text-white/55">{t.designation}</p>
+                      ) : null}
+                    </div>
+                  </footer>
+                </blockquote>
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {/* PDF attachments */}
+      {enabled("attachments") &&
+        attachments.some((a) => a.file_url?.trim()) && (
+          <section className="bg-white py-12 md:py-16">
+            <div className="site-content px-0 sm:px-1">
+              <SectionLabel
+                light
+                sub={headings?.attachments?.sub || "Resources"}
+                title={headings?.attachments?.title || "Downloads"}
+              />
+              <div className="mx-auto flex max-w-2xl flex-col gap-3">
+                {attachments
+                  .filter((a) => a.file_url?.trim())
+                  .map((a, i) => (
+                    <a
+                      key={`${a.title}-${i}`}
+                      href={resolveUploadUrl(a.file_url)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 rounded-lg border border-[#FFB70F]/35 bg-[#0B0C10] px-4 py-3 text-white transition hover:border-[#FFB70F] hover:bg-[#171A26]"
+                    >
+                      <Download className="h-5 w-5 shrink-0 text-[#FFB70F]" />
+                      <span className="text-sm font-semibold">
+                        {a.title?.trim() || "Download PDF"}
+                      </span>
+                    </a>
+                  ))}
+              </div>
+            </div>
+          </section>
+        )}
 
       {/* Final journey CTA */}
       {enabled("final_cta") &&
@@ -1084,7 +1430,7 @@ function CourseDetailPageInner() {
           courseId={course.id}
           courseName={displayTitle}
           branchId={effectiveLocationId}
-          branchName={selectedBranch?.branch_name || "Branch"}
+          branchName={selectedBranch?.branch_name || "Academy"}
           durations={durations
             .map((d) => ({
               id: (d.id || d.code || "").trim(),
@@ -1093,28 +1439,13 @@ function CourseDetailPageInner() {
             .filter((d) => d.id)}
         />
       ) : null}
-      {/* Gallery Lightbox Modal */}
-      {selectedGalleryImg && (
-        <div
-          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setSelectedGalleryImg(null)}
-        >
-          <button
-            type="button"
-            onClick={() => setSelectedGalleryImg(null)}
-            className="absolute top-4 right-4 text-white/80 hover:text-white p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors z-50"
-            aria-label="Close image preview"
-          >
-            <X className="w-6 h-6" />
-          </button>
-          <img
-            src={selectedGalleryImg}
-            alt="Gallery preview"
-            className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
+      {selectedGalleryImg ? (
+        <ImageLightbox
+          src={selectedGalleryImg}
+          alt="Gallery preview"
+          onClose={() => setSelectedGalleryImg(null)}
+        />
+      ) : null}
     </main>
   )
 }

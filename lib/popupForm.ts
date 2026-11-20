@@ -55,7 +55,7 @@ export type ResolvedPopupForm = {
 
 export const DEFAULT_POPUP_TITLE = "Get a call from our team"
 export const DEFAULT_POPUP_DESCRIPTION =
-  "Share your details and preferred branch. Our team will contact you with course options and fees."
+  "Share your details and preferred academy. Our team will contact you with course options and fees."
 
 /** Public site: missing CMS object keeps current behavior (all on + default copy). */
 export function resolvePopupForm(raw?: PopupFormSettings | null): ResolvedPopupForm {

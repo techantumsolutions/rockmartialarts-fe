@@ -51,7 +51,7 @@ function getCourseName(course: BranchCourseItem): string {
 }
 
 /**
- * Courses at this branch: uses the public detail payload when present,
+ * Courses at this academy: uses the public detail payload when present,
  * otherwise fetches /api/courses/by-branch/:id.
  */
 export function BranchCourses({ branch }: { branch: BranchData }) {
@@ -142,7 +142,7 @@ export function BranchCourses({ branch }: { branch: BranchData }) {
 
       <div className="container mx-auto px-4 max-w-7xl">
         <h2 className="text-3xl md:text-4xl font-bold text-[#FFB70F] mb-10 text-center">
-          Courses Available at This Branch
+          Courses Available at This Academy
         </h2>
 
         {loading && (
@@ -169,8 +169,8 @@ export function BranchCourses({ branch }: { branch: BranchData }) {
         {!loading && branchCourses.length === 0 && (
           <p className="text-center text-gray-400 py-12">
             {error
-              ? "Could not load courses for this branch. Please try again later."
-              : "No courses currently available at this branch."}
+              ? "Could not load courses for this academy. Please try again later."
+              : "No courses currently available at this academy."}
           </p>
         )}
 

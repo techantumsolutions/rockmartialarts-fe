@@ -87,7 +87,7 @@ class NotificationAPI {
   }
 
   private getUserRole(): string | null {
-    // Check if user is a branch manager
+    // Check if user is an academy manager
     const branchManagerUser = BranchManagerAuth.getCurrentUser()
     if (branchManagerUser && branchManagerUser.role === 'branch_manager') {
       return 'branch_manager'
@@ -109,7 +109,7 @@ class NotificationAPI {
   }
 
   private getAuthToken(): string | null {
-    // Check if user is a branch manager first
+    // Check if user is an academy manager first
     const branchManagerUser = BranchManagerAuth.getCurrentUser()
     if (branchManagerUser && branchManagerUser.role === 'branch_manager') {
       return BranchManagerAuth.getToken()

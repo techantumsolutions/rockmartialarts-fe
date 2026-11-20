@@ -1,19 +1,28 @@
 "use client"
 
-import { useCallback, useEffect, useState, type ComponentProps, type ComponentType } from "react"
 import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ElementType,
+  type ReactNode,
+} from "react"
+import {
+  ArrowLeft,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  FileText,
+  IndianRupee,
+  Layers,
   Loader2,
+  Pencil,
   Plus,
   RefreshCw,
-  Save,
-  Layers,
+  Search,
   Square,
-  IndianRupee,
-  Calendar,
-  ArrowUpDown,
-  FileText,
-  Pencil,
-  MoreVertical,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,24 +31,27 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import {
-  AdminPageShell,
-  AdminPageHeader,
+  AdminBreadcrumb,
   AdminCard,
+  AdminDetailLayout,
+  AdminFilterBar,
+  AdminPageHeader,
+  AdminPageShell,
   AdminTableShell,
+  adminOutlineBtnClass,
+  adminPrimaryBtnClass,
 } from "@/components/dashboard/AdminPageShell"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { AdminStickyFormActions } from "@/components/dashboard/AdminStickyFormActions"
 import { useToast } from "@/hooks/use-toast"
+import { ADMIN_LIST_PAGE_SIZE } from "@/lib/adminListConfig"
 import {
   coachSubscriptionAPI,
   type CoachSubscriptionPlan,
 } from "@/lib/coachSubscriptionAPI"
+import { cn } from "@/lib/utils"
 
-const BRAND_YELLOW = "bg-[#E1BB33] hover:bg-[#c9a82e] text-gray-900"
+type PageMode = "list" | "form" | "view"
+
 const SWITCH_ON = "data-[state=checked]:bg-[#E1BB33]"
 
 const EMPTY_FORM = {
@@ -54,37 +66,79 @@ const EMPTY_FORM = {
   sort_order: 100,
 }
 
-function FieldIconInput({
+function formFromPlan(p: CoachSubscriptionPlan) {
+  return {
+    name: p.name,
+    description: p.description || "",
+    fee_inr: p.fee_inr,
+    duration_days: p.duration_days,
+    grace_period_days: p.grace_period_days,
+    deactivate_on_grace_expiry: p.deactivate_on_grace_expiry,
+    is_active: p.is_active,
+    is_default: Boolean(p.is_default),
+    sort_order: p.sort_order ?? 100,
+  }
+}
+
+function SectionCard({
   icon: Icon,
-  label,
-  id,
-  ...inputProps
+  title,
+  subtitle,
+  children,
+  className,
 }: {
-  icon: ComponentType<{ className?: string }>
-  label: string
-  id: string
-} & ComponentProps<typeof Input>) {
+  icon: ElementType
+  title: string
+  subtitle?: string
+  children: ReactNode
+  className?: string
+}) {
   return (
-    <div className="space-y-1.5">
-      <Label htmlFor={id} className="text-sm font-medium text-[#4F5077]">
-        {label}
-      </Label>
-      <div className="relative">
-        <Icon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
-        <Input id={id} className="h-11 rounded-xl border-gray-200 pl-10" {...inputProps} />
+    <AdminCard className={cn("border-[#E8EAF0]", className)}>
+      <div className="mb-3 flex items-start gap-2.5 border-b border-[#E8EAF0] pb-2.5">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FFF8E1] text-[#C9971A]">
+          <Icon className="h-[18px] w-[18px]" strokeWidth={2.2} />
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-[#2F3153]">{title}</h2>
+          {subtitle ? <p className="mt-0.5 text-xs text-[#6B7280]">{subtitle}</p> : null}
+        </div>
       </div>
-    </div>
+      {children}
+    </AdminCard>
   )
 }
 
 export default function CoachSubscriptionPlansAdminPage() {
   const { toast } = useToast()
+  const [mode, setMode] = useState<PageMode>("list")
   const [plans, setPlans] = useState<CoachSubscriptionPlan[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [search, setSearch] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [viewingPlan, setViewingPlan] = useState<CoachSubscriptionPlan | null>(null)
   const [form, setForm] = useState({ ...EMPTY_FORM })
+
+  const filteredPlans = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return plans
+    return plans.filter(
+      (p) =>
+        (p.name || "").toLowerCase().includes(q) ||
+        (p.description || "").toLowerCase().includes(q)
+    )
+  }, [plans, search])
+
+  const totalPages = Math.max(1, Math.ceil(filteredPlans.length / ADMIN_LIST_PAGE_SIZE))
+  const pageStart = (currentPage - 1) * ADMIN_LIST_PAGE_SIZE
+  const pageEnd = Math.min(pageStart + ADMIN_LIST_PAGE_SIZE, filteredPlans.length)
+  const paginatedPlans = useMemo(
+    () => filteredPlans.slice(pageStart, pageEnd),
+    [filteredPlans, pageStart, pageEnd]
+  )
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -100,52 +154,66 @@ export default function CoachSubscriptionPlansAdminPage() {
   }, [])
 
   useEffect(() => {
-    load()
-  }, [load])
+    if (mode === "list") void load()
+  }, [load, mode])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search])
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages)
+  }, [currentPage, totalPages])
+
+  const goToList = () => {
+    setMode("list")
+    setViewingPlan(null)
+    setEditingId(null)
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }
 
   const startCreate = () => {
     setEditingId(null)
     setForm({ ...EMPTY_FORM })
+    setMode("form")
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
   const startEdit = (p: CoachSubscriptionPlan) => {
     setEditingId(p.id)
-    setForm({
-      name: p.name,
-      description: p.description || "",
-      fee_inr: p.fee_inr,
-      duration_days: p.duration_days,
-      grace_period_days: p.grace_period_days,
-      deactivate_on_grace_expiry: p.deactivate_on_grace_expiry,
-      is_active: p.is_active,
-      is_default: Boolean(p.is_default),
-      sort_order: p.sort_order ?? 100,
-    })
+    setForm(formFromPlan(p))
+    setMode("form")
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
-  const handleCancel = () => {
-    setEditingId(null)
-    setForm({ ...EMPTY_FORM })
+  const openView = (p: CoachSubscriptionPlan) => {
+    setViewingPlan(p)
+    setMode("view")
+    window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
-  const handleSave = async () => {
+  const handleSave = async (forceActive?: boolean) => {
     if (!form.name.trim()) {
       toast({ title: "Name required", variant: "destructive" })
       return
     }
+    const body = {
+      ...form,
+      name: form.name.trim(),
+      is_active: forceActive !== undefined ? forceActive : form.is_active,
+    }
     setSaving(true)
     try {
       if (editingId) {
-        await coachSubscriptionAPI.updatePlan(editingId, form)
+        await coachSubscriptionAPI.updatePlan(editingId, body)
         toast({ title: "Plan updated" })
       } else {
-        await coachSubscriptionAPI.createPlan(form)
+        await coachSubscriptionAPI.createPlan(body)
         toast({ title: "Plan created" })
       }
       setEditingId(null)
       setForm({ ...EMPTY_FORM })
+      setMode("list")
       await load()
     } catch (e) {
       toast({
@@ -158,254 +226,479 @@ export default function CoachSubscriptionPlansAdminPage() {
     }
   }
 
-  return (
-    <AdminPageShell className="admin-stack">
-        <AdminPageHeader
-          icon={Layers}
-          title="Online Coach Subscription Plans"
-          subtitle="Configure fee, duration, grace period, and deactivation rules for coach subscriptions."
-          actions={
-            <div className="admin-actions">
-              <Button
-                type="button"
-                variant="outline"
-                className="btn-admin-outline h-10"
-                onClick={() => void load()}
+  const toggleListActive = async (p: CoachSubscriptionPlan, activate: boolean) => {
+    setSaving(true)
+    try {
+      await coachSubscriptionAPI.updatePlan(p.id, { is_active: activate })
+      toast({ title: activate ? "Plan activated" : "Plan deactivated" })
+      await load()
+      if (viewingPlan?.id === p.id) {
+        setViewingPlan((prev) => (prev ? { ...prev, is_active: activate } : prev))
+      }
+    } catch (e) {
+      toast({
+        title: "Update failed",
+        description: e instanceof Error ? e.message : "Error",
+        variant: "destructive",
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const listView = (
+    <>
+      <AdminPageHeader
+        icon={Layers}
+        title="Online Coach Subscription Plans"
+        subtitle="Configure fee, duration, grace period, and deactivation rules for coach subscriptions."
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className={adminOutlineBtnClass}
+              onClick={() => void load()}
+              disabled={loading}
+            >
+              <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
+              Refresh
+            </Button>
+            <Button type="button" className={adminPrimaryBtnClass} onClick={startCreate}>
+              <Plus className="mr-2 h-4 w-4" />
+              New Plan
+            </Button>
+          </>
+        }
+      />
+
+      <AdminFilterBar className="mb-4">
+        <div className="relative min-w-0 w-full admin-filter-span-2">
+          <Search className="pointer-events-none absolute left-3 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 text-[#6B7280]" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search plans by name or description…"
+            className="pl-10"
+          />
+        </div>
+      </AdminFilterBar>
+
+      {error ? (
+        <AdminCard className="mb-4 border-red-200 bg-red-50 text-sm text-red-700">{error}</AdminCard>
+      ) : null}
+
+      <AdminTableShell
+        footer={
+          filteredPlans.length > 0 ? (
+            <>
+              <span>
+                Showing {filteredPlans.length === 0 ? 0 : pageStart + 1}–{pageEnd} of{" "}
+                {filteredPlans.length} plans
+              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i + 1).map((page) => (
+                  <Button
+                    key={page}
+                    size="sm"
+                    variant={currentPage === page ? "default" : "outline"}
+                    className={currentPage === page ? adminPrimaryBtnClass : undefined}
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </Button>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </>
+          ) : undefined
+        }
+      >
+        <table className="min-w-[880px] w-full text-sm">
+          <thead>
+            <tr className="border-b border-[#E8EAF0] text-left text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+              <th className="px-4 py-3">Plan</th>
+              <th className="px-4 py-3">Fee</th>
+              <th className="px-4 py-3">Duration</th>
+              <th className="px-4 py-3">Grace</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3 text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-16 text-center text-[#6B7280]">
+                  <Loader2 className="mr-2 inline h-5 w-5 animate-spin" />
+                  Loading plans…
+                </td>
+              </tr>
+            ) : filteredPlans.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-16 text-center text-[#6B7280]">
+                  No plans yet. Create your first coach subscription plan.
+                </td>
+              </tr>
+            ) : (
+              paginatedPlans.map((p) => (
+                <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50/50">
+                  <td className="px-4 py-3">
+                    <div className="font-semibold text-[#2F3153]">{p.name}</div>
+                    {p.description ? (
+                      <div className="mt-0.5 line-clamp-1 text-xs text-gray-500">{p.description}</div>
+                    ) : null}
+                    {p.is_default ? (
+                      <Badge
+                        variant="outline"
+                        className="mt-1 border-[#E1BB33]/40 bg-[#FFF8E1] text-amber-900 text-[10px]"
+                      >
+                        Default
+                      </Badge>
+                    ) : null}
+                  </td>
+                  <td className="px-4 py-3 font-medium text-[#2F3153]">₹{p.fee_inr.toLocaleString("en-IN")}</td>
+                  <td className="px-4 py-3 text-[#4F5077]">{p.duration_days} days</td>
+                  <td className="px-4 py-3 text-[#4F5077]">{p.grace_period_days} days</td>
+                  <td className="px-4 py-3">
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-xs",
+                        p.is_active
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                          : "bg-gray-100 text-gray-600 border-gray-200"
+                      )}
+                    >
+                      {p.is_active ? "Active" : "Inactive"}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        className="h-8 w-8 rounded-lg"
+                        onClick={() => openView(p)}
+                        title="View"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        className="h-8 w-8 rounded-lg"
+                        onClick={() => startEdit(p)}
+                        title="Edit"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Switch
+                        className={SWITCH_ON}
+                        checked={p.is_active}
+                        disabled={saving}
+                        onCheckedChange={(checked) => void toggleListActive(p, checked)}
+                        title={p.is_active ? "Deactivate" : "Activate"}
+                      />
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </AdminTableShell>
+    </>
+  )
+
+  const formView = (
+    <>
+      <div className="mb-4 space-y-2">
+        <AdminBreadcrumb
+          items={[
+            { label: "Coaches" },
+            { label: "Subscription Plans" },
+            { label: editingId ? "Edit Plan" : "New Plan" },
+          ]}
+        />
+        <button
+          type="button"
+          onClick={goToList}
+          className="inline-flex items-center gap-2 text-sm font-medium text-[#4F5077] hover:text-[#2F3153]"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to list
+        </button>
+        <h1 className="text-xl font-bold text-[#2F3153]">
+          {editingId ? "Edit Coach Subscription Plan" : "New Coach Subscription Plan"}
+        </h1>
+      </div>
+
+      <div className="admin-page-with-sticky-actions">
+        <AdminDetailLayout
+          main={
+            <div className="space-y-5">
+              <SectionCard icon={Square} title="Plan details" subtitle="Name and description shown to admins.">
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label>
+                      Plan name <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      placeholder="e.g. Monthly Coach Access"
+                      className="rounded-xl border-gray-200"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Description</Label>
+                    <Textarea
+                      value={form.description}
+                      onChange={(e) => setForm({ ...form, description: e.target.value })}
+                      rows={3}
+                      placeholder="Optional description…"
+                      className="rounded-xl border-gray-200"
+                    />
+                  </div>
+                </div>
+              </SectionCard>
+
+              <SectionCard
+                icon={IndianRupee}
+                title="Pricing & duration"
+                subtitle="Fee, billing period, grace window, and list order."
               >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Refresh
-              </Button>
-              <Button type="button" onClick={startCreate} className={`btn-admin-primary h-10 ${BRAND_YELLOW}`}>
-                <Plus className="mr-2 h-4 w-4" />
-                New Plan
-              </Button>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>Fee (INR)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={form.fee_inr}
+                      onChange={(e) =>
+                        setForm({ ...form, fee_inr: Number(e.target.value) || 0 })
+                      }
+                      className="rounded-xl border-gray-200"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Sort order</Label>
+                    <Input
+                      type="number"
+                      value={form.sort_order}
+                      onChange={(e) =>
+                        setForm({ ...form, sort_order: Number(e.target.value) || 0 })
+                      }
+                      className="rounded-xl border-gray-200"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Duration (days)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={form.duration_days}
+                      onChange={(e) =>
+                        setForm({ ...form, duration_days: Number(e.target.value) || 1 })
+                      }
+                      className="rounded-xl border-gray-200"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Grace period (days)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={form.grace_period_days}
+                      onChange={(e) =>
+                        setForm({ ...form, grace_period_days: Number(e.target.value) || 0 })
+                      }
+                      className="rounded-xl border-gray-200"
+                    />
+                  </div>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-6">
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-[#4F5077]">
+                    <Switch
+                      className={SWITCH_ON}
+                      checked={form.deactivate_on_grace_expiry}
+                      onCheckedChange={(v) => setForm({ ...form, deactivate_on_grace_expiry: v })}
+                    />
+                    Deactivate coach when grace period ends
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-[#4F5077]">
+                    <Switch
+                      className={SWITCH_ON}
+                      checked={form.is_active}
+                      onCheckedChange={(v) => setForm({ ...form, is_active: v })}
+                    />
+                    Active
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-[#4F5077]">
+                    <Switch
+                      className={SWITCH_ON}
+                      checked={form.is_default}
+                      onCheckedChange={(v) => setForm({ ...form, is_default: v })}
+                    />
+                    Default plan
+                  </label>
+                </div>
+              </SectionCard>
             </div>
           }
         />
+      </div>
 
-        <AdminCard>
-          <div className="mb-5 flex items-center gap-2 border-b border-gray-100 pb-4">
-            <div className="admin-icon-tile admin-icon-tile--violet h-8 w-8">
-              <Plus className="h-4 w-4" />
-            </div>
-            <h2 className="text-lg font-semibold text-[#4F5077]">
-              {editingId ? "Edit Plan" : "Create Plan"}
-            </h2>
-          </div>
+      <AdminStickyFormActions>
+        <Button type="button" variant="outline" className={adminOutlineBtnClass} onClick={goToList}>
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={saving}
+          onClick={() => void handleSave(false)}
+        >
+          Save as Draft
+        </Button>
+        <Button
+          type="button"
+          className={adminPrimaryBtnClass}
+          disabled={saving}
+          onClick={() => void handleSave(true)}
+        >
+          {saving ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Check className="mr-2 h-4 w-4" />
+          )}
+          Save Plan
+        </Button>
+      </AdminStickyFormActions>
+    </>
+  )
+
+  const detailPlan = viewingPlan
+
+  const detailView = detailPlan ? (
+    <>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+        <div className="space-y-2">
+          <AdminBreadcrumb
+            items={[
+              { label: "Coaches" },
+              { label: "Subscription Plans" },
+              { label: "View Plan" },
+            ]}
+          />
+          <button
+            type="button"
+            onClick={goToList}
+            className="inline-flex items-center gap-2 text-sm font-medium text-[#4F5077] hover:text-[#2F3153]"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to list
+          </button>
+          <h1 className="text-xl font-bold text-[#2F3153]">View Coach Subscription Plan</h1>
+        </div>
+        <Button type="button" className={adminPrimaryBtnClass} onClick={() => startEdit(detailPlan)}>
+          <Pencil className="mr-2 h-4 w-4" />
+          Edit Plan
+        </Button>
+      </div>
+
+      <AdminDetailLayout
+        main={
           <div className="space-y-5">
-            <div className="grid gap-4 md:grid-cols-2">
-              <FieldIconInput
-                icon={Square}
-                id="plan-name"
-                label="Plan Name"
-                placeholder="e.g., Monthly Coach Access"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-              />
-              <FieldIconInput
-                icon={IndianRupee}
-                id="plan-fee"
-                label="Fee (INR)"
-                type="number"
-                min={0}
-                value={form.fee_inr}
-                onChange={(e) => setForm({ ...form, fee_inr: Number(e.target.value) || 0 })}
-              />
-              <FieldIconInput
-                icon={Calendar}
-                id="plan-duration"
-                label="Duration (Days)"
-                type="number"
-                min={1}
-                value={form.duration_days}
-                onChange={(e) => setForm({ ...form, duration_days: Number(e.target.value) || 1 })}
-              />
-              <FieldIconInput
-                icon={Calendar}
-                id="plan-grace"
-                label="Grace Period (Days)"
-                type="number"
-                min={0}
-                value={form.grace_period_days}
-                onChange={(e) =>
-                  setForm({ ...form, grace_period_days: Number(e.target.value) || 0 })
-                }
-              />
-              <FieldIconInput
-                icon={ArrowUpDown}
-                id="plan-sort"
-                label="Sort Order"
-                type="number"
-                value={form.sort_order}
-                onChange={(e) => setForm({ ...form, sort_order: Number(e.target.value) || 0 })}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="plan-desc" className="text-sm font-medium text-[#4F5077]">
-                Description
-              </Label>
-              <div className="relative">
-                <FileText className="absolute left-3 top-3 h-4 w-4 text-[#9CA3AF]" />
-                <Textarea
-                  id="plan-desc"
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  rows={3}
-                  placeholder="Optional description for this subscription plan…"
-                  className="min-h-[88px] rounded-xl border-gray-200 pl-10"
-                />
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-4 border-t border-gray-100 pt-4">
-              <div className="flex flex-wrap gap-6">
-                <label className="flex cursor-pointer items-center gap-2 text-sm text-[#4F5077]">
-                  <Switch
-                    className={SWITCH_ON}
-                    checked={form.deactivate_on_grace_expiry}
-                    onCheckedChange={(v) => setForm({ ...form, deactivate_on_grace_expiry: v })}
-                  />
-                  Deactivate coach when grace period ends
-                </label>
-                <label className="flex cursor-pointer items-center gap-2 text-sm text-[#4F5077]">
-                  <Switch
-                    className={SWITCH_ON}
-                    checked={form.is_active}
-                    onCheckedChange={(v) => setForm({ ...form, is_active: v })}
-                  />
-                  Active
-                </label>
-                <label className="flex cursor-pointer items-center gap-2 text-sm text-[#4F5077]">
-                  <Switch
-                    className={SWITCH_ON}
-                    checked={form.is_default}
-                    onCheckedChange={(v) => setForm({ ...form, is_default: v })}
-                  />
-                  Default Plan
-                </label>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
+            <AdminCard className="border-[#E8EAF0]">
+              <h2 className="text-lg font-bold text-[#2F3153]">{detailPlan.name}</h2>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Badge
                   variant="outline"
-                  onClick={handleCancel}
-                  className="h-10 rounded-xl border-gray-200 px-5"
+                  className={
+                    detailPlan.is_active
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      : "bg-gray-100 text-gray-600"
+                  }
                 >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className={`h-10 gap-2 rounded-xl px-5 font-semibold ${BRAND_YELLOW}`}
-                >
-                  {saving ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4" />
-                  )}
-                  Save Plan
-                </Button>
+                  {detailPlan.is_active ? "Active" : "Inactive"}
+                </Badge>
+                {detailPlan.is_default ? (
+                  <Badge variant="outline" className="border-[#E1BB33]/40 bg-[#FFF8E1] text-amber-900">
+                    Default
+                  </Badge>
+                ) : null}
               </div>
-            </div>
-          </div>
-        </AdminCard>
+            </AdminCard>
 
-        <AdminCard padding={false}>
-          <div className="border-b border-gray-100 px-5 py-4 sm:px-6">
-            <div className="flex items-center gap-2">
-              <div className="admin-icon-tile admin-icon-tile--violet h-8 w-8">
-                <Layers className="h-4 w-4" />
-              </div>
-              <h2 className="text-lg font-semibold text-[#4F5077]">Plans</h2>
-            </div>
+            <SectionCard icon={FileText} title="Plan summary">
+              <dl className="grid gap-4 sm:grid-cols-2 text-sm">
+                <div>
+                  <dt className="text-xs font-medium uppercase text-[#6B7280]">Fee</dt>
+                  <dd className="font-semibold text-[#2F3153]">
+                    ₹{detailPlan.fee_inr.toLocaleString("en-IN")}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium uppercase text-[#6B7280]">Duration</dt>
+                  <dd className="text-[#2F3153]">{detailPlan.duration_days} days</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium uppercase text-[#6B7280]">Grace period</dt>
+                  <dd className="text-[#2F3153]">{detailPlan.grace_period_days} days</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium uppercase text-[#6B7280]">Sort order</dt>
+                  <dd className="text-[#2F3153]">{detailPlan.sort_order ?? "—"}</dd>
+                </div>
+                <div className="sm:col-span-2">
+                  <dt className="text-xs font-medium uppercase text-[#6B7280]">
+                    Deactivate on grace expiry
+                  </dt>
+                  <dd className="text-[#2F3153]">
+                    {detailPlan.deactivate_on_grace_expiry ? "Yes" : "No"}
+                  </dd>
+                </div>
+                {detailPlan.description ? (
+                  <div className="sm:col-span-2">
+                    <dt className="text-xs font-medium uppercase text-[#6B7280]">Description</dt>
+                    <dd className="mt-1 whitespace-pre-wrap text-[#4F5077]">{detailPlan.description}</dd>
+                  </div>
+                ) : null}
+              </dl>
+            </SectionCard>
           </div>
-            {loading ? (
-              <p className="p-6 text-sm text-[#6B7A99]">
-                <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                Loading…
-              </p>
-            ) : error ? (
-              <p className="p-6 text-sm text-red-600">{error}</p>
-            ) : plans.length === 0 ? (
-              <p className="p-6 text-sm text-[#6B7A99]">No plans yet.</p>
-            ) : (
-              <AdminTableShell className="border-0 shadow-none">
-                <table className="w-full min-w-[720px] text-sm">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Plan</th>
-                      <th>Fee</th>
-                      <th>Duration</th>
-                      <th>Grace Period</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {plans.map((p, index) => (
-                      <tr key={p.id} className="border-b last:border-0 hover:bg-[#FAFBFC]">
-                        <td className="px-5 py-4 text-gray-500">{index + 1}</td>
-                        <td className="px-5 py-4">
-                          <div className="font-semibold text-[#4F5077]">{p.name}</div>
-                          {p.description ? (
-                            <div className="mt-0.5 line-clamp-1 text-xs text-gray-500">{p.description}</div>
-                          ) : null}
-                        </td>
-                        <td className="px-5 py-4 font-medium text-[#4F5077]">₹{p.fee_inr}</td>
-                        <td className="px-5 py-4 text-[#4F5077]">{p.duration_days} Days</td>
-                        <td className="px-5 py-4 text-[#4F5077]">{p.grace_period_days} Days</td>
-                        <td className="px-5 py-4">
-                          <div className="flex flex-wrap items-center gap-2">
-                            {p.is_active ? (
-                              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                                Active
-                              </span>
-                            ) : (
-                              <Badge variant="outline" className="text-gray-600">
-                                Inactive
-                              </Badge>
-                            )}
-                            {p.is_default ? (
-                              <Badge
-                                variant="outline"
-                                className="border-[#E1BB33]/40 bg-[#FFF8E1] text-amber-900"
-                              >
-                                Default
-                              </Badge>
-                            ) : null}
-                          </div>
-                        </td>
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => startEdit(p)}
-                              className="h-9 gap-1.5 rounded-lg border-gray-200"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                              Edit
-                            </Button>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-9 w-9 rounded-lg p-0">
-                                  <MoreVertical className="h-4 w-4 text-gray-500" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => startEdit(p)}>Edit plan</DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </AdminTableShell>
-            )}
-        </AdminCard>
-    </AdminPageShell>
+        }
+      />
+    </>
+  ) : null
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <main className="w-full max-w-none p-4 lg:px-8 lg:py-6">
+        <AdminPageShell>
+          {mode === "list" && listView}
+          {mode === "form" && formView}
+          {mode === "view" && (detailView || listView)}
+        </AdminPageShell>
+      </main>
+    </div>
   )
 }

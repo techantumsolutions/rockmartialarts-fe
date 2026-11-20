@@ -3,6 +3,7 @@
 import useEmblaCarousel from "embla-carousel-react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { useCallback } from "react"
+import { useEmblaAutoplay } from "@/lib/emblaAutoplay"
 
 type CarouselProps = {
   children: React.ReactNode[]
@@ -13,14 +14,19 @@ type CarouselProps = {
 
 /**
  * Simple responsive slider (Embla). Use for testimonial strips on home.
+ * Autoscrolls when more than one slide.
  */
 export function Carousel({ children, className = "", slideClassName = "" }: CarouselProps) {
-  const [emblaRef, emblaApi] = useEmblaCarousel({
-    align: "start",
-    loop: children.length > 1,
-    skipSnaps: false,
-    dragFree: false,
-  })
+  const autoplay = useEmblaAutoplay({ delay: 4500 })
+  const [emblaRef, emblaApi] = useEmblaCarousel(
+    {
+      align: "start",
+      loop: children.length > 1,
+      skipSnaps: false,
+      dragFree: false,
+    },
+    children.length > 1 ? [autoplay] : []
+  )
 
   const scrollPrev = useCallback(() => emblaApi?.scrollPrev(), [emblaApi])
   const scrollNext = useCallback(() => emblaApi?.scrollNext(), [emblaApi])

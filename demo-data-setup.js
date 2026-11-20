@@ -215,7 +215,7 @@ const testScenarios = {
   updateBranch: {
     partialUpdate: {
       branch: {
-        name: "Updated Branch Name",
+        name: "Updated Academy Name",
         phone: "+1999888777"
       },
       operational_details: {

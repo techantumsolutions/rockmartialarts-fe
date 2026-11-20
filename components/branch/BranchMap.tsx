@@ -52,7 +52,7 @@ export function BranchMap({ branch }: BranchMapProps) {
         <div className="rounded-xl overflow-hidden border border-gray-800 bg-gray-900/50">
           {embedUrl ? (
             <iframe
-              title="Branch location"
+              title="Academy location"
               src={embedUrl}
               width="100%"
               height="400"

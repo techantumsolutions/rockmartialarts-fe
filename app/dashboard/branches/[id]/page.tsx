@@ -101,7 +101,7 @@ export default function BranchDetailPage() {
         return
       }
 
-      // Fetch branch details
+      // Fetch academy details
       const branchResponse = await fetch(`/api/backend/branches/${branchId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -111,10 +111,10 @@ export default function BranchDetailPage() {
 
       if (!branchResponse.ok) {
         if (branchResponse.status === 404) {
-          setError("Branch not found")
+          setError("Academy not found")
           return
         }
-        throw new Error(`Failed to fetch branch: ${branchResponse.status}`)
+        throw new Error(`Failed to fetch academy: ${branchResponse.status}`)
       }
 
       const branchData = await branchResponse.json()
@@ -127,8 +127,8 @@ export default function BranchDetailPage() {
       ])
 
     } catch (err: any) {
-      console.error('Error fetching branch details:', err)
-      setError(err.message || 'Failed to load branch details')
+      console.error('Error fetching academy details:', err)
+      setError(err.message || 'Failed to load academy details')
     } finally {
       setLoading(false)
     }
@@ -147,10 +147,10 @@ export default function BranchDetailPage() {
         const data = await response.json()
         setCourses(data.courses || [])
       } else {
-        console.error('Failed to fetch branch courses:', response.status, response.statusText)
+        console.error('Failed to fetch academy courses:', response.status, response.statusText)
       }
     } catch (err) {
-      console.error('Error fetching branch courses:', err)
+      console.error('Error fetching academy courses:', err)
     }
   }
 
@@ -168,7 +168,7 @@ export default function BranchDetailPage() {
         setCoaches(data.coaches || [])
       }
     } catch (err) {
-      console.error('Error fetching branch coaches:', err)
+      console.error('Error fetching academy coaches:', err)
     }
   }
 
@@ -227,12 +227,12 @@ export default function BranchDetailPage() {
         <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center py-12">
             <Building2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-semibold text-gray-900 mb-2">Branch Not Found</h2>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-2">Academy Not Found</h2>
             <p className="text-gray-600 mb-6">{error}</p>
             <div className="space-x-4">
               <Button onClick={handleBack} variant="outline">
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Branches
+                Back to Academies
               </Button>
               <Button onClick={() => window.location.reload()}>
                 Try Again
@@ -277,10 +277,10 @@ export default function BranchDetailPage() {
                   className="text-gray-600 hover:text-[#4F5077]"
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Branches
+                  Back to Academies
                 </Button>
                 {/* <div className="text-sm text-gray-500">
-                  Dashboard &gt; Branches &gt; {branch.branch.name}
+                  Dashboard &gt; Academies &gt; {branch.branch.name}
                 </div> */}
               </div>
               <div className="flex items-center space-x-4 pl-4">
@@ -296,7 +296,7 @@ export default function BranchDetailPage() {
               </div>
             </div>
             
-            <Button onClick={handleEdit} className="bg-yellow-400 hover:bg-yellow-500 text-white">
+            <Button onClick={handleEdit} className="">
               <Edit className="w-4 h-4 mr-2" />
               Edit Branch
             </Button>
@@ -306,7 +306,7 @@ export default function BranchDetailPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Branch Information */}
+            {/* Academy Information */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center text-[#4F5077] font-bold">
@@ -390,7 +390,7 @@ export default function BranchDetailPage() {
               </CardContent>
             </Card>
 
-            {/* Courses at this Branch */}
+            {/* Courses at this Academy */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between text-[#4F5077]">
@@ -571,10 +571,10 @@ export default function BranchDetailPage() {
               </CardContent>
             </Card>
 
-            {/* Branch Status */}
+            {/* Academy Status */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-[#4F5077]">Branch Status</CardTitle>
+                <CardTitle className="text-[#4F5077]">Academy Status</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3 text-[#7D8592]">
@@ -589,7 +589,7 @@ export default function BranchDetailPage() {
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="text-sm">Branch ID</span>
+                    <span className="text-sm">Academy ID</span>
                     <span className="text-sm font-mono">{branch.id}</span>
                   </div>
                 </div>

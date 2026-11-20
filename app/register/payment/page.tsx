@@ -569,7 +569,7 @@ export default function PaymentPage() {
           <Button
             onClick={handlePayment}
             disabled={processing || !paymentInfo || !!loadError}
-            className="w-full bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-4 px-6 rounded-xl text-sm h-14 transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full  font-bold py-4 px-6 rounded-xl text-sm h-14 transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {processing ? (
               <div className="flex items-center justify-center space-x-2">

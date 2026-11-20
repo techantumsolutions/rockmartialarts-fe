@@ -23,6 +23,7 @@ import {
   dashboardFormCardClass,
   primaryButtonClass,
 } from "@/components/dashboard/dashboardFormStyles"
+import { AdminStickyFormActions } from "@/components/dashboard/AdminStickyFormActions"
 
 // Interface definitions for API data
 interface Branch {
@@ -72,6 +73,15 @@ export default function CreateBranchManagerPage() {
   const { toast } = useToast()
 
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+  useEffect(() => {
+    if (!showSuccessPopup) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [showSuccessPopup])
+
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSendingEmail, setIsSendingEmail] = useState(false)
   const [createdManagerId, setCreatedManagerId] = useState<string | null>(null)
@@ -101,7 +111,7 @@ export default function CreateBranchManagerPage() {
     qualifications: "",
     certifications: "",
 
-    // Branch Assignment
+    // Academy Assignment
     branch: "",
 
     // Emergency Contact
@@ -122,7 +132,7 @@ export default function CreateBranchManagerPage() {
   const [experienceRanges, setExperienceRanges] = useState<any[]>([])
   const [emergencyRelations, setEmergencyRelations] = useState<any[]>([])
 
-  // Branch admin cannot create branch managers — redirect to dashboard
+  // Academy admin cannot create academy managers — redirect to dashboard
   useEffect(() => {
     if (BranchManagerAuth.isAuthenticated()) {
       router.replace("/dashboard")
@@ -207,31 +217,31 @@ export default function CreateBranchManagerPage() {
 
         if (response.ok) {
           const data = await response.json()
-          console.log('✅ Real backend branches data:', data)
+          console.log('✅ Real backend academies data:', data)
 
-          // Set branches data
+          // Set academies data
           setBranches(data.branches || [])
         } else {
-          console.error('Failed to load branches:', response.status, response.statusText)
+          console.error('Failed to load academyes:', response.status, response.statusText)
           if (response.status === 401) {
             toast({
               title: "Authentication Error",
-              description: "Please login again to access branch data.",
+              description: "Please login again to access academy data.",
               variant: "destructive",
             })
           } else {
             toast({
               title: "Error",
-              description: "Failed to load branches. Please try again.",
+              description: "Failed to load academyes. Please try again.",
               variant: "destructive",
             })
           }
         }
       } catch (error) {
-        console.error('Error loading branches:', error)
+        console.error('Error loading academies:', error)
         toast({
           title: "Error",
-          description: "Failed to load branches. Please check your connection.",
+          description: "Failed to load academyes. Please check your connection.",
           variant: "destructive",
         })
       } finally {
@@ -246,7 +256,7 @@ export default function CreateBranchManagerPage() {
     if (!createdManagerId) {
       toast({
         title: "Error",
-        description: "No branch manager ID available for sending credentials",
+        description: "No academy manager ID available for sending credentials",
         variant: "destructive",
       })
       return
@@ -274,7 +284,7 @@ export default function CreateBranchManagerPage() {
 
       toast({
         title: "Success",
-        description: "Login credentials have been sent to the branch manager's email address",
+        description: "Login credentials have been sent to the academy manager's email address",
       })
     } catch (error) {
       console.error("Error sending credentials email:", error)
@@ -362,7 +372,7 @@ export default function CreateBranchManagerPage() {
     setIsSubmitting(true)
 
     try {
-      // Prepare branch manager data according to backend API specification
+      // Prepare academy manager data according to backend API specification
       const managerData = {
         personal_info: {
           first_name: formData.firstName,
@@ -387,10 +397,10 @@ export default function CreateBranchManagerPage() {
         professional_info: {
           education_qualification: formData.qualifications,
           professional_experience: formData.experience,
-          designation: "Branch Manager",
+          designation: "Academy Manager",
           certifications: formData.certifications ? formData.certifications.split(',').map(cert => cert.trim()) : []
         },
-        branch_id: formData.branch || null,  // Include branch assignment
+        branch_id: formData.branch || null,  // Include academy assignment
         emergency_contact: {
           name: formData.emergencyContactName || null,
           phone: formData.emergencyContactPhone || null,
@@ -399,11 +409,11 @@ export default function CreateBranchManagerPage() {
         notes: formData.notes
       }
 
-      console.log("Creating branch manager with data:", managerData)
+      console.log("Creating academy manager with data:", managerData)
 
-      // Log branch assignment for debugging
+      // Log academy assignment for debugging
       if (formData.branch) {
-        console.log("Branch assignment:", {
+        console.log("Academy assignment:", {
           selectedBranch: formData.branch
         })
       }
@@ -427,10 +437,10 @@ export default function CreateBranchManagerPage() {
       const result = await response.json()
 
       if (!response.ok) {
-        throw new Error(result.detail || result.message || `Failed to create branch manager (${response.status})`)
+        throw new Error(result.detail || result.message || `Failed to create academy manager (${response.status})`)
       }
 
-      console.log("Branch manager created successfully:", result)
+      console.log("Academy manager created successfully:", result)
 
       // Store the created manager ID for sending credentials
       if (result.branch_manager && result.branch_manager.id) {
@@ -445,9 +455,9 @@ export default function CreateBranchManagerPage() {
       // User can manually navigate using the buttons in the success popup
 
     } catch (error) {
-      console.error("Error creating branch manager:", error)
+      console.error("Error creating academy manager:", error)
       // You might want to show an error message to the user here
-      alert(`Error creating branch manager: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      alert(`Error creating academy manager: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsSubmitting(false)
     }
@@ -460,13 +470,13 @@ export default function CreateBranchManagerPage() {
 
       <main className="w-full py-6 px-4 lg:px-8 xl:px-10">
         <DashboardFormPageHeader
-          title="Add New Branch Manager"
-          subtitle="Create an account and profile for a branch manager"
-          backLabel="Back to Branch Managers"
+          title="Add New Academy Manager"
+          subtitle="Create an account and profile for an academy manager"
+          backLabel="Back to Academy Managers"
           onBack={() => router.push(`${basePath}/branch-managers`)}
         />
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form id="branch-manager-create-form" onSubmit={handleSubmit} className="admin-page-with-sticky-actions space-y-6">
           {/* Personal Information */}
           <Card className={dashboardFormCardClass}>
             <CardHeader className="pb-2">
@@ -798,46 +808,48 @@ export default function CreateBranchManagerPage() {
             </CardContent>
           </Card>
 
-          {/* Form Actions */}
-          <div className="flex justify-end space-x-4 py-6">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => router.push(`${basePath}/branch-managers`)}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              className={primaryButtonClass}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
-                  <span>Creating Branch Manager...</span>
-                </div>
-              ) : (
-                "Create Branch Manager"
-              )}
-            </Button>
-          </div>
         </form>
+
+        <AdminStickyFormActions>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push(`${basePath}/branch-managers`)}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="branch-manager-create-form"
+            className={primaryButtonClass}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+                <span>Creating Academy Manager...</span>
+              </div>
+            ) : (
+              "Create Academy Manager"
+            )}
+          </Button>
+        </AdminStickyFormActions>
 
       </main>
 
       {/* Success Popup */}
       {showSuccessPopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4 text-center">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden p-4 sm:p-6">
+        <div className="absolute inset-0 bg-[#0f172a]/55 backdrop-blur-[2px]" aria-hidden />
+          <div className="relative z-[1] bg-white rounded-2xl border border-[#E8EAF0] shadow-[0_24px_80px_rgba(15,23,42,0.28)] p-8 max-w-md w-full mx-4 text-center">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Branch Manager Created Successfully!</h3>
-            <p className="text-gray-600 mb-6">The new branch manager has been added to your academy.</p>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Academy Manager Created Successfully!</h3>
+            <p className="text-gray-600 mb-6">The new branch manager has been added to your branch.</p>
 
             <div className="space-y-3">
               <Button

@@ -163,7 +163,11 @@ export default function OnlineCourseEnrollmentForm({
               setSubmitting(false)
             },
             onPaymentFailure: (err) => {
-              setError(err?.description || "Payment failed. Please try again.")
+              setError(
+                typeof err === "string"
+                  ? err
+                  : "Payment failed. Please try again."
+              )
               setSubmitting(false)
             },
           })

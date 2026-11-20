@@ -12,25 +12,34 @@ import { cn } from "@/lib/utils"
  * Primary = brand gold; sizes align with Input (h-11 default).
  */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#E1BB33]/35 focus-visible:border-[#E1BB33] disabled:opacity-50 disabled:pointer-events-none cursor-pointer [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:-translate-y-0.5 active:translate-y-0",
+  [
+    "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold",
+    "transition-[background-color,border-color,color,box-shadow,transform,filter] duration-200 ease-out",
+    "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#E1BB33]/45 focus-visible:border-[#E1BB33]",
+    "disabled:opacity-50 disabled:pointer-events-none disabled:shadow-none disabled:translate-y-0 disabled:hover:brightness-100",
+    "cursor-pointer [&_svg]:pointer-events-none [&_svg]:shrink-0",
+    "hover:-translate-y-0.5 active:translate-y-0 motion-reduce:hover:translate-y-0",
+  ].join(" "),
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground shadow-xs hover:bg-[#d4ae2a] hover:shadow-md hover:shadow-[#E1BB33]/25 active:bg-[#c9a328]",
+          "bg-[#E1BB33] text-[#171A26] shadow-xs hover:bg-[#d4ae2a] hover:shadow-md hover:shadow-[#E1BB33]/25 active:bg-[#c9a328]",
         destructive:
           "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90 hover:shadow-md",
         outline:
           "border border-[#E2E8F0] bg-white text-[#171A26] shadow-xs hover:bg-[#F8FAFC] hover:border-[#E1BB33]/60 hover:shadow-sm active:bg-[#F1F5F9]",
         secondary:
           "bg-[#F8FAFC] text-[#171A26] border border-[#E2E8F0] hover:bg-[#F1F5F9] hover:border-[#E1BB33]/40",
-        ghost: "text-[#171A26] hover:bg-[#F8FAFC] hover:text-[#171A26] hover:shadow-none hover:translate-y-0",
-        link: "text-[#4F5077] underline-offset-4 hover:underline font-medium hover:translate-y-0 hover:shadow-none",
+        ghost:
+          "text-[#171A26] hover:bg-[#F8FAFC] hover:text-[#171A26] hover:shadow-none hover:translate-y-0",
+        link:
+          "text-[#4F5077] underline-offset-4 hover:underline font-medium hover:translate-y-0 hover:shadow-none",
       },
       size: {
-        default: "h-11 px-4 py-2",
-        sm: "h-9 px-3 text-[13px]",
-        lg: "h-12 px-6 text-[15px]",
+        default: "h-14 px-5 py-2 text-[15px]",
+        sm: "h-11 px-3 text-[13px]",
+        lg: "h-14 px-6 text-[15px]",
         icon: "h-11 w-11",
       },
     },
@@ -73,13 +82,14 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     }
     return (
       <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
+        className={cn(buttonVariants({ variant, size }), className)}
         ref={forwardedRef}
         disabled={asChild ? undefined : isDisabled}
         aria-busy={loading || undefined}
         aria-disabled={asChild ? isDisabled : undefined}
         data-slot="button"
         data-variant={variant || "default"}
+        data-size={size || "default"}
         {...props}
         onClick={handleClick}
       >

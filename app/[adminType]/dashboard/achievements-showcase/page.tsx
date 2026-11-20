@@ -232,7 +232,7 @@ export default function ManageShowcaseAchievementsPage() {
             </Button>
           ) : null}
         <Input
-          placeholder="Search student, title, branch…"
+          placeholder="Search student, title, academy…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-xs"
@@ -247,7 +247,7 @@ export default function ManageShowcaseAchievementsPage() {
               <th className="p-3 font-medium w-16">Image</th>
               <th className="p-3 font-medium">Student</th>
               <th className="p-3 font-medium">Title</th>
-              <th className="p-3 font-medium">Branch</th>
+              <th className="p-3 font-medium">Academy</th>
               <th className="p-3 font-medium text-center">Featured</th>
             </tr>
           </thead>

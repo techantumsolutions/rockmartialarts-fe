@@ -1,7 +1,10 @@
+import type { Metadata } from "next"
 import { WebsiteFooter } from "@/components/website/WebsiteFooter"
 import { LeadCaptureModal } from "@/components/website/LeadCaptureModal"
 import { CampaignPopupModal } from "@/components/website/CampaignPopupModal"
-import { WebsitePageLoader } from "@/components/website/WebsitePageLoader"
+import { portalMetadata } from "@/lib/portalIdentity"
+
+export const metadata: Metadata = portalMetadata("website")
 
 export default function WebsiteLayout({
   children,
@@ -10,7 +13,6 @@ export default function WebsiteLayout({
 }) {
   return (
     <div className="site-shell w-full min-h-screen">
-      <WebsitePageLoader />
       {children}
       <LeadCaptureModal />
       <CampaignPopupModal />

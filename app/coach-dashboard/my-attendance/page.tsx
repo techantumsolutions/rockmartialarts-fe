@@ -233,7 +233,7 @@ export default function CoachMyAttendancePage() {
       "Check Out",
       "Marked By",
       "Role",
-      "Branch",
+      "Academy",
       "Method",
       "Notes",
     ]
@@ -581,7 +581,7 @@ export default function CoachMyAttendancePage() {
               {coachInfo?.branch_name && (
                 <div className="flex items-center gap-1.5 text-xs text-gray-600 bg-white px-3 py-1 rounded-full border border-gray-200 w-fit">
                   <Building2 className="w-3.5 h-3.5 text-gray-500" />
-                  <span>Assigned Branch: <strong>{coachInfo.branch_name}</strong></span>
+                  <span>Assigned Academy: <strong>{coachInfo.branch_name}</strong></span>
                 </div>
               )}
             </div>
@@ -630,7 +630,7 @@ export default function CoachMyAttendancePage() {
                         <th className="py-3 px-4">Status</th>
                         <th className="py-3 px-4">Timings</th>
                         <th className="py-3 px-4">Marked By</th>
-                        <th className="py-3 px-4">Branch</th>
+                        <th className="py-3 px-4">Academy</th>
                         <th className="py-3 px-4">Method</th>
                         <th className="py-3 px-4">Remarks / Notes</th>
                       </tr>
@@ -692,7 +692,7 @@ export default function CoachMyAttendancePage() {
                           <td className="py-3.5 px-4">
                             <span className="text-xs text-gray-700 flex items-center gap-1.5">
                               <Building2 className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                              <span className="truncate">{rec.branch_name || "Main Branch"}</span>
+                              <span className="truncate">{rec.branch_name || "Main Academy"}</span>
                             </span>
                           </td>
 

@@ -108,10 +108,10 @@ export default function BranchManagerResetPasswordForm() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-gray-900">
-            Set Your Branch Manager Password
+            Set Your Academy Manager Password
           </CardTitle>
           <CardDescription className="text-gray-600">
-            Create a secure password for your branch manager account
+            Create a secure password for your academy manager account
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>

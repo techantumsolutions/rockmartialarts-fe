@@ -1,40 +1,38 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react"
 import {
-  Activity,
-  AlertTriangle,
+  ArrowLeft,
   CalendarDays,
-  Coins,
-  Droplets,
-  GraduationCap,
+  Eye,
   HeartPulse,
-  Home,
+  Loader2,
   Mail,
   MapPin,
   Phone,
-  Pill,
   RefreshCw,
   Search,
-  Shield,
+  Tent,
   User,
-  UserRound,
-  Utensils,
+  Wallet,
 } from "lucide-react"
 import { getBackendApiUrl } from "@/lib/config"
 import { TokenManager } from "@/lib/tokenManager"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { AppModal } from "@/components/ui/AppModal"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
+import { cn } from "@/lib/utils"
 import {
-  BeautifiedField,
-  BeautifiedFooterNote,
-  BeautifiedHero,
-  BeautifiedModal,
-  BeautifiedSection,
-} from "@/components/ui/beautified-modal"
+  AdminCard,
+  AdminFilterBar,
+  AdminPageHeader,
+  AdminPageShell,
+  AdminTableShell,
+  adminOutlineBtnClass,
+  adminPrimaryBtnClass,
+} from "@/components/dashboard/AdminPageShell"
 
 type EventOption = { event_id: string; event_name: string; event_dates?: string }
 
@@ -56,6 +54,7 @@ type Row = {
 type Detail = {
   id: string
   status?: string
+  registration_code?: string
   event?: {
     event_id?: string
     event_name?: string
@@ -90,25 +89,81 @@ function pick(data: Record<string, unknown> | undefined, keys: string[]): string
   return ""
 }
 
+const LEAD_STATUSES = [
+  "received",
+  "contacted",
+  "confirmed",
+  "waitlisted",
+  "pending_payment",
+  "paid",
+  "registered",
+  "cancelled",
+  "rejected",
+] as const
+
 function statusLabel(status?: string) {
   if (status === "paid") return "Paid"
   if (status === "pending_payment") return "Pending payment"
-  if (status === "received") return "Received"
+  if (status === "received") return "New enquiry"
+  if (status === "contacted") return "Contacted"
+  if (status === "confirmed") return "Confirmed"
+  if (status === "waitlisted") return "Waitlisted"
   if (status === "registered") return "Registered"
+  if (status === "cancelled") return "Cancelled"
+  if (status === "rejected") return "Rejected"
   return status ? status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "—"
 }
 
-function statusTone(status?: string): "success" | "warning" | "danger" | "info" | "neutral" {
-  if (status === "paid" || status === "received" || status === "registered") return "success"
-  if (status === "pending_payment") return "warning"
-  if (status === "cancelled" || status === "rejected") return "danger"
-  return "info"
+function statusPillClass(status?: string) {
+  if (status === "paid" || status === "confirmed" || status === "registered") return "admin-status-paid"
+  if (status === "received" || status === "contacted") return "admin-status-pending"
+  if (status === "pending_payment" || status === "waitlisted") return "admin-status-draft"
+  if (status === "cancelled" || status === "rejected") return "admin-status-cancelled"
+  return "admin-status-draft"
 }
 
 function shortId(id?: string) {
   if (!id) return "—"
   const clean = id.replace(/-/g, "").toUpperCase()
   return `CR-${clean.slice(-5)}`
+}
+
+function formatWhen(iso?: string) {
+  if (!iso) return "—"
+  return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+}
+
+function Field({ label, value, wide }: { label: string; value: ReactNode; wide?: boolean }) {
+  return (
+    <div className={cn("min-w-0", wide && "sm:col-span-2 xl:col-span-3")}>
+      <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#6B7280]">{label}</dt>
+      <dd className="mt-1.5 text-[15px] font-medium leading-relaxed text-[#2F3153] break-words">
+        {value || <span className="font-normal text-[#9CA3AF]">—</span>}
+      </dd>
+    </div>
+  )
+}
+
+function EnquirySection({
+  icon: Icon,
+  title,
+  accent,
+  children,
+}: {
+  icon: ComponentType<{ className?: string }>
+  title: string
+  accent: string
+  children: ReactNode
+}) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-[#E8EAF0] bg-white shadow-sm">
+      <div className={cn("flex items-center gap-2.5 border-b border-[#E8EAF0] px-5 py-3.5", accent)}>
+        <Icon className="h-4.5 w-4.5 h-[18px] w-[18px] shrink-0 text-[#C9971A]" />
+        <h3 className="text-sm font-semibold text-[#2F3153]">{title}</h3>
+      </div>
+      <dl className="grid grid-cols-1 gap-x-8 gap-y-5 p-5 sm:grid-cols-2 xl:grid-cols-3">{children}</dl>
+    </section>
+  )
 }
 
 export default function CampRegistrationsPage() {
@@ -122,6 +177,13 @@ export default function CampRegistrationsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [detail, setDetail] = useState<Detail | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [viewMode, setViewMode] = useState<"list" | "detail">("list")
+  const [statusViewId, setStatusViewId] = useState<string | null>(null)
+  const [statusDraft, setStatusDraft] = useState("received")
+  const [statusNote, setStatusNote] = useState("")
+  const [statusSaving, setStatusSaving] = useState(false)
+  const [statusError, setStatusError] = useState<string | null>(null)
   const limit = 25
 
   const load = useCallback(async () => {
@@ -161,12 +223,27 @@ export default function CampRegistrationsPage() {
   const openDetail = async (id: string) => {
     const token = TokenManager.getToken()
     if (!token) return
-    const res = await fetch(getBackendApiUrl(`camp-registrations/${encodeURIComponent(id)}`), {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-    })
-    if (!res.ok) return
-    setDetail(await res.json())
+    setDetailLoading(true)
+    setViewMode("detail")
+    setDetail(null)
+    try {
+      const res = await fetch(getBackendApiUrl(`camp-registrations/${encodeURIComponent(id)}`), {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      })
+      if (!res.ok) {
+        setViewMode("list")
+        return
+      }
+      setDetail(await res.json())
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
+  const closeDetail = () => {
+    setViewMode("list")
+    setDetail(null)
   }
 
   const participantName = useMemo(
@@ -174,415 +251,574 @@ export default function CampRegistrationsPage() {
     [detail]
   )
 
-  return (
-    <div className="min-h-screen bg-gray-50 p-4 lg:px-8">
-      <div className="w-full max-w-none space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Camp registrations</h1>
-            <p className="text-gray-600 text-sm">Residential camp form submissions, grouped by event</p>
-          </div>
-          <Button type="button" variant="outline" onClick={() => load()} disabled={loading}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
+  const openStatus = (id: string, current?: string) => {
+    setStatusViewId(id)
+    setStatusDraft((current || rows.find((r) => r.id === id)?.status || "received").toLowerCase())
+    setStatusNote("")
+    setStatusError(null)
+  }
+
+  const saveStatus = async () => {
+    if (!statusViewId) return
+    const token = TokenManager.getToken()
+    if (!token) return
+    setStatusSaving(true)
+    setStatusError(null)
+    try {
+      const res = await fetch(getBackendApiUrl(`camp-registrations/${encodeURIComponent(statusViewId)}/status`), {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ status: statusDraft, note: statusNote.trim() || null }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(typeof data.detail === "string" ? data.detail : "Failed to update status")
+      }
+      const next = data.status || statusDraft
+      setRows((prev) => prev.map((r) => (r.id === statusViewId ? { ...r, status: next } : r)))
+      if (detail?.id === statusViewId) {
+        setDetail({ ...detail, status: next })
+      }
+      setStatusViewId(null)
+    } catch (e) {
+      setStatusError(e instanceof Error ? e.message : "Failed to update status")
+    } finally {
+      setStatusSaving(false)
+    }
+  }
+
+  const statusRow = rows.find((r) => r.id === statusViewId)
+
+  if (viewMode === "detail") {
+    return (
+      <AdminPageShell className="admin-stack min-h-0 flex-1">
+        <div className="mb-1 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={closeDetail}
+            className="inline-flex items-center gap-2 text-sm font-medium text-[#4F5077] hover:text-[#2F3153]"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to enquiries
+          </button>
         </div>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Submissions ({total})</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <form
-              className="flex flex-col sm:flex-row gap-2"
-              onSubmit={(e) => {
-                e.preventDefault()
-                setSkip(0)
-                setSearch(searchInput)
-              }}
-            >
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  placeholder="Search name, phone, email, event…"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  className="pl-9"
-                />
+        {detailLoading && !detail ? (
+          <AdminCard className="flex min-h-[50vh] items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-[#6B7280]" />
+          </AdminCard>
+        ) : detail ? (
+          <div className="flex min-h-0 flex-1 flex-col gap-5 pb-6">
+            {/* Lead header */}
+            <div className="rounded-2xl border border-[#E8EAF0] bg-gradient-to-br from-[#FFFBF0] via-white to-[#F8FAFC] p-5 shadow-sm sm:p-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-md bg-[#2F3153] px-2.5 py-1 font-mono text-xs font-semibold tracking-wide text-white">
+                      {shortId(detail.id)}
+                    </span>
+                    <span className="text-xs font-medium uppercase tracking-wide text-[#C9971A]">
+                      Campaign enquiry
+                    </span>
+                    <span className={cn(statusPillClass(detail.status), "inline-flex")}>
+                      {statusLabel(detail.status)}
+                    </span>
+                  </div>
+                  <h1 className="text-2xl font-bold tracking-tight text-[#2F3153] sm:text-[1.75rem]">
+                    {participantName}
+                  </h1>
+                  <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[#4F5077]">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Tent className="h-4 w-4 text-[#C9971A]" />
+                      {detail.event?.event_name || "Camp registration"}
+                    </span>
+                    {detail.event?.event_dates ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <CalendarDays className="h-4 w-4 text-[#6B7280]" />
+                        {detail.event.event_dates}
+                      </span>
+                    ) : null}
+                    {detail.event?.event_location ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <MapPin className="h-4 w-4 text-[#6B7280]" />
+                        {detail.event.event_location}
+                      </span>
+                    ) : null}
+                  </p>
+                  <p className="text-xs text-[#6B7280]">
+                    Submitted {formatWhen(detail.created_at)}
+                    {detail.registration_code ? ` · Code ${detail.registration_code}` : ""}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={adminOutlineBtnClass}
+                    onClick={() => openStatus(detail.id, detail.status)}
+                  >
+                    Change Status
+                  </Button>
+                  <Button type="button" className={adminPrimaryBtnClass} onClick={closeDetail}>
+                    Done
+                  </Button>
+                </div>
               </div>
-              <Select
-                value={eventId}
-                onValueChange={(v) => {
-                  setSkip(0)
-                  setEventId(v)
-                }}
-              >
-                <SelectTrigger className="h-10 w-full sm:w-[280px] bg-white">
-                  <SelectValue placeholder="All events" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All events</SelectItem>
-                  {events.map((ev) => (
-                    <SelectItem key={ev.event_id} value={ev.event_id}>
-                      {ev.event_name}
-                      {ev.event_dates ? ` • ${ev.event_dates}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button type="submit">Search</Button>
-            </form>
 
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            {loading ? (
-              <p className="text-gray-500 text-sm py-8 text-center">Loading…</p>
-            ) : rows.length === 0 ? (
-              <p className="text-gray-500 text-sm py-8 text-center">No camp registrations found.</p>
-            ) : (
-              <div className="overflow-x-auto border rounded-lg">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-gray-100 text-gray-700">
-                    <tr>
-                      <th className="px-3 py-2 font-semibold">Event</th>
-                      <th className="px-3 py-2 font-semibold">Participant</th>
-                      <th className="px-3 py-2 font-semibold">Parent mobile</th>
-                      <th className="px-3 py-2 font-semibold">Email</th>
-                      <th className="px-3 py-2 font-semibold">Status</th>
-                      <th className="px-3 py-2 font-semibold">Payment</th>
-                      <th className="px-3 py-2 font-semibold">Submitted</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((row) => (
-                      <tr
-                        key={row.id}
-                        className="border-t hover:bg-yellow-50 cursor-pointer"
-                        onClick={() => openDetail(row.id)}
-                      >
-                        <td className="px-3 py-2">
-                          <div className="font-medium">{row.event_name || "—"}</div>
-                          <div className="text-xs text-gray-500">{row.event_dates}</div>
-                        </td>
-                        <td className="px-3 py-2">{row.full_name}</td>
-                        <td className="px-3 py-2">{row.parent_guardian_mobile}</td>
-                        <td className="px-3 py-2">{row.email}</td>
-                        <td className="px-3 py-2">{statusLabel(row.status)}</td>
-                        <td className="px-3 py-2">{row.payment_mode || "—"}</td>
-                        <td className="px-3 py-2">
-                          {row.created_at ? new Date(row.created_at).toLocaleString() : "—"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="mt-5 grid grid-cols-1 gap-3 border-t border-[#E8EAF0]/80 pt-4 sm:grid-cols-3">
+                <div className="rounded-xl bg-white/80 px-4 py-3 ring-1 ring-[#E8EAF0]">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-[#6B7280]">Phone</div>
+                  <div className="mt-1 flex items-center gap-2 text-sm font-semibold text-[#2F3153]">
+                    <Phone className="h-3.5 w-3.5 text-[#C9971A]" />
+                    {pick(detail.participant, ["parent_guardian_mobile", "phone", "mobile"]) || "—"}
+                  </div>
+                </div>
+                <div className="rounded-xl bg-white/80 px-4 py-3 ring-1 ring-[#E8EAF0]">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-[#6B7280]">Email</div>
+                  <div className="mt-1 flex items-center gap-2 text-sm font-semibold text-[#2F3153] break-all">
+                    <Mail className="h-3.5 w-3.5 shrink-0 text-[#C9971A]" />
+                    {pick(detail.participant, ["email"]) || "—"}
+                  </div>
+                </div>
+                <div className="rounded-xl bg-white/80 px-4 py-3 ring-1 ring-[#E8EAF0]">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-[#6B7280]">Fee / pay now</div>
+                  <div className="mt-1 text-sm font-semibold text-[#2F3153]">
+                    {[detail.event?.fee_total, detail.event?.fee_pay_now].filter(Boolean).join(" · ") || "—"}
+                  </div>
+                </div>
               </div>
-            )}
-            {total > limit ? (
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" disabled={skip === 0} onClick={() => setSkip(Math.max(0, skip - limit))}>
-                  Previous
-                </Button>
-                <Button variant="outline" disabled={skip + limit >= total} onClick={() => setSkip(skip + limit)}>
-                  Next
-                </Button>
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
-      </div>
+            </div>
 
-      <BeautifiedModal
-        open={!!detail}
-        onClose={() => setDetail(null)}
-        title="Camp Registration – Participant Details"
-        subtitle="Complete registration information, training, and medical details."
-        icon={CalendarDays}
-        tone="violet"
-        size="lg"
-        footer={
-          <BeautifiedFooterNote
-            icon={Coins}
-            balance={
-              <>
-                Balance ₹ {detail?.event?.fee_balance || pick(detail?.payment as Record<string, unknown>, ["balance", "fee_balance"]) || "—"}
-              </>
-            }
-            note={
-              detail?.event?.refund_text ||
-              "Registration/payment is non-refundable once confirmed."
-            }
-          />
-        }
-      >
-        {detail ? (
-          <>
-            <BeautifiedHero
-              name={participantName}
-              idLabel={shortId(detail.id)}
-              statusLabel={statusLabel(detail.status)}
-              statusTone={statusTone(detail.status)}
-              subtitle={[
-                detail.event?.event_name,
-                detail.event?.event_dates,
-                detail.event?.event_location,
-              ]
-                .filter(Boolean)
-                .join(" • ")}
-            />
+            {/* Full-page sections */}
+            <EnquirySection icon={User} title="Participant information" accent="bg-[#FFFBF0]">
+              <Field label="Full name" value={pick(detail.participant, ["full_name", "name"])} />
+              <Field label="Date of birth" value={pick(detail.participant, ["dob", "date_of_birth"])} />
+              <Field label="Age" value={pick(detail.participant, ["age"])} />
+              <Field label="Gender" value={pick(detail.participant, ["gender"])} />
+              <Field
+                label="Guardian name"
+                value={pick(detail.participant, ["guardian_name", "parent_guardian_name"])}
+              />
+              <Field
+                label="Guardian relation"
+                value={pick(detail.participant, ["guardian_relation", "relationship", "parent_relation"])}
+              />
+              <Field
+                label="Alternate contact"
+                value={pick(detail.participant, ["alternate_contact", "alt_phone"])}
+              />
+              <Field label="Address" value={pick(detail.participant, ["address", "full_address"])} wide />
+            </EnquirySection>
 
-            <BeautifiedSection title="Participant Information" icon={User} tone="blue">
-              <BeautifiedField
-                label="Full Name"
-                value={pick(detail.participant, ["full_name", "name"])}
-                icon={User}
-                tone="blue"
+            <EnquirySection icon={Tent} title="Training background" accent="bg-[#F8FAFC]">
+              <Field
+                label="Level / beginner"
+                value={pick(detail.training, ["level", "belt_level", "course_level", "shaolin_beginner"])}
               />
-              <BeautifiedField
-                label="DOB"
-                value={pick(detail.participant, ["dob", "date_of_birth", "birth_date"])}
-                icon={CalendarDays}
-                tone="blue"
+              <Field
+                label="Trained before"
+                value={pick(detail.training, ["trained_before", "prior_training"])}
               />
-              <BeautifiedField
-                label="Age"
-                value={pick(detail.participant, ["age"])}
-                icon={Activity}
-                tone="blue"
+              <Field label="Training details" value={pick(detail.training, ["trained_details"])} />
+              <Field label="Current sports" value={pick(detail.training, ["current_sports", "sports"])} />
+              <Field label="Fitness level" value={pick(detail.training, ["fitness_level", "fitness"])} />
+            </EnquirySection>
+
+            <EnquirySection icon={HeartPulse} title="Medical & dietary" accent="bg-[#FFF8F8]">
+              <Field label="Injuries" value={pick(detail.medical, ["injury", "injuries"])} />
+              <Field label="Injury details" value={pick(detail.medical, ["injury_details"])} />
+              <Field
+                label="Medical conditions"
+                value={pick(detail.medical, ["medical_condition", "conditions"])}
               />
-              <BeautifiedField
-                label="Gender"
-                value={pick(detail.participant, ["gender"])}
-                icon={UserRound}
-                tone="blue"
+              <Field label="Allergies" value={pick(detail.medical, ["allergies"])} />
+              <Field label="Medication" value={pick(detail.medical, ["medication"])} />
+              <Field label="Blood group" value={pick(detail.medical, ["blood_group"])} />
+              <Field label="Food preference" value={pick(detail.food, ["preference", "food_preference"])} />
+              <Field
+                label="Dietary restrictions"
+                value={pick(detail.food, ["dietary_restriction", "dietary_details"])}
               />
-              <BeautifiedField
-                label="Guardian Name"
-                value={pick(detail.participant, [
-                  "guardian_name",
-                  "parent_guardian_name",
-                  "parent_name",
+            </EnquirySection>
+
+            <EnquirySection icon={MapPin} title="Camp stay & emergency" accent="bg-[#F5F9FF]">
+              <Field label="Emergency contact" value={pick(detail.emergency, ["name", "contact_name"])} />
+              <Field label="Relationship" value={pick(detail.emergency, ["relationship"])} />
+              <Field label="Emergency phone" value={pick(detail.emergency, ["phone", "mobile"])} />
+              <Field
+                label="Alternate phone"
+                value={pick(detail.emergency, ["alternate_phone"])}
+              />
+              <Field
+                label="Attended before"
+                value={pick(detail.residential, ["attended_before"])}
+              />
+              <Field
+                label="Special requirements"
+                value={pick(detail.residential, [
+                  "special_requirements",
+                  "special_requirements_details",
+                  "accommodation",
+                  "room_type",
                 ])}
-                icon={Shield}
-                tone="blue"
+                wide
               />
-              <BeautifiedField
-                label="Guardian Relation"
-                value={pick(detail.participant, [
-                  "guardian_relation",
-                  "parent_guardian_relation",
-                  "relation",
-                ])}
-                icon={UserRound}
-                tone="blue"
-              />
-              <BeautifiedField
-                label="Contact"
-                value={pick(detail.participant, [
-                  "parent_guardian_mobile",
-                  "mobile",
-                  "phone",
-                  "contact",
-                ])}
-                icon={Phone}
-                tone="blue"
-              />
-              <BeautifiedField
-                label="Email"
-                value={pick(detail.participant, ["email"])}
-                icon={Mail}
-                tone="blue"
-              />
-              <BeautifiedField
-                label="Address"
-                value={pick(detail.participant, ["address", "full_address", "residential_address"])}
-                icon={MapPin}
-                tone="blue"
-              />
-            </BeautifiedSection>
+            </EnquirySection>
 
-            <BeautifiedSection title="Training Information" icon={GraduationCap} tone="green">
-              <BeautifiedField
-                label="Level"
-                value={pick(detail.training, ["level", "belt_level", "current_level", "course_level"])}
-                icon={GraduationCap}
-                tone="green"
-              />
-              <BeautifiedField
-                label="Trained Before"
-                value={pick(detail.training, ["trained_before", "prior_training", "previous_training"])}
-                icon={Activity}
-                tone="green"
-              />
-              <BeautifiedField
-                label="Current Sports"
-                value={pick(detail.training, ["current_sports", "sports", "other_sports"])}
-                icon={Activity}
-                tone="green"
-              />
-              <BeautifiedField
-                label="Fitness Level"
-                value={pick(detail.training, ["fitness_level", "fitness"])}
-                icon={HeartPulse}
-                tone="green"
-              />
-            </BeautifiedSection>
-
-            <BeautifiedSection title="Medical Information" icon={HeartPulse} tone="rose">
-              <BeautifiedField
-                label="Injury"
-                value={pick(detail.medical, ["injury", "injuries", "recent_injury"])}
-                icon={AlertTriangle}
-                tone="rose"
-              />
-              <BeautifiedField
-                label="Medical Condition"
-                value={pick(detail.medical, ["medical_condition", "condition", "conditions"])}
-                icon={HeartPulse}
-                tone="rose"
-              />
-              <BeautifiedField
-                label="Allergies"
-                value={pick(detail.medical, ["allergies", "allergy"])}
-                icon={AlertTriangle}
-                tone="rose"
-              />
-              <BeautifiedField
-                label="Medication"
-                value={pick(detail.medical, ["medication", "medications", "current_medication"])}
-                icon={Pill}
-                tone="rose"
-              />
-              <BeautifiedField
-                label="Blood Group"
-                value={pick(detail.medical, ["blood_group", "blood_type"])}
-                icon={Droplets}
-                tone="rose"
-              />
-            </BeautifiedSection>
-
-            {(detail.food || detail.emergency || detail.residential) && (
-              <BeautifiedSection title="Camp & Emergency" icon={Home} tone="teal">
-                {detail.food ? (
-                  <>
-                    <BeautifiedField
-                      label="Food Preference"
-                      value={pick(detail.food, ["preference", "food_preference", "diet"])}
-                      icon={Utensils}
-                      tone="teal"
-                    />
-                    <BeautifiedField
-                      label="Food Notes"
-                      value={pick(detail.food, ["notes", "special_requests", "other"])}
-                      icon={Utensils}
-                      tone="teal"
-                    />
-                  </>
-                ) : null}
-                {detail.emergency ? (
-                  <>
-                    <BeautifiedField
-                      label="Emergency Contact"
-                      value={pick(detail.emergency, ["name", "contact_name", "emergency_name"])}
-                      icon={Shield}
-                      tone="teal"
-                    />
-                    <BeautifiedField
-                      label="Emergency Phone"
-                      value={pick(detail.emergency, ["phone", "mobile", "contact_phone"])}
-                      icon={Phone}
-                      tone="teal"
-                    />
-                  </>
-                ) : null}
-                {detail.residential ? (
-                  <BeautifiedField
-                    label="Accommodation"
-                    value={pick(detail.residential, ["accommodation", "room_type", "stay"])}
-                    icon={Home}
-                    tone="teal"
-                  />
-                ) : null}
-              </BeautifiedSection>
-            )}
-
-            <BeautifiedSection title="Payment & Fees" icon={Coins} tone="amber">
-              <BeautifiedField label="Fee Total" value={detail.event?.fee_total} icon={Coins} tone="amber" />
-              <BeautifiedField label="Pay Now" value={detail.event?.fee_pay_now} icon={Coins} tone="amber" />
-              <BeautifiedField label="Balance" value={detail.event?.fee_balance} icon={Coins} tone="amber" />
-              <BeautifiedField
-                label="Payment Mode"
-                value={String(detail.payment?.payment_mode || "")}
-                icon={Coins}
-                tone="amber"
-              />
-              <BeautifiedField
-                label="Transaction"
-                value={String(detail.payment?.transaction_id || "")}
-                icon={Coins}
-                tone="amber"
-              />
-              {typeof detail.payment?.screenshot_url === "string" && detail.payment.screenshot_url ? (
-                <BeautifiedField
-                  label="Screenshot"
-                  value={
+            <EnquirySection icon={Wallet} title="Payment & consent" accent="bg-[#F7FBF4]">
+              <Field label="Fee total" value={detail.event?.fee_total} />
+              <Field label="Pay now" value={detail.event?.fee_pay_now} />
+              <Field label="Balance" value={detail.event?.fee_balance} />
+              <Field label="Payment mode" value={String(detail.payment?.payment_mode || "")} />
+              <Field label="Transaction ID" value={String(detail.payment?.transaction_id || "")} />
+              <Field
+                label="Screenshot"
+                value={
+                  typeof detail.payment?.screenshot_url === "string" && detail.payment.screenshot_url ? (
                     <a
-                      className="text-[#B45309] underline"
+                      className="font-semibold text-[#C9971A] underline"
                       href={resolvePublicAssetUrl(detail.payment.screenshot_url)}
                       target="_blank"
                       rel="noreferrer"
                     >
-                      View screenshot
+                      View payment screenshot
                     </a>
-                  }
-                  tone="amber"
-                />
-              ) : null}
-            </BeautifiedSection>
+                  ) : (
+                    ""
+                  )
+                }
+              />
+              <Field
+                label="How they heard"
+                value={
+                  [
+                    Array.isArray(detail.hear_about?.sources) ? detail.hear_about.sources.join(", ") : "",
+                    detail.hear_about?.other_source,
+                    detail.hear_about?.referred_by ? `Referred by ${detail.hear_about.referred_by}` : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")
+                }
+              />
+              <Field label="Photo / video consent" value={detail.photo?.consent ? "Agreed" : ""} />
+              <Field
+                label="Parent consent"
+                value={
+                  detail.parent_consent?.agreed
+                    ? [
+                        "Agreed",
+                        detail.parent_consent?.name ? String(detail.parent_consent.name) : "",
+                        detail.parent_consent?.relationship
+                          ? `(${String(detail.parent_consent.relationship)})`
+                          : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")
+                    : ""
+                }
+              />
+            </EnquirySection>
+          </div>
+        ) : (
+          <AdminCard className="text-sm text-[#6B7280]">Unable to load this enquiry.</AdminCard>
+        )}
 
-            {(detail.hear_about?.sources?.length ||
-              detail.hear_about?.other_source ||
-              detail.hear_about?.referred_by) && (
-              <BeautifiedSection title="Hear About Us" icon={User} tone="slate">
-                <BeautifiedField
-                  label="Sources"
-                  value={(detail.hear_about?.sources || []).join(", ")}
-                  tone="slate"
+        <AppModal
+          open={!!statusViewId}
+          onClose={() => !statusSaving && setStatusViewId(null)}
+          title="Change enquiry status"
+          size="sm"
+          footer={
+            <div className="flex w-full flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className={adminOutlineBtnClass}
+                disabled={statusSaving}
+                onClick={() => setStatusViewId(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className={adminPrimaryBtnClass}
+                disabled={statusSaving}
+                onClick={() => void saveStatus()}
+              >
+                {statusSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Update status
+              </Button>
+            </div>
+          }
+        >
+          {statusViewId ? (
+            <div className="space-y-4 text-sm text-[#4F5077]">
+              <p>
+                <span className="font-medium text-[#2F3153]">{detail?.participant ? participantName : statusRow?.full_name}</span>{" "}
+                · {shortId(statusViewId)}
+              </p>
+              <p>
+                Current:{" "}
+                <span className={cn(statusPillClass(detail?.status || statusRow?.status), "inline-flex")}>
+                  {statusLabel(detail?.status || statusRow?.status)}
+                </span>
+              </p>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">New status</label>
+                <Select value={statusDraft} onValueChange={setStatusDraft}>
+                  <SelectTrigger className="w-full bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LEAD_STATUSES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {statusLabel(s)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">Note (optional)</label>
+                <Input
+                  value={statusNote}
+                  onChange={(e) => setStatusNote(e.target.value)}
+                  placeholder="e.g. Called guardian, awaiting fee"
                 />
-                <BeautifiedField label="Other" value={detail.hear_about?.other_source} tone="slate" />
-                <BeautifiedField label="Referred By" value={detail.hear_about?.referred_by} tone="slate" />
-              </BeautifiedSection>
+              </div>
+              {statusError ? <p className="text-sm text-red-600">{statusError}</p> : null}
+            </div>
+          ) : null}
+        </AppModal>
+      </AdminPageShell>
+    )
+  }
+
+  return (
+    <AdminPageShell className="admin-stack min-h-0 flex-1">
+      <AdminPageHeader
+        icon={CalendarDays}
+        title="Camp Registration Enquiries"
+        subtitle="Leads from campaign camp registration forms — review submissions and update status."
+        actions={
+          <Button type="button" variant="outline" className={adminOutlineBtnClass} onClick={() => load()} disabled={loading}>
+            <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
+            Refresh
+          </Button>
+        }
+      />
+
+      <AdminFilterBar>
+        <Select
+          value={eventId}
+          onValueChange={(v) => {
+            setSkip(0)
+            setEventId(v)
+          }}
+        >
+          <SelectTrigger className="w-full bg-white">
+            <SelectValue placeholder="All events" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All events</SelectItem>
+            {events.map((ev) => (
+              <SelectItem key={ev.event_id} value={ev.event_id}>
+                {ev.event_name}
+                {ev.event_dates ? ` • ${ev.event_dates}` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <form
+          className="col-span-full flex min-w-0 flex-col gap-2 sm:col-span-2 sm:flex-row lg:col-span-3"
+          onSubmit={(e) => {
+            e.preventDefault()
+            setSkip(0)
+            setSearch(searchInput)
+          }}
+        >
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 text-[#6B7280]" />
+            <Input
+              placeholder="Search name, phone, email, event…"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Button type="submit" className={adminPrimaryBtnClass}>
+            Search
+          </Button>
+        </form>
+      </AdminFilterBar>
+
+      {error ? (
+        <AdminCard className="border-red-200 bg-red-50 text-sm text-red-700">{error}</AdminCard>
+      ) : null}
+
+      <AdminTableShell
+        footer={
+          total > limit ? (
+            <>
+              <span className="text-sm text-[#6B7280]">
+                {skip + 1}–{Math.min(skip + limit, total)} of {total} enquiries
+              </span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" disabled={skip === 0} onClick={() => setSkip(Math.max(0, skip - limit))}>
+                  Previous
+                </Button>
+                <Button variant="outline" size="sm" disabled={skip + limit >= total} onClick={() => setSkip(skip + limit)}>
+                  Next
+                </Button>
+              </div>
+            </>
+          ) : (
+            <span className="text-sm text-[#6B7280]">{total} enquir{total === 1 ? "y" : "ies"}</span>
+          )
+        }
+      >
+        <table className="min-w-[960px] w-full text-sm">
+          <thead>
+            <tr className="border-b border-[#E8EAF0] text-left text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+              <th className="px-4 py-3">Enquiry # / Date</th>
+              <th className="px-4 py-3">Participant</th>
+              <th className="px-4 py-3">Contact</th>
+              <th className="px-4 py-3">Camp</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3 text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-16 text-center text-[#6B7280]">
+                  <Loader2 className="mr-2 inline h-5 w-5 animate-spin" />
+                  Loading enquiries…
+                </td>
+              </tr>
+            ) : rows.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-16 text-center text-[#6B7280]">
+                  No camp registration enquiries found.
+                </td>
+              </tr>
+            ) : (
+              rows.map((row) => (
+                <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/60">
+                  <td className="px-4 py-3">
+                    <div className="font-mono text-xs font-semibold text-[#2F3153]">{shortId(row.id)}</div>
+                    <div className="mt-0.5 text-xs text-[#6B7280]">{formatWhen(row.created_at)}</div>
+                  </td>
+                  <td className="px-4 py-3 font-medium text-[#2F3153]">{row.full_name || "—"}</td>
+                  <td className="px-4 py-3 text-[#4F5077]">
+                    <div className="flex items-center gap-1 text-xs">
+                      <Phone className="h-3.5 w-3.5 shrink-0 text-[#6B7280]" />
+                      {row.parent_guardian_mobile || "—"}
+                    </div>
+                    {row.email ? (
+                      <div className="mt-0.5 flex items-center gap-1 text-xs text-[#6B7280]">
+                        <Mail className="h-3.5 w-3.5 shrink-0" />
+                        {row.email}
+                      </div>
+                    ) : null}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-[#4F5077]">{row.event_name || "—"}</div>
+                    {row.event_dates ? <div className="text-xs text-[#6B7280]">{row.event_dates}</div> : null}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={statusPillClass(row.status)}>{statusLabel(row.status)}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                      <Button type="button" size="sm" variant="outline" onClick={() => void openDetail(row.id)}>
+                        <Eye className="mr-1 h-3.5 w-3.5" />
+                        View
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="text-[#4F5077]"
+                        onClick={() => openStatus(row.id, row.status)}
+                      >
+                        Change Status
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))
             )}
+          </tbody>
+        </table>
+      </AdminTableShell>
 
-            {(typeof detail.parent_consent?.signature === "string" && detail.parent_consent.signature) ||
-            (typeof detail.final?.signature === "string" && detail.final.signature) ? (
-              <BeautifiedSection title="Signatures" icon={Shield} tone="violet">
-                {typeof detail.parent_consent?.signature === "string" && detail.parent_consent.signature ? (
-                  <div className="px-4 py-3">
-                    <p className="mb-2 text-xs text-[#64748B]">Parent signature</p>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={detail.parent_consent.signature}
-                      alt="Parent signature"
-                      className="max-h-24 rounded-lg border border-[#E2E8F0] bg-white"
-                    />
-                  </div>
-                ) : null}
-                {typeof detail.final?.signature === "string" && detail.final.signature ? (
-                  <div className="px-4 py-3">
-                    <p className="mb-2 text-xs text-[#64748B]">Final signature</p>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={detail.final.signature}
-                      alt="Final signature"
-                      className="max-h-24 rounded-lg border border-[#E2E8F0] bg-white"
-                    />
-                  </div>
-                ) : null}
-              </BeautifiedSection>
-            ) : null}
-          </>
+      <AppModal
+        open={!!statusViewId}
+        onClose={() => !statusSaving && setStatusViewId(null)}
+        title="Change enquiry status"
+        size="sm"
+        footer={
+          <div className="flex w-full flex-wrap justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className={adminOutlineBtnClass}
+              disabled={statusSaving}
+              onClick={() => setStatusViewId(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className={adminPrimaryBtnClass}
+              disabled={statusSaving}
+              onClick={() => void saveStatus()}
+            >
+              {statusSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Update status
+            </Button>
+          </div>
+        }
+      >
+        {statusRow ? (
+          <div className="space-y-4 text-sm text-[#4F5077]">
+            <p>
+              <span className="font-medium text-[#2F3153]">{statusRow.full_name}</span> · {shortId(statusRow.id)}
+            </p>
+            <p>
+              Current:{" "}
+              <span className={cn(statusPillClass(statusRow.status), "inline-flex")}>
+                {statusLabel(statusRow.status)}
+              </span>
+            </p>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">New status</label>
+              <Select value={statusDraft} onValueChange={setStatusDraft}>
+                <SelectTrigger className="w-full bg-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LEAD_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {statusLabel(s)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">Note (optional)</label>
+              <Input
+                value={statusNote}
+                onChange={(e) => setStatusNote(e.target.value)}
+                placeholder="e.g. Called guardian, awaiting fee"
+              />
+            </div>
+            {statusError ? <p className="text-sm text-red-600">{statusError}</p> : null}
+          </div>
         ) : null}
-      </BeautifiedModal>
-    </div>
+      </AppModal>
+    </AdminPageShell>
   )
 }

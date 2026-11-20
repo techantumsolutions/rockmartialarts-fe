@@ -8,7 +8,9 @@ import {
   Calendar,
   CreditCard,
   GraduationCap,
+  Globe,
   ImageIcon,
+  KeyRound,
   LayoutDashboard,
   Loader2,
   MessageSquare,
@@ -20,9 +22,13 @@ import {
   UserPlus,
   BookOpen,
   CalendarCheck,
+  ExternalLink,
 } from "lucide-react"
+import Link from "next/link"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
@@ -88,6 +94,7 @@ type Props = {
 
 export function PartnerProfileAdminControls({ partner, open, onUpdated }: Props) {
   const { toast } = useToast()
+  const basePath = useDashboardBasePath()
   const [validFrom, setValidFrom] = useState(formatValidity(partner.valid_from))
   const [validUntil, setValidUntil] = useState(formatValidity(partner.valid_until))
   const [featurePerms, setFeaturePerms] = useState<Record<string, boolean>>({})
@@ -102,6 +109,11 @@ export function PartnerProfileAdminControls({ partner, open, onUpdated }: Props)
   const [whatsappAllocated, setWhatsappAllocated] = useState("0")
   const [loadingQuota, setLoadingQuota] = useState(false)
   const [savingQuota, setSavingQuota] = useState(false)
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [resettingPassword, setResettingPassword] = useState(false)
+  const [pageCmsEnabled, setPageCmsEnabled] = useState(partner.page_cms_enabled !== false)
+  const [savingSiteSettings, setSavingSiteSettings] = useState(false)
 
   const loadFeatures = useCallback(async () => {
     setLoadingFeatures(true)
@@ -146,7 +158,8 @@ export function PartnerProfileAdminControls({ partner, open, onUpdated }: Props)
   useEffect(() => {
     setValidFrom(formatValidity(partner.valid_from))
     setValidUntil(formatValidity(partner.valid_until))
-  }, [partner.valid_from, partner.valid_until])
+    setPageCmsEnabled(partner.page_cms_enabled !== false)
+  }, [partner.valid_from, partner.valid_until, partner.page_cms_enabled])
 
   useEffect(() => {
     if (open) {
@@ -215,6 +228,31 @@ export function PartnerProfileAdminControls({ partner, open, onUpdated }: Props)
     }
   }
 
+  async function togglePageCms(checked: boolean) {
+    setPageCmsEnabled(checked)
+    setSavingSiteSettings(true)
+    try {
+      const res = await partnerOrgAPI.patchPublicSiteSettings(partner.id, {
+        page_cms_enabled: checked,
+      })
+      if (res.partner) onUpdated(res.partner)
+      setPageCmsEnabled(res.page_cms_enabled !== false)
+      toast({
+        title: "Public website settings updated",
+        description: res.message || "Saved.",
+      })
+    } catch (e: unknown) {
+      setPageCmsEnabled(!checked)
+      toast({
+        title: "Save failed",
+        description: e instanceof Error ? e.message : "Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setSavingSiteSettings(false)
+    }
+  }
+
   async function saveQuota() {
     const sms = Math.max(0, Math.floor(Number(smsAllocated) || 0))
     const wa = Math.max(0, Math.floor(Number(whatsappAllocated) || 0))
@@ -237,6 +275,46 @@ export function PartnerProfileAdminControls({ partner, open, onUpdated }: Props)
       })
     } finally {
       setSavingQuota(false)
+    }
+  }
+
+  async function resetPassword() {
+    const pwd = newPassword.trim()
+    const confirm = confirmPassword.trim()
+    if (pwd.length < 8) {
+      toast({
+        title: "Password too short",
+        description: "Use at least 8 characters.",
+        variant: "destructive",
+      })
+      return
+    }
+    if (pwd !== confirm) {
+      toast({
+        title: "Passwords do not match",
+        description: "Re-enter the same password in both fields.",
+        variant: "destructive",
+      })
+      return
+    }
+    setResettingPassword(true)
+    try {
+      const res = await partnerOrgAPI.resetPassword(partner.id, pwd)
+      if (res.partner) onUpdated(res.partner)
+      setNewPassword("")
+      setConfirmPassword("")
+      toast({
+        title: "Password reset",
+        description: res.message || "Partner can now sign in with the new password.",
+      })
+    } catch (e: unknown) {
+      toast({
+        title: "Password reset failed",
+        description: e instanceof Error ? e.message : "Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setResettingPassword(false)
     }
   }
 
@@ -368,6 +446,52 @@ export function PartnerProfileAdminControls({ partner, open, onUpdated }: Props)
 
       <div className="mt-4 rounded-2xl border border-[#E2E8F0] bg-white p-4 sm:p-5 shadow-sm">
         <div className="mb-4 flex items-center gap-2 border-b border-[#F1F5F9] pb-3">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#EFF6FF] text-[#1D4ED8]">
+            <Globe className="h-4 w-4" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-[#171A26]">Public Website</p>
+            <p className="text-xs text-[#64748B]">
+              Page CMS content on the partner public site
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <label className="flex cursor-pointer items-center justify-between gap-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5">
+            <span className="text-[13px] font-medium text-[#171A26]">Enable Page CMS</span>
+            <Switch
+              checked={pageCmsEnabled}
+              disabled={savingSiteSettings}
+              onCheckedChange={(checked) => void togglePageCms(checked)}
+            />
+          </label>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <Button type="button" size="sm" variant="outline" asChild>
+            <Link
+              href={`${basePath}/org-branding?partnerOrgId=${encodeURIComponent(partner.id)}`}
+            >
+              <ImageIcon className="mr-1.5 h-3.5 w-3.5" />
+              Edit Page CMS
+            </Link>
+          </Button>
+          {partner.slug ? (
+            <Button type="button" size="sm" variant="ghost" asChild>
+              <Link
+                href={`/partner-orgs/${encodeURIComponent(partner.slug)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                View public page
+              </Link>
+            </Button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-[#E2E8F0] bg-white p-4 sm:p-5 shadow-sm">
+        <div className="mb-4 flex items-center gap-2 border-b border-[#F1F5F9] pb-3">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#FFF8E1] text-[#C9971A]">
             <BookOpen className="h-4 w-4" />
           </span>
@@ -406,6 +530,53 @@ export function PartnerProfileAdminControls({ partner, open, onUpdated }: Props)
           onClick={() => void saveCoursePermissions()}
         >
           Save course permissions
+        </Button>
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-[#E2E8F0] bg-white p-4 sm:p-5 shadow-sm">
+        <div className="mb-4 flex items-center gap-2 border-b border-[#F1F5F9] pb-3">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#EEF2FF] text-[#4338CA]">
+            <KeyRound className="h-4 w-4" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-[#171A26]">Reset Password</p>
+            <p className="text-xs text-[#64748B]">
+              Set a new login password for this partner admin ({partner.email || "—"})
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <Label className="text-xs text-[#64748B]">New password</Label>
+            <PasswordInput
+              autoComplete="new-password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="mt-1"
+              placeholder="At least 8 characters"
+            />
+          </div>
+          <div>
+            <Label className="text-xs text-[#64748B]">Confirm password</Label>
+            <PasswordInput
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="mt-1"
+              placeholder="Re-enter password"
+            />
+          </div>
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          className="mt-4"
+          loading={resettingPassword}
+          loadingText="Resetting…"
+          disabled={!newPassword || !confirmPassword}
+          onClick={() => void resetPassword()}
+        >
+          Reset password
         </Button>
       </div>
 

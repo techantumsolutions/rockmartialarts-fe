@@ -1,5 +1,9 @@
+import type { Metadata } from "next"
 import Footer from "@/components/layout/Footer"
 import CoachSubscriptionGuard from "@/components/coach/CoachSubscriptionGuard"
+import { portalMetadata } from "@/lib/portalIdentity"
+
+export const metadata: Metadata = portalMetadata("coach")
 
 export default function CoachDashboardLayout({ children }: { children: React.ReactNode }) {
   return (

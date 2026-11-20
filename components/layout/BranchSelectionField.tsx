@@ -29,9 +29,9 @@ export default function BranchSelectionField({
   return (
     <Input
       id={id}
-      aria-label="Selected branch"
+      aria-label="Selected academy"
       readOnly
-      value={branchName || active?.name || persisted?.name || branchManager?.branch_name || "No branch selected"}
+      value={branchName || active?.name || persisted?.name || branchManager?.branch_name || "No academy selected"}
       className={`bg-gray-50 text-gray-700 ${className || ""}`}
     />
   )

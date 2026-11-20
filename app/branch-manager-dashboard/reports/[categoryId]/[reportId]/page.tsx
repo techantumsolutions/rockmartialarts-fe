@@ -78,16 +78,16 @@ const REPORT_CATEGORIES = [
   },
   {
     id: "branch",
-    name: "Branch Reports",
+    name: "Academy Reports",
     icon: Building,
-    description: "Branch-specific analytics, performance, and operational reports",
+    description: "Academy-specific analytics, performance, and operational reports",
     reports: [
-      { id: "branch-performance-overview", name: "Branch Performance Overview", icon: TrendingUp },
-      { id: "branch-enrollment-statistics", name: "Branch Enrollment Statistics", icon: FileText },
-      { id: "branch-revenue-analysis", name: "Branch Revenue Analysis", icon: TrendingUp },
-      { id: "branch-capacity-utilization", name: "Branch Capacity Utilization", icon: FileText },
-      { id: "branch-staff-allocation", name: "Branch Staff Allocation", icon: FileText },
-      { id: "branch-operational-hours", name: "Branch Operational Hours", icon: FileText },
+      { id: "academy-performance-overview", name: "Academy Performance Overview", icon: TrendingUp },
+      { id: "academy-enrollment-statistics", name: "Academy Enrollment Statistics", icon: FileText },
+      { id: "academy-revenue-analysis", name: "Academy Revenue Analysis", icon: TrendingUp },
+      { id: "academy-capacity-utilization", name: "Academy Capacity Utilization", icon: FileText },
+      { id: "academy-staff-allocation", name: "Academy Staff Allocation", icon: FileText },
+      { id: "academy-operational-hours", name: "Academy Operational Hours", icon: FileText },
     ]
   },
   {
@@ -167,11 +167,11 @@ export default function BranchManagerIndividualReport() {
     to: undefined
   })
 
-  // Get current branch manager data for filtering
+  // Get current academy manager data for filtering
   const currentBranchManager = BranchManagerAuth.getCurrentUser()
   const branchManagerBranchId = currentBranchManager?.branch_id
 
-  // Filter states - automatically set branch_id to current branch manager's branch
+  // Filter states - automatically set branch_id to current academy manager's academy
   const [filters, setFilters] = useState<FilterState>({
     date_range: "current-month",
     branch_id: branchManagerBranchId || "",
@@ -198,7 +198,7 @@ export default function BranchManagerIndividualReport() {
     setFilters(prev => ({ ...prev, search: debouncedSearchTerm }))
   }, [debouncedSearchTerm])
 
-  // Update branch_id filter when branch manager data is available
+  // Update branch_id filter when academy manager data is available
   useEffect(() => {
     if (branchManagerBranchId) {
       setFilters(prev => ({ ...prev, branch_id: branchManagerBranchId }))
@@ -280,7 +280,7 @@ export default function BranchManagerIndividualReport() {
   // Fetch course popularity data from API
   const fetchCoursePopularityData = async (token: string, branchId: string) => {
     try {
-      console.log('🔍 Fetching course popularity data for branch:', branchId)
+      console.log('🔍 Fetching course popularity data for academy:', branchId)
 
       // Fetch course reports from the backend
       const data = await reportsAPI.getCourseReports(token, {
@@ -326,7 +326,7 @@ export default function BranchManagerIndividualReport() {
       return {
         title: "Course Popularity Analysis",
         branch_id: branchId,
-        branch_name: currentBranchManager?.branch_name || "Branch",
+        branch_name: currentBranchManager?.branch_name || "Academy",
         generated_at: new Date().toISOString(),
         data: {
           summary: {
@@ -417,7 +417,7 @@ export default function BranchManagerIndividualReport() {
   // Load report data
   const loadReportData = useCallback(async () => {
     if (!currentBranchManager || !branchManagerBranchId) {
-      toast.error("Branch manager authentication required")
+      toast.error("Academy manager authentication required")
       return
     }
 
@@ -475,7 +475,7 @@ export default function BranchManagerIndividualReport() {
         toBranchManagerGenericReport(apiData, transformCategory, {
           title: currentReport?.name || "Report",
           branchId: branchManagerBranchId,
-          branchName: currentBranchManager?.branch_name || "Branch",
+          branchName: currentBranchManager?.branch_name || "Academy",
         })
       )
     } catch (error) {
@@ -588,7 +588,7 @@ export default function BranchManagerIndividualReport() {
                 </div>
               </div>
               <div className="flex flex-wrap justify-between">
-                {/* Branch Filter - Disabled for branch managers */}
+                {/* Branch Filter - Disabled for academy managers */}
                 <BranchSelectionField readOnly />
 
                 {/* Course Filter */}
@@ -795,7 +795,7 @@ export default function BranchManagerIndividualReport() {
                       <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm font-medium text-gray-600">Branch</p>
+                            <p className="text-sm font-medium text-gray-600">Academy</p>
                             <p className="text-lg font-bold text-orange-600">{reportData.branch_name}</p>
                           </div>
                           <Building className="w-8 h-8 text-orange-500" />

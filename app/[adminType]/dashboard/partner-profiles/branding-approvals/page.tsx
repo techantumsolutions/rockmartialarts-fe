@@ -105,7 +105,12 @@ export default function PartnerBrandingApprovalsPage() {
     try {
       setActingId(row.id)
       await partnerOrgAPI.approveBrandingEditRequest(row.id)
-      toast({ title: "Approved", description: "Partner can now edit branding." })
+      toast({
+        title: "Approved",
+        description: row.branch_id
+          ? "Partner can now edit this academy's branding."
+          : "Partner can now edit organization branding.",
+      })
       await load()
     } catch (e: unknown) {
       toast({
@@ -142,9 +147,15 @@ export default function PartnerBrandingApprovalsPage() {
       } else if (reasonAction === "revoke" && reasonTarget.partner_org_id) {
         await partnerOrgAPI.revokeBrandingEditAccess(
           reasonTarget.partner_org_id,
-          reason || undefined
+          reason || undefined,
+          reasonTarget.branch_id || undefined
         )
-        toast({ title: "Revoked", description: "Branding edit access revoked." })
+        toast({
+          title: "Revoked",
+          description: reasonTarget.branch_id
+            ? "Academy branding edit access revoked."
+            : "Organization branding edit access revoked.",
+        })
       }
       setReasonOpen(false)
       await load()
@@ -162,8 +173,8 @@ export default function PartnerBrandingApprovalsPage() {
   return (
     <AdminPageShell>
       <AdminPageHeader
-        title="Partner Branding Approvals"
-        subtitle="Review partner requests to edit their branding page."
+        title="Partner Edit Approvals"
+        subtitle="Approve partner requests for Organization Branding or Edit Academy access."
         actions={
           <div className="flex items-center gap-2">
             <Button
@@ -206,6 +217,7 @@ export default function PartnerBrandingApprovalsPage() {
             <thead>
               <tr className="border-b text-left text-gray-500">
                 <th className="py-2 pr-3 font-medium">Partner</th>
+                <th className="py-2 pr-3 font-medium">Scope</th>
                 <th className="py-2 pr-3 font-medium">Requested by</th>
                 <th className="py-2 pr-3 font-medium">Requested at</th>
                 <th className="py-2 pr-3 font-medium">Status</th>
@@ -215,22 +227,23 @@ export default function PartnerBrandingApprovalsPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="py-10 text-center text-gray-500">
+                  <td colSpan={6} className="py-10 text-center text-gray-500">
                     <Loader2 className="inline h-4 w-4 animate-spin mr-2" />
                     Loading…
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-10 text-center text-gray-500">
+                  <td colSpan={6} className="py-10 text-center text-gray-500">
                     <Shield className="inline h-4 w-4 mr-2" />
-                    No branding edit requests found.
+                    No edit access requests found.
                   </td>
                 </tr>
               ) : (
                 rows.map((row) => {
                   const st = (row.status || "").toLowerCase()
                   const busy = actingId === row.id
+                  const isAcademy = !!(row.branch_id || row.scope === "academy")
                   return (
                     <tr key={row.id} className="border-b last:border-0">
                       <td className="py-3 pr-3">
@@ -239,6 +252,16 @@ export default function PartnerBrandingApprovalsPage() {
                         </div>
                         <div className="text-xs text-gray-500">
                           {row.partner_slug || row.partner_org_id}
+                        </div>
+                      </td>
+                      <td className="py-3 pr-3">
+                        <div className="font-medium text-[#1a2332]">
+                          {isAcademy ? "Edit Academy" : "Organization Branding"}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {isAcademy
+                            ? row.branch_name || row.branch_id || "—"
+                            : "Org branding page"}
                         </div>
                       </td>
                       <td className="py-3 pr-3">

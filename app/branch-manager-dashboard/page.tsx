@@ -41,7 +41,7 @@ export default function BranchManagerDashboard() {
   const [coachesLoading, setCoachesLoading] = useState(true)
   const [coachesError, setCoachesError] = useState<string | null>(null)
 
-  // Branch information state
+  // Academy information state
   const [managedBranches, setManagedBranches] = useState<BranchInfo[]>([])
   const [branchesLoading, setBranchesLoading] = useState(true)
   const [branchesError, setBranchesError] = useState<string | null>(null)
@@ -185,7 +185,7 @@ export default function BranchManagerDashboard() {
         return
       }
 
-      console.log('🔄 Loading managed branches...')
+      console.log('🔄 Loading managed academies...')
 
       // Get dashboard stats for revenue data
       let dashboardRevenue = 0
@@ -216,19 +216,19 @@ export default function BranchManagerDashboard() {
       })
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch branches: ${response.status} ${response.statusText}`)
+        throw new Error(`Failed to fetch academies: ${response.status} ${response.statusText}`)
       }
 
       const data = await response.json()
-      console.log('🏢 Branches response:', data)
+      console.log('🏢 Academies response:', data)
 
       const branches = data.branches || []
-      console.log('🏢 Raw branches data:', branches)
+      console.log('🏢 Raw academies data:', branches)
 
-      // Transform branch data to match expected interface
+      // Transform academy data to match expected interface
       const branchesWithStats: BranchInfo[] = branches.map((branch: any) => {
         const stats = branch.statistics || {}
-        console.log(`🏢 Processing branch ${branch.branch?.name}:`, {
+        console.log(`🏢 Processing academy ${branch.branch?.name}:`, {
           id: branch.id,
           statistics: stats,
           student_count: stats.student_count,
@@ -240,7 +240,7 @@ export default function BranchManagerDashboard() {
         const transformedBranch = {
           id: branch.id,
           branch: {
-            name: branch.branch?.name || 'Unknown Branch',
+            name: branch.branch?.name || 'Unknown Academy',
             address: {
               city: branch.branch?.address?.city || '',
               state: branch.branch?.address?.state || '',
@@ -255,16 +255,16 @@ export default function BranchManagerDashboard() {
           monthly_revenue: dashboardRevenue // Use revenue from dashboard stats
         }
 
-        console.log(`✅ Transformed branch data:`, transformedBranch)
+        console.log(`✅ Transformed academy data:`, transformedBranch)
         return transformedBranch
       })
 
       setManagedBranches(branchesWithStats)
-      console.log('✅ Managed branches loaded successfully:', branchesWithStats.length)
-      console.log('🏢 Final branches with stats:', branchesWithStats)
+      console.log('✅ Managed academies loaded successfully:', branchesWithStats.length)
+      console.log('🏢 Final academies with stats:', branchesWithStats)
     } catch (err) {
-      console.error('❌ Error loading branches data:', err)
-      setBranchesError('Failed to load branches data. Please try again.')
+      console.error('❌ Error loading academies data:', err)
+      setBranchesError('Failed to load academyes data. Please try again.')
     } finally {
       setBranchesLoading(false)
     }
@@ -310,7 +310,7 @@ export default function BranchManagerDashboard() {
   // Load all data on component mount
   useEffect(() => {
     if (BranchManagerAuth.isAuthenticated()) {
-      console.log('🚀 Initializing branch manager dashboard...')
+      console.log('🚀 Initializing academy manager dashboard...')
       loadBranchesData()
       loadDashboardData()
       loadCoachesData()
@@ -458,13 +458,13 @@ export default function BranchManagerDashboard() {
           )}
         </div>
 
-        {/* Managed Branches Section */}
+        {/* Managed Academies Section */}
         <div className="mb-8">
           <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center text-gray-900 text-lg font-semibold">
                 <Building2 className="w-5 h-5 mr-3 text-blue-600" />
-                Managed Branches
+                Managed Academies
                 {!branchesLoading && managedBranches.length > 0 && (
                   <Badge variant="secondary" className="ml-3 bg-blue-100 text-blue-700">
                     {managedBranches.length}
@@ -501,7 +501,7 @@ export default function BranchManagerDashboard() {
                   <div className="p-4 bg-red-50 rounded-lg inline-block mb-4">
                     <AlertCircle className="w-8 h-8 text-red-500 mx-auto" />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Error Loading Branches</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Error Loading Academies</h3>
                   <p className="text-gray-600 mb-6 max-w-md mx-auto">{branchesError}</p>
                   <Button
                     onClick={loadBranchesData}
@@ -517,7 +517,7 @@ export default function BranchManagerDashboard() {
                   <div className="p-4 bg-gray-100 rounded-lg inline-block mb-4">
                     <Building2 className="w-8 h-8 text-gray-400 mx-auto" />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Branches Assigned</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Academies Assigned</h3>
                   <p className="text-gray-600 max-w-md mx-auto">No branches are currently assigned to this manager. Contact your administrator for branch assignments.</p>
                 </div>
               ) : (

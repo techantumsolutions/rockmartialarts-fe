@@ -207,7 +207,7 @@ export default function LeadCoachSessionBookingSection({ lead, onLeadUpdated }: 
               <Button
                 type="button"
                 size="sm"
-                className="bg-yellow-400 hover:bg-yellow-500 text-white"
+                className=""
                 disabled={saving || !slotKey}
                 onClick={() => void book()}
               >

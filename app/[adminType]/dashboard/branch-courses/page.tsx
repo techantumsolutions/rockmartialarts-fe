@@ -6,7 +6,6 @@ import { BookOpen, Loader2, Plus, RefreshCw, Save } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -46,6 +45,14 @@ function authHeaders(): HeadersInit {
   }
 }
 
+function courseDisplayName(course?: CourseOption | null, fallbackTitle?: string) {
+  const title = (fallbackTitle || course?.title || course?.name || "").trim()
+  if (title) return title
+  const code = (course?.code || "").trim()
+  if (code) return code
+  return "Untitled course"
+}
+
 export default function BranchCourseAssignmentsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -59,7 +66,6 @@ export default function BranchCourseAssignmentsPage() {
   const [loadingMappings, setLoadingMappings] = useState(false)
   const [savingKey, setSavingKey] = useState<string | null>(null)
   const [addCourseId, setAddCourseId] = useState("")
-  const [feeDraft, setFeeDraft] = useState<Record<string, string>>({})
 
   const courseById = useMemo(() => {
     const map = new Map<string, CourseOption>()
@@ -86,20 +92,20 @@ export default function BranchCourseAssignmentsPage() {
         headers: authHeaders(),
         cache: "no-store",
       })
-      if (!res.ok) throw new Error("Failed to load branches")
+      if (!res.ok) throw new Error("Failed to load academies")
       const data = await res.json()
       const list = (data.branches || data.data || []) as any[]
       setBranches(
         list
           .map((b) => ({
             id: b.id,
-            name: b.branch?.name || b.name || b.id,
+            name: b.branch?.name || b.name || "Academy",
             code: b.branch?.code,
           }))
           .filter((b) => b.id)
       )
     } catch (err: any) {
-      toast.error(err?.message || "Could not load branches")
+      toast.error(err?.message || "Could not load academies")
     } finally {
       setLoadingBranches(false)
     }
@@ -133,7 +139,7 @@ export default function BranchCourseAssignmentsPage() {
       )
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
-        throw new Error(body.detail || "Failed to load branch-course mappings")
+        throw new Error(body.detail || "Failed to load academy-course mappings")
       }
       const data = await res.json()
       const rows = (data.mappings || []) as BranchCourseMapping[]
@@ -146,14 +152,6 @@ export default function BranchCourseAssignmentsPage() {
         }
       })
       setMappings(enriched)
-      const drafts: Record<string, string> = {}
-      enriched.forEach((row) => {
-        drafts[row.course_id] =
-          row.fee_per_duration && typeof row.fee_per_duration === "object"
-            ? JSON.stringify(row.fee_per_duration)
-            : ""
-      })
-      setFeeDraft(drafts)
     } catch (err: any) {
       toast.error(err?.message || "Could not load mappings")
       setMappings([])
@@ -202,7 +200,7 @@ export default function BranchCourseAssignmentsPage() {
         const body = await res.json().catch(() => ({}))
         throw new Error(body.detail || "Save failed")
       }
-      toast.success("Branch–course assignment saved")
+      toast.success("Academy–course assignment saved")
       await loadMappings(mapping.branch_id)
     } catch (err: any) {
       toast.error(err?.message || "Could not save mapping")
@@ -213,7 +211,7 @@ export default function BranchCourseAssignmentsPage() {
 
   const addCourseToBranch = async () => {
     if (!branchId || !addCourseId) {
-      toast.error("Select a branch and course")
+      toast.error("Select an academy and course")
       return
     }
     await saveMapping({
@@ -235,29 +233,29 @@ export default function BranchCourseAssignmentsPage() {
     <div className="min-h-screen bg-gray-50 p-4 lg:px-8">
       <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Branch–Course Assignments</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Academy–Course Assignments</h1>
           <p className="text-gray-600 text-sm">
-            Manage which courses are offered at each branch (API: /api/branch-courses).
+            Manage which courses are offered at each academy. Batch fees are set under Edit Academy → Course Assignments.
           </p>
         </div>
         <Button variant="outline" onClick={() => router.push(`${basePath}/branches`)}>
-          Back to Branches
+          Back to Academies
         </Button>
       </div>
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle className="text-lg">Select branch</CardTitle>
+          <CardTitle className="text-lg">Select academy</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-end">
           <div className="flex-1">
-            <label className="text-sm font-medium text-gray-700">Branch</label>
+            <label className="text-sm font-medium text-gray-700">Academy</label>
             <Select value={branchId || "none"} onValueChange={(v) => setBranchId(v === "none" ? "" : v)} disabled={loadingBranches}>
               <SelectTrigger>
-                <SelectValue placeholder={loadingBranches ? "Loading…" : "Choose branch"} />
+                <SelectValue placeholder={loadingBranches ? "Loading…" : "Choose academy"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Select branch…</SelectItem>
+                <SelectItem value="none">Select academy…</SelectItem>
                 {branches.map((b) => (
                   <SelectItem key={b.id} value={b.id}>
                     {b.name}
@@ -283,7 +281,7 @@ export default function BranchCourseAssignmentsPage() {
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Plus className="h-4 w-4" />
-                Assign course to branch
+                Assign course to academy
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -297,69 +295,58 @@ export default function BranchCourseAssignmentsPage() {
                     <SelectItem value="none">Select course…</SelectItem>
                     {unassignedCourses.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
-                        {c.title || c.name || c.id}
-                        {c.code ? ` (${c.code})` : ""}
+                        {courseDisplayName(c)}
+                        {c.code && (c.title || c.name) ? ` (${c.code})` : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <Button  disabled={!addCourseId} onClick={addCourseToBranch}>
+              <Button disabled={!addCourseId} onClick={addCourseToBranch}>
                 Assign
               </Button>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
+          <Card className="relative z-0 flex h-[calc(100vh-5.5rem)] max-h-[calc(100vh-5.5rem)] flex-col overflow-hidden">
+            <CardHeader className="shrink-0">
               <CardTitle className="text-lg flex items-center gap-2">
                 <BookOpen className="h-4 w-4" />
                 Assigned courses
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="min-h-0 flex-1 overflow-y-auto overscroll-y-auto">
               {loadingMappings ? (
                 <div className="flex justify-center py-10">
                   <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
                 </div>
               ) : mappings.length === 0 ? (
-                <p className="text-sm text-gray-500 py-6 text-center">No courses assigned yet for this branch.</p>
+                <p className="text-sm text-gray-500 py-6 text-center">No courses assigned yet for this academy.</p>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Course</TableHead>
                       <TableHead>Available</TableHead>
-                      <TableHead>Fee overrides (JSON)</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {mappings.map((row) => {
                       const course = courseById.get(row.course_id)
-                      const title = row.course_title || course?.title || course?.name || row.course_id
-                      const feeJson = feeDraft[row.course_id] ?? ""
+                      const title = courseDisplayName(course, row.course_title)
+                      const code = (row.course_code || course?.code || "").trim()
                       const saveKey = `${row.branch_id}:${row.course_id}`
                       return (
                         <TableRow key={row.course_id}>
                           <TableCell>
                             <div className="font-medium">{title}</div>
-                            <div className="text-xs text-gray-500 font-mono">{row.course_id}</div>
+                            {code ? <div className="text-xs text-gray-500">{code}</div> : null}
                           </TableCell>
                           <TableCell>
                             <Switch
                               checked={row.is_available !== false}
                               onCheckedChange={(checked) => updateLocal(row.course_id, { is_available: checked })}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              className="font-mono text-xs"
-                              placeholder='{"1m": 1500}'
-                              value={feeJson}
-                              onChange={(e) =>
-                                setFeeDraft((prev) => ({ ...prev, [row.course_id]: e.target.value }))
-                              }
                             />
                           </TableCell>
                           <TableCell className="text-right">
@@ -370,20 +357,9 @@ export default function BranchCourseAssignmentsPage() {
                               onClick={() => {
                                 const current = mappings.find((m) => m.course_id === row.course_id)
                                 if (!current) return
-                                let fee: Record<string, number> | null = null
-                                const rawFee = (feeDraft[row.course_id] || "").trim()
-                                if (rawFee) {
-                                  try {
-                                    fee = JSON.parse(rawFee) as Record<string, number>
-                                  } catch {
-                                    toast.error("Fee overrides must be valid JSON")
-                                    return
-                                  }
-                                }
                                 void saveMapping({
                                   ...current,
                                   branch_id: branchId,
-                                  fee_per_duration: fee,
                                 })
                               }}
                             >

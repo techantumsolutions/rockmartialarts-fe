@@ -112,21 +112,21 @@ function IdIcon() {
 
 type TicketFaceProps = {
   data: CampPaymentSuccess
-  academy: string
+  branch: string
   locLines: string[]
   phone: string
   registrationId: string
   titleParts: { line1: string; line2: string }
 }
 
-function CampTicketFace({ data, academy, locLines, phone, registrationId, titleParts }: TicketFaceProps) {
+function CampTicketFace({ data, branch, locLines, phone, registrationId, titleParts }: TicketFaceProps) {
   return (
     <>
             <section className="camp-ticket-hero">
               <header className="camp-ticket-header">
                 <img className="camp-ticket-logo" src="/campaign/logo.png" alt="" />
                 <div className="camp-ticket-brand">
-                  <p className="camp-ticket-academy">{academy}</p>
+                  <p className="camp-ticket-academy">{branch}</p>
                   <p className="camp-ticket-tagline">Discipline today&nbsp;&nbsp;a stronger tomorrow</p>
                 </div>
                 <span className="camp-ticket-header-rule" aria-hidden="true" />
@@ -252,18 +252,18 @@ export const CampRegistrationConfirmation = forwardRef<HTMLDivElement, Props>(
     const frameRef = useRef<HTMLDivElement | null>(null)
     const [scale, setScale] = useState(1)
     const registrationId = campRegistrationDisplayCode(data.registration_id, data.id)
-    const academy = content?.footer?.academy_name || "ROCK MARTIAL ARTS ACADEMY"
+    const branch = content?.footer?.academy_name || "ROCK MARTIAL ARTS ACADEMY"
     const location =
       data.event_location ||
       content?.event_location ||
       (content ? campFactValue(content, "Location") : "") ||
-      academy
+      branch
     const phone = formatPhone(content?.register?.phone || "")
     const locLines = locationLines(location)
     const titleParts = campaignTitleParts(data.event_name, content)
     const faceProps = {
       data,
-      academy,
+      branch,
       locLines,
       phone,
       registrationId,

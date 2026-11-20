@@ -405,7 +405,7 @@ export default function CoachSubscriptionPage() {
                             ? "bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-50 cursor-not-allowed opacity-90 shadow-none"
                             : isCurrentGrace || isCurrentExpired
                               ? "bg-amber-600 hover:bg-amber-700 text-white shadow-sm"
-                              : "bg-[#4F5077] hover:bg-[#3d3e5c] text-white"
+                              : ""
                         }`}
                       >
                         {isPlanPaying ? (

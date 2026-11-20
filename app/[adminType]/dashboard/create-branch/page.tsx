@@ -30,6 +30,9 @@ import {
   dashboardFormCardClass,
   primaryButtonClass,
 } from "@/components/dashboard/dashboardFormStyles"
+import { CourseAssignmentsScrollPanel } from "@/components/dashboard/StickyScrollSection"
+import { AdminStickyFormActions } from "@/components/dashboard/AdminStickyFormActions"
+import { AdmissionFeeSettingsFields } from "@/components/branch/AdmissionFeeSettingsFields"
 
 // Interfaces for form data
 interface Course {
@@ -165,7 +168,9 @@ interface FormData {
   assignments: Assignments
   bank_details: BankDetails
   admission_fee: number
-  /** M21 — collaboration partner branch (default No) */
+  admission_fee_mode: "fixed" | "per_course"
+  admission_fee_by_course: Record<string, number>
+  /** M21 — collaboration partner academy (default No) */
   is_collaboration_partner?: boolean
   /** Optional WGS84 coordinates for visitor→branch distance */
   latitude?: number | null
@@ -175,7 +180,7 @@ interface FormData {
 }
 
 type CreateBranchPageProps = {
-  /** When true, creates a collaboration partner branch and returns to Partner Profiles. */
+  /** When true, creates a collaboration partner academy and returns to Partner Profiles. */
   asPartner?: boolean
 }
 
@@ -265,6 +270,15 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+  useEffect(() => {
+    if (!showSuccessPopup) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [showSuccessPopup])
+
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
   const listPath = asPartner ? `${basePath}/partner-profiles` : `${basePath}/branches`
   const [partnerOrgs, setPartnerOrgs] = useState<{ id: string; name: string }[]>([])
@@ -328,19 +342,21 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
       upi_id: ""
     },
     admission_fee: 0,
+    admission_fee_mode: "fixed",
+    admission_fee_by_course: {},
     is_collaboration_partner: false,
     latitude: null,
     longitude: null,
     partner_org_id: null,
   })
 
-  // Partners cannot create branches — redirect to their dashboard.
+  // Partners cannot create academies — redirect to their dashboard.
   useEffect(() => {
     if (dashboardRole === "partner_super_admin") {
       toast({
-        title: "Partners cannot create branches",
+        title: "Partners cannot create academies",
         description:
-          "Ask Rock Super Admin to assign your organization to a branch or create a partner-driven branch.",
+          "Ask Rock Super Admin to assign your organization to an academy or create a partner-driven branch.",
         variant: "destructive",
       })
       router.replace(basePath)
@@ -369,7 +385,7 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
     }
   }, [canAssignPartner])
 
-  // Auto-generate branch code without wiping other form fields (courses/fees).
+  // Auto-generate academy code without wiping other form fields (courses/fees).
   const generateBranchCode = (branchName?: string, force = false) => {
     setFormData((prev) => {
       const trimmed = (branchName ?? prev.branch.name).trim()
@@ -385,14 +401,14 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
     })
   }
 
-  // Branch admin cannot create branches — redirect to dashboard
+  // Branch admin cannot create academies — redirect to dashboard
   useEffect(() => {
     if (BranchManagerAuth.isAuthenticated()) {
       router.replace("/dashboard")
     }
   }, [router])
 
-  // Auto-generate code when branch name changes
+  // Auto-generate code when academy name changes
   useEffect(() => {
     if (formData.branch.name && !formData.branch.code) {
       generateBranchCode(formData.branch.name)
@@ -439,12 +455,12 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
         } else {
           toast({
             title: "Error",
-            description: "Failed to load branch managers.",
+            description: "Failed to load academy managers.",
             variant: "destructive",
           })
         }
       } catch (error) {
-        console.error('Error loading branch managers:', error)
+        console.error('Error loading academy managers:', error)
       } finally {
         setIsLoadingBranchManagers(false)
       }
@@ -814,8 +830,8 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {}
 
-    if (!formData.branch.name) newErrors.branchName = "Branch name is required"
-    if (!formData.branch.code) newErrors.branchCode = "Branch code is required"
+    if (!formData.branch.name) newErrors.branchName = "Academy name is required"
+    if (!formData.branch.code) newErrors.branchCode = "Academy code is required"
     if (!formData.location_id) newErrors.location = "Location is required"
     if (!formData.manager_id) newErrors.manager = "Manager is required"
     if (!formData.branch.address.line1) newErrors.addressLine1 = "Address is required"
@@ -937,7 +953,10 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
         },
         bank_details: formData.bank_details,
         admission_fee: formData.admission_fee,
-        // Own-branch create defaults to false; partner create page forces true.
+        admission_fee_mode: formData.admission_fee_mode || "fixed",
+        admission_fee_by_course:
+          formData.admission_fee_mode === "per_course" ? formData.admission_fee_by_course || {} : {},
+        // Own-academy create defaults to false; partner create page forces true.
         is_collaboration_partner: !!asPartner,
         allows_collaboration: !!asPartner,
         latitude:
@@ -951,7 +970,7 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
         partner_org_id: formData.partner_org_id || null,
       }
 
-      console.log("Submitting branch data:", JSON.stringify(submitData, null, 2))
+      console.log("Submitting academy data:", JSON.stringify(submitData, null, 2))
 
       const response = await fetch(getBackendApiUrl('branches'), {
         method: "POST",
@@ -969,7 +988,7 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
         }, 2000)
       } else {
         const errorData = await response.json()
-        console.error("Branch creation failed:", errorData)
+        console.error("Academy creation failed:", errorData)
 
         // Handle error message properly (could be string, object, or array)
         let errorMessage = asPartner
@@ -988,7 +1007,7 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
         showSubmitError("Error", errorMessage)
       }
     } catch (error) {
-      console.error("Error creating branch:", error)
+      console.error("Error creating academy:", error)
       showSubmitError("Error", "An unexpected error occurred.")
     } finally {
       setIsSubmitting(false)
@@ -1000,26 +1019,26 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
       <div className="min-h-screen bg-[#F5F6FA]">
         <main className="w-full py-6 px-4 lg:px-8 xl:px-10">
           <DashboardFormPageHeader
-            title={asPartner ? "Create Partner" : "Create Branch"}
+            title={asPartner ? "Create Partner" : "Create Academy"}
             subtitle={
               asPartner
-                ? "Add a new collaboration partner branch"
-                : "Add a new branch to your organization"
+                ? "Add a new collaboration partner academy"
+                : "Add a new academy to your organization"
             }
             backLabel="Back"
             onBack={() => router.push(listPath)}
           />
 
-        <div className="space-y-6">
-          {/* Branch Information — full width */}
+        <div className="admin-page-with-sticky-actions space-y-6">
+          {/* Academy Information — full width */}
           <Card className={dashboardFormCardClass}>
             <CardHeader className="pb-2">
-              <DashboardSectionHeading icon={Building} title="Branch Information" tone="rose" />
+              <DashboardSectionHeading icon={Building} title="Academy Information" tone="rose" />
             </CardHeader>
             <CardContent className={cardContentClass}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="branchName">Branch Name *</Label>
+                  <Label htmlFor="branchName">Academy Name *</Label>
                   <Input
                     id="branchName"
                     value={formData.branch.name}
@@ -1027,13 +1046,13 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
                       ...formData,
                       branch: { ...formData.branch, name: e.target.value }
                     })}
-                    placeholder="Enter branch name"
+                    placeholder="Enter academy name"
                   />
                   {errors.branchName && <p className="text-xs text-red-500">{errors.branchName}</p>}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="branchCode">Branch Code *</Label>
+                  <Label htmlFor="branchCode">Academy Code *</Label>
                   <div className="flex flex-col gap-2 md:flex-row">
                     <Input
                       id="branchCode"
@@ -1158,7 +1177,7 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="manager">Branch Manager *</Label>
+                <Label htmlFor="manager">Academy Manager *</Label>
                 <Select
                   value={formData.manager_id}
                   onValueChange={(value) => setFormData({ ...formData, manager_id: value })}
@@ -1303,7 +1322,7 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
                     }
                   >
                     <SelectTrigger id="partnerOrgId">
-                      <SelectValue placeholder="No partner (Rock branch)" />
+                      <SelectValue placeholder="No partner (Rock academy)" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">No partner (Rock branch)</SelectItem>
@@ -1365,12 +1384,15 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
             </CardContent>
           </Card>
 
-          {/* Course Assignments — full width */}
-          <Card className={dashboardFormCardClass}>
-            <CardHeader className="pb-2">
-              <DashboardSectionHeading icon={Users} title="Course Assignments" tone="indigo" />
-            </CardHeader>
-            <CardContent className={cardContentClass}>
+          {/* Course Assignments — full viewport height, inner scroll then next section */}
+          <CourseAssignmentsScrollPanel
+            header={
+              <div className="px-6 pt-6 pb-2">
+                <DashboardSectionHeading icon={Users} title="Course Assignments" tone="indigo" />
+              </div>
+            }
+            bodyClassName={`${cardContentClass} space-y-4 p-6 pt-2`}
+          >
               {/* Category Selection */}
               <div className="space-y-2">
                 <Label>Select Category</Label>
@@ -1393,7 +1415,7 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
               </div>
 
               {/* Course List — include already-selected courses even if category filter hides them */}
-              <div className="space-y-2 max-h-96 overflow-y-auto">
+              <div className="space-y-2">
                 {(() => {
                   const filteredIds = new Set(filteredCourses.map((c) => c.id))
                   const selectedOutsideFilter = courses.filter(
@@ -1600,13 +1622,21 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
                                                 value={fpd[dur.id] ?? ""}
                                                 onChange={(e) => {
                                                   const nextFee = e.target.value
-                                                  patchBatch(course.id, batch.id, (b) => ({
-                                                    ...b,
-                                                    fee_per_duration: {
-                                                      ...(b.fee_per_duration || {}),
-                                                      [dur.id]: nextFee,
-                                                    },
-                                                  }))
+                                                  patchBatch(course.id, batch.id, (b) => {
+                                                    const nextPtd = { ...(b.pricing_type_per_duration || {}) }
+                                                    // Persist UI default (Monthly) when a fee is entered without clicking Flat
+                                                    if (nextFee.trim() && nextPtd[dur.id] !== "flat" && nextPtd[dur.id] !== "monthly") {
+                                                      nextPtd[dur.id] = "monthly"
+                                                    }
+                                                    return {
+                                                      ...b,
+                                                      fee_per_duration: {
+                                                        ...(b.fee_per_duration || {}),
+                                                        [dur.id]: nextFee,
+                                                      },
+                                                      pricing_type_per_duration: nextPtd,
+                                                    }
+                                                  })
                                                 }}
                                                 className="h-7 w-full max-w-[11rem] md:w-28 text-sm"
                                               />
@@ -1650,6 +1680,22 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
                                               {fpd[dur.id] && pricingType === "flat" && (
                                                 <span className="text-xs text-green-600 whitespace-nowrap">Fixed price</span>
                                               )}
+                                              {!fpd[dur.id] && (() => {
+                                                const monthlyBase = masterDurations
+                                                  .map((d) => {
+                                                    const fee = parseFloat(String(fpd[d.id] ?? ""))
+                                                    const t = ptd[d.id] || "monthly"
+                                                    if (!(fee > 0) || t === "flat") return null
+                                                    return fee
+                                                  })
+                                                  .find((v) => v != null)
+                                                if (monthlyBase == null || !(dur.duration_months > 1)) return null
+                                                return (
+                                                  <span className="text-xs text-blue-600 whitespace-nowrap">
+                                                    Est. ₹{(monthlyBase * dur.duration_months).toLocaleString("en-IN")} (monthly × {dur.duration_months})
+                                                  </span>
+                                                )
+                                              })()}
                                             </div>
                                           </div>
                                         )
@@ -1689,8 +1735,7 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
                   })
                 })()}
               </div>
-            </CardContent>
-          </Card>
+          </CourseAssignmentsScrollPanel>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Operational Details — 50% on large screens */}
@@ -1868,9 +1913,37 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
                   />
                 </div>
 
+                <AdmissionFeeSettingsFields
+                  mode={formData.admission_fee_mode || "fixed"}
+                  fixedFee={formData.admission_fee}
+                  feeByCourse={formData.admission_fee_by_course || {}}
+                  courses={formData.assignments.courses.map((c) => {
+                    const match = courses.find((x) => x.id === c.course_id)
+                    return {
+                      id: c.course_id,
+                      title: match?.title || match?.code || "Course",
+                    }
+                  })}
+                  onModeChange={(mode) =>
+                    setFormData((prev) => ({ ...prev, admission_fee_mode: mode }))
+                  }
+                  onFixedFeeChange={(value) =>
+                    setFormData((prev) => ({ ...prev, admission_fee: value }))
+                  }
+                  onCourseFeeChange={(courseId, value) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      admission_fee_by_course: {
+                        ...(prev.admission_fee_by_course || {}),
+                        [courseId]: value,
+                      },
+                    }))
+                  }
+                />
+
                 <div className="pt-4 border-t">
                   <div className="text-sm text-gray-600 space-y-1">
-                    <p><span className="font-medium">Note:</span> Bank details are optional.</p>
+                    <p><span className="font-medium">Note:</span> Bank details are optional. Admission fee applies to student registration payments.</p>
                   </div>
                 </div>
               </CardContent>
@@ -1878,16 +1951,18 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
           </div>
         </div>
 
-        {/* Form Actions */}
-        <div className="mt-6 flex flex-col-reverse gap-3 md:flex-row md:justify-end md:space-x-4 md:gap-0">
+        <AdminStickyFormActions>
           <Button
+            type="button"
             variant="outline"
             onClick={() => router.push(listPath)}
+            disabled={isSubmitting}
             className="w-full md:w-auto"
           >
             Cancel
           </Button>
           <Button
+            type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
             className={`w-full md:w-auto ${primaryButtonClass}`}
@@ -1896,15 +1971,16 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
               ? "Creating..."
               : asPartner
                 ? "Create Partner"
-                : "Create Branch"}
+                : "Create Academy"}
           </Button>
-        </div>
+        </AdminStickyFormActions>
         </main>
       </div>
 
       {/* Success Popup */}
       {showSuccessPopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden p-4 sm:p-6">
+        <div className="absolute inset-0 bg-[#0f172a]/55 backdrop-blur-[2px]" aria-hidden />
           <Card className="w-full max-w-96">
             <CardContent className="pt-6">
               <div className="text-center space-y-4">
@@ -1912,12 +1988,12 @@ export default function CreateBranchPage({ asPartner = false }: CreateBranchPage
                 <h3 className="text-xl font-bold">
                   {asPartner
                     ? "Partner Created Successfully!"
-                    : "Branch Created Successfully!"}
+                    : "Academy Created Successfully!"}
                 </h3>
                 <p className="text-gray-500">
                   {asPartner
                     ? "Redirecting to partner profiles..."
-                    : "Redirecting to branches list..."}
+                    : "Redirecting to academies list..."}
                 </p>
               </div>
             </CardContent>

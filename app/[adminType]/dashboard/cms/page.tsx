@@ -16,6 +16,7 @@ import { getBackendApiUrl } from "@/lib/config"
 import { normalizePopupFormForCms, type PopupFormSettings } from "@/lib/popupForm"
 import { ResidentialCampCmsFields } from "@/components/cms/ResidentialCampCmsFields"
 import { CampaignPopupsAdmin } from "@/components/dashboard/CampaignPopupsAdmin"
+import { AdminImageUpload } from "@/components/ui/AdminImageUpload"
 import {
   DEFAULT_RESIDENTIAL_CAMP,
   campEventPayload,
@@ -87,19 +88,27 @@ interface FooterContent {
 }
 
 interface BrandingSettings {
+  platform_name?: string
+  platform_short_name?: string
+  legal_name?: string
+  primary_color?: string
+  secondary_color?: string
+  accent_color?: string
+  dark_color?: string
   navbar_logo?: string
   footer_logo?: string
   favicon?: string
   site_loader_image?: string
+  show_academy_powered_by?: boolean
 }
 
 const SEO_PAGES = [
   { key: "home", label: "Home Page" },
-  { key: "about", label: "About Page" },
   { key: "courses", label: "Courses Page" },
   { key: "contact", label: "Contact Page" },
-  { key: "gallery", label: "Gallery Page" },
-  { key: "blog", label: "Blog Page" },
+  { key: "events", label: "Events Page" },
+  { key: "store", label: "Store Page" },
+  { key: "branches", label: "Academies Page" },
 ]
 
 const CMS_NAV_ITEMS = [
@@ -925,7 +934,7 @@ export default function CMSPage() {
                 type="button"
                 onClick={handleSaveHomepageAbout}
                 disabled={savingAbout}
-                className="bg-yellow-400 hover:bg-yellow-500 text-white shrink-0"
+                className=" shrink-0"
               >
                 {savingAbout ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                 Save about section
@@ -1216,52 +1225,15 @@ export default function CMSPage() {
                                 </label>
                               </div>
                             </div>
-                            <div className="space-y-2 md:col-span-2">
-                              <Label>Poster image URL</Label>
-                              <div className="flex gap-2">
-                                <Input
-                                  value={item.poster_url || ""}
-                                  onChange={(e) => patchItem({ poster_url: e.target.value })}
-                                  placeholder="Poster / fallback image"
-                                  className="flex-1"
-                                />
-                                <label className="cursor-pointer shrink-0">
-                                  <input
-                                    type="file"
-                                    accept="image/*"
-                                    className="hidden"
-                                    onChange={async (e) => {
-                                      const file = e.target.files?.[0]
-                                      if (!file) return
-                                      try {
-                                        const token = TokenManager.getToken()
-                                        const formData = new FormData()
-                                        formData.append("file", file)
-                                        const uploadRes = await fetch(getBackendApiUrl("uploads"), {
-                                          method: "POST",
-                                          headers: { Authorization: `Bearer ${token}` },
-                                          body: formData,
-                                        })
-                                        if (!uploadRes.ok) throw new Error("Upload failed")
-                                        const uploadData = await uploadRes.json()
-                                        const fileUrl =
-                                          uploadData.file_url || uploadData.url || uploadData.image_url || ""
-                                        patchItem({ poster_url: fileUrl })
-                                        toast({ title: "Uploaded", description: "Poster uploaded" })
-                                      } catch {
-                                        toast({
-                                          title: "Error",
-                                          description: "Failed to upload poster",
-                                          variant: "destructive",
-                                        })
-                                      }
-                                    }}
-                                  />
-                                  <span className="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-gray-100">
-                                    Upload
-                                  </span>
-                                </label>
-                              </div>
+                            <div className="md:col-span-2">
+                              <AdminImageUpload
+                                label="Poster image"
+                                shape="wide"
+                                value={item.poster_url || ""}
+                                onChange={(url) => patchItem({ poster_url: url })}
+                                onClear={() => patchItem({ poster_url: "" })}
+                                helperText="Fallback still shown before video playback"
+                              />
                             </div>
                           </div>
                         </div>
@@ -1389,7 +1361,7 @@ export default function CMSPage() {
                   id="popup-description"
                   value={popupForm.description}
                   onChange={(e) => patchPopupForm({ description: e.target.value })}
-                  placeholder="Share your details and preferred branch. Our team will contact you with course options and fees."
+                  placeholder="Share your details and preferred academy. Our team will contact you with course options and fees."
                   rows={3}
                 />
               </div>
@@ -1415,9 +1387,9 @@ export default function CMSPage() {
                   />
                 </div>
                 <div className="flex items-center justify-between gap-4 rounded-lg border px-3 py-2">
-                  <Label htmlFor="popup-branch">Branch</Label>
+                  <Label htmlFor="popup-academy">Academy</Label>
                   <Switch
-                    id="popup-branch"
+                    id="popup-academy"
                     checked={popupForm.branch_enabled}
                     onCheckedChange={(v) => patchPopupForm({ branch_enabled: v })}
                   />
@@ -1532,6 +1504,26 @@ export default function CMSPage() {
         {/* Branding */}
         {activeTab === "branding" && (
         <div className="space-y-6">
+          <Card className="border-amber-200 bg-amber-50/60">
+            <CardHeader>
+              <CardTitle className="text-[#4F5077]">Platform identity</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm text-slate-700">
+              <p>
+                Platform name, primary/secondary colors, and global logos are managed in{" "}
+                <strong>Settings → Platform Branding</strong>. Changes apply across the website and all portals.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  window.location.href = "/super-admin/dashboard/settings/platform-branding"
+                }}
+              >
+                Open Platform Branding
+              </Button>
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader>
               <CardTitle className="text-[#4F5077]">Website loader</CardTitle>
@@ -1541,47 +1533,16 @@ export default function CMSPage() {
                 Shown full-screen on the public site while the page loads. Displayed at max <strong>140px</strong> wide.
                 Use JPG, PNG, WEBP, or GIF (animated GIF supported). Max <strong>2MB</strong>. Save all changes after upload.
               </p>
-              <div className="flex items-center gap-4 flex-wrap">
-                {branding.site_loader_image ? (
-                  <div className="w-[140px] h-[140px] border rounded-lg overflow-hidden flex items-center justify-center bg-black">
-                    <img
-                      src={branding.site_loader_image}
-                      alt="Loader preview"
-                      className="max-w-full max-h-full object-contain"
-                    />
-                  </div>
-                ) : (
-                  <div className="w-[140px] h-[140px] border rounded-lg flex items-center justify-center bg-gray-100 text-xs text-gray-500 text-center px-2">
-                    Default site loader
-                  </div>
-                )}
-                <div className="flex-1 space-y-2 min-w-[200px]">
-                  <Label>Image URL (optional)</Label>
-                  <Input
-                    value={branding.site_loader_image || ""}
-                    onChange={(e) => setBranding({ ...branding, site_loader_image: e.target.value })}
-                    placeholder="Or paste URL from uploads"
-                  />
-                  <Input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      if (file) handleImageUpload("site_loader_image", file)
-                      e.target.value = ""
-                    }}
-                    className="text-sm"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setBranding({ ...branding, site_loader_image: "" })}
-                  >
-                    Clear (use default)
-                  </Button>
-                </div>
-              </div>
+              <AdminImageUpload
+                label="Site loader image (optional)"
+                shape="square"
+                previewClassName="h-[140px] w-[140px] object-contain bg-black"
+                accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
+                value={branding.site_loader_image || ""}
+                onChange={(url) => setBranding({ ...branding, site_loader_image: url })}
+                onClear={() => setBranding({ ...branding, site_loader_image: "" })}
+                helperText="Leave empty to use the default loader. Max 2MB."
+              />
             </CardContent>
           </Card>
           <Card>
@@ -1590,31 +1551,15 @@ export default function CMSPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               {(["navbar_logo", "footer_logo", "favicon"] as const).map((field) => (
-                <div key={field} className="space-y-3 pb-4 border-b last:border-b-0">
-                  <Label className="text-base font-semibold capitalize">{field.replace("_", " ")}</Label>
-                  <div className="flex items-center gap-4">
-                    {branding[field] && (
-                      <div className="w-20 h-20 border rounded-lg overflow-hidden flex items-center justify-center bg-gray-50">
-                        <img src={branding[field]} alt={field} className="max-w-full max-h-full object-contain" />
-                      </div>
-                    )}
-                    <div className="flex-1 space-y-2">
-                      <Input
-                        value={branding[field] || ""}
-                        onChange={(e) => setBranding({ ...branding, [field]: e.target.value })}
-                        placeholder="Enter image URL or upload below"
-                      />
-                      <Input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0]
-                          if (file) handleImageUpload(field, file)
-                        }}
-                        className="text-sm"
-                      />
-                    </div>
-                  </div>
+                <div key={field} className="pb-4 border-b last:border-b-0">
+                  <AdminImageUpload
+                    label={field.replace(/_/g, " ")}
+                    shape="square"
+                    previewClassName="h-20 w-20 object-contain bg-gray-50"
+                    value={branding[field] || ""}
+                    onChange={(url) => setBranding({ ...branding, [field]: url })}
+                    onClear={() => setBranding({ ...branding, [field]: "" })}
+                  />
                 </div>
               ))}
             </CardContent>
@@ -1661,14 +1606,13 @@ export default function CMSPage() {
                     rows={2}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>OG Image URL</Label>
-                  <Input
-                    value={pageSeo[page.key]?.og_image || ""}
-                    onChange={(e) => updatePageSeo(page.key, "og_image", e.target.value)}
-                    placeholder="https://example.com/og-image.jpg"
-                  />
-                </div>
+                <AdminImageUpload
+                  label="OG image"
+                  shape="wide"
+                  value={pageSeo[page.key]?.og_image || ""}
+                  onChange={(url) => updatePageSeo(page.key, "og_image", url)}
+                  onClear={() => updatePageSeo(page.key, "og_image", "")}
+                />
               </CardContent>
             </Card>
           ))}
@@ -1706,7 +1650,7 @@ export default function CMSPage() {
           <Button
             onClick={handleSave}
             disabled={saving}
-            className="bg-yellow-400 hover:bg-yellow-500 text-white"
+            className=""
           >
             {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
             {saving ? "Saving..." : "Save All Changes"}

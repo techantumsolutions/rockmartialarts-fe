@@ -190,7 +190,7 @@ export default function LeadCoachAssignmentSection({ lead, onLeadUpdated }: Prop
             <Button
               type="button"
               size="sm"
-              className="bg-yellow-400 hover:bg-yellow-500 text-white"
+              className=""
               disabled={saving || !coachId}
               onClick={() => void assign()}
             >

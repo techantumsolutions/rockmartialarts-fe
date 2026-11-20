@@ -27,7 +27,9 @@ import {
   AdminKpiCard,
   AdminFilterBar,
   AdminTableShell,
+  adminFilterSearchClass,
 } from "@/components/dashboard/AdminPageShell"
+import { ADMIN_LIST_PAGE_SIZE } from "@/lib/adminListConfig"
 
 const STATUS_CLASS: Record<string, string> = {
   scheduled: "bg-blue-50 text-blue-800 border-blue-200",
@@ -48,7 +50,7 @@ export default function CoachSessionBookingsAdminPage() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [savingId, setSavingId] = useState<string | null>(null)
   const [summary, setSummary] = useState({ total: 0, upcoming: 0 })
-  const limit = 25
+  const limit = ADMIN_LIST_PAGE_SIZE
 
   const hasAuth = () => !!(BranchManagerAuth.getToken() || TokenManager.getToken())
 
@@ -141,18 +143,18 @@ export default function CoachSessionBookingsAdminPage() {
         <div className="border-b border-gray-100 px-5 py-4">
           <h2 className="text-[15px] font-semibold text-[#2F3158]">Bookings</h2>
         </div>
-        <div className="space-y-4 p-5">
-          <AdminFilterBar className="border-0 bg-transparent p-0 shadow-none">
+        <div className="space-y-3 p-4 sm:p-5">
+          <AdminFilterBar flat>
             <form
-              className="flex w-full flex-col flex-wrap gap-2 sm:flex-row"
+              className="contents"
               onSubmit={(e) => {
                 e.preventDefault()
                 setSkip(0)
                 setSearch(searchInput)
               }}
             >
-              <div className="relative min-w-[180px] flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <div className={adminFilterSearchClass}>
+                <Search className="absolute left-3 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 text-gray-400" />
                 <Input
                   placeholder="Search name, phone, coach…"
                   value={searchInput}
@@ -229,7 +231,7 @@ export default function CoachSessionBookingsAdminPage() {
                     <th>When</th>
                     <th>Participant</th>
                     <th>Coach</th>
-                    <th>Branch</th>
+                    <th>Academy</th>
                     <th>Status</th>
                   </tr>
                 </thead>

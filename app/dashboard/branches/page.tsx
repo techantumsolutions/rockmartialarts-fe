@@ -3,7 +3,7 @@
 import { getBackendApiUrl } from "@/lib/config"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, Edit, Trash2, X, Eye } from "lucide-react"
+import { Search, Edit, Trash2, Eye } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import {
@@ -20,9 +20,11 @@ import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { AppModal } from "@/components/ui/AppModal"
 
 interface Branch {
   id: string
+  slug?: string | null
   branch: {
     name: string
     code: string
@@ -68,7 +70,7 @@ interface Branch {
   updated_at: string
 }
 
-export default function BranchesList() {
+export default function AcademiesList() {
   const router = useRouter()
   const [showAssignPopup, setShowAssignPopup] = useState(false)
   const [showDeletePopup, setShowDeletePopup] = useState(false)
@@ -110,7 +112,7 @@ export default function BranchesList() {
         )
       }
     } catch (error) {
-      console.error("Error updating branch status:", error)
+      console.error("Error updating academy status:", error)
     } finally {
       setStatusUpdating(false)
       setDeactivateTarget(null)
@@ -128,7 +130,7 @@ export default function BranchesList() {
 const [currentPage, setCurrentPage] = useState(1)
 const itemsPerPage = 15
 
-  // Fetch branches from API
+  // Fetch academies from API
   useEffect(() => {
     const fetchBranches = async () => {
       try {
@@ -150,19 +152,19 @@ const itemsPerPage = 15
 
         if (!response.ok) {
           const errorData = await response.json()
-          throw new Error(errorData.detail || errorData.message || `Failed to fetch branches (${response.status})`)
+          throw new Error(errorData.detail || errorData.message || `Failed to fetch academies (${response.status})`)
         }
 
         const data = await response.json()
-        console.log("Branches fetched successfully:", data)
+        console.log("Academies fetched successfully:", data)
 
         // Handle different response formats
         const branchesData = data.branches || data || []
-        console.log("Processed branches data:", branchesData)
+        console.log("Processed academies data:", branchesData)
 
         // Log statistics for debugging
         branchesData.forEach((branch: Branch, index: number) => {
-          console.log(`Branch ${index + 1} (${branch.branch?.name}):`, {
+          console.log(`Academy ${index + 1} (${branch.branch?.name}):`, {
             id: branch.id,
             statistics: branch.statistics,
             manager_id: branch.manager_id,
@@ -175,13 +177,13 @@ const itemsPerPage = 15
         // If statistics are not included, try to fetch them separately
         const branchesWithoutStats = branchesData.filter((branch: Branch) => !branch.statistics)
         if (branchesWithoutStats.length > 0) {
-          console.log(`Fetching statistics for ${branchesWithoutStats.length} branches...`)
+          console.log(`Fetching statistics for ${branchesWithoutStats.length} academies...`)
           await fetchBranchStatistics(branchesWithoutStats, token)
         }
 
       } catch (error) {
-        console.error("Error fetching branches:", error)
-        setError(error instanceof Error ? error.message : 'Failed to fetch branches')
+        console.error("Error fetching academies:", error)
+        setError(error instanceof Error ? error.message : 'Failed to fetch academies')
       } finally {
         setLoading(false)
       }
@@ -190,7 +192,7 @@ const itemsPerPage = 15
     fetchBranches()
   }, [])
 
-  // Fetch statistics for branches that don't have them
+  // Fetch statistics for academies that don't have them
   const fetchBranchStatistics = async (branchesWithoutStats: Branch[], token: string) => {
     try {
       setLoadingStats(true)
@@ -213,14 +215,14 @@ const itemsPerPage = 15
             }
           }
         } catch (error) {
-          console.error(`Error fetching stats for branch ${branch.id}:`, error)
+          console.error(`Error fetching stats for academy ${branch.id}:`, error)
         }
         return null
       })
 
       const statsResults = await Promise.all(statsPromises)
 
-      // Update branches with fetched statistics
+      // Update academies with fetched statistics
       setBranches(prevBranches =>
         prevBranches.map(branch => {
           const statsResult = statsResults.find(result => result?.branchId === branch.id)
@@ -232,7 +234,7 @@ const itemsPerPage = 15
       )
 
     } catch (error) {
-      console.error("Error fetching branch statistics:", error)
+      console.error("Error fetching academy statistics:", error)
     } finally {
       setLoadingStats(false)
     }
@@ -279,7 +281,7 @@ const itemsPerPage = 15
 
   const handleAssign = async () => {
     if (!selectedBranch || !selectedCoach) {
-      setAssignmentError("Please select both a branch and a coach")
+      setAssignmentError("Please select both an academy and a coach")
       return
     }
 
@@ -292,7 +294,7 @@ const itemsPerPage = 15
         throw new Error("Authentication token not found. Please login again.")
       }
 
-      // Update the branch with the new manager_id
+      // Update the academy with the new manager_id
       const response = await fetch(getBackendApiUrl(`branches/${selectedBranch}`), {
         method: 'PUT',
         headers: {
@@ -360,27 +362,30 @@ const itemsPerPage = 15
 
         if (!response.ok) {
           const errorData = await response.json()
-          throw new Error(errorData.detail || errorData.message || `Failed to delete branch (${response.status})`)
+          throw new Error(errorData.detail || errorData.message || `Failed to delete academy (${response.status})`)
         }
 
-        // Remove branch from local state
+        // Remove academy from local state
         setBranches(branches.filter(branch => branch.id !== branchToDelete))
         setBranchToDelete(null)
         setShowDeletePopup(false)
 
       } catch (error) {
-        console.error("Error deleting branch:", error)
-        alert(`Error deleting branch: ${error instanceof Error ? error.message : 'Unknown error'}`)
+        console.error("Error deleting academy:", error)
+        alert(`Error deleting academy: ${error instanceof Error ? error.message : 'Unknown error'}`)
       }
     }
   }
 
-  const handleViewClick = (branchId: string) => {
-    router.push(`/dashboard/branches/${branchId}`)
+  const branchPathKey = (branch: Branch) =>
+    encodeURIComponent((branch.slug || branch.id || "").trim() || branch.id)
+
+  const handleViewClick = (branch: Branch) => {
+    router.push(`/dashboard/branches/${branchPathKey(branch)}`)
   }
 
-  const handleEditClick = (branchId: string) => {
-    router.push(`/dashboard/branches/edit/${branchId}`)
+  const handleEditClick = (branch: Branch) => {
+    router.push(`/dashboard/branches/edit/${branchPathKey(branch)}`)
   }
 
   const handleDeleteCancel = () => {
@@ -396,7 +401,7 @@ const itemsPerPage = 15
     fetchCoaches() // Fetch coaches when modal opens
   }
 
-  // Enhanced search functionality - filter branches based on search term
+  // Enhanced search functionality - filter academies based on search term
   const filteredBranches = branches.filter((branch) => {
     if (!searchTerm) return true
 
@@ -422,18 +427,18 @@ const paginatedBranches = filteredBranches.slice(
   return (
     <div className="w-full p-4 lg:px-8 overflow-x-hidden">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-[#4F5077]">Branches list</h1>
+          <h1 className="text-2xl font-bold text-[#4F5077]">Academies list</h1>
           <div className="flex space-x-3">
             {!BranchManagerAuth.isAuthenticated() && (
               <>
                 <Button
                   onClick={() => router.push("/dashboard/create-branch")}
-                  className="bg-yellow-400 hover:bg-yellow-500 text-white px-6 py-2 rounded-lg font-medium"
+                  className=" px-6 py-2 rounded-lg font-medium"
                 >
                   + Add Branch
                 </Button>
                 <Button
-                  className="bg-blue-500 hover: text-white px-6"
+                  className="px-6"
                   onClick={handleOpenAssignModal}
                 >
                   Assign Manager
@@ -466,7 +471,7 @@ const paginatedBranches = filteredBranches.slice(
             <thead className="bg-gray-50 border-b">
               <tr className="text-[#6B7A99]">
                 {/* <th className="px-2 py-3 text-left text-xs font-medium text-gray-500">
-                  Branch ID
+                  Academy ID
                 </th> */}
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500">
                   Branch Name
@@ -487,7 +492,7 @@ const paginatedBranches = filteredBranches.slice(
                   </div>
                 </th>
                 {/* <th className="px-2 py-3 text-left text-xs font-medium text-gray-500">
-                  Branch Admin
+                  Academy Admin
                 </th> */}
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500">
                   <div className="flex items-center">
@@ -499,7 +504,7 @@ const paginatedBranches = filteredBranches.slice(
                   Accessories Available
                 </th> */}
                 {/* <th className="px-2 py-3 text-left text-xs font-medium text-gray-500">
-                  Branch Email Id
+                  Academy Email Id
                 </th> */}
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500">
                   Contact number
@@ -525,7 +530,7 @@ const paginatedBranches = filteredBranches.slice(
               ) : filteredBranches.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-8 px-6 text-center text-gray-500">
-                    {searchTerm ? `No branches found matching "${searchTerm}"` : 'No branches found'}
+                    {searchTerm ? `No academies found matching "${searchTerm}"` : 'No academies found'}
                   </td>
                 </tr>
               ) : (
@@ -607,22 +612,22 @@ const paginatedBranches = filteredBranches.slice(
                       <div className="flex items-center space-x-2">
                         <button
                           className="text-blue-400 hover:text-blue-600"
-                          onClick={() => handleViewClick(branch.id)}
+                          onClick={() => handleViewClick(branch)}
                           title="View Details"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
                         <button
                           className="text-gray-400 hover:text-gray-600"
-                          onClick={() => handleEditClick(branch.id)}
-                          title="Edit Branch"
+                          onClick={() => handleEditClick(branch)}
+                          title="Edit Academy"
                         >
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
                           className="text-gray-400 hover:text-red-600"
                           onClick={() => handleDeleteClick(branch.id)}
-                          title="Delete Branch"
+                          title="Delete Academy"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -659,7 +664,7 @@ const paginatedBranches = filteredBranches.slice(
       onClick={() => setCurrentPage(page)}
       className={`px-3 py-2 ${
         currentPage === page
-          ? "bg-yellow-400 hover:bg-yellow-500 text-black"
+          ? ""
           : "bg-transparent"
       }`}
       variant={currentPage === page ? "default" : "outline"}
@@ -678,21 +683,43 @@ const paginatedBranches = filteredBranches.slice(
   </Button>
 </div>
 
-      {showAssignPopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-auto max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center p-6 border-b">
-              <h2 className="text-xl font-semibold text-gray-900">Assign Branch Manager</h2>
-              <button
-                onClick={() => setShowAssignPopup(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-                disabled={assignmentLoading}
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-6">
+      <AppModal
+        open={showAssignPopup}
+        onClose={() => {
+          if (assignmentLoading) return
+          setShowAssignPopup(false)
+        }}
+        title="Assign Academy Manager"
+        size="lg"
+        closeDisabled={assignmentLoading}
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              onClick={() => setShowAssignPopup(false)}
+              variant="outline"
+              disabled={assignmentLoading}
+              className="w-full border-[#D1D5DB] text-[#4F5077] sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAssign}
+              disabled={!selectedBranch || !selectedCoach || assignmentLoading || loadingCoaches}
+              className="w-full bg-[#E1BB33] text-[#171A26] hover:bg-[#d4a82a] sm:w-auto"
+            >
+              {assignmentLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#171A26] mr-2" />
+                  Assigning...
+                </>
+              ) : (
+                "Assign Manager"
+              )}
+            </Button>
+          </div>
+        }
+      >
+            <div className="space-y-6">
               {/* Error Display */}
               {assignmentError && (
                 <div className="bg-red-50 border border-red-200 rounded-md p-4">
@@ -707,16 +734,16 @@ const paginatedBranches = filteredBranches.slice(
               {/* Branch Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Branch <span className="text-red-500">*</span>
+                  Select Academy <span className="text-red-500">*</span>
                 </label>
                 <Select value={selectedBranch} onValueChange={setSelectedBranch} disabled={assignmentLoading}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Choose a branch to assign manager to" />
+                    <SelectValue placeholder="Choose an academy to assign manager to" />
                   </SelectTrigger>
                   <SelectContent>
                     {filteredBranches.map((branch) => (
                       <SelectItem key={branch.id} value={branch.id}>
-                        {branch.branch?.name || 'Unknown Branch'} ({branch.id})
+                        {branch.branch?.name || 'Unknown Academy'} ({branch.id})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -759,63 +786,32 @@ const paginatedBranches = filteredBranches.slice(
                 )}
               </div>
             </div>
+      </AppModal>
 
-            {/* Modal Footer */}
-            <div className="flex justify-end space-x-3 p-6 border-t bg-gray-50">
-              <Button
-                onClick={() => setShowAssignPopup(false)}
-                variant="outline"
-                disabled={assignmentLoading}
-                className="px-6"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleAssign}
-                className="bg-blue-500 hover: text-white px-6"
-                disabled={!selectedBranch || !selectedCoach || assignmentLoading || loadingCoaches}
-              >
-                {assignmentLoading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Assigning...
-                  </>
-                ) : (
-                  'Assign Manager'
-                )}
-              </Button>
-            </div>
+      <AppModal
+        open={showDeletePopup}
+        onClose={handleDeleteCancel}
+        title="Delete Academy"
+        size="sm"
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              onClick={handleDeleteCancel}
+              variant="outline"
+              className="w-full border-[#D1D5DB] text-[#4F5077] sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm} className="w-full sm:w-auto">
+              Delete
+            </Button>
           </div>
-        </div>
-      )}
-
-      {showDeletePopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-semibold text-gray-900">Delete Branch</h2>
-              <button onClick={handleDeleteCancel} className="text-gray-400 hover:text-gray-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="mb-6">
-              <p className="text-gray-600">
-                Are you sure you want to delete this branch? This action cannot be undone.
-              </p>
-            </div>
-
-            <div className="flex space-x-3">
-              <Button onClick={handleDeleteCancel} variant="outline" className="flex-1 bg-transparent">
-                Cancel
-              </Button>
-              <Button onClick={handleDeleteConfirm} className="flex-1 bg-red-500 hover:bg-red-600 text-white">
-                Delete
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+        }
+      >
+        <p className="text-sm leading-relaxed text-[#6B7280]">
+          Are you sure you want to delete this branch? This action cannot be undone.
+        </p>
+      </AppModal>
 
       <AlertDialog
         open={!!deactivateTarget}
@@ -831,7 +827,7 @@ const paginatedBranches = filteredBranches.slice(
                 <p>
                   You are about to deactivate{" "}
                   <span className="font-medium text-foreground">
-                    {deactivateTarget?.branch?.name || "this branch"}
+                    {deactivateTarget?.branch?.name || "this academy"}
                   </span>
                   .
                 </p>

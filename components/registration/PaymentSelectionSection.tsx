@@ -88,10 +88,10 @@ export default function PaymentSelectionSection({
             <div className="flex-1">
               <div className="flex items-center space-x-2">
                 <CreditCard className="w-5 h-5 text-red-600" />
-                <span className="font-semibold text-gray-900 text-sm">Online Payment (Razorpay)</span>
+                <span className="font-semibold text-gray-900 text-sm">Pay Online (Razorpay)</span>
               </div>
               <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                Triggers the secure Razorpay payment gateway popup (UPI, Cards, NetBanking, Wallets). Marks as paid on completion.
+                Pay securely online via UPI, cards, net banking, or wallets. You will review a payment summary before the gateway opens.
               </p>
             </div>
           </label>
@@ -109,10 +109,10 @@ export default function PaymentSelectionSection({
             <div className="flex-1">
               <div className="flex items-center space-x-2">
                 <Banknote className="w-5 h-5 text-emerald-600" />
-                <span className="font-semibold text-gray-900 text-sm">Physical Hand Cash</span>
+                <span className="font-semibold text-gray-900 text-sm">Record Cash</span>
               </div>
               <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                Records cash collected in hand at academy desk. Tracked separately in Cash Revenue collection and generates an official invoice.
+                Record cash collected at the academy desk. You will review a payment summary before the invoice is created.
               </p>
             </div>
           </label>

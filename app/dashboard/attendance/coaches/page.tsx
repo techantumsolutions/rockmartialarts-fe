@@ -35,7 +35,6 @@ import {
   User,
   MessageCircle,
   Phone,
-  Award
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -57,7 +56,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import DashboardHeader from "@/components/dashboard-header"
-import { checkAuth, getAuthHeaders } from "@/lib/auth"
+import { checkAuth, getAuthHeaders, SuperAdminAuth } from "@/lib/auth"
 import { formatTimeIST } from "@/lib/formatRegisteredDate"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { TokenManager } from "@/lib/tokenManager"
@@ -90,6 +89,17 @@ function getCoachAttendanceHeaders(): Record<string, string> | null {
 
 function isCoachAttendanceAuthenticated(): boolean {
   return !!getCoachAttendanceHeaders()
+}
+
+function isRockSuperAdminUser(): boolean {
+  if (typeof window === "undefined") return false
+  if (SuperAdminAuth.isAuthenticated()) return true
+  const role = String(
+    SuperAdminAuth.getCurrentUser()?.role ||
+      TokenManager.getUser()?.role ||
+      ""
+  ).toLowerCase()
+  return role === "super_admin" || role === "superadmin" || role === "coach_admin"
 }
 
 interface CoachAttendanceRecord {
@@ -201,7 +211,7 @@ export default function SuperAdminCoachAttendancePage() {
     }
   }, [error])
 
-  // Fetch branches for filtering
+  // Fetch academies for filtering
   const fetchBranches = async () => {
     try {
       if (!isCoachAttendanceAuthenticated()) return
@@ -217,12 +227,12 @@ export default function SuperAdminCoachAttendancePage() {
         const data = await response.json()
         const branchList = (data.branches || []).map((branch: any) => ({
           id: branch.id,
-          name: branch.branch?.name || branch.name || 'Unknown Branch'
+          name: branch.branch?.name || branch.name || 'Unknown Academy'
         }))
         setBranches(branchList)
       }
     } catch (error) {
-      console.error("Error fetching branches:", error)
+      console.error("Error fetching academies:", error)
     }
   }
 
@@ -246,9 +256,16 @@ export default function SuperAdminCoachAttendancePage() {
 
       console.log(`🔄 Fetching coach attendance data for date: ${dateStr}`)
 
-      // Backend returns only coaches with active courses + assigned batches.
+      const query = new URLSearchParams({ date: dateStr })
+      if (selectedBranch !== "all") {
+        query.set("branch_id", selectedBranch)
+      }
+      if (isRockSuperAdminUser()) {
+        query.set("include_all_coaches", "true")
+      }
+
       const attendanceResponse = await fetch(
-        `/api/backend/attendance/coaches?date=${encodeURIComponent(dateStr)}`,
+        `/api/backend/attendance/coaches?${query.toString()}`,
         {
           method: "GET",
           headers,
@@ -287,7 +304,7 @@ export default function SuperAdminCoachAttendancePage() {
           branch_name:
             coach.branch_name ||
             branches.find((b) => b.id === coach.branch_id)?.name ||
-            "Unknown Branch",
+            "Unknown Academy",
           status: (attendance.status as CoachAttendanceRecord["status"]) || "not_marked",
           check_in_time: attendance.check_in_time
             ? formatTimeIST(
@@ -510,7 +527,7 @@ export default function SuperAdminCoachAttendancePage() {
     if (branches.length > 0) {
       fetchCoachAttendanceData()
     }
-  }, [selectedDate, branches])
+  }, [selectedDate, selectedBranch, branches])
 
   // Utility functions
   const getStatusBadge = (status: string) => {
@@ -556,7 +573,7 @@ export default function SuperAdminCoachAttendancePage() {
   // Export functionality
   const handleExportData = () => {
     const csvContent = [
-      ['Coach Name', 'Email', 'Phone', 'Expertise', 'Branch', 'Status', 'Check In Time', 'Notes', 'Date'].join(','),
+      ['Coach Name', 'Email', 'Phone', 'Expertise', 'Academy', 'Status', 'Check In Time', 'Notes', 'Date'].join(','),
       ...filteredRecords.map(record => [
         record.coach_name,
         record.email,
@@ -624,8 +641,8 @@ export default function SuperAdminCoachAttendancePage() {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Coach Attendance Management</h1>
           <p className="text-gray-600">
             {isPartnerAdminRoute
-              ? "Manage coach attendance for your organization branches"
-              : "Manage coach attendance across all branches"}
+              ? "Manage coach attendance for your organization academies"
+              : "Manage coach attendance across all academies"}
           </p>
         </div>
 
@@ -734,13 +751,13 @@ export default function SuperAdminCoachAttendancePage() {
 
               {/* Branch Filter */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Branch</label>
+                <label className="text-sm font-medium text-gray-700">Academy</label>
                 <Select value={selectedBranch} onValueChange={setSelectedBranch}>
                   <SelectTrigger>
-                    <SelectValue placeholder="All Branches" />
+                    <SelectValue placeholder="All Academies" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Branches</SelectItem>
+                    <SelectItem value="all">All Academies</SelectItem>
                     {branches.map((branch) => (
                       <SelectItem key={branch.id} value={branch.id}>
                         {branch.name}
@@ -845,16 +862,10 @@ export default function SuperAdminCoachAttendancePage() {
                             Coach
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Expertise
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Branch
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Status
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Check In
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Actions
@@ -883,12 +894,6 @@ export default function SuperAdminCoachAttendancePage() {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
-                                <Award className="h-4 w-4 text-gray-400 mr-2" />
-                                <span className="text-sm text-gray-900">{record.expertise}</span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
                                 <MapPin className="h-4 w-4 text-gray-400 mr-2" />
                                 <span className="text-sm text-gray-900">{record.branch_name}</span>
                               </div>
@@ -898,9 +903,6 @@ export default function SuperAdminCoachAttendancePage() {
                                 {getStatusIcon(record.status)}
                                 <span className="ml-2">{getStatusBadge(record.status)}</span>
                               </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {record.check_in_time || '-'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                               <div className="flex items-center space-x-2">
@@ -921,6 +923,15 @@ export default function SuperAdminCoachAttendancePage() {
                                   disabled={isCoachStatusButtonDisabled(record, "absent")}
                                 >
                                   Absent
+                                </Button>
+                                <Button
+                                  onClick={() => handleMarkAttendance(record.id, "late")}
+                                  size="sm"
+                                  variant={record.status === "late" ? "default" : "outline"}
+                                  className="text-xs"
+                                  disabled={isCoachStatusButtonDisabled(record, "late")}
+                                >
+                                  Late
                                 </Button>
                                 {getSaveStatusIcon(record.id)}
                               </div>
@@ -968,7 +979,7 @@ export default function SuperAdminCoachAttendancePage() {
             {/* Branch-wise Statistics */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Branch-wise Attendance</CardTitle>
+                <CardTitle className="text-lg">Academy-wise Attendance</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="h-64">
@@ -1001,7 +1012,7 @@ export default function SuperAdminCoachAttendancePage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Total Branches</span>
+                  <span className="text-sm text-gray-600">Total Academies</span>
                   <span className="font-semibold">{branches.length}</span>
                 </div>
                 <div className="flex justify-between items-center">

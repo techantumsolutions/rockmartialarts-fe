@@ -296,12 +296,12 @@ export default function BranchManagerPaymentDetailPage() {
               </CardContent>
             </Card>
 
-            {/* Course & Branch Information */}
+            {/* Course & Academy Information */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <BookOpen className="w-5 h-5 text-purple-600" />
-                  <span>Course & Branch Details</span>
+                  <span>Course & Academy Details</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -310,7 +310,7 @@ export default function BranchManagerPaymentDetailPage() {
                   <span className="text-gray-900">{payment.course_name || 'N/A'}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Branch</span>
+                  <span className="text-gray-600">Academy</span>
                   <span className="text-gray-900">{payment.branch_name || 'N/A'}</span>
                 </div>
                 <div className="flex items-center justify-between">

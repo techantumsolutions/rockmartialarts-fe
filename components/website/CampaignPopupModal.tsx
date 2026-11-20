@@ -15,9 +15,18 @@ import {
 } from "@/lib/campaignPopupAPI"
 
 const VISITOR_VERIFIED_KEY = "rock_visitor_otp_verified_v2"
+const LEAD_SEEN_KEY = "rock_visitor_popup_seen_v1"
+const LEAD_SKIP_KEY = "rock_visitor_otp_skipped_v1"
+const LEAD_SESSION_SEEN_KEY = "rock_visitor_popup_session_seen_v1"
 
 function dismissKey(id: string) {
   return `rock_campaign_popup_dismissed_${id}`
+}
+
+function markerStillValid(raw: string | null, prefix: string): boolean {
+  if (!raw || !raw.startsWith(`${prefix}|`)) return false
+  const expiresAt = Date.parse(raw.slice(prefix.length + 1))
+  return Number.isFinite(expiresAt) && Date.now() < expiresAt
 }
 
 function isLeadGateClear(leadEnabled: boolean): boolean {
@@ -26,7 +35,19 @@ function isLeadGateClear(leadEnabled: boolean): boolean {
   const raw = window.localStorage.getItem(VISITOR_VERIFIED_KEY) || ""
   // Must match LeadCaptureModal verified|<10digit>|<iso>
   const parts = raw.split("|")
-  return parts.length >= 3 && parts[0] === "verified" && /^\d{10}$/.test(parts[1] || "")
+  if (parts.length >= 3 && parts[0] === "verified" && /^\d{10}$/.test(parts[1] || "")) {
+    return true
+  }
+  // Lead form already shown/skipped for this session or 1-day window.
+  try {
+    if (window.sessionStorage.getItem(LEAD_SESSION_SEEN_KEY) === "1") return true
+  } catch {
+    /* ignore */
+  }
+  return (
+    markerStillValid(window.localStorage.getItem(LEAD_SEEN_KEY), "seen") ||
+    markerStillValid(window.localStorage.getItem(LEAD_SKIP_KEY), "skipped")
+  )
 }
 
 function formatDateRange(start?: string, end?: string): string {

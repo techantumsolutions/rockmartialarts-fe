@@ -217,7 +217,7 @@ export function operationalColumnLabel(key: string): string {
   const labels: Record<string, string> = {
     student_name: "Student",
     course_name: "Course",
-    branch_name: "Branch",
+    branch_name: "Academy",
     is_active: "Active",
     is_renewal: "Renewal",
     payment_status: "Payment Status",
@@ -273,7 +273,7 @@ export async function exportFinancialReport(token: string, filters: FinancialExp
     if (!response.pagination?.has_more || rows.length === 0) break
   }
 
-  const columns = ["Payment ID", "Transaction ID", "Amount", "Branch", "Course", "Status", "Method", "Type", "Date"]
+  const columns = ["Payment ID", "Transaction ID", "Amount", "Academy", "Course", "Status", "Method", "Type", "Date"]
   const rows = payments.map((p) => [
     p.id || p._id || "N/A",
     paymentTransactionId(p) || "N/A",
@@ -289,7 +289,7 @@ export async function exportFinancialReport(token: string, filters: FinancialExp
   return rows.length
 }
 
-/** Downloads every branch matching the filters. Returns the number of rows exported. */
+/** Downloads every academy matching the filters. Returns the number of rows exported. */
 export async function exportBranchReport(token: string, filters: BranchExportFilters = {}): Promise<number> {
   const branches: any[] = []
   for (let page = 0; page < MAX_PAGES; page++) {
@@ -303,15 +303,15 @@ export async function exportBranchReport(token: string, filters: BranchExportFil
     if (!(response as any).pagination?.has_more || rows.length === 0) break
   }
 
-  const columns = ["Branch Name", "Students", "Revenue", "Status", "Performance (%)"]
+  const columns = ["Academy Name", "Students", "Revenue", "Status", "Performance (%)"]
   const rows = branches.map((b) => [
-    b.branch_name || "Unknown Branch",
+    b.branch_name || "Unknown Academy",
     b.active_enrollments ?? 0,
     b.total_revenue ?? 0,
     titleCase(b.status),
     b.performance_score ?? "",
   ])
-  await writeWorkbook("Branch Report", "branch-report", columns, rows)
+  await writeWorkbook("Academy Report", "academy-report", columns, rows)
   return rows.length
 }
 

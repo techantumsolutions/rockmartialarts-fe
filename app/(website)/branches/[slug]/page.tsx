@@ -18,12 +18,12 @@ type PartnerSeoPayload = {
 }
 
 function branchDisplayName(payload: Record<string, unknown> | null): string {
-  if (!payload) return "Branch"
+  if (!payload) return "Academy"
   const nested =
     payload.branch && typeof payload.branch === "object"
       ? (payload.branch as Record<string, unknown>)
       : {}
-  return String(nested.name || payload.name || "Branch").trim() || "Branch"
+  return String(nested.name || payload.name || "Academy").trim() || "Academy"
 }
 
 function branchDescription(payload: Record<string, unknown> | null, name: string): string {
@@ -108,26 +108,33 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const slug = params.slug
   const payload = await fetchPublicBranch(slug)
   if (!payload) {
-    return { title: "Branch not found | Rock Martial Arts Academy" }
+    return { title: "Academy not found | Rock Martial Arts Academy" }
   }
-  const name = branchDisplayName(payload)
-  const fallbackDescription = branchDescription(payload, name)
+  const placeName = branchDisplayName(payload)
+  const fallbackDescription = branchDescription(payload, placeName)
   const canonicalSlug = String(payload.slug || slug).trim()
   const branchId = String(payload.id || "").trim()
   const isCollabPartner = Boolean(
     payload.is_collaboration_partner || payload.allows_collaboration
   )
+  const partnerOrgId = String(payload.partner_org_id || "").trim()
   const siteBranding =
-    payload.site_branding && typeof payload.site_branding === "object"
+    partnerOrgId && payload.site_branding && typeof payload.site_branding === "object"
       ? (payload.site_branding as Record<string, unknown>)
       : null
-  const orgName = String(
-    siteBranding?.org_name || payload.partner_org_name || ""
+  const brandName = String(
+    payload.brand_name ||
+      siteBranding?.org_name ||
+      payload.partner_org_name ||
+      (partnerOrgId ? "Partner" : "Rock Martial Arts")
   ).trim()
-  const hasOwnBranding = Boolean(payload.has_own_branding || siteBranding)
+  const hasOwnBranding = Boolean(partnerOrgId && payload.has_own_branding && siteBranding)
 
-  // Partner-org branches use their own branding identity; Rock platform name is not forced.
-  let title = hasOwnBranding && orgName ? `${name} | ${orgName}` : `${name} | Rock Martial Arts Academy`
+  // Title: "SJML | Kakatiya Nagar" or "Rock Martial Arts | Malkajgiri"
+  let title =
+    brandName && placeName && brandName.toLowerCase() !== placeName.toLowerCase()
+      ? `${brandName} | ${placeName}`
+      : `${brandName || placeName} | Rock Martial Arts Academy`
   let description = fallbackDescription
   if (hasOwnBranding) {
     const brandedDesc = String(

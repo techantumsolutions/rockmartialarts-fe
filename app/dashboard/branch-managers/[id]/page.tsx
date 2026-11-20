@@ -109,19 +109,19 @@ export default function BranchManagerDetailPage() {
 
       if (!response.ok) {
         if (response.status === 404) {
-          throw new Error("Branch manager not found")
+          throw new Error("Academy manager not found")
         }
         const errorData = await response.json()
-        throw new Error(errorData.detail || errorData.message || `Failed to fetch branch manager details (${response.status})`)
+        throw new Error(errorData.detail || errorData.message || `Failed to fetch academy manager details (${response.status})`)
       }
       
       const data = await response.json()
-      console.log("Fetched branch manager details:", data)
+      console.log("Fetched academy manager details:", data)
       setManager(data)
 
     } catch (err: any) {
-      console.error("Error fetching branch manager details:", err)
-      setError(err.message || "Failed to fetch branch manager details")
+      console.error("Error fetching academy manager details:", err)
+      setError(err.message || "Failed to fetch academy manager details")
     } finally {
       setLoading(false)
     }
@@ -138,7 +138,7 @@ export default function BranchManagerDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader currentPage="Branch Manager Details" />
+        <DashboardHeader currentPage="Academy Manager Details" />
         <main className="w-full p-4 lg:px-8">
           <div className="mx-auto">
             <div className="animate-pulse space-y-6">
@@ -164,11 +164,11 @@ export default function BranchManagerDetailPage() {
   if (error || !manager) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader currentPage="Branch Manager Details" />
+        <DashboardHeader currentPage="Academy Manager Details" />
         <main className="w-full p-4 lg:px-8">
           <div className="mx-auto">
             <div className="text-center py-8">
-              <p className="text-red-600">{error || "Branch manager not found"}</p>
+              <p className="text-red-600">{error || "Academy manager not found"}</p>
               <Button 
                 onClick={() => router.push("/dashboard/branch-managers")}
                 className="mt-4"
@@ -184,7 +184,7 @@ export default function BranchManagerDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader currentPage="Branch Manager Details" />
+      <DashboardHeader currentPage="Academy Manager Details" />
       
       <main className="w-full p-4 lg:px-8">
         <div className="mx-auto">
@@ -198,17 +198,17 @@ export default function BranchManagerDetailPage() {
                 className="flex items-center space-x-2"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>Back to Branch Managers</span>
+                <span>Back to Academy Managers</span>
               </Button>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">{manager.full_name}</h1>
-                <p className="text-sm text-gray-500">Branch Manager Details</p>
+                <p className="text-sm text-gray-500">Academy Manager Details</p>
               </div>
             </div>
             <div className="flex space-x-3">
               <Button
                 onClick={() => router.push(`/dashboard/branch-managers/edit/${managerId}`)}
-                className="bg-yellow-400 hover:bg-yellow-500 text-white"
+                className=""
               >
                 <Edit className="w-4 h-4 mr-2" />
                 Edit Manager
@@ -315,7 +315,7 @@ export default function BranchManagerDetailPage() {
                 <div className="flex items-center space-x-3">
                   <Building className="w-5 h-5 text-gray-400" />
                   <div>
-                    <p className="font-medium text-gray-900">Branch Assignment</p>
+                    <p className="font-medium text-gray-900">Academy Assignment</p>
                     <p className="text-sm text-gray-600">
                       {manager.branch_assignment?.branch_name}
                       {manager.branch_assignment?.branch_location && (

@@ -4,6 +4,9 @@ import { Analytics } from '@vercel/analytics/next'
 import { RegistrationProvider } from '@/contexts/RegistrationContext'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { CMSProvider } from '@/contexts/CMSContext'
+import { PlatformBrandingProvider } from '@/contexts/PlatformBrandingContext'
+import { PlatformFavicon } from '@/components/PlatformFavicon'
+import { BranchPublicBrandProvider } from '@/contexts/BranchPublicBrandContext'
 import { Toaster } from '@/components/ui/toaster'
 import AccessibilityProvider from '@/components/accessibility-provider'
 import { FixedTopNavWrapper } from '@/components/FixedTopNavWrapper'
@@ -13,6 +16,7 @@ import { WhatsAppFloatButton } from '@/components/whatsapp-float-button'
 import { PageTransition } from '@/components/PageTransition'
 import { GlobalImageFallback } from '@/components/ui/GlobalImageFallback'
 import { ActionOverlayProvider } from '@/components/providers/ActionOverlayProvider'
+import { StudentPromotionPopupHost } from '@/components/promotions/StudentPromotionPopupHost'
 import './globals.css'
 
 // Poppins: preload false — multiple weights each get a preload hint; unused weights spam the console.
@@ -47,14 +51,15 @@ const bebasNeue = Bebas_Neue({
   preload: false,
 })
 export const metadata: Metadata = {
-  title: 'Martial Arts Academy - Student Portal',
-  description: 'Student dashboard for martial arts training, progress tracking, and course management',
-  keywords: 'martial arts, karate, training, student portal, academy',
-  generator: 'v0.app',
-  icons: {
-    icon: '/favicon.svg',
-    shortcut: '/favicon.svg',
+  // Neutral brand default — role shells override via nested layouts.
+  title: {
+    default: 'Rock Martial Arts Academy',
+    template: '%s | Rock Martial Arts Academy',
   },
+  description:
+    'Rock Martial Arts Academy — training, academies, courses, and management portals.',
+  keywords: 'martial arts, karate, training, academy, rock martial arts',
+  generator: 'v0.app',
 }
 
 export default function RootLayout({
@@ -73,6 +78,9 @@ export default function RootLayout({
         <AccessibilityProvider>
           <AuthProvider>
             <CMSProvider>
+            <PlatformBrandingProvider>
+            <PlatformFavicon />
+            <BranchPublicBrandProvider>
             <RegistrationProvider>
               <ActionOverlayProvider>
               <GlobalImageFallback />
@@ -82,8 +90,11 @@ export default function RootLayout({
                 <PageTransition>{children}</PageTransition>
               </TopNavSpacer>
               <WhatsAppFloatButton />
+              <StudentPromotionPopupHost />
               </ActionOverlayProvider>
             </RegistrationProvider>
+            </BranchPublicBrandProvider>
+            </PlatformBrandingProvider>
             </CMSProvider>
           </AuthProvider>
           <Toaster />

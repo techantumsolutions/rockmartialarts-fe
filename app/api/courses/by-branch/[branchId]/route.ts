@@ -9,7 +9,7 @@ export async function GET(
     const branchId = params.branchId
     if (!branchId) {
       return NextResponse.json(
-        { error: "Branch ID required" },
+        { error: "Academy ID required" },
         { status: 400 }
       )
     }

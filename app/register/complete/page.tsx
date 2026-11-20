@@ -23,7 +23,7 @@ export default function RegistrationCompletePage() {
         <div className="space-y-2">
           <h1 className="text-3xl font-bold text-black">Registration Complete!</h1>
           <p className="text-gray-500 text-sm">
-            Your registration has been successfully submitted. Welcome to Rock Martial Arts Academy!
+            Your registration has been successfully submitted. Welcome to Rock Martial Arts Branch!
           </p>
           <p className="text-gray-500 text-sm">Click below to login to your account.</p>
         </div>
@@ -31,7 +31,7 @@ export default function RegistrationCompletePage() {
         {/* Login Button */}
         <Button
           onClick={handleGoToLogin}
-          className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-3 rounded-lg text-lg"
+          className="w-full  font-bold py-3 rounded-lg text-lg"
         >
           Go to Login
         </Button>

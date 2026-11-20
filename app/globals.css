@@ -33,7 +33,7 @@ body {
   font-weight: 600;
 }
 [data-app-shell] [data-slot="switch"][data-state="checked"] {
-  background-color: #e1bb33 !important;
+  background-color: var(--brand-primary, #e1bb33) !important;
 }
 
 /* Prevent Radix UI dropdowns / dialogs from shifting the page left and leaving a right-side scrollbar gap */
@@ -64,11 +64,15 @@ body[data-scroll-locked] {
 }
 
 :root {
-  /* Brand colors — single source for website + all dashboards */
-  --brand-gold: #E1BB33;
-  --brand-gold-hover: #d4ae2a;
-  --brand-dark: #4F5077;
+  /* Brand colors — driven by Super Admin Platform Branding (CSS vars overridden at runtime) */
+  --brand-primary: #E1BB33;
+  --brand-secondary: #4F5077;
+  --brand-accent: #FFB70F;
+  --brand-gold: var(--brand-primary, #E1BB33);
+  --brand-gold-hover: var(--brand-primary, #E1BB33);
+  --brand-dark: var(--brand-secondary, #4F5077);
   --brand-title: #171A26;
+  --brand-navy: #171A26;
   --brand-muted: #9593A8;
   --brand-muted-alt: #6B7A99;
   --brand-border: #E2E8F0;
@@ -83,7 +87,7 @@ body[data-scroll-locked] {
   --popover: #ffffff;
   --popover-foreground: #171a26;
   /* Primary CTA = brand gold across admin, student, coach, and public */
-  --primary: #e1bb33;
+  --primary: var(--brand-primary, #e1bb33);
   --primary-foreground: #3d3e5c;
   --secondary: #f8fafc;
   --secondary-foreground: #171a26;
@@ -547,28 +551,77 @@ body[data-scroll-locked] {
   }
 }
 
-/* Remap legacy blue / navy primary buttons → brand gold */
+/* Remap legacy blue / navy primary buttons → brand gold (readable dark text) */
+[data-admin-shell] .bg-blue-500,
 [data-admin-shell] .bg-blue-600,
 [data-admin-shell] .bg-blue-700,
+[data-app-shell] .bg-blue-500,
 [data-app-shell] .bg-blue-600,
 [data-app-shell] .bg-blue-700,
+button.bg-blue-500,
 button.bg-blue-600,
 button.bg-blue-700,
+a.bg-blue-500,
 a.bg-blue-600,
 [data-admin-shell] .bg-\[\#4F5077\],
 [data-app-shell] .bg-\[\#4F5077\],
-button.bg-\[\#4F5077\] {
+button.bg-\[\#4F5077\],
+a.bg-\[\#4F5077\],
+[data-admin-shell] .bg-\[\#4D5077\],
+[data-app-shell] .bg-\[\#4D5077\],
+button.bg-\[\#4D5077\],
+a.bg-\[\#4D5077\],
+[data-admin-shell] button.bg-\[\#3d4060\],
+[data-app-shell] button.bg-\[\#3d4060\] {
+  background-color: #e1bb33 !important;
+  color: #171a26 !important;
+  border-color: transparent !important;
+}
+
+[data-admin-shell] .hover\:bg-blue-600:hover,
+[data-admin-shell] .hover\:bg-blue-700:hover,
+[data-app-shell] .hover\:bg-blue-600:hover,
+[data-app-shell] .hover\:bg-blue-700:hover,
+button.hover\:bg-blue-600:hover,
+button.hover\:bg-blue-700:hover,
+[data-admin-shell] .hover\:bg-\[\#3d3e5c\]:hover,
+[data-app-shell] .hover\:bg-\[\#3d3e5c\]:hover,
+[data-admin-shell] .hover\:bg-\[\#3d4060\]:hover,
+[data-app-shell] .hover\:bg-\[\#3d4060\]:hover,
+button.hover\:bg-\[\#3d4060\]:hover,
+button.hover\:bg-\[\#3d3e5c\]:hover {
+  background-color: #d4ae2a !important;
+  color: #171a26 !important;
+}
+
+/* Shared Button primary must keep dark text on gold even if callers pass text-white */
+button[data-slot="button"][data-variant="default"],
+button[data-slot="button"][data-variant="default"].text-white,
+button.bg-yellow-400,
+button.bg-yellow-500,
+button.bg-\[\#E1BB33\],
+button.bg-\[\#FFB70F\],
+button.bg-\[\#FFC403\] {
   background-color: #e1bb33 !important;
   color: #171a26 !important;
 }
 
-[data-admin-shell] .hover\:bg-blue-700:hover,
-[data-app-shell] .hover\:bg-blue-700:hover,
-button.hover\:bg-blue-700:hover,
-[data-admin-shell] .hover\:bg-\[\#3d3e5c\]:hover,
-[data-app-shell] .hover\:bg-\[\#3d3e5c\]:hover {
+button[data-slot="button"][data-variant="default"]:hover,
+button.bg-yellow-400:hover,
+button.bg-yellow-500:hover,
+button.hover\:bg-yellow-500:hover,
+button.hover\:bg-\[\#d4ae2a\]:hover {
   background-color: #d4ae2a !important;
   color: #171a26 !important;
+}
+
+/* Danger stays red with white text */
+button[data-slot="button"][data-variant="destructive"],
+button.bg-red-500,
+button.bg-red-600,
+button.bg-red-700 {
+  background-color: #dc2626 !important;
+  color: #ffffff !important;
 }
 
 /* Unopened / new lead row highlight helper */
@@ -604,6 +657,41 @@ button.hover\:bg-blue-700:hover,
 
 .martial-loader-bar {
   animation: martial-bar 0.9s ease-in-out infinite;
+}
+
+/* Global website loader: fixed to viewport, never document-height centered */
+.website-global-loader {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  overflow: hidden !important;
+  display: grid !important;
+  place-items: center !important;
+  z-index: 99999 !important;
+}
+
+html.website-loader-active,
+html.website-loader-active body,
+html.gallery-lightbox-active,
+html.gallery-lightbox-active body {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
+.gallery-lightbox-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  overflow: hidden !important;
+  display: grid !important;
+  place-items: center !important;
+  z-index: 99999 !important;
 }
 
 /* Global button hover/focus polish for raw <button> too */
@@ -758,3 +846,48 @@ img[loading="lazy"] {
   object-fit: contain;
   background-color: #f3f4f6;
 }
+
+/* Dynamic platform brand utilities (colors come from Super Admin Platform Branding) */
+.bg-brand-primary { background-color: var(--brand-primary, #E1BB33) !important; }
+.text-brand-primary { color: var(--brand-primary, #E1BB33) !important; }
+.border-brand-primary { border-color: var(--brand-primary, #E1BB33) !important; }
+.bg-brand-secondary { background-color: var(--brand-secondary, #4F5077) !important; }
+.text-brand-secondary { color: var(--brand-secondary, #4F5077) !important; }
+.border-brand-secondary { border-color: var(--brand-secondary, #4F5077) !important; }
+.bg-brand-accent { background-color: var(--brand-accent, #FFB70F) !important; }
+.text-brand-accent { color: var(--brand-accent, #FFB70F) !important; }
+.border-brand-accent { border-color: var(--brand-accent, #FFB70F) !important; }
+.bg-brand-navy { background-color: var(--brand-title, #171A26) !important; }
+.text-brand-navy { color: var(--brand-title, #171A26) !important; }
+.hover\:bg-brand-primary:hover { background-color: var(--brand-primary, #E1BB33) !important; }
+.hover\:text-brand-primary:hover { color: var(--brand-primary, #E1BB33) !important; }
+.hover\:text-brand-accent:hover { color: var(--brand-accent, #FFB70F) !important; }
+.hover\:border-brand-accent:hover { border-color: var(--brand-accent, #FFB70F) !important; }
+
+/* Remap legacy hardcoded brand hex utilities → live platform CSS vars */
+[class*="bg-[#E1BB33]"],
+[class*="bg-[#e1bb33]"] { background-color: var(--brand-primary, #E1BB33) !important; }
+[class*="text-[#E1BB33]"],
+[class*="text-[#e1bb33]"] { color: var(--brand-primary, #E1BB33) !important; }
+[class*="border-[#E1BB33]"],
+[class*="border-[#e1bb33]"] { border-color: var(--brand-primary, #E1BB33) !important; }
+[class*="bg-[#FFB70F]"],
+[class*="bg-[#ffb70f]"] { background-color: var(--brand-accent, #FFB70F) !important; }
+[class*="text-[#FFB70F]"],
+[class*="text-[#ffb70f]"] { color: var(--brand-accent, #FFB70F) !important; }
+[class*="border-[#FFB70F]"],
+[class*="border-[#ffb70f]"] { border-color: var(--brand-accent, #FFB70F) !important; }
+[class*="hover:text-[#FFB70F]"]:hover,
+[class*="hover:text-[#ffb70f]"]:hover { color: var(--brand-accent, #FFB70F) !important; }
+[class*="hover:border-[#FFB70F]"]:hover,
+[class*="hover:border-[#ffb70f]"]:hover { border-color: var(--brand-accent, #FFB70F) !important; }
+[class*="text-[#4F5077]"],
+[class*="text-[#4f5077]"] { color: var(--brand-secondary, #4F5077) !important; }
+[class*="bg-[#4F5077]"],
+[class*="bg-[#4f5077]"] { background-color: var(--brand-secondary, #4F5077) !important; }
+[class*="border-[#4F5077]"],
+[class*="border-[#4f5077]"] { border-color: var(--brand-secondary, #4F5077) !important; }
+[class*="bg-[#171A26]"],
+[class*="bg-[#171a26]"] { background-color: var(--brand-title, #171A26) !important; }
+[class*="text-[#171A26]"],
+[class*="text-[#171a26]"] { color: var(--brand-title, #171A26) !important; }

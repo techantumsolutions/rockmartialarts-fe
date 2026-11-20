@@ -231,7 +231,7 @@ export default function NotificationTemplatesAdminPage() {
       return
     }
     if (isBranchManagerOnly && !form.branch_id) {
-      toast({ title: "Branch required", variant: "destructive" })
+      toast({ title: "Academy required", variant: "destructive" })
       return
     }
     setSaving(true)
@@ -286,8 +286,8 @@ export default function NotificationTemplatesAdminPage() {
       ""
     if (!branchId) {
       toast({
-        title: "Select a branch first",
-        description: "Pick a branch to create the override under.",
+        title: "Select an academy first",
+        description: "Pick an academy to create the override under.",
         variant: "destructive",
       })
       return
@@ -300,7 +300,7 @@ export default function NotificationTemplatesAdminPage() {
         channel: t.channel || "sms",
       })
       toast({
-        title: res.created === false ? "Already exists" : "Cloned to branch",
+        title: res.created === false ? "Already exists" : "Cloned to academy",
         description: res.message,
       })
       await load()
@@ -463,12 +463,12 @@ export default function NotificationTemplatesAdminPage() {
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
                 <SelectItem value="global">Rock defaults</SelectItem>
-                <SelectItem value="branch">Branch only</SelectItem>
+                <SelectItem value="branch">Academy only</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div>
-            <Label>Branch</Label>
+            <Label>Academy</Label>
             <Select value={branchFilter} onValueChange={setBranchFilter}>
               <SelectTrigger>
                 <SelectValue />
@@ -522,7 +522,7 @@ export default function NotificationTemplatesAdminPage() {
                 </p>
               ) : null}
               <div>
-                <Label>Branch</Label>
+                <Label>Academy</Label>
                 <Select
                   value={form.branch_id || "global"}
                   onValueChange={(v) =>
@@ -863,7 +863,7 @@ export default function NotificationTemplatesAdminPage() {
                           <Badge variant="outline" className="text-gray-500">
                             {t.is_global || !t.branch_id
                               ? "Rock default"
-                              : t.branch_name || "Branch"}
+                              : t.branch_name || "Academy"}
                           </Badge>
                           <Badge variant="outline" className="text-gray-500">
                             {categoryLabel(t.category)}

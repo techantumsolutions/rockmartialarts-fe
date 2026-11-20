@@ -70,7 +70,7 @@ export default function CoachDashboard() {
       const coachAssignments = await fetchCoachAssignments(token, coach)
       const coursesData = coachAssignments.courses || []
 
-      // 2. Fetch students from branch search & coach endpoints
+      // 2. Fetch students from academy search & coach endpoints
       const studentMap = new Map<string, any>()
 
       const mergeStudent = (st: any, isFromCoachEndpoint = false) => {
@@ -145,13 +145,13 @@ export default function CoachDashboard() {
             students.forEach((s: any) => mergeStudent(s, false))
           }
         } catch (e) {
-          console.warn("Could not fetch students from branch search:", e)
+          console.warn("Could not fetch students from academy search:", e)
         }
       }
 
       const rawStudents = Array.from(studentMap.values())
 
-      // 3. Filter strictly based on assigned courses and assigned batches in this branch!
+      // 3. Filter strictly based on assigned courses and assigned batches in this academy!
       const assignedStudents = filterStudentsForCoach(rawStudents, coachAssignments)
       const studentCount = assignedStudents.length
 
@@ -534,7 +534,7 @@ export default function CoachDashboard() {
 
                   <Button
                     onClick={() => router.push("/coach-dashboard/schedule")}
-                    className="mt-14 w-full bg-yellow-400 hover:bg-yellow-500 text-black cursor-pointer"
+                    className="mt-14 w-full  cursor-pointer"
                   >
                     View Class Details
                   </Button>

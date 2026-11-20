@@ -752,7 +752,7 @@ class ReportsAPI extends BaseAPI {
   }
 
   /**
-   * Get student report filter options (branch-specific for branch managers)
+   * Get student report filter options (academy-specific for academy managers)
    */
   async getStudentReportFilters(token: string): Promise<any> {
     return await this.makeRequest('/api/reports/students/filters', {
@@ -762,7 +762,7 @@ class ReportsAPI extends BaseAPI {
   }
 
   /**
-   * M08-S02: filtered student rows for Admin/Branch Manager reports
+   * M08-S02: filtered student rows for Admin/Academy Manager reports
    */
   async listStudentReportRows(
     token: string,
@@ -1106,7 +1106,7 @@ class ReportsAPI extends BaseAPI {
   }
 
   /**
-   * Get comprehensive branch reports
+   * Get comprehensive academy reports
    */
   async getBranchReports(token: string, filters?: ReportFilters): Promise<BranchReportsResponse> {
     const params = new URLSearchParams()
@@ -1290,7 +1290,7 @@ class ReportsAPI extends BaseAPI {
   }
 
   /**
-   * Get comprehensive branch reports
+   * Get comprehensive academy reports
    */
   async getBranchReports(token: string, filters?: {
     branch_id?: string
@@ -1316,7 +1316,7 @@ class ReportsAPI extends BaseAPI {
   }
 
   /**
-   * Get available filter options for branch reports
+   * Get available filter options for academy reports
    */
   async getBranchReportFilters(token: string): Promise<BranchReportFiltersResponse> {
     return await this.makeRequest('/api/reports/branches/filters', {

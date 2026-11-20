@@ -138,7 +138,7 @@ export default function BiometricDevicesPage() {
           .filter((b) => b?.id)
           .map((b) => ({
             id: b.id,
-            name: b.branch?.name || b.name || "Branch",
+            name: b.branch?.name || b.name || "Academy",
             code: b.branch?.code || b.code,
           }))
       )
@@ -210,7 +210,7 @@ export default function BiometricDevicesPage() {
 
   const handleSave = async () => {
     if (!form.name.trim() || !form.vendor_device_id.trim() || !form.branch_id) {
-      toast.error("Name, device ID, and branch are required")
+      toast.error("Name, device ID, and academy are required")
       return
     }
     setSaving(true)
@@ -243,7 +243,7 @@ export default function BiometricDevicesPage() {
   const handleDeactivate = async (device: BiometricDevice) => {
     if (device.status === "inactive") return
     const ok = window.confirm(
-      `Deactivate "${device.name}"? It will no longer attribute punches to ${device.branch_name || "its branch"}.`
+      `Deactivate "${device.name}"? It will no longer attribute punches to ${device.branch_name || "its academy"}.`
     )
     if (!ok) return
     try {
@@ -361,18 +361,18 @@ export default function BiometricDevicesPage() {
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {isBranchAdmin ? (
               <div>
-                <Label className="mb-1 block">Branch</Label>
+                <Label className="mb-1 block">Academy</Label>
                 <BranchSelectionField branchName={branches.find((branch) => branch.id === headerBranchId)?.name} />
               </div>
             ) : (
               <div>
-                <Label className="mb-1 block">Branch</Label>
+                <Label className="mb-1 block">Academy</Label>
                 <Select value={branchFilter} onValueChange={setBranchFilter}>
                   <SelectTrigger>
-                    <SelectValue placeholder="All branches" />
+                    <SelectValue placeholder="All academies" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Branches</SelectItem>
+                    <SelectItem value="all">All Academies</SelectItem>
                     {branches.map((b) => (
                       <SelectItem key={b.id} value={b.id}>
                         {b.name}
@@ -416,7 +416,7 @@ export default function BiometricDevicesPage() {
               <div className="text-center py-10 text-slate-600">
                 <Cpu className="h-10 w-10 mx-auto mb-3 text-slate-300" />
                 <p className="font-medium text-slate-800">No devices yet</p>
-                <p className="text-sm mt-1">Add a biometric device and link it to a branch.</p>
+                <p className="text-sm mt-1">Add a biometric device and link it to an branch.</p>
                 <Button className="mt-4" onClick={openCreate}>
                   <Plus className="h-4 w-4 mr-1" />
                   Add Device
@@ -429,7 +429,7 @@ export default function BiometricDevicesPage() {
                     <tr className="border-b bg-slate-50 text-left text-slate-700">
                       <th className="py-3 px-3 font-medium">Device</th>
                       <th className="py-3 px-3 font-medium hidden sm:table-cell">Vendor ID</th>
-                      <th className="py-3 px-3 font-medium">Branch</th>
+                      <th className="py-3 px-3 font-medium">Academy</th>
                       <th className="py-3 px-3 font-medium">Status</th>
                       <th className="py-3 px-3 font-medium text-right">Actions</th>
                     </tr>
@@ -518,7 +518,7 @@ export default function BiometricDevicesPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Branch *</Label>
+              <Label>Academy *</Label>
               {isBranchAdmin ? (
                 <BranchSelectionField branchName={branches.find((branch) => branch.id === headerBranchId)?.name} />
               ) : (
@@ -527,7 +527,7 @@ export default function BiometricDevicesPage() {
                   onValueChange={(v) => setForm((f) => ({ ...f, branch_id: v }))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select branch" />
+                    <SelectValue placeholder="Select academy" />
                   </SelectTrigger>
                   <SelectContent>
                     {branches.map((b) => (

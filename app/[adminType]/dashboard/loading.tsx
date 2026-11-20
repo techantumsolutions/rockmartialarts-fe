@@ -1,13 +1,6 @@
 import MartialArtsRouteLoader from "@/components/ui/MartialArtsRouteLoader"
 
-/** Compact loader — never a full-screen freeze during soft navigations */
+/** Single transparent site-loader image — no page backdrop. */
 export default function Loading() {
-  return (
-    <MartialArtsRouteLoader
-      variant="compact"
-      title="Loading…"
-      description="Opening page"
-      className="min-h-[50vh] bg-transparent"
-    />
-  )
+  return <MartialArtsRouteLoader className="bg-transparent" />
 }

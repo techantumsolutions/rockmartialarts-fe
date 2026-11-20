@@ -349,7 +349,7 @@ export default function MyEventRegistrationsPage() {
         className="relative py-16 md:py-20 bg-cover bg-center"
         style={{ backgroundImage: "url(/assets/img/banner.jpg)" }}
       >
-        <div className="absolute inset-0 bg-black/60" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#171A26]/50 via-[#171A26]/15 to-black/10" />
         <div className="container relative z-10 mx-auto px-4 max-w-3xl">
           <Link
             href="/events"

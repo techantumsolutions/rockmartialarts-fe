@@ -1,5 +1,5 @@
 /**
- * Branch URL slug: branch name → URL-safe slug (e.g. "Main Branch" → "main-branch").
+ * Branch URL slug: academy name → URL-safe slug (e.g. "Main Academy" → "main-academy").
  * Used for /branches/[slug] URLs.
  */
 export function branchNameToSlug(name: string): string {

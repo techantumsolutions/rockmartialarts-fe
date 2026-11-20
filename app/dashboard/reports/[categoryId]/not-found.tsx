@@ -119,7 +119,7 @@ export default function CategoryNotFound() {
               { name: 'Financial Reports', href: '/dashboard/reports/financial', id: 'financial' },
               { name: 'Course Reports', href: '/dashboard/reports/course', id: 'course' },
               { name: 'Coach Reports', href: '/dashboard/reports/coach', id: 'coach' },
-              { name: 'Branch Reports', href: '/dashboard/reports/branch', id: 'branch' },
+              { name: 'Academy Reports', href: '/dashboard/reports/branch', id: 'branch' },
               { name: 'Coach Reports', href: '/dashboard/reports/coach', id: 'coach' }
             ].map((category) => (
               <Link key={category.id} href={category.href}>

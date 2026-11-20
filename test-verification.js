@@ -1,4 +1,4 @@
-// Comprehensive verification test for branch manager dashboard fixes
+// Comprehensive verification test for academy manager dashboard fixes
 const BASE_URL = 'http://localhost:3022';
 const TEST_TOKEN = 'test-token';
 

@@ -33,7 +33,7 @@ import { ReportsBreadcrumb } from "@/components/breadcrumb"
 import { notFound } from 'next/navigation'
 import { TokenManager } from "@/lib/tokenManager"
 
-// Branch interface (same as branches page)
+// Branch interface (same as academies page)
 interface Branch {
   id: string
   branch: {
@@ -144,23 +144,23 @@ const REPORT_CATEGORIES = [
       { id: "coach-course-load", name: "Coach Course Load", icon: FileText },
       { id: "coach-feedback-report", name: "Coach Feedback Report", icon: FileText },
       { id: "coach-productivity-metrics", name: "Coach Productivity Metrics", icon: TrendingUp },
-      { id: "coach-branch-distribution", name: "Coach Branch Distribution", icon: FileText }
+      { id: "coach-academy-distribution", name: "Coach Academy Distribution", icon: FileText }
     ]
   },
   {
     id: "branch",
-    name: "Branch Reports",
-    description: "Branch-wise analytics, performance, and operational reports",
+    name: "Academy Reports",
+    description: "Academy-wise analytics, performance, and operational reports",
     icon: TrendingUp,
     reports: [
-      { id: "branch-performance-overview", name: "Branch Performance Overview", icon: TrendingUp },
-      { id: "branch-enrollment-statistics", name: "Branch Enrollment Statistics", icon: FileText },
-      { id: "branch-revenue-analysis", name: "Branch Revenue Analysis", icon: TrendingUp },
-      { id: "branch-capacity-utilization", name: "Branch Capacity Utilization", icon: FileText },
-      { id: "branch-staff-allocation", name: "Branch Staff Allocation", icon: FileText },
-      { id: "branch-operational-hours", name: "Branch Operational Hours", icon: FileText },
-      { id: "branch-comparison-report", name: "Branch Comparison Report", icon: TrendingUp },
-      { id: "branch-growth-trends", name: "Branch Growth Trends", icon: TrendingUp }
+      { id: "academy-performance-overview", name: "Academy Performance Overview", icon: TrendingUp },
+      { id: "academy-enrollment-statistics", name: "Academy Enrollment Statistics", icon: FileText },
+      { id: "academy-revenue-analysis", name: "Academy Revenue Analysis", icon: TrendingUp },
+      { id: "academy-capacity-utilization", name: "Academy Capacity Utilization", icon: FileText },
+      { id: "academy-staff-allocation", name: "Academy Staff Allocation", icon: FileText },
+      { id: "academy-operational-hours", name: "Academy Operational Hours", icon: FileText },
+      { id: "academy-comparison-report", name: "Academy Comparison Report", icon: TrendingUp },
+      { id: "academy-growth-trends", name: "Academy Growth Trends", icon: TrendingUp }
     ]
   },
   {
@@ -237,7 +237,7 @@ function CategoryReportsPageContent() {
   // Financial search specific state
   const [financialResults, setFinancialResults] = useState<any[]>([])
 
-  // Branch search specific state
+  // Academy search specific state
   const [branchResults, setBranchResults] = useState<any[]>([])
 
   // Coach search specific state
@@ -248,7 +248,7 @@ function CategoryReportsPageContent() {
 
   // Coach search specific state
 
-  // Branch state (same as branches page)
+  // Academy state (same as academies page)
   const [branches, setBranches] = useState<Branch[]>([])
   const [branchesLoading, setBranchesLoading] = useState(false)
   const [branchesError, setBranchesError] = useState<string | null>(null)
@@ -345,7 +345,7 @@ function CategoryReportsPageContent() {
     }
   }, [error, lastError])
 
-  // Fetch branches with courses for dynamic filtering
+  // Fetch academies with courses for dynamic filtering
   useEffect(() => {
     const fetchBranchesWithCourses = async () => {
       try {
@@ -357,7 +357,7 @@ function CategoryReportsPageContent() {
           throw new Error("Authentication token not found. Please login again.")
         }
 
-        // Use the backend API endpoint for branches with courses
+        // Use the backend API endpoint for academies with courses
         const response = await fetch(`/api/branches-with-courses`, {
           method: 'GET',
           headers: {
@@ -368,34 +368,34 @@ function CategoryReportsPageContent() {
 
         if (!response.ok) {
           const errorData = await response.json()
-          throw new Error(errorData.detail || errorData.message || `Failed to fetch branches with courses (${response.status})`)
+          throw new Error(errorData.detail || errorData.message || `Failed to fetch academies with courses (${response.status})`)
         }
 
         const data = await response.json()
-        console.log("Branches with courses fetched successfully for reports:", data)
+        console.log("Academies with courses fetched successfully for reports:", data)
 
         const branchesData = data.branches || []
 
-        // Store branches with courses for dynamic filtering
+        // Store academies with courses for dynamic filtering
         setBranchesWithCourses(branchesData)
 
-        // Extract branches for dropdown (maintain compatibility)
+        // Extract academies for dropdown (maintain compatibility)
         const branchesForDropdown = branchesData.map((branch: any) => ({
           id: branch.id,
           branch: branch.branch
         }))
         setBranches(branchesForDropdown)
 
-        // Extract all courses from all branches
+        // Extract all courses from all academies
         const allCoursesFromBranches: any[] = []
         branchesData.forEach((branch: any) => {
           if (branch.courses && Array.isArray(branch.courses)) {
             branch.courses.forEach((course: any) => {
-              // Add branch info to course for reference
+              // Add academy info to course for reference
               const courseWithBranch = {
                 ...course,
                 branch_id: branch.id,
-                branch_name: branch.branch?.name || 'Unknown Branch'
+                branch_name: branch.branch?.name || 'Unknown Academy'
               }
               allCoursesFromBranches.push(courseWithBranch)
             })
@@ -407,21 +407,21 @@ function CategoryReportsPageContent() {
         setFilteredCourses(allCoursesFromBranches) // Initially show all courses
 
       } catch (error) {
-        console.error('Error fetching branches with courses for reports:', error)
-        setBranchesError(error instanceof Error ? error.message : 'Failed to fetch branches with courses')
-        toast.error('Failed to load branches and courses for filtering')
+        console.error('Error fetching academies with courses for reports:', error)
+        setBranchesError(error instanceof Error ? error.message : 'Failed to fetch academies with courses')
+        toast.error('Failed to load academyes and courses for filtering')
       } finally {
         setBranchesLoading(false)
       }
     }
 
-    // Fetch branches with courses for all report categories that have branch dropdowns
+    // Fetch academies with courses for all report categories that have academy dropdowns
     if (categoryId && ['student', 'financial', 'branch', 'coach', 'course', 'coach'].includes(categoryId)) {
       fetchBranchesWithCourses()
     }
   }, [categoryId])
 
-  // Load branch report filters when on branch category
+  // Load academy report filters when on academy category
   useEffect(() => {
     const loadBranchReportFilters = async () => {
       if (categoryId !== 'branch') return
@@ -432,7 +432,7 @@ function CategoryReportsPageContent() {
 
         const response = await reportsAPI.getBranchReportFilters(token)
 
-        // Update filter options with branch-specific data
+        // Update filter options with academy-specific data
         setFilterOptions(prev => ({
           ...prev,
           branches: response.filters.branches,
@@ -441,7 +441,7 @@ function CategoryReportsPageContent() {
           statuses: response.filters.statuses
         }))
       } catch (error) {
-        console.error('Error loading branch report filters:', error)
+        console.error('Error loading academy report filters:', error)
       }
     }
 
@@ -486,21 +486,21 @@ function CategoryReportsPageContent() {
     loadFinancialReportFilters()
   }, [categoryId])
 
-  // Dynamic course filtering based on selected branch
+  // Dynamic course filtering based on selected academy
   useEffect(() => {
     if (!allCourses.length) return
 
     const selectedBranchId = filters.branch_id
 
     if (!selectedBranchId || selectedBranchId === 'all') {
-      // Show all courses when no branch is selected or "All Branches" is selected
+      // Show all courses when no academy is selected or "All Academies" is selected
       setFilteredCourses(allCourses)
     } else {
-      // Filter courses for the selected branch
+      // Filter courses for the selected academy
       const coursesForBranch = allCourses.filter(course => course.branch_id === selectedBranchId)
       setFilteredCourses(coursesForBranch)
 
-      // Clear course selection if the currently selected course is not available in the new branch
+      // Clear course selection if the currently selected course is not available in the new academy
       if (filters.course_id && filters.course_id !== 'all') {
         const isCourseAvailable = coursesForBranch.some(course => course.id === filters.course_id)
         if (!isCourseAvailable) {
@@ -768,7 +768,7 @@ function CategoryReportsPageContent() {
   }
 
 
-  // Branch Reports Handler
+  // Academy Reports Handler
   const handleBranchSearch = async () => {
     const token = TokenManager.getToken()
     if (!token) {
@@ -796,7 +796,7 @@ function CategoryReportsPageContent() {
       // Transform data to match expected format
       const transformedResults = response.branches.map(branch => ({
         id: branch.id,
-        name: branch.branch_name || 'Unknown Branch',
+        name: branch.branch_name || 'Unknown Academy',
         student_count: branch.active_enrollments,
         revenue: branch.total_revenue,
         status: branch.status,
@@ -804,10 +804,10 @@ function CategoryReportsPageContent() {
       }))
 
       setBranchResults(transformedResults)
-      toast.success(`Found ${transformedResults.length} branch${transformedResults.length !== 1 ? 'es' : ''}`)
+      toast.success(`Found ${transformedResults.length} academy${transformedResults.length !== 1 ? 'es' : ''}`)
     } catch (error) {
-      console.error('Error searching branch reports:', error)
-      toast.error('Failed to load branch reports. Please try again.')
+      console.error('Error searching academy reports:', error)
+      toast.error('Failed to load academy reports. Please try again.')
       setBranchResults([])
     } finally {
       setSearchLoading(false)
@@ -910,7 +910,7 @@ function CategoryReportsPageContent() {
               <span>Filter</span>
             </Button>
             <Button
-              className="bg-yellow-400 hover:bg-yellow-500 text-white flex items-center space-x-2"
+              className=" flex items-center space-x-2"
               onClick={handleDownloadReport}
               disabled={exportLoading || (categoryId === 'student' && searchLoading)}
             >
@@ -1008,17 +1008,17 @@ function CategoryReportsPageContent() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
                   {/* Branch Dropdown */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Academy</label>
                     <Select
                       value={filters.branch_id || "all"}
                       onValueChange={(value) => handleFilterChange('branch_id', value)}
                       disabled={loading}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder={loading ? "Loading..." : "Select Branch"} />
+                        <SelectValue placeholder={loading ? "Loading..." : "Select Academy"} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Branches</SelectItem>
+                        <SelectItem value="all">All Academies</SelectItem>
                         {filterOptions?.branches?.map((branch) => (
                           <SelectItem key={branch.id} value={branch.id}>
                             {branch.name}
@@ -1118,7 +1118,7 @@ function CategoryReportsPageContent() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
                   <Input
                     type="text"
-                    placeholder="Search by transaction ID, course, branch, or notes..."
+                    placeholder="Search by transaction ID, course, academy, or notes..."
                     value={filters.search || ""}
                     onChange={(e) => handleFilterChange('search', e.target.value)}
                     className="w-full"
@@ -1174,7 +1174,7 @@ function CategoryReportsPageContent() {
                           <tr className="border-b border-gray-200 bg-gray-50">
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">Transaction ID</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden sm:table-cell">Amount</th>
-                            <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden md:table-cell">Branch</th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden md:table-cell">Academy</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden lg:table-cell">Course</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">Status</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden xl:table-cell">Method</th>
@@ -1235,29 +1235,29 @@ function CategoryReportsPageContent() {
           </>
         )}
 
-        {/* Branch Reports Search/Filter Card - Only show for branch category */}
+        {/* Academy Reports Search/Filter Card - Only show for branch category */}
         {categoryId === 'branch' && (
           <>
             {/* Search/Filter Card */}
             <Card className="mb-6">
               <CardHeader>
-                <CardTitle className="text-lg font-semibold text-gray-900">Search Branch Reports</CardTitle>
+                <CardTitle className="text-lg font-semibold text-gray-900">Search Academy Reports</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                   {/* Branch Dropdown */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Academy</label>
                     <Select
                       value={filters.branch_id || "all"}
                       onValueChange={(value) => handleFilterChange('branch_id', value)}
                       disabled={branchesLoading}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder={branchesLoading ? "Loading branches..." : "Select Branch"} />
+                        <SelectValue placeholder={branchesLoading ? "Loading academies..." : "Select Academy"} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Branches</SelectItem>
+                        <SelectItem value="all">All Academies</SelectItem>
                         {branches.filter(branch => branch.id && branch.branch?.name).map((branch) => (
                           <SelectItem key={branch.id} value={branch.id}>
                             {branch.branch?.name || 'N/A'} ({branch.branch?.code || branch.id})
@@ -1320,9 +1320,9 @@ function CategoryReportsPageContent() {
                     </Select>
                   </div>
 
-                  {/* Branch Status */}
+                  {/* Academy Status */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Branch Status</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Academy Status</label>
                     <Select
                       value={filters.status || "all"}
                       onValueChange={(value) => handleFilterChange('status', value)}
@@ -1356,7 +1356,7 @@ function CategoryReportsPageContent() {
                     ) : (
                       <>
                         <Search className="w-4 h-4 mr-2" />
-                        Search Branch Reports
+                        Search Academy Reports
                       </>
                     )}
                   </Button>
@@ -1367,7 +1367,7 @@ function CategoryReportsPageContent() {
             {/* Results Table */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg font-semibold text-gray-900">Branch Reports Results</CardTitle>
+                <CardTitle className="text-lg font-semibold text-gray-900">Academy Reports Results</CardTitle>
                 {branchResults.length > 0 && (
                   <p className="text-sm text-gray-600">
                     Found {branchResults.length} branch{branchResults.length !== 1 ? 'es' : ''}
@@ -1388,7 +1388,7 @@ function CategoryReportsPageContent() {
                       <table className="min-w-full border-collapse">
                         <thead>
                           <tr className="border-b border-gray-200 bg-gray-50">
-                            <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">Branch Name</th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">Academy Name</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden sm:table-cell">Students</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden md:table-cell">Revenue</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">Status</th>
@@ -1422,7 +1422,7 @@ function CategoryReportsPageContent() {
                   <div className="text-center py-12">
                     <div className="text-center">
                       <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-lg font-medium text-gray-900 mb-2">No Branch Reports Found</p>
+                      <p className="text-lg font-medium text-gray-900 mb-2">No Academy Reports Found</p>
                       <p className="text-gray-600">
                         No branch reports match your search criteria. Try adjusting your filters.
                       </p>
@@ -1446,17 +1446,17 @@ function CategoryReportsPageContent() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                   {/* Branch Dropdown */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Academy</label>
                     <Select
                       value={filters.branch_id || "all"}
                       onValueChange={(value) => handleFilterChange('branch_id', value)}
                       disabled={branchesLoading}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder={branchesLoading ? "Loading branches..." : "Select Branch"} />
+                        <SelectValue placeholder={branchesLoading ? "Loading academies..." : "Select Academy"} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Branches</SelectItem>
+                        <SelectItem value="all">All Academies</SelectItem>
                         {branches.filter(branch => branch.id && branch.branch?.name).map((branch) => (
                           <SelectItem key={branch.id} value={branch.id}>
                             {branch.branch?.name || 'N/A'} ({branch.branch?.code || branch.id})
@@ -1587,7 +1587,7 @@ function CategoryReportsPageContent() {
                         <thead>
                           <tr className="border-b border-gray-200 bg-gray-50">
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">Coach Name</th>
-                            <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden sm:table-cell">Branch</th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden sm:table-cell">Academy</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden md:table-cell">Experience</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">Status</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden lg:table-cell">Rating</th>
@@ -1686,17 +1686,17 @@ function CategoryReportsPageContent() {
 
                   {/* Branch Dropdown */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Academy</label>
                     <Select
                       value={filters.branch_id || "all"}
                       onValueChange={(value) => handleFilterChange('branch_id', value)}
                       disabled={branchesLoading}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder={branchesLoading ? "Loading branches..." : "Select Branch"} />
+                        <SelectValue placeholder={branchesLoading ? "Loading academies..." : "Select Academy"} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Branches</SelectItem>
+                        <SelectItem value="all">All Academies</SelectItem>
                         {branches.filter(branch => branch.id && branch.branch?.name).map((branch) => (
                           <SelectItem key={branch.id} value={branch.id}>
                             {branch.branch?.name || 'N/A'} ({branch.branch?.code || branch.id})
@@ -1865,17 +1865,17 @@ function CategoryReportsPageContent() {
 
                   {/* Branch Scope */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Branch Scope</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Academy Scope</label>
                     <Select
                       value={filters.branch_id || "all"}
                       onValueChange={(value) => handleFilterChange('branch_id', value)}
                       disabled={branchesLoading}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder={branchesLoading ? "Loading branches..." : "Select Scope"} />
+                        <SelectValue placeholder={branchesLoading ? "Loading academies..." : "Select Scope"} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Branches</SelectItem>
+                        <SelectItem value="all">All Academies</SelectItem>
                         {branches.filter(branch => branch.id && branch.branch?.name).map((branch) => (
                           <SelectItem key={branch.id} value={branch.id}>
                             {branch.branch?.name || 'N/A'} ({branch.branch?.code || branch.id})
@@ -2068,17 +2068,17 @@ function CategoryReportsPageContent() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                   {/* Branch Dropdown */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Academy</label>
                     <Select
                       value={filters.branch_id || "all"}
                       onValueChange={(value) => handleFilterChange('branch_id', value)}
                       disabled={branchesLoading}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder={branchesLoading ? "Loading branches..." : "Select Branch"} />
+                        <SelectValue placeholder={branchesLoading ? "Loading academies..." : "Select Academy"} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Branches</SelectItem>
+                        <SelectItem value="all">All Academies</SelectItem>
                         {branches.filter(branch => branch.id && branch.branch?.name).map((branch) => (
                           <SelectItem key={branch.id} value={branch.id}>
                             {branch.branch?.name || 'N/A'} ({branch.branch?.code || branch.id})
@@ -2285,7 +2285,7 @@ function CategoryReportsPageContent() {
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">Student Details</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden sm:table-cell">Contact</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden md:table-cell">Courses</th>
-                            <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden lg:table-cell">Branch</th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden lg:table-cell">Academy</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">Status</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden xl:table-cell">Registration</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">Actions</th>
@@ -2360,7 +2360,7 @@ function CategoryReportsPageContent() {
                                     <div className="space-y-1">
                                       {student.branches.slice(0, 1).map((branch: any, idx: number) => (
                                         <div key={idx}>
-                                          <p className="text-gray-900 truncate">{branch.name || 'Unknown Branch'}</p>
+                                          <p className="text-gray-900 truncate">{branch.name || 'Unknown Academy'}</p>
                                           {branch.code && (
                                             <p className="text-xs text-gray-500">({branch.code})</p>
                                           )}

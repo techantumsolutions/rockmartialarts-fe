@@ -33,6 +33,7 @@ import {
 } from "lucide-react"
 import { usePermissions } from "@/hooks/use-permissions"
 import { useCoachSubscriptionGuard } from "@/lib/coachSubscriptionGuard"
+import { usePlatformBranding } from "@/contexts/PlatformBrandingContext"
 
 interface CoachDashboardHeaderProps {
   currentPage?: string
@@ -45,6 +46,7 @@ export default function CoachDashboardHeader({
 }: CoachDashboardHeaderProps) {
   const router = useRouter()
   const pathname = usePathname()
+  const { logoUrl, platformShortName } = usePlatformBranding()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [resolvedCoachName, setResolvedCoachName] = useState<string>(coachName || "Coach")
 
@@ -156,6 +158,22 @@ export default function CoachDashboardHeader({
       permissionId: "attendance",
     },
     {
+      name: "My Attendance",
+      path: "/coach-dashboard/my-attendance",
+      icon: CalendarCheck,
+      exact: false,
+      description: "My attendance log",
+      permissionId: "attendance",
+    },
+    {
+      name: "Attendance Reports",
+      path: "/coach-dashboard/attendance/reports",
+      icon: BarChart3,
+      exact: false,
+      description: "Attendance reports",
+      permissionId: "attendance",
+    },
+    {
       name: "Availability",
       path: "/coach-dashboard/availability",
       icon: Clock,
@@ -177,6 +195,22 @@ export default function CoachDashboardHeader({
       icon: UserPlus,
       exact: false,
       description: "Accept or decline leads",
+      permissionId: "students",
+    },
+    {
+      name: "Training Requests",
+      path: "/coach-dashboard/training-requests",
+      icon: ClipboardList,
+      exact: false,
+      description: "Assigned training requests",
+      permissionId: "students",
+    },
+    {
+      name: "Assessments",
+      path: "/coach-dashboard/assessments",
+      icon: ClipboardCheck,
+      exact: false,
+      description: "KPI student assessments",
       permissionId: "students",
     },
     {
@@ -237,11 +271,8 @@ export default function CoachDashboardHeader({
       return navigationItemsAll.filter((item) => item.path === "/coach-dashboard/subscription")
     }
     return navigationItemsAll.filter((item) => {
+      // Subscription stays in ⋮ for self-registered coaches (main bar is crowded).
       if (item.path === "/coach-dashboard/subscription") {
-        return false
-      }
-      // Training Requests is moved to the dropdown menu as requested
-      if (item.path === "/coach-dashboard/training-requests") {
         return false
       }
       return !item.permissionId || hasPermission(item.permissionId)
@@ -262,8 +293,8 @@ export default function CoachDashboardHeader({
               aria-label="Coach dashboard home"
             >
               <img
-                src="/logo.png"
-                alt="Logo"
+                src={logoUrl || "/logo.png"}
+                alt={platformShortName}
                 className="xl:w-[95px] w-[75px] sm:w-[85px] h-auto object-contain"
               />
             </button>
@@ -440,13 +471,13 @@ export default function CoachDashboardHeader({
                   <div className="p-4 sm:p-5 border-b border-gray-200/70 flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <img
-                        src="/logo.png"
-                        alt="Logo"
+                        src={logoUrl || "/logo.png"}
+                        alt={platformShortName}
                         className="w-8 sm:w-9 h-auto object-contain"
                       />
                       <div>
                         <p className="text-xs font-bold text-gray-900 uppercase tracking-wider">Coach Portal</p>
-                        <p className="text-[11px] text-gray-500">Rock Martial Arts</p>
+                        <p className="text-[11px] text-gray-500">{platformShortName}</p>
                       </div>
                     </div>
                   </div>

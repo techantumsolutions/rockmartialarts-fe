@@ -131,6 +131,15 @@ export default function EditBranch() {
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+  useEffect(() => {
+    if (!showSuccessPopup) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [showSuccessPopup])
+
   const [isLoading, setIsLoading] = useState(true)
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
 
@@ -196,7 +205,7 @@ export default function EditBranch() {
     }
   })
 
-  // Auto-generate branch code
+  // Auto-generate academy code
   const generateBranchCode = () => {
     const branchName = formData.branch.name.trim()
     if (branchName.length >= 2) {
@@ -210,7 +219,7 @@ export default function EditBranch() {
     }
   }
 
-  // Auto-generate code when branch name changes
+  // Auto-generate code when academy name changes
   useEffect(() => {
     if (formData.branch.name && !formData.branch.code) {
       generateBranchCode()
@@ -257,12 +266,12 @@ export default function EditBranch() {
         } else {
           toast({
             title: "Error",
-            description: "Failed to load branch managers.",
+            description: "Failed to load academy managers.",
             variant: "destructive",
           })
         }
       } catch (error) {
-        console.error('Error loading branch managers:', error)
+        console.error('Error loading academy managers:', error)
       } finally {
         setIsLoadingBranchManagers(false)
       }
@@ -308,7 +317,7 @@ export default function EditBranch() {
 
 
     const loadData = async () => {
-      // Fetch existing branch data first
+      // Fetch existing academy data first
       try {
         const token = localStorage.getItem("token")
         if (!token) {
@@ -325,7 +334,7 @@ export default function EditBranch() {
         )
 
         if (!branchResponse.ok) {
-          throw new Error("Failed to fetch branch data")
+          throw new Error("Failed to fetch academy data")
         }
 
         const branchData = await branchResponse.json()
@@ -366,10 +375,10 @@ export default function EditBranch() {
 
         setIsLoading(false)
       } catch (error) {
-        console.error("Error loading branch data:", error)
+        console.error("Error loading academy data:", error)
         toast({
           title: "Error",
-          description: "Failed to load branch data",
+          description: "Failed to load academy data",
           variant: "destructive",
         })
         setIsLoading(false)
@@ -713,8 +722,8 @@ export default function EditBranch() {
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {}
 
-    if (!formData.branch.name) newErrors.branchName = "Branch name is required"
-    if (!formData.branch.code) newErrors.branchCode = "Branch code is required"
+    if (!formData.branch.name) newErrors.branchName = "Academy name is required"
+    if (!formData.branch.code) newErrors.branchCode = "Academy code is required"
     if (!formData.branch.email) newErrors.email = "Email is required"
     if (!formData.branch.phone) newErrors.phone = "Phone is required"
     if (!formData.location_id) newErrors.location = "Location is required"
@@ -810,7 +819,7 @@ export default function EditBranch() {
         bank_details: formData.bank_details
       }
       
-      console.log("Submitting branch data:", JSON.stringify(submitData, null, 2))
+      console.log("Submitting academy data:", JSON.stringify(submitData, null, 2))
 
       const response = await fetch(
         getBackendApiUrl(`branches/${branchId}`), {
@@ -824,7 +833,7 @@ export default function EditBranch() {
 
       if (response.ok) {
         toast({
-          title: "Branch updated",
+          title: "Academy updated",
           description: "Changes saved, including course batches and schedules.",
         })
         setShowSuccessPopup(true)
@@ -833,7 +842,7 @@ export default function EditBranch() {
         }, 2000)
       } else {
         const errorData = await response.json()
-        console.error("Branch creation failed:", errorData)
+        console.error("Academy creation failed:", errorData)
         
         // Handle error message properly (could be string, object, or array)
         let errorMessage = "Failed to create branch."
@@ -854,7 +863,7 @@ export default function EditBranch() {
         })
       }
     } catch (error) {
-      console.error("Error creating branch:", error)
+      console.error("Error creating academy:", error)
       toast({
         title: "Error",
         description: "An unexpected error occurred.",
@@ -868,7 +877,7 @@ export default function EditBranch() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader currentPage="Edit Branch" />
+        <DashboardHeader currentPage="Edit Academy" />
         <main className="w-full p-4 lg:px-8">
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
@@ -897,25 +906,25 @@ export default function EditBranch() {
               Back
             </Button>
             <div>
-              <h1 className="text-3xl font-bold text-[#4F5077]">Edit Branch</h1>
+              <h1 className="text-3xl font-bold text-[#4F5077]">Edit Academy</h1>
               <p className="text-gray-500">Add a new branch to your organization</p>
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Top Left Card - Branch Information */}
+          {/* Top Left Card - Academy Information */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Building className="h-5 w-5 text-[#FA6669]" />
-                <span className="text-[#4F5077]">Branch Information</span>
+                <span className="text-[#4F5077]">Academy Information</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="branchName">Branch Name *</Label>
+                  <Label htmlFor="branchName">Academy Name *</Label>
                   <Input
                     id="branchName"
                     value={formData.branch.name}
@@ -923,13 +932,13 @@ export default function EditBranch() {
                       ...formData,
                       branch: { ...formData.branch, name: e.target.value }
                     })}
-                    placeholder="Enter branch name"
+                    placeholder="Enter academy name"
                   />
                   {errors.branchName && <p className="text-xs text-red-500">{errors.branchName}</p>}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="branchCode">Branch Code *</Label>
+                  <Label htmlFor="branchCode">Academy Code *</Label>
                   <div className="flex gap-2">
                     <Input
                       id="branchCode"
@@ -959,7 +968,7 @@ export default function EditBranch() {
                       ...formData,
                       branch: { ...formData.branch, email: e.target.value }
                     })}
-                    placeholder="branch@example.com"
+                    placeholder="academy@example.com"
                   />
                   {errors.email && <p className="text-xs text-red-500">{errors.email}</p>}
                 </div>
@@ -1015,7 +1024,7 @@ export default function EditBranch() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="manager">Branch Manager *</Label>
+                <Label htmlFor="manager">Academy Manager *</Label>
                 <Select
                   value={formData.manager_id}
                   onValueChange={(value) => setFormData({ ...formData, manager_id: value })}
@@ -1261,14 +1270,14 @@ export default function EditBranch() {
           </Card>
 
           {/* Bottom Left Card - Course Assignments */}
-          <Card>
-            <CardHeader>
+          <Card className="relative z-0 flex h-[calc(100vh-5.5rem)] max-h-[calc(100vh-5.5rem)] flex-col overflow-hidden">
+            <CardHeader className="shrink-0">
               <CardTitle className="flex items-center space-x-2">
                 <Users className="h-5 w-5 text-[#FA6669]" />
                 <span className="text-[#4F5077]">Course Assignments</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-y-auto">
               {/* Category Selection */}
               <div className="space-y-2">
                 <Label>Select Category</Label>
@@ -1313,7 +1322,7 @@ export default function EditBranch() {
               )}
 
               {/* Course List */}
-              <div className="space-y-2 max-h-96 overflow-y-auto">
+              <div className="space-y-2">
                 {filteredCourses.length > 0 ? (
                   filteredCourses.map((course) => {
                     const selectedCourse = formData.assignments.courses.find(c => c.course_id === course.id)
@@ -1600,19 +1609,20 @@ export default function EditBranch() {
             disabled={isSubmitting}
             className="bg-[#FA6669] hover:bg-[#e55557]"
           >
-            {isSubmitting ? "Updating..." : "Update Branch"}
+            {isSubmitting ? "Updating..." : "Update Academy"}
           </Button>
         </div>
       </div>
 
       {/* Success Popup */}
       {showSuccessPopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-          <Card className="w-96">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden p-4 sm:p-6">
+        <div className="absolute inset-0 bg-[#0f172a]/55 backdrop-blur-[2px]" aria-hidden />
+          <Card className="relative z-[1] w-96 rounded-2xl border border-[#E8EAF0] shadow-[0_24px_80px_rgba(15,23,42,0.28)]">
             <CardContent className="pt-6">
               <div className="text-center space-y-4">
                 <div className="text-green-500 text-6xl">✓</div>
-                <h3 className="text-xl font-bold">Branch Updated Successfully!</h3>
+                <h3 className="text-xl font-bold">Academy Updated Successfully!</h3>
                 <p className="text-gray-500">Redirecting to branches list...</p>
               </div>
             </CardContent>

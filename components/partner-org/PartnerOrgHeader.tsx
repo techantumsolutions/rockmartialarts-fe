@@ -21,7 +21,7 @@ export function PartnerOrgHeader({ slug, name, logoUrl, logoAlt }: Props) {
 
   const links = [
     { label: "Courses", href: `${base}/courses` },
-    { label: "Branches", href: `${base}/branches` },
+    { label: "Academies", href: `${base}/branches` },
     { label: "Contact", href: `${base}/contact` },
   ]
 

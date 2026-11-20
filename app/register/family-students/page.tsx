@@ -11,6 +11,8 @@ import { useCMS } from "@/contexts/CMSContext"
 import { getBackendApiUrl } from "@/lib/config"
 import { Plus, Trash2 } from "lucide-react"
 import { RegistrationStepIndicator } from "@/components/register/RegistrationStepIndicator"
+import { AppModal } from "@/components/ui/AppModal"
+import { filterEnrollableCourses } from "@/lib/studentRegistrationPayment"
 
 const RELATIONSHIPS = [
   { value: "self", label: "Self" },
@@ -130,7 +132,7 @@ export default function FamilyStudentsPage() {
           )
         }
       } catch {
-        setError("Failed to load branches and courses.")
+        setError("Failed to load academyes and courses.")
       }
     })()
   }, [])
@@ -141,7 +143,7 @@ export default function FamilyStudentsPage() {
     try {
       const res = await fetch(`/api/courses/by-branch/${encodeURIComponent(branchId)}`)
       const data = await res.json().catch(() => ({}))
-      const list = Array.isArray(data.courses) ? data.courses : []
+      const list = filterEnrollableCourses(Array.isArray(data.courses) ? data.courses : [])
       setCoursesByBranch((prev) => ({ ...prev, [branchId]: list }))
     } catch {
       setCoursesByBranch((prev) => ({ ...prev, [branchId]: [] }))
@@ -193,7 +195,7 @@ export default function FamilyStudentsPage() {
       if (!s.gender) errs[`${s.id}.gender`] = `Student ${n}: gender is required`
       if (!s.dob) errs[`${s.id}.dob`] = `Student ${n}: date of birth is required`
       if (!s.relationship) errs[`${s.id}.relationship`] = `Student ${n}: relationship is required`
-      if (!s.branch_id) errs[`${s.id}.branch_id`] = `Student ${n}: branch is required`
+      if (!s.branch_id) errs[`${s.id}.branch_id`] = `Student ${n}: academy is required`
       if (!s.course_id) errs[`${s.id}.course_id`] = `Student ${n}: course is required`
       if (!s.duration) errs[`${s.id}.duration`] = `Student ${n}: tenure is required`
     })
@@ -298,7 +300,7 @@ export default function FamilyStudentsPage() {
     return () => {
       window.clearTimeout(timer)
     }
-    // fingerprint captures branch/course/duration/batch changes
+    // fingerprint captures academy/course/duration/batch changes
     // eslint-disable-next-line react-hooks/exhaustive-deps -- students read inside effect via closure from fingerprint trigger
   }, [pricingFingerprint])
 
@@ -471,7 +473,7 @@ export default function FamilyStudentsPage() {
                     }}
                   >
                     <SelectTrigger className="!w-full min-w-0 h-12 bg-[#F9F8FF] border-0 rounded-xl">
-                      <SelectValue placeholder="Select branch" />
+                      <SelectValue placeholder="Select academy" />
                     </SelectTrigger>
                     <SelectContent>
                       {branches.map((b) => (
@@ -626,7 +628,7 @@ export default function FamilyStudentsPage() {
           <Button
             type="submit"
             disabled={pricingBusy}
-            className="w-full bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-4 rounded-xl h-14"
+            className="w-full  font-bold py-4 rounded-xl h-14"
           >
             {pricingBusy ? "Checking fees…" : "CONTINUE TO PAYMENT"}
           </Button>
@@ -635,38 +637,36 @@ export default function FamilyStudentsPage() {
         </form>
       </div>
 
-      {studentToRemove && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Trash2 className="w-8 h-8 text-red-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Remove Student</h3>
-              <p className="text-gray-600 mb-6">
-                Are you sure you want to remove <strong>{studentToRemove.label}</strong>? This cannot be undone.
-              </p>
-              <div className="flex space-x-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setStudentToRemove(null)}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  onClick={confirmRemoveStudent}
-                  className="bg-red-600 hover:bg-red-700 text-white flex-1"
-                >
-                  Remove
-                </Button>
-              </div>
-            </div>
+      <AppModal
+        open={Boolean(studentToRemove)}
+        onClose={() => setStudentToRemove(null)}
+        title="Remove Student"
+        size="sm"
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setStudentToRemove(null)}
+              className="w-full border-[#D1D5DB] text-[#4F5077] sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={confirmRemoveStudent}
+              className="w-full sm:w-auto"
+            >
+              Remove
+            </Button>
           </div>
-        </div>
-      )}
+        }
+      >
+        <p className="text-sm leading-relaxed text-[#6B7280]">
+          Are you sure you want to remove <strong>{studentToRemove?.label}</strong>? This cannot be undone.
+        </p>
+      </AppModal>
     </div>
   )
 }

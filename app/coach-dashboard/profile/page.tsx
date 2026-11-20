@@ -180,7 +180,7 @@ export default function CoachProfilePage() {
   const [categoryMap, setCategoryMap] = useState<Record<string, string>>({})
   const [availabilitySlots, setAvailabilitySlots] = useState<WeeklySlot[]>([])
 
-  // Load public courses, categories, and branches for readable names
+  // Load public courses, categories, and academies for readable names
   useEffect(() => {
     const fetchMetadata = async () => {
       try {
@@ -223,7 +223,7 @@ export default function CoachProfilePage() {
           console.error("Failed to load categories for name mapping:", e)
         }
 
-        // 3. Fetch public branches
+        // 3. Fetch public academies
         try {
           const branchesRes = await fetch(getBackendApiUrl("branches/public/all"))
           if (branchesRes.ok) {
@@ -239,7 +239,7 @@ export default function CoachProfilePage() {
             setBranchMap(map)
           }
         } catch (e) {
-          console.error("Failed to load branches for name mapping:", e)
+          console.error("Failed to load academyes for name mapping:", e)
         }
       } catch (err) {
         console.error("Error loading profile metadata:", err)
@@ -312,13 +312,19 @@ export default function CoachProfilePage() {
 
         // Fetch availability slots
         try {
-          const availRes = await fetch(getBackendApiUrl(`coach-availability/coach/${coachId}`), {
+          const availRes = await fetch(getBackendApiUrl(`coaches/${encodeURIComponent(coachId)}/availability`), {
             headers: token ? { Authorization: `Bearer ${token}` } : undefined
           })
           if (availRes.ok) {
             const availData = await availRes.json()
-            if (Array.isArray(availData?.weekly_slots)) {
-              setAvailabilitySlots(availData.weekly_slots)
+            const slots =
+              (Array.isArray(availData?.weekly_slots) && availData.weekly_slots) ||
+              (Array.isArray(availData?.slots) && availData.slots) ||
+              (Array.isArray(availData?.availability?.weekly_slots) &&
+                availData.availability.weekly_slots) ||
+              []
+            if (slots.length) {
+              setAvailabilitySlots(slots)
             }
           }
         } catch (e) {
@@ -786,7 +792,7 @@ export default function CoachProfilePage() {
                     <div className="flex items-start space-x-3">
                       <Building className="w-5 h-5 text-gray-400 mt-0.5" />
                       <div>
-                        <label className="text-xs font-medium text-gray-500 block">Assigned Branch</label>
+                        <label className="text-xs font-medium text-gray-500 block">Assigned Academy</label>
                         <p className="text-sm font-medium text-gray-900">{branchDisplay}</p>
                       </div>
                     </div>

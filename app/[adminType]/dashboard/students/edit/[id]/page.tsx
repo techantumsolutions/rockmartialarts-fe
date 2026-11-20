@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
+import { AppModal } from "@/components/ui/AppModal"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -28,6 +29,9 @@ import {
   dashboardFormCardClass,
   primaryButtonClass,
 } from "@/components/dashboard/dashboardFormStyles"
+import { StudentPhotoUploader } from "@/components/students/StudentPhotoUploader"
+import { AdminStickyFormActions } from "@/components/dashboard/AdminStickyFormActions"
+import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
 const DEFAULT_DURATION_OPTIONS: Array<{ id: string; name: string; code?: string }> = [
   { id: "1-month", name: "1 Month", code: "1-month" },
@@ -151,12 +155,15 @@ export default function EditStudent() {
 
   // Form state
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+
   const [errors, setErrors] = useState<FormErrors>({})
   const [pendingScrollField, setPendingScrollField] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date>()
   const [enrollmentStartDate, setEnrollmentStartDate] = useState<Date>()
   const [enrollmentEndDate, setEnrollmentEndDate] = useState<Date>()
   
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string>("")
+
   const [formData, setFormData] = useState({
     // Personal Information
     firstName: "",
@@ -192,6 +199,12 @@ export default function EditStudent() {
     studentLevel: "",
   })
 
+  const getEditAuthToken = () => {
+    let token = isBranchAdmin ? BranchManagerAuth.getToken() : TokenManager.getToken()
+    if (!token) token = TokenManager.getToken()
+    return token
+  }
+
   useEffect(() => {
     if (!isBranchAdmin || !headerBranchId) return
     setFormData((prev) => (
@@ -219,7 +232,7 @@ export default function EditStudent() {
     run()
   }, [isSuperAdmin])
 
-  // Fetch student, branches and courses data
+  // Fetch student, academies and courses data
   useEffect(() => {
     const fetchData = async () => {
       if (!access_token || !studentId) return
@@ -383,7 +396,7 @@ export default function EditStudent() {
                 branchesForLocation = [
                   {
                     id: b.id || branchId,
-                    name: b.branch?.name || b.name || "Branch",
+                    name: b.branch?.name || b.name || "Academy",
                     code: b.branch?.code,
                     address: {
                       area: addr.area,
@@ -462,6 +475,12 @@ export default function EditStudent() {
         }
 
         setFormData(mappedFormData)
+        setProfilePhotoUrl(
+          studentData.profile_image ||
+            studentData.profile_photo ||
+            studentData.photo ||
+            ""
+        )
 
         if (studentData.date_of_birth) {
           setSelectedDate(new Date(studentData.date_of_birth))
@@ -500,7 +519,7 @@ export default function EditStudent() {
     }
   }, [formData.category, courses])
 
-  // Load branches when location changes
+  // Load academies when location changes
   useEffect(() => {
     const loadBranchesForLocation = async () => {
       if (!formData.location) {
@@ -516,20 +535,20 @@ export default function EditStudent() {
           const data = await response.json()
           setBranches(data.branches || [])
         } else {
-          console.error('Failed to load branches for location:', response.statusText)
+          console.error('Failed to load academyes for location:', response.statusText)
           setBranches([])
           toast({
             title: "Warning",
-            description: "Failed to load branches for selected location.",
+            description: "Failed to load academyes for selected location.",
             variant: "destructive",
           })
         }
       } catch (error) {
-        console.error('Error loading branches for location:', error)
+        console.error('Error loading academies for location:', error)
         setBranches([])
         toast({
           title: "Error",
-          description: "Failed to load branches. Please try again.",
+          description: "Failed to load academyes. Please try again.",
           variant: "destructive",
         })
       } finally {
@@ -540,11 +559,11 @@ export default function EditStudent() {
     loadBranchesForLocation()
   }, [formData.location])
 
-  // Clear branch selection when location changes
+  // Clear academy selection when location changes
   useEffect(() => {
     if (isBranchAdmin) return
     if (formData.branch && formData.location) {
-      // Check if current branch is still valid for the selected location
+      // Check if current academy is still valid for the selected location
       const branchExists = branches.find(branch => branch.id === formData.branch)
       if (!branchExists) {
         setFormData(prev => ({ ...prev, branch: "" }))
@@ -552,7 +571,7 @@ export default function EditStudent() {
     }
   }, [branches, formData.branch, formData.location, isBranchAdmin])
 
-  // Load batch options when branch + course are selected
+  // Load batch options when academy + course are selected
   useEffect(() => {
     const loadBatches = async () => {
       if (!formData.branch || !formData.course) {
@@ -702,7 +721,7 @@ export default function EditStudent() {
     if (!formData.gender) newErrors.gender = "Gender is required"
     if (!formData.dob) newErrors.dob = "Date of birth is required"
     if (!formData.location) newErrors.location = "Location is required"
-    if (!formData.branch) newErrors.branch = "Branch is required"
+    if (!formData.branch) newErrors.branch = "Academy is required"
     if (!formData.course) newErrors.course = "Course is required"
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Please enter a valid email address"
@@ -845,14 +864,14 @@ export default function EditStudent() {
         />
 
         {isLoading ? (
-          <div className="bg-white rounded-2xl shadow-sm border p-8 text-center">
+          <div className="relative z-[1] bg-white rounded-2xl border border-[#E8EAF0] shadow-[0_24px_80px_rgba(15,23,42,0.28)] shadow-sm border p-8 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto"></div>
             <p className="mt-4 text-gray-600">Loading student data...</p>
           </div>
         ) : (
           <div className={dashboardFormCardClass}>
 
-            <form onSubmit={handleSubmit} noValidate className="p-6 sm:p-8 space-y-8 [&_input]:rounded-lg [&_input]:border-gray-200">
+            <form id="student-edit-form" onSubmit={handleSubmit} noValidate className="admin-page-with-sticky-actions p-6 sm:p-8 space-y-8 [&_input]:rounded-lg [&_input]:border-gray-200">
               {errors.submit && (
                 <div className="bg-red-50 border border-red-200 rounded-xl p-4">
                   <p className="text-red-600 font-medium">{errors.submit}</p>
@@ -862,6 +881,19 @@ export default function EditStudent() {
               <div className="space-y-8">
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-[#4D5077] border-b border-gray-200 pb-2">Personal Information</h3>
+                  <StudentPhotoUploader
+                    studentId={studentId}
+                    getToken={getEditAuthToken}
+                    photoUrl={profilePhotoUrl}
+                    disabled={isSubmitting}
+                    onUploaded={(result) => {
+                      setProfilePhotoUrl(
+                        `${result.profile_image}${
+                          result.profile_image.includes("?") ? "&" : "?"
+                        }v=${Date.now()}`
+                      )
+                    }}
+                  />
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 text-[#7F8592]">
                     
                     <div id="student-field-firstName" tabIndex={-1} className="scroll-mt-28 outline-none">
@@ -992,7 +1024,7 @@ export default function EditStudent() {
                         <PopoverTrigger asChild>
                           <Button
                             variant="outline"
-                            className={cn("w-full relative h-14 justify-start text-left font-normal pl-12 text-base bg-gray]-50 border-gray-200 rounded-xl", !selectedDate && "text-gray-500", errors.dob && "border-red-500 bg-red-50")}
+                            className={cn("w-full relative h-14 justify-start text-left font-normal pl-12 text-base bg-gray-50 border-gray-200 rounded-xl", !selectedDate && "text-gray-500", errors.dob && "border-red-500 bg-red-50")}
                           >
                             <CalendarIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                             {selectedDate ? format(selectedDate, "MMM dd, yyyy") : "Select date of birth"}
@@ -1225,8 +1257,8 @@ export default function EditStudent() {
                       {errors.location && <p className="text-red-500 text-sm mt-1">{errors.location}</p>}
                     </div>
 
-                    <div id="student-field-branch" tabIndex={-1} className="scroll-mt-28 outline-none">
-                      <Label className="block text-sm font-medium mb-2">Branch <span className="text-red-500">*</span></Label>
+                    <div id="student-field-academy" tabIndex={-1} className="scroll-mt-28 outline-none">
+                      <Label className="block text-sm font-medium mb-2">Academy <span className="text-red-500">*</span></Label>
                       {isBranchAdmin ? (
                         <BranchSelectionField
                           readOnly
@@ -1252,10 +1284,10 @@ export default function EditStudent() {
                             </div>
                             <SelectValue placeholder={
                               isLoadingBranches
-                                ? "Loading branches..."
+                                ? "Loading academies..."
                                 : !formData.location
                                   ? "Select location first"
-                                  : "Select Branch"
+                                  : "Select Academy"
                             } />
                           </SelectTrigger>
                           <SelectContent>
@@ -1280,8 +1312,8 @@ export default function EditStudent() {
                                   {!formData.location
                                     ? "Please select a location first"
                                     : isLoadingBranches
-                                      ? "Loading branches..."
-                                      : "No branches available for selected location"
+                                      ? "Loading academies..."
+                                      : "No academies available for selected location"
                                   }
                                 </p>
                               </div>
@@ -1309,7 +1341,7 @@ export default function EditStudent() {
                                 isLoadingBatches
                                   ? "Loading batches..."
                                   : batchOptions.length === 0
-                                    ? "No batches at this branch"
+                                    ? "No batches at this academy"
                                     : "Select batch"
                               }
                             />
@@ -1352,59 +1384,64 @@ export default function EditStudent() {
                 </div>
               </div>
 
-              <div className="pt-6 border-t border-gray-200">
-                <div className="flex flex-col sm:flex-row gap-4 justify-center sm:justify-start">
-                  <Button 
-                    type="submit" 
-                    disabled={isSubmitting}
-                    className={`w-full sm:w-auto ${primaryButtonClass}`}
-                  >
-                    {isSubmitting ? (
-                      <div className="flex items-center">
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-black mr-3"></div>
-                        Updating Student...
-                      </div>
-                    ) : (
-                      "Save Changes"
-                    )}
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="outline"
-                    onClick={() => router.push(studentsListUrl)}
-                    disabled={isSubmitting}
-                    className="w-full sm:w-auto h-12 px-8 rounded-xl font-medium border-gray-300"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
             </form>
+
+            <AdminStickyFormActions>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.push(studentsListUrl)}
+                disabled={isSubmitting}
+                className="h-12 px-8 rounded-xl font-medium border-gray-300"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                form="student-edit-form"
+                disabled={isSubmitting}
+                className={`${primaryButtonClass}`}
+              >
+                {isSubmitting ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-black mr-3"></div>
+                    Updating Student...
+                  </div>
+                ) : (
+                  "Save Changes"
+                )}
+              </Button>
+            </AdminStickyFormActions>
           </div>
         )}
       </main>
 
-      {showSuccessPopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Student Updated!</h3>
-              <p className="text-gray-600 mb-8 text-lg">The student details have been successfully updated.</p>
-              <Button 
-                onClick={handleSuccessOk} 
-                className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-3 rounded-xl"
-              >
-                OK
-              </Button>
-            </div>
+      <AppModal
+        open={showSuccessPopup}
+        onClose={handleSuccessOk}
+        title="Student Updated!"
+        size="sm"
+        centered
+        header={
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+            <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+            </svg>
           </div>
-        </div>
-      )}
+        }
+        footer={
+          <Button
+            onClick={handleSuccessOk}
+            className="w-full bg-[#E1BB33] text-[#171A26] hover:bg-[#d4a82a] sm:w-auto sm:ml-auto"
+          >
+            OK
+          </Button>
+        }
+      >
+        <p className="text-center text-sm leading-relaxed text-[#6B7280]">
+          The student details have been successfully updated.
+        </p>
+      </AppModal>
     </div>
   )
 }

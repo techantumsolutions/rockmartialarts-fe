@@ -27,6 +27,11 @@ import {
   type RazorpayPaymentResponse,
 } from "@/lib/razorpay"
 import { BookOpen, Calendar, Clock, CreditCard, RefreshCw } from "lucide-react"
+import {
+  isRenewalWindowOpen,
+  renewalWindowMessage,
+} from "@/lib/renewalWindow"
+import { getPortalPlatformName } from "@/lib/portalIdentity"
 
 export type RenewalEnrollment = {
   id: string
@@ -167,27 +172,8 @@ function isRenewableEnrollment(enr: RenewalEnrollment): boolean {
   return pay === "paid" || pay === "completed" || pay === ""
 }
 
-/** Start of local calendar day for date-only comparison. */
-function startOfLocalDay(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate())
-}
-
-/**
- * Renew Now is shown only when Renewal Due Date is:
- * - already past (crossed), or
- * - due within the next 7 calendar days (inclusive) from today.
- */
 function isRenewalButtonEligible(enr: RenewalEnrollment, now: Date = new Date()): boolean {
-  const raw = enr.next_due_date || enr.end_date
-  if (!raw) return false
-  const due = new Date(raw)
-  if (Number.isNaN(due.getTime())) return false
-  const dueDay = startOfLocalDay(due)
-  const today = startOfLocalDay(now)
-  const msPerDay = 24 * 60 * 60 * 1000
-  const daysUntilDue = Math.round((dueDay.getTime() - today.getTime()) / msPerDay)
-  // Crossed due date (negative or 0) OR due within 1 week (1..7)
-  return daysUntilDue <= 7
+  return isRenewalWindowOpen(enr, now)
 }
 
 /** One renew target per course+branch: prefer active, else latest end_date. */
@@ -488,7 +474,7 @@ export function StudentPlanRenewalSection({
         amountPaise: order.amount,
         orderId: order.id,
         currency: order.currency || "INR",
-        name: "Rock Martial Arts",
+        name: getPortalPlatformName(),
         description: `Renew: ${data.course_name || selected.course_name || "Plan"}`,
         customerName: data.student_name || studentName || "",
         customerEmail: data.student_email || "",
@@ -679,7 +665,7 @@ export function StudentPlanRenewalSection({
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-500">Branch</p>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Academy</p>
                   <p className="mt-0.5 font-medium text-[#4D5077]">
                     {selected.branch_name || quote?.branch_name || "—"}
                   </p>
@@ -690,9 +676,11 @@ export function StudentPlanRenewalSection({
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   <Button
                     type="button"
+                    variant="default"
+                    size="default"
                     onClick={() => void openRenewModal()}
-                    className="bg-[#4D5077] hover:bg-[#3d4060]"
                     disabled={!authToken}
+                    className="min-w-[9.5rem] font-semibold shadow-sm"
                   >
                     <RefreshCw className="mr-2 h-4 w-4" />
                     Renew Now
@@ -700,8 +688,9 @@ export function StudentPlanRenewalSection({
                 </div>
               ) : (
                 <p className="pt-1 text-xs text-slate-500">
-                  Renew Now is available when the renewal due date is within 1 week or has already
-                  passed.
+                  {selected
+                    ? renewalWindowMessage(selected)
+                    : "Renewal opens one week before the renewal due date."}
                 </p>
               )}
             </>
@@ -855,12 +844,28 @@ export function StudentPlanRenewalSection({
                 <p className="text-xs text-red-600">{quoteError}</p>
               ) : quote ? (
                 <>
+                  {quote.pricing?.course_fee != null ? (
+                    <div className="flex items-center justify-between text-slate-600">
+                      <span>Course fee (academy setup)</span>
+                      <span className="font-medium">
+                        {formatInr(quote.pricing.course_fee)}
+                      </span>
+                    </div>
+                  ) : null}
+                  {(quote.pricing?.admission_fee || 0) > 0 ? (
+                    <div className="flex items-center justify-between text-slate-600">
+                      <span>Admission fee</span>
+                      <span className="font-medium">
+                        {formatInr(quote.pricing.admission_fee)}
+                      </span>
+                    </div>
+                  ) : null}
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-1 text-slate-600">
                       <CreditCard className="h-3.5 w-3.5" />
-                      Renewal fee
+                      Renewal total
                     </span>
-                    <span className="font-semibold text-blue-700">
+                    <span className="font-semibold text-[#171A26]">
                       {formatInr(
                         quote.pricing?.total_amount ?? quote.pricing?.renewal_fee
                       )}
@@ -918,6 +923,7 @@ export function StudentPlanRenewalSection({
             </Button>
             <Button
               type="button"
+              variant="default"
               onClick={() => void handleConfirm()}
               disabled={
                 confirming ||
@@ -929,7 +935,6 @@ export function StudentPlanRenewalSection({
                   Number(quote.pricing.total_amount) <= 0 &&
                   Number(quote.pricing.course_fee || 0) <= 0)
               }
-              className="bg-[#4D5077] hover:bg-[#3d4060]"
             >
               {confirming
                 ? paymentMethod === "physical_cash"

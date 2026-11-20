@@ -205,7 +205,7 @@ export default function CoachSchedulePage() {
                                 <Button
                                   type="button"
                                   size="sm"
-                                  className="bg-yellow-400 hover:bg-yellow-500 text-black"
+                                  className=""
                                   disabled={actingId === b.id}
                                   onClick={() => void setStatus(b.id, "confirmed")}
                                 >

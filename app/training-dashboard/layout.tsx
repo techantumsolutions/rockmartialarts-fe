@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { TokenManager, type UserData } from "@/lib/tokenManager"
+import { DocumentTitle } from "@/components/layout/DocumentTitle"
 
 export default function TrainingDashboardLayout({
   children,
@@ -80,7 +81,8 @@ export default function TrainingDashboardLayout({
   ]
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col" data-app-shell="training">
+      <DocumentTitle shell="training" />
       {/* Top Navbar */}
       <header className="sticky top-0 z-40 bg-card/90 backdrop-blur-md border-b border-border/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">

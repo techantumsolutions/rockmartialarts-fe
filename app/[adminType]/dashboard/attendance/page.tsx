@@ -156,7 +156,7 @@ export default function AttendanceOverviewPage() {
         headers
       })
 
-      // Fetch branches data for branch-wise statistics
+      // Fetch academies data for academy-wise statistics
       const branchesResponse = await fetch(getBackendApiUrl('branches'), {
         method: 'GET',
         headers
@@ -195,13 +195,13 @@ export default function AttendanceOverviewPage() {
         console.warn("⚠️ Coaches endpoint failed:", coachesResponse.status)
       }
 
-      // Process branches response
+      // Process academies response
       if (branchesResponse.ok) {
         const data = await branchesResponse.json()
         branchData = data.branches || []
-        console.log(`🏢 Branches data received: ${branchData.length} branches`)
+        console.log(`🏢 Academies data received: ${branchData.length} branches`)
       } else {
-        console.warn("⚠️ Branches endpoint failed:", branchesResponse.status)
+        console.warn("⚠️ Academies endpoint failed:", branchesResponse.status)
       }
 
       // Prefer roster-derived present/absent so overview cards match Manage Students/Coaches
@@ -298,7 +298,7 @@ export default function AttendanceOverviewPage() {
 
       setStats(overviewStats)
 
-      // Calculate branch-wise statistics (present includes former "late")
+      // Calculate academy-wise statistics (present includes former "late")
       const branchStatsData: BranchStats[] = branchData.map((branch: any) => {
         const branchStudents = studentData.filter((s: any) => s.branch_id === branch.id)
         const presentStudents = branchStudents.filter((s: any) => isAttended(s.attendance?.status)).length
@@ -311,7 +311,7 @@ export default function AttendanceOverviewPage() {
 
         return {
           id: branch.id,
-          name: branch.branch?.name || branch.name || 'Unknown Branch',
+          name: branch.branch?.name || branch.name || 'Unknown Academy',
           total_students: branchStudents.length,
           total_coaches: branchCoaches.length,
           student_present: presentStudents,
@@ -370,7 +370,7 @@ export default function AttendanceOverviewPage() {
       <AdminPageHeader
         icon={Calendar}
         title="Attendance Overview"
-        subtitle="Comprehensive attendance management across all branches"
+        subtitle="Comprehensive attendance management across all academies"
         actions={
           <>
             <Popover>
@@ -668,7 +668,7 @@ export default function AttendanceOverviewPage() {
         <div className="border-b border-gray-100 px-5 py-4">
           <div className="flex items-center gap-2">
             <MapPin className="h-5 w-5 text-[#6D28D9]" />
-            <h2 className="text-[15px] font-semibold text-[#4F5077]">Branch-wise Attendance Overview</h2>
+            <h2 className="text-[15px] font-semibold text-[#4F5077]">Academy-wise Attendance Overview</h2>
           </div>
         </div>
         {loading ? (
@@ -680,14 +680,14 @@ export default function AttendanceOverviewPage() {
           <div className="py-12 text-center">
             <MapPin className="mx-auto mb-4 h-12 w-12 text-[#9593A8]" />
             <h3 className="mb-2 text-lg font-medium text-[#4F5077]">No branch data available</h3>
-            <p className="text-sm text-[#6B7A99]">Branch statistics will appear here once data is loaded.</p>
+            <p className="text-sm text-[#6B7A99]">Academy statistics will appear here once data is loaded.</p>
           </div>
         ) : (
           <AdminTableShell>
             <table>
               <thead>
                 <tr>
-                  <th>Branch</th>
+                  <th>Academy</th>
                   <th>Total Students</th>
                   <th>Students Present</th>
                   <th>Total Coaches</th>

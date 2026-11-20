@@ -208,6 +208,18 @@ export default function VerifyStudentIdPage() {
                       {display?.course_name ? (
                         <p className="text-slate-600">Course: {display.course_name}</p>
                       ) : null}
+                      {display?.belt_rank ? (
+                        <p className="text-slate-600">Belt: {display.belt_rank}</p>
+                      ) : null}
+                      {display?.batch_name ? (
+                        <p className="text-slate-600">Batch: {display.batch_name}</p>
+                      ) : null}
+                      {display?.date_of_joining ? (
+                        <p className="text-slate-600">Joined: {display.date_of_joining}</p>
+                      ) : null}
+                      {display?.valid_until ? (
+                        <p className="text-slate-600">Valid until: {display.valid_until}</p>
+                      ) : null}
                       {display?.account_status ? (
                         <p className="text-slate-600">Account: {display.account_status}</p>
                       ) : null}

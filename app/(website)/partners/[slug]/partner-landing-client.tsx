@@ -323,7 +323,7 @@ export default function PartnerLandingClient() {
             alt=""
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#171A26] via-[#171A26]/75 to-[#171A26]/20" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#171A26]/55 via-[#171A26]/18 to-transparent" />
         </div>
         <div className="relative z-10 site-content px-0 sm:px-1 pb-12 md:pb-16 pt-28">
           {logo ? (
@@ -390,7 +390,7 @@ export default function PartnerLandingClient() {
               href={`/branches/${encodeURIComponent(data.slug)}`}
               className="inline-flex items-center gap-2 px-4 py-3 text-white/70 hover:text-white text-sm"
             >
-              Branch page <ExternalLink className="w-3.5 h-3.5" />
+              Academy page <ExternalLink className="w-3.5 h-3.5" />
             </Link>
           </div>
         </div>
@@ -729,7 +729,7 @@ export default function PartnerLandingClient() {
               <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
                 <h3 className="text-[#FFB70F] font-semibold mb-2">Send an enquiry</h3>
                 <p className="text-gray-400 text-sm mb-4">
-                  Leave your details and this partner academy will follow up with you.
+                  Leave your details and this partner branch will follow up with you.
                 </p>
                 {formDone ? (
                   <div className="rounded-md border border-[#FFB70F]/40 bg-[#FFB70F]/10 px-4 py-3 text-sm text-[#FFB70F]">

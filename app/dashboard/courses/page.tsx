@@ -252,7 +252,7 @@ export default function CourseListPage() {
           <h1 className="text-2xl font-bold text-[#4F5077]">Course list</h1>
           <Button
             onClick={() => router.push("/dashboard/create-course")}
-            className="bg-yellow-400 hover:bg-yellow-500 text-white px-6 py-2 rounded-lg font-medium"
+            className=" px-6 py-2 rounded-lg font-medium"
           >
             + Add Course
           </Button>
@@ -296,7 +296,7 @@ export default function CourseListPage() {
                       </td>
                       <td className="py-4 px-6">
                         <div className="relative">
-                          <span className="text-[#6B7A99]">{course.branches || 0} Branches</span>
+                          <span className="text-[#6B7A99]">{course.branches || 0} Academies</span>
                           {index === 1 && showBranchDropdown === course.id && course.branchLocations && (
                             <div className="absolute top-8 left-0 bg-white border rounded-lg shadow-lg p-2 z-10 min-w-[150px]">
                               {course.branchLocations.map((location, idx) => (

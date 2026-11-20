@@ -71,7 +71,7 @@ function DemoFilterDropdown({ label, value, options, onChange }: DemoFilterDropd
     }
   }, [])
 
-  const allLabel = label === "Branch" ? "All branches" : "All courses"
+  const allLabel = label === "Academy" ? "All academies" : "All courses"
   const selectedLabel =
     value === "all" ? allLabel : options.find((option) => option.id === value)?.name
 
@@ -204,7 +204,7 @@ export default function DemoAvailabilityPublicView() {
       let nextBranches = data.branches || []
       let nextCourses = data.courses || []
 
-      // Fallback: public branch/course catalogs when demo schedules haven't been configured yet
+      // Fallback: public academy/course catalogs when demo schedules haven't been configured yet
       if (nextBranches.length === 0) {
         try {
           const res = await fetch("/api/backend/branches/public/all?limit=200", {
@@ -440,14 +440,14 @@ export default function DemoAvailabilityPublicView() {
         <CheckCircle2 className="w-14 h-14 text-[#FFB70F] mx-auto" />
         <h2 className="text-2xl font-bold text-white">Demo booking confirmed</h2>
         <p className="text-gray-300">
-          See you at the academy — we have reserved your demo seat.
+          See you at the branch — we have reserved your demo seat.
         </p>
         <div className="text-sm text-gray-400 space-y-1 text-left bg-black/20 rounded-lg p-4">
           <p>
             {formatSlotDate(confirmed.slot_date)} · {confirmed.start_time} – {confirmed.end_time}
           </p>
           <p>
-            {confirmed.branch_name || "Branch"} · {confirmed.course_name || "Course"}
+            {confirmed.branch_name || "Academy"} · {confirmed.course_name || "Course"}
           </p>
           <p>Participant: {confirmed.participant_name}</p>
           <p>Fee: ₹{confirmed.fee_inr}</p>
@@ -510,9 +510,9 @@ export default function DemoAvailabilityPublicView() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="space-y-1">
-            <Label className="text-gray-300">Branch</Label>
+            <Label className="text-gray-300">Academy</Label>
             <DemoFilterDropdown
-              label="Branch"
+              label="Academy"
               value={branchId}
               options={branches}
               onChange={setBranchId}
@@ -576,8 +576,8 @@ export default function DemoAvailabilityPublicView() {
               <p>No demo slots found for the selected filters.</p>
               <p className="text-xs text-gray-500">
                 {branches.length === 0
-                  ? "Branches are loading or unavailable. Please refresh the page."
-                  : "Try another branch or course, expand the date range, or check back soon — demo schedules are set by the academy."}
+                  ? "Academies are loading or unavailable. Please refresh the page."
+                  : "Try another academy or course, expand the date range, or check back soon — demo schedules are set by the branch."}
               </p>
             </div>
           ) : (
@@ -624,7 +624,7 @@ export default function DemoAvailabilityPublicView() {
                         <div className="mt-1 text-sm text-gray-300 flex items-center gap-1">
                           <MapPin className="w-3.5 h-3.5 shrink-0" />
                           <span className="truncate">
-                            {slot.branch_name || "Branch"} · {slot.course_name || "Course"}
+                            {slot.branch_name || "Academy"} · {slot.course_name || "Course"}
                           </span>
                         </div>
                         <div className="mt-1 text-xs text-gray-400">{seatsLabel(slot)}</div>
@@ -662,7 +662,7 @@ export default function DemoAvailabilityPublicView() {
                 <p>
                   {selected.branch_name} · {selected.course_name}
                 </p>
-                <p className="text-[#FFB70F]">Fee ₹{selected.fee_inr} (set by academy)</p>
+                <p className="text-[#FFB70F]">Fee ₹{selected.fee_inr} (set by branch)</p>
                 <p className="text-xs text-gray-400">{seatsLabel(selected)}</p>
               </div>
 

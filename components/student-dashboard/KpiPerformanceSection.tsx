@@ -25,7 +25,7 @@ function bandClass(band?: string | null) {
 
 function scopeLabel(scopeType: string) {
   if (scopeType === "overall") return "Overall"
-  if (scopeType === "branch") return "Branch"
+  if (scopeType === "branch") return "Academy"
   if (scopeType === "course") return "Course"
   if (scopeType === "category") return "Category"
   return scopeType

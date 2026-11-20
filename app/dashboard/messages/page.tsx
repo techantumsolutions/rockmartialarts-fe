@@ -251,7 +251,7 @@ export default function SuperAdminMessagesPage() {
     switch (userType) {
       case "coach": return "Coach"
       case "student": return "Student"
-      case "branch_manager": return "Branch Manager"
+      case "branch_manager": return "Academy Manager"
       case "superadmin": return "Admin"
       default: return "User"
     }

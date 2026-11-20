@@ -4,7 +4,7 @@ import { TokenManager, type LinkedStudentProfile } from "@/lib/tokenManager"
 export const STUDENT_DEACTIVATED_EVENT = "rma:student-deactivated"
 
 export const STUDENT_DEACTIVATED_MESSAGE =
-  "Your details have been deactivated by the admin. Please contact your branch for assistance."
+  "Your details have been deactivated by the admin. Please contact your academy for assistance."
 
 export type StudentSessionStatus = {
   student_id: string

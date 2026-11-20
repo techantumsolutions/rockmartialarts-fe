@@ -304,7 +304,7 @@ export default function SuperAdminSettingsPage() {
               <Button 
                 onClick={handleSave}
                 disabled={isSubmitting}
-                className="bg-yellow-400 hover:bg-yellow-500 text-white"
+                className=""
               >
                 <Save className="w-4 h-4 mr-2" />
                 {isSubmitting ? "Saving..." : "Save Settings"}

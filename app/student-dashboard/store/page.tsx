@@ -332,7 +332,7 @@ export default function StudentStorePage() {
             <ShieldAlert className="w-14 h-14 text-red-500 mx-auto" />
             <h2 className="text-xl font-bold text-red-900">Access Restricted</h2>
             <p className="text-sm text-red-700 leading-relaxed">
-              The Martial Arts Gear Store is exclusively available to Rock Martial Arts academy students.
+              The Martial Arts Gear Store is exclusively available to Rock Martial Arts branch students.
             </p>
             <Button
               onClick={() => router.replace("/student-dashboard")}
@@ -706,7 +706,7 @@ export default function StudentStorePage() {
                       {/* Footer */}
                       <div className="mt-4 pt-3 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-gray-500">
                         <span>
-                          {order.branch_name ? `Assigned Branch: ${order.branch_name}` : ""}
+                          {order.branch_name ? `Assigned Academy: ${order.branch_name}` : ""}
                         </span>
                         {isGiven && order.given_at && (
                           <span className="text-emerald-700 font-medium">

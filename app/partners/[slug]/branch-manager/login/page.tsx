@@ -82,7 +82,7 @@ export default function PartnerBranchManagerLoginPage() {
           <CardTitle className="text-xl text-[#1a2332]">
             {loadingMeta ? "Loading…" : partnerName || "Partner login"}
           </CardTitle>
-          <p className="text-sm text-muted-foreground">Branch admin sign in</p>
+          <p className="text-sm text-muted-foreground">Academy admin sign in</p>
         </CardHeader>
         <CardContent>
           {loadingMeta ? (

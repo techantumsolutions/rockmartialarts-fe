@@ -1,15 +1,15 @@
 "use client"
 
 import { useState } from "react"
-import { X } from "lucide-react"
 import { BranchData } from "./types"
+import { ImageLightbox } from "@/components/ui/ImageLightbox"
 
 interface BranchGalleryProps {
   branch: BranchData
 }
 
 /**
- * Image gallery with responsive grid and lightbox on click.
+ * Image gallery with responsive grid and viewport-fixed lightbox on click.
  */
 export function BranchGallery({ branch }: BranchGalleryProps) {
   const gallery =
@@ -46,7 +46,7 @@ export function BranchGallery({ branch }: BranchGalleryProps) {
               key={i}
               type="button"
               onClick={() => setLightboxIndex(i)}
-              className="aspect-square rounded-lg overflow-hidden border border-gray-800 hover:border-[#FFB70F] transition-all duration-300 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-[#FFB70F]"
+              className="aspect-square rounded-lg overflow-hidden border border-gray-800 hover:border-[#FFB70F] transition-all duration-300 hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FFB70F]"
               data-aos="zoom-in"
               data-aos-duration="500"
               data-aos-once="true"
@@ -62,31 +62,13 @@ export function BranchGallery({ branch }: BranchGalleryProps) {
         </div>
       </div>
 
-      {/* Lightbox */}
-      {lightboxIndex !== null && (
-        <div
-          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
-          onClick={() => setLightboxIndex(null)}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Image gallery"
-        >
-          <button
-            type="button"
-            onClick={() => setLightboxIndex(null)}
-            className="absolute top-4 right-4 p-2 text-white hover:bg-white/10 rounded-full transition-colors"
-            aria-label="Close"
-          >
-            <X className="w-8 h-8" />
-          </button>
-          <img
-            src={gallery[lightboxIndex]}
-            alt={`Gallery ${lightboxIndex + 1}`}
-            className="max-w-full max-h-[90vh] object-contain rounded-lg"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
+      {lightboxIndex !== null ? (
+        <ImageLightbox
+          src={gallery[lightboxIndex]}
+          alt={`Gallery ${lightboxIndex + 1}`}
+          onClose={() => setLightboxIndex(null)}
+        />
+      ) : null}
     </section>
   )
 }

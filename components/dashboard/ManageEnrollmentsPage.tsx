@@ -135,7 +135,7 @@ export default function ManageEnrollmentsPage() {
             </h1>
             <p className="text-sm text-[#7F8592] mt-1">
               {studentId
-                ? "Active and past enrollments for this student. Update course or branch from Edit Student."
+                ? "Active and past enrollments for this student. Update course or academy from Edit Student."
                 : courseId
                   ? "Students enrolled in this course."
                   : "Open this page from a student or course (Quick Actions)."}
@@ -149,7 +149,7 @@ export default function ManageEnrollmentsPage() {
                   View profile
                 </Link>
               </Button>
-              <Button asChild className="bg-yellow-400 hover:bg-yellow-500 text-white">
+              <Button asChild className="">
                 <Link href={`${basePath}/students/edit/${encodeURIComponent(studentId)}`}>Edit student</Link>
               </Button>
             </div>
@@ -185,7 +185,7 @@ export default function ManageEnrollmentsPage() {
                           <p className="text-sm text-gray-600">
                             {r.course_name || "Course"}
                             {" · "}
-                            {r.branch_name || "Branch"}
+                            {r.branch_name || "Academy"}
                           </p>
                         </>
                       ) : (
@@ -194,7 +194,7 @@ export default function ManageEnrollmentsPage() {
                             {r.course_name || "Unknown course"}
                           </p>
                           <p className="text-sm text-gray-600">
-                            {r.branch_name || "Unknown branch"}
+                            {r.branch_name || "Unknown academy"}
                           </p>
                         </>
                       )}

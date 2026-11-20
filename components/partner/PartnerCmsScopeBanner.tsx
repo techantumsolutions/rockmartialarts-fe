@@ -21,7 +21,7 @@ export type PartnerCmsPermissions = {
 }
 
 /**
- * M21-S10: Friendly scope notice for Branch Managers on Partner CMS pages.
+ * M21-S10: Friendly scope notice for Academy Managers on Partner CMS pages.
  * Super Admin sees nothing (no UI noise).
  */
 export function PartnerCmsScopeBanner() {
@@ -62,11 +62,11 @@ export function PartnerCmsScopeBanner() {
         <p className="font-medium">Assigned-branch Partner CMS</p>
         <p className="text-amber-900/90">
           {canUse === false
-            ? "Your assigned branch is not a collaboration partner yet. Ask Super Admin to enable the partner flag, then you can manage Partner CMS here."
+            ? "Your assigned academy is not a collaboration partner yet. Ask Super Admin to enable the partner flag, then you can manage Partner CMS here."
             : partnerCount === 1
-              ? "You can manage Partner content for your assigned collaboration partner branch only."
+              ? "You can manage Partner content for your assigned collaboration partner academy only."
               : partnerCount > 1
-                ? `You can manage Partner CMS for ${partnerCount} assigned collaboration partner branches only.`
+                ? `You can manage Partner CMS for ${partnerCount} assigned collaboration partner academies only.`
                 : "Partner tools are limited to your assigned collaboration partner branch."}
         </p>
         <p className="text-xs text-amber-800/80 flex items-start gap-1.5">

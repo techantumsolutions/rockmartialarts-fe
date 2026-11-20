@@ -38,6 +38,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
+import { SendCredentialsModal } from "@/components/ui/SendCredentialsModal"
 import { useRouter } from "next/navigation"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
@@ -52,6 +53,7 @@ import {
   AdminTableShell,
   AdminStatusPill,
   adminPrimaryBtnClass,
+  adminFilterSearchClass,
 } from "@/components/dashboard/AdminPageShell"
 
 interface Coach {
@@ -81,7 +83,7 @@ interface Coach {
   profile_image_url?: string
 }
 
-const ITEMS_PER_PAGE = 15
+const ITEMS_PER_PAGE = 20
 
 const AVATAR_TONES = [
   "bg-violet-100 text-violet-700",
@@ -112,7 +114,8 @@ function getCoachBranchName(coach: Coach & Record<string, unknown>): string {
   const branches = raw.branches as Array<Record<string, unknown>> | undefined
   if (branches?.length) {
     const b = branches[0]
-    return String(b?.branch?.name || b?.name || "").trim() || "—"
+    const nested = b?.branch as { name?: string } | undefined
+    return String(nested?.name || (b?.name as string | undefined) || "").trim() || "—"
   }
   const assignments = raw.branch_assignments as unknown[] | undefined
   if (assignments?.length) {
@@ -173,7 +176,7 @@ export default function CoachesListPage() {
     return TokenManager.getToken() || BranchManagerAuth.getToken()
   }
 
-  // Fetch coaches from API (BM token scopes list to managed branch only)
+  // Fetch coaches from API (BM token scopes list to managed academy only)
   useEffect(() => {
     const fetchCoaches = async () => {
       try {
@@ -185,8 +188,8 @@ export default function CoachesListPage() {
           throw new Error("Authentication token not found. Please login again.")
         }
 
-        // Branch admin: the API keeps coaches whose branch_id is a branch this
-        // login manages (branches.manager_id). Do not send branch_assignment.branch_id;
+        // Academy admin: the API keeps coaches whose branch_id is an academy this
+        // login manages (academies.manager_id). Do not send branch_assignment.branch_id;
         // that field can still point at a different branch.
         // In-house coaches only — online enrollments live under Online Coaches
         const coachesData = await fetchAllCoaches(token, {
@@ -274,7 +277,7 @@ export default function CoachesListPage() {
       const coach = coaches.find(c => c.id === coachId)
       if (!coach) return
 
-      // Branch admin cannot use PUT /coaches/{id}; use activate / deactivate endpoints instead
+      // Academy admin cannot use PUT /coaches/{id}; use activate / deactivate endpoints instead
       const response = isBranchAdmin
         ? await fetch(
             getBackendApiUrl(
@@ -390,7 +393,7 @@ export default function CoachesListPage() {
       <AdminPageHeader
         icon={Users}
         title="Coach List"
-        subtitle="Manage and monitor in-house coaches across branches."
+        subtitle="Manage and monitor in-house coaches across academies."
         actions={
           <Button
             type="button"
@@ -425,8 +428,8 @@ export default function CoachesListPage() {
       </AdminKpiGrid>
 
       <AdminFilterBar>
-        <div className="relative min-w-0 flex-1 lg:min-w-[260px]">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7A99]" />
+        <div className={adminFilterSearchClass}>
+          <Search className="pointer-events-none absolute left-3 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 text-[#6B7A99]" />
           <Input
             placeholder="Search by coach name, phone or email…"
             value={searchTerm}
@@ -434,7 +437,7 @@ export default function CoachesListPage() {
               setSearchTerm(e.target.value)
               setCurrentPage(1)
             }}
-            className="h-11 rounded-xl border-gray-200 pl-10"
+            className="pl-10"
           />
         </div>
         <Select
@@ -444,14 +447,11 @@ export default function CoachesListPage() {
             setCurrentPage(1)
           }}
         >
-          <SelectTrigger className="h-11 w-full rounded-xl border-gray-200 sm:w-[170px]">
-            <span className="flex items-center gap-2 truncate">
-              <Building2 className="h-4 w-4 shrink-0 text-[#6B7A99]" />
-              <SelectValue placeholder="All Branches" />
-            </span>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="All Academies" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Branches</SelectItem>
+            <SelectItem value="all">All Academies</SelectItem>
             {branchOptions.map((b) => (
               <SelectItem key={b} value={b}>
                 {b}
@@ -466,11 +466,8 @@ export default function CoachesListPage() {
             setCurrentPage(1)
           }}
         >
-          <SelectTrigger className="h-11 w-full rounded-xl border-gray-200 sm:w-[180px]">
-            <span className="flex items-center gap-2 truncate">
-              <Briefcase className="h-4 w-4 shrink-0 text-[#6B7A99]" />
-              <SelectValue placeholder="All Designations" />
-            </span>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="All Designations" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Designations</SelectItem>
@@ -488,11 +485,8 @@ export default function CoachesListPage() {
             setCurrentPage(1)
           }}
         >
-          <SelectTrigger className="h-11 w-full rounded-xl border-gray-200 sm:w-[150px]">
-            <span className="flex items-center gap-2 truncate">
-              <Target className="h-4 w-4 shrink-0 text-[#6B7A99]" />
-              <SelectValue placeholder="All Status" />
-            </span>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="All Status" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
@@ -500,7 +494,7 @@ export default function CoachesListPage() {
             <SelectItem value="inactive">Inactive</SelectItem>
           </SelectContent>
         </Select>
-        <Button type="button" variant="outline" className="btn-admin-outline h-11" onClick={resetFilters}>
+        <Button type="button" variant="outline" className="btn-admin-outline w-full" onClick={resetFilters}>
           <RefreshCw className="mr-2 h-4 w-4" />
           Reset
         </Button>
@@ -552,7 +546,7 @@ export default function CoachesListPage() {
             <tr>
               <th>Coach</th>
               <th>Designation</th>
-              <th>Branch</th>
+              <th>Academy</th>
               <th>Phone</th>
               <th>Status</th>
               <th className="text-center">Actions</th>
@@ -706,51 +700,19 @@ export default function CoachesListPage() {
         </table>
       </AdminTableShell>
 
-      {showSendCredentialsPopup && selectedCoachForCredentials ? (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-          <div className="mx-4 w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-lg">
-            <div className="text-center">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-                <Mail className="h-8 w-8 text-green-600" />
-              </div>
-              <h3 className="mb-2 text-lg font-semibold text-[#2F3158]">Send Login Credentials</h3>
-              <p className="mb-2 text-[#6B7A99]">
-                Send login credentials to <strong>{selectedCoachForCredentials.full_name}</strong>?
-              </p>
-              <p className="mb-6 text-sm text-[#9593A8]">
-                Email will be sent to: <strong>{selectedCoachForCredentials.contact_info.email}</strong>
-              </p>
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowSendCredentialsPopup(false)
-                    setSelectedCoachForCredentials(null)
-                  }}
-                  className="flex-1"
-                  disabled={isSendingCredentials}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSendCredentialsConfirm}
-                  className={`${adminPrimaryBtnClass} flex-1`}
-                  disabled={isSendingCredentials}
-                >
-                  {isSendingCredentials ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Sending...
-                    </>
-                  ) : (
-                    "Send Credentials"
-                  )}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <SendCredentialsModal
+        open={Boolean(showSendCredentialsPopup && selectedCoachForCredentials)}
+        onClose={() => {
+          if (isSendingCredentials) return
+          setShowSendCredentialsPopup(false)
+          setSelectedCoachForCredentials(null)
+        }}
+        onConfirm={handleSendCredentialsConfirm}
+        name={selectedCoachForCredentials?.full_name || ""}
+        email={selectedCoachForCredentials?.contact_info?.email || ""}
+        roleLabel="Coach"
+        sending={isSendingCredentials}
+      />
     </AdminPageShell>
   )
 }

@@ -16,6 +16,14 @@ export const ACADEMY_EVENT_STATUSES = [
 /** Hours-before offsets allowed for SMS reminders (M17-S06) */
 export const ACADEMY_EVENT_REMINDER_OFFSETS = [72, 48, 24, 12, 6, 2, 1] as const
 
+export type AcademyEventBatch = {
+  id: string
+  label?: string | null
+  date: string
+  start_time: string
+  end_time: string
+}
+
 export type AcademyEvent = {
   id: string
   title: string
@@ -27,9 +35,13 @@ export type AcademyEvent = {
   venue_address?: string | null
   start_at: string
   end_at?: string | null
+  batches?: AcademyEventBatch[]
   branch_id?: string | null
   branch_name?: string | null
   branch_code?: string | null
+  partner_org_id?: string | null
+  partner_org_name?: string | null
+  posted_by_academy?: string | null
   fee_inr?: number
   capacity?: number | null
   registrations_count?: number
@@ -68,6 +80,7 @@ export type AcademyEventPayload = {
   venue_address?: string
   start_at: string
   end_at?: string
+  batches?: AcademyEventBatch[]
   branch_id?: string
   fee_inr?: number
   capacity?: number | null
@@ -311,4 +324,71 @@ export function fromDatetimeLocalValue(local: string) {
   if (!local.trim()) return ""
   // Keep as local ISO-like string without forcing Z — backend stores as provided
   return local.trim().length === 16 ? `${local.trim()}:00` : local.trim()
+}
+
+export function newAcademyEventBatchId() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID()
+  return `batch-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+export function batchesFromLegacyEvent(ev: {
+  start_at?: string | null
+  end_at?: string | null
+  batches?: AcademyEventBatch[] | null
+}): AcademyEventBatch[] {
+  if (Array.isArray(ev.batches) && ev.batches.length) {
+    return ev.batches.map((b) => ({
+      id: b.id || newAcademyEventBatchId(),
+      label: b.label || "",
+      date: b.date,
+      start_time: (b.start_time || "").slice(0, 5),
+      end_time: (b.end_time || "").slice(0, 5),
+    }))
+  }
+  const startLocal = toDatetimeLocalValue(ev.start_at)
+  if (!startLocal) return []
+  const [date = "", time = ""] = startLocal.split("T")
+  if (!date || !time) return []
+  let endTime = ""
+  const endLocal = toDatetimeLocalValue(ev.end_at)
+  if (endLocal) {
+    const [, endT = ""] = endLocal.split("T")
+    endTime = endT.slice(0, 5)
+  }
+  if (!endTime || endTime <= time.slice(0, 5)) {
+    endTime = "23:59"
+  }
+  return [
+    {
+      id: newAcademyEventBatchId(),
+      label: "",
+      date,
+      start_time: time.slice(0, 5),
+      end_time: endTime,
+    },
+  ]
+}
+
+export function boundsFromAcademyEventBatches(batches: AcademyEventBatch[]) {
+  const isoStarts = batches.map((b) => `${b.date}T${b.start_time}`)
+  const isoEnds = batches.map((b) => `${b.date}T${b.end_time}`)
+  isoStarts.sort()
+  isoEnds.sort()
+  const start_at = fromDatetimeLocalValue(isoStarts[0] || "")
+  const end_at = fromDatetimeLocalValue(isoEnds[isoEnds.length - 1] || "")
+  return { start_at, end_at: end_at || undefined }
+}
+
+export function formatAcademyEventBatchWhen(batch: AcademyEventBatch) {
+  const d = batch.date
+    ? new Date(`${batch.date}T12:00:00`).toLocaleDateString(undefined, {
+        dateStyle: "medium",
+      })
+    : "—"
+  const st = (batch.start_time || "").slice(0, 5)
+  const et = (batch.end_time || "").slice(0, 5)
+  const time =
+    st && et ? `${st} – ${et}` : st || et || "—"
+  const label = (batch.label || "").trim()
+  return label ? `${label}: ${d}, ${time}` : `${d}, ${time}`
 }

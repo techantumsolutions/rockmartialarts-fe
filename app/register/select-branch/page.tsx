@@ -43,18 +43,18 @@ export default function SelectBranchPage() {
 
   const isLoadingLocations = geography.isLoading
 
-  // Fetch branches directly from backend API
+  // Fetch academies directly from backend API
   useEffect(() => {
     const fetchBranches = async () => {
       try {
         setIsLoadingBranches(true)
         setError(null)
 
-        // Try backend API directly - get all branches
+        // Try backend API directly - get all academies
         const response = await fetch(getBackendApiUrl('branches/public/all'))
 
         if (!response.ok) {
-          throw new Error('Failed to fetch branches')
+          throw new Error('Failed to fetch academies')
         }
 
         const data = await response.json()
@@ -73,17 +73,17 @@ export default function SelectBranchPage() {
         }))
         
         setAllBranches(branches)
-        // Initially, don't show branches until a location is selected
+        // Initially, don't show academies until a location is selected
         setFilteredBranches([])
 
-        console.log(`Loaded ${branches.length} branches`)
+        console.log(`Loaded ${academies.length} branches`)
 
       } catch (err) {
-        console.error('Error fetching branches:', err)
-        setError('Failed to load branches.')
+        console.error('Error fetching academies:', err)
+        setError('Failed to load academyes.')
         toast({
           title: "Error",
-          description: "Failed to load branches.",
+          description: "Failed to load academyes.",
           variant: "destructive",
         })
       } finally {
@@ -94,7 +94,7 @@ export default function SelectBranchPage() {
     fetchBranches()
   }, [toast])
 
-  // Filter branches when location changes
+  // Filter academies when location changes
   useEffect(() => {
     if (!selectedLocation) {
       setFilteredBranches([])
@@ -131,7 +131,7 @@ export default function SelectBranchPage() {
       newErrors.location = "Please select a location"
     }
     if (!branch_id) {
-      newErrors.branch = "Please select a branch to continue"
+      newErrors.branch = "Please select an academy to continue"
     }
     if (Object.keys(newErrors).length > 0) {
       setFieldErrors(newErrors)
@@ -197,7 +197,7 @@ export default function SelectBranchPage() {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
         <div className="w-full max-w-md space-y-6">
           <div className="text-center space-y-3">
-            <h1 className="text-3xl font-bold text-black">Branch Details</h1>
+            <h1 className="text-3xl font-bold text-black">Academy Details</h1>
             <p className="text-gray-500 text-sm">Select your preferred location and branch to continue.</p>
           </div>
 
@@ -274,10 +274,10 @@ export default function SelectBranchPage() {
                     !selectedLocation
                       ? "Select location first"
                       : isLoadingBranches
-                        ? "Loading branches..."
+                        ? "Loading academies..."
                         : filteredBranches.length === 0
-                          ? "No branches available"
-                          : "Select Branch"
+                          ? "No academies available"
+                          : "Select Academy"
                   } className="text-gray-500" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl border border-gray-200 bg-white shadow-lg max-h-60">
@@ -301,8 +301,8 @@ export default function SelectBranchPage() {
                     <div className="p-4 text-center text-gray-500">
                       <p className="text-sm">
                         {isLoadingBranches
-                          ? "Loading branches..."
-                          : "No branches available for selected location"
+                          ? "Loading academies..."
+                          : "No academies available for selected location"
                         }
                       </p>
                     </div>

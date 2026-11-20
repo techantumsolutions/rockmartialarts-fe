@@ -118,7 +118,7 @@ export default function CoachAvailabilityEditor({
         coachId
           ? coachAvailabilityAPI.getForCoach(coachId)
           : coachAvailabilityAPI.getMine(),
-        // Also fetch profile to get authoritative assigned branch
+        // Also fetch profile to get authoritative assigned academy
         (async () => {
           try {
             const token = BranchManagerAuth.getToken() || TokenManager.getToken()
@@ -141,7 +141,7 @@ export default function CoachAvailabilityEditor({
           }
           return null
         })(),
-        // Also fetch public branches for reliable name resolution
+        // Also fetch public academies for reliable name resolution
         (async () => {
           try {
             const res = await fetch(getBackendApiUrl("branches/public/all"), { cache: "no-store" })
@@ -168,7 +168,7 @@ export default function CoachAvailabilityEditor({
       if (profileRes) setCoachProfile(profileRes)
       if (branchesRes) setBranchMap(branchesRes)
 
-      // Use the branch already allocated on the coach profile (authoritative)
+      // Use the academy already allocated on the coach profile (authoritative)
       const allocatedId =
         profileRes?.branch_id ||
         opts.allocated_branch_id ||
@@ -332,8 +332,8 @@ export default function CoachAvailabilityEditor({
     setSaveError(null)
     if (!allocatedBranchId) {
       toast({
-        title: "No branch assigned",
-        description: "This coach has no allocated branch. Assign a branch on the coach profile first.",
+        title: "No academy assigned",
+        description: "This coach has no allocated branch. Assign an academy on the coach profile first.",
         variant: "destructive",
       })
       return
@@ -460,7 +460,7 @@ export default function CoachAvailabilityEditor({
           <CardContent>
             {allocatedBranchId ? (
               <div className="space-y-2">
-                <Label className="text-xs text-[#6B7A99]">Allocated Branch</Label>
+                <Label className="text-xs text-[#6B7A99]">Allocated Academy</Label>
                 <Select value={allocatedBranchId} disabled>
                   <SelectTrigger className="h-11 rounded-xl border-gray-200 bg-gray-50">
                     <SelectValue>{allocatedBranchName}</SelectValue>
@@ -472,7 +472,7 @@ export default function CoachAvailabilityEditor({
               </div>
             ) : (
               <p className="text-sm text-amber-700">
-                No branch is allocated to this coach. Assign a branch on the coach profile first.
+                No branch is allocated to this coach. Assign an branch on the coach profile first.
               </p>
             )}
           </CardContent>
@@ -580,9 +580,9 @@ export default function CoachAvailabilityEditor({
                     <Label className="text-xs text-[#6B7A99] mb-1 block">Location</Label>
                     <div
                       className="h-9 w-full flex items-center rounded-md border bg-gray-50 px-3 text-sm text-[#4F5077] truncate"
-                      title={allocatedBranchName || "No branch allocated"}
+                      title={allocatedBranchName || "No academy allocated"}
                     >
-                      {allocatedBranchName || "No branch allocated"}
+                      {allocatedBranchName || "No academy allocated"}
                     </div>
                   </div>
                   <div className="col-span-1 sm:col-span-1 lg:col-span-1 flex justify-end items-center h-9">

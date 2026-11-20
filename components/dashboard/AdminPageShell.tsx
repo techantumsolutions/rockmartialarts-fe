@@ -77,7 +77,7 @@ export function AdminCard({
     <div
       className={cn(
         "admin-card overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm",
-        padding && "p-5 sm:p-6",
+        padding && "p-[15px]",
         className
       )}
     >
@@ -151,15 +151,26 @@ export function AdminKpiCard({
   )
 }
 
+/** Full-width filter row — place each filter/search as a direct child (one row, auto columns). */
 export function AdminFilterBar({
   children,
   className,
+  flat,
 }: {
   children: React.ReactNode
   className?: string
+  /** No card chrome — use inside section headers */
+  flat?: boolean
 }) {
-  return <div className={cn("admin-filter-bar", className)}>{children}</div>
+  return (
+    <div className={cn("admin-filter-bar", flat && "admin-filter-bar--flat", className)}>
+      {children}
+    </div>
+  )
 }
+
+/** Wider search field inside AdminFilterBar (spans 2 grid columns from sm+) */
+export const adminFilterSearchClass = "admin-filter-span-2 relative min-w-0"
 
 export function AdminTableShell({
   children,
@@ -287,7 +298,7 @@ export function AdminQuickAction({
 
 /** Primary yellow CTA class for pages not using Button variant=default */
 export const adminPrimaryBtnClass =
-  "h-10 rounded-xl bg-[#E1BB33] px-4 font-semibold text-[#3d3e5c] shadow-sm hover:bg-[#d4ae2a]"
+  "h-14 rounded-xl bg-[#E1BB33] px-5 font-semibold text-[#3d3e5c] shadow-sm hover:bg-[#d4ae2a]"
 
 export const adminOutlineBtnClass =
-  "h-10 rounded-xl border border-gray-200 bg-white px-4 font-medium text-[#4F5077] hover:bg-gray-50"
+  "h-14 rounded-xl border border-[#E5E7EB] bg-white px-5 font-medium text-[#4F5077] hover:bg-[#F8FAFC]"

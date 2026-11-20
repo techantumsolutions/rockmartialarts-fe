@@ -89,7 +89,7 @@ export function HeroAnimation({
           {media}
         </motion.div>
       )}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/20 to-black/70" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-black/10 to-black/45" />
       <div
         className={`container relative z-10 mx-auto px-4 text-center text-white ${isMobile && exited ? "pointer-events-none" : ""}`}
       >

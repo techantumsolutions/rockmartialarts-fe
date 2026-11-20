@@ -2,13 +2,30 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Download, Filter, FileText, TrendingUp, AlertCircle, Loader2, RefreshCw, Eye } from "lucide-react"
+import {
+  Search,
+  FileText,
+  TrendingUp,
+  AlertCircle,
+  Loader2,
+  RefreshCw,
+  Building2,
+  CalendarDays,
+  Users,
+  BookOpen,
+  UserCheck,
+  Wallet,
+  RefreshCcw,
+  Megaphone,
+  Ticket,
+  ClipboardCheck,
+} from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
-import { reportsAPI, ReportFilters, ReportFilterOptions } from "@/lib/reportsAPI"
+import { reportsAPI } from "@/lib/reportsAPI"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
 import ErrorBoundary from "@/components/error-boundary"
@@ -17,313 +34,300 @@ import {
   ReportCategoriesGridSkeleton,
   PageHeaderSkeleton,
   SearchBarSkeleton,
-  InlineLoader
+  InlineLoader,
 } from "@/components/skeleton-loaders"
+import { useDebounce, usePerformanceMonitor, useStableCallback } from "@/hooks/usePerformance"
+import { getBackendApiUrl } from "@/lib/config"
+import { TokenManager } from "@/lib/tokenManager"
 import {
-  useDebounce,
-  useOptimizedSearch,
-  usePerformanceMonitor,
-  useStableCallback
-} from "@/hooks/usePerformance"
+  REPORT_DURATION_OPTIONS,
+  readReportHubFilters,
+  writeReportHubFilters,
+  reportHubQueryString,
+  academySlugFromBranch,
+  type ReportHubFilters,
+} from "@/lib/reportHubFilters"
 
-// Report categories aligned with system entities
-const REPORT_CATEGORIES = [
+type ReportGroup = "all" | "academic" | "operations" | "financial" | "crm"
+
+type ReportCategory = {
+  id: string
+  name: string
+  description: string
+  group: ReportGroup
+  icon: typeof FileText
+  tags: string[]
+  tone: string
+  iconWrap: string
+  button: string
+}
+
+const REPORT_CATEGORIES: ReportCategory[] = [
   {
     id: "student",
     name: "Student Reports",
-    icon: FileText,
-    description: "Student enrollment, attendance, and performance reports",
-    reports: [
-      { id: "student-enrollment-summary", name: "Student Enrollment Summary", icon: FileText },
-      { id: "student-attendance-report", name: "Student Attendance Report", icon: TrendingUp },
-      { id: "student-performance-analysis", name: "Student Performance Analysis", icon: FileText },
-      { id: "student-payment-history", name: "Student Payment History", icon: FileText },
-      { id: "student-transfer-requests", name: "Student Transfer Requests", icon: FileText },
-      { id: "student-course-changes", name: "Student Course Changes", icon: FileText },
-      { id: "student-complaints-report", name: "Student Complaints Report", icon: FileText },
-      { id: "student-demographics", name: "Student Demographics", icon: TrendingUp }
-    ]
+    description: "Enrollment, attendance, performance",
+    group: "academic",
+    icon: Users,
+    tags: ["Enrollment", "Attendance", "Performance"],
+    tone: "from-violet-100 via-fuchsia-50 to-pink-100 border-violet-300/70",
+    iconWrap: "bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-violet-400/40",
+    button: "bg-violet-600 hover:bg-violet-700 text-white",
   },
   {
     id: "course",
     name: "Course Reports",
-    icon: FileText,
-    description: "Course enrollment, completion rates, and performance analytics",
-    reports: [
-      { id: "course-enrollment-statistics", name: "Course Enrollment Statistics", icon: TrendingUp },
-      { id: "course-completion-rates", name: "Course Completion Rates", icon: FileText },
-      { id: "course-popularity-analysis", name: "Course Popularity Analysis", icon: TrendingUp },
-      { id: "course-revenue-report", name: "Course Revenue Report", icon: FileText },
-      { id: "course-category-analysis", name: "Course Category Analysis", icon: TrendingUp },
-      { id: "course-duration-effectiveness", name: "Course Duration Effectiveness", icon: FileText },
-      { id: "course-feedback-summary", name: "Course Feedback Summary", icon: FileText },
-      { id: "course-capacity-utilization", name: "Course Capacity Utilization", icon: TrendingUp }
-    ]
+    description: "Enrollment, completion, popularity",
+    group: "academic",
+    icon: BookOpen,
+    tags: ["Enrollment", "Completion", "Performance"],
+    tone: "from-sky-100 via-cyan-50 to-blue-100 border-sky-300/70",
+    iconWrap: "bg-gradient-to-br from-sky-500 to-cyan-500 text-white shadow-sky-400/40",
+    button: "bg-sky-600 hover:bg-sky-700 text-white",
   },
   {
     id: "coach",
     name: "Coach Reports",
-    icon: FileText,
-    description: "Coach performance, assignments, ratings, and analytics",
-    reports: [
-      { id: "coach-performance-summary", name: "Coach Performance Summary", icon: TrendingUp },
-      { id: "coach-student-assignments", name: "Coach Student Assignments", icon: FileText },
-      { id: "coach-ratings-analysis", name: "Coach Ratings Analysis", icon: TrendingUp },
-      { id: "coach-attendance-tracking", name: "Coach Attendance Tracking", icon: FileText },
-      { id: "coach-course-load", name: "Coach Course Load", icon: FileText },
-      { id: "coach-feedback-report", name: "Coach Feedback Report", icon: FileText },
-      { id: "coach-productivity-metrics", name: "Coach Productivity Metrics", icon: TrendingUp },
-      { id: "coach-branch-distribution", name: "Coach Branch Distribution", icon: FileText }
-    ]
+    description: "Assignments, ratings, workload",
+    group: "operations",
+    icon: UserCheck,
+    tags: ["Assignments", "Ratings"],
+    tone: "from-emerald-100 via-teal-50 to-green-100 border-emerald-300/70",
+    iconWrap: "bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-emerald-400/40",
+    button: "bg-emerald-600 hover:bg-emerald-700 text-white",
   },
   {
     id: "branch",
-    name: "Branch Reports",
-    description: "Branch-wise analytics, performance, and operational reports",
-    icon: TrendingUp,
-    reports: [
-      { id: "branch-performance-overview", name: "Branch Performance Overview", icon: TrendingUp },
-      { id: "branch-enrollment-statistics", name: "Branch Enrollment Statistics", icon: FileText },
-      { id: "branch-revenue-analysis", name: "Branch Revenue Analysis", icon: TrendingUp },
-      { id: "branch-capacity-utilization", name: "Branch Capacity Utilization", icon: FileText },
-      { id: "branch-staff-allocation", name: "Branch Staff Allocation", icon: FileText },
-      { id: "branch-operational-hours", name: "Branch Operational Hours", icon: FileText },
-      { id: "branch-comparison-report", name: "Branch Comparison Report", icon: TrendingUp },
-      { id: "branch-growth-trends", name: "Branch Growth Trends", icon: TrendingUp }
-    ]
+    name: "Academy Reports",
+    description: "Students, revenue, capacity",
+    group: "operations",
+    icon: Building2,
+    tags: ["Academy", "Students", "Revenue"],
+    tone: "from-amber-100 via-orange-50 to-yellow-100 border-amber-300/70",
+    iconWrap: "bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-amber-400/40",
+    button: "bg-amber-600 hover:bg-amber-700 text-white",
   },
   {
     id: "financial",
     name: "Financial Reports",
-    icon: FileText,
-    description: "Payment, revenue, and financial analytics reports",
-    reports: [
-      { id: "revenue-summary-report", name: "Revenue Summary Report", icon: TrendingUp },
-      { id: "payment-collection-analysis", name: "Payment Collection Analysis", icon: FileText },
-      { id: "outstanding-dues-report", name: "Outstanding Dues Report", icon: FileText },
-      { id: "payment-method-analysis", name: "Payment Method Analysis", icon: TrendingUp },
-      { id: "monthly-financial-summary", name: "Monthly Financial Summary", icon: FileText },
-      { id: "admission-fee-collection", name: "Admission Fee Collection", icon: TrendingUp },
-      { id: "course-fee-breakdown", name: "Course Fee Breakdown", icon: FileText },
-      { id: "refund-and-adjustments", name: "Refund and Adjustments", icon: FileText }
-    ]
+    description: "Payments, revenue, and dues",
+    group: "financial",
+    icon: Wallet,
+    tags: ["Payments", "Revenue", "Dues"],
+    tone: "from-rose-100 via-pink-50 to-red-100 border-rose-300/70",
+    iconWrap: "bg-gradient-to-br from-rose-500 to-pink-500 text-white shadow-rose-400/40",
+    button: "bg-rose-600 hover:bg-rose-700 text-white",
   },
   {
     id: "enrollments",
     name: "Enrollment Reports",
-    icon: FileText,
-    description: "Operational enrollment listings and exports (API: /reports/enrollments)",
-    reports: [
-      { id: "enrollments-list", name: "Enrollments List", icon: FileText },
-    ]
+    description: "Plans, status, listings",
+    group: "operations",
+    icon: ClipboardCheck,
+    tags: ["Enrollments", "Plans", "Status"],
+    tone: "from-blue-100 via-indigo-50 to-sky-100 border-blue-300/70",
+    iconWrap: "bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-blue-400/40",
+    button: "bg-blue-600 hover:bg-blue-700 text-white",
   },
   {
     id: "renewals",
     name: "Renewal Reports",
-    icon: TrendingUp,
-    description: "Payment renewals operational report (API: /reports/renewals)",
-    reports: [
-      { id: "renewals-list", name: "Renewals List", icon: FileText },
-    ]
+    description: "Renewals, expiry, revenue",
+    group: "financial",
+    icon: RefreshCcw,
+    tags: ["Renewals", "Expiry", "Revenue"],
+    tone: "from-indigo-100 via-violet-50 to-purple-100 border-indigo-300/70",
+    iconWrap: "bg-gradient-to-br from-indigo-500 to-violet-500 text-white shadow-indigo-400/40",
+    button: "bg-indigo-600 hover:bg-indigo-700 text-white",
   },
   {
     id: "leads",
     name: "Lead Reports",
-    icon: FileText,
-    description: "CRM leads operational report (API: /reports/leads)",
-    reports: [
-      { id: "leads-list", name: "Leads List", icon: FileText },
-    ]
+    description: "Leads, conversion, source",
+    group: "crm",
+    icon: Megaphone,
+    tags: ["Leads", "Conversion", "Source"],
+    tone: "from-teal-100 via-cyan-50 to-emerald-100 border-teal-300/70",
+    iconWrap: "bg-gradient-to-br from-teal-500 to-emerald-500 text-white shadow-teal-400/40",
+    button: "bg-teal-600 hover:bg-teal-700 text-white",
   },
   {
     id: "events",
     name: "Event Reports",
-    icon: FileText,
-    description: "Event registrations operational report (API: /reports/events)",
-    reports: [
-      { id: "events-list", name: "Event Registrations", icon: FileText },
-    ]
+    description: "Registrations & attendance",
+    group: "crm",
+    icon: Ticket,
+    tags: ["Registrations", "Attendance"],
+    tone: "from-purple-100 via-fuchsia-50 to-violet-100 border-purple-300/70",
+    iconWrap: "bg-gradient-to-br from-purple-500 to-fuchsia-500 text-white shadow-purple-400/40",
+    button: "bg-purple-600 hover:bg-purple-700 text-white",
   },
   {
     id: "attendance",
     name: "Attendance Reports",
+    description: "Listings and exports",
+    group: "operations",
     icon: TrendingUp,
-    description: "Operational attendance listings and exports (API: /reports/attendance)",
-    reports: [
-      { id: "attendance-list", name: "Attendance List", icon: FileText },
-    ]
-  }
+    tags: ["Attendance", "Students"],
+    tone: "from-lime-100 via-green-50 to-emerald-100 border-lime-300/70",
+    iconWrap: "bg-gradient-to-br from-lime-500 to-green-500 text-white shadow-lime-400/40",
+    button: "bg-lime-600 hover:bg-lime-700 text-white",
+  },
 ]
 
-// Enhanced component with error boundary wrapper
+const GROUP_TABS: Array<{ id: ReportGroup; label: string }> = [
+  { id: "all", label: "All Reports" },
+  { id: "academic", label: "Academic" },
+  { id: "operations", label: "Operations" },
+  { id: "financial", label: "Financial" },
+  { id: "crm", label: "CRM & Growth" },
+]
+
 function ReportsPageContent() {
   const router = useRouter()
   const basePath = useDashboardBasePath()
-  const { user, token } = useAuth()
+  const { token } = useAuth()
 
-  // Enhanced state management with performance monitoring
   const [searchTerm, setSearchTerm] = useState("")
+  const [groupFilter, setGroupFilter] = useState<ReportGroup>("all")
   const [categoryLoading, setCategoryLoading] = useState<string | null>(null)
   const [lastError, setLastError] = useState<string | null>(null)
+  const [hubFilters, setHubFilters] = useState<ReportHubFilters>({
+    branch_id: "all",
+    academy: "all",
+    date_range: "last-30-days",
+  })
+  const [branches, setBranches] = useState<Array<{ id: string; name: string; slug?: string }>>([])
+  const [branchesLoading, setBranchesLoading] = useState(false)
 
-  // Performance monitoring
-  const { logPerformance } = usePerformanceMonitor('ReportsPage')
-
-  // Debounced search for better performance
+  const { logPerformance } = usePerformanceMonitor("ReportsPage")
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
 
-  // Use enhanced API hook with retry mechanism
   const {
     data: filterOptions,
     loading,
     error,
     retry: retryLoadOptions,
-    reset: resetApiState
+    reset: resetApiState,
   } = useReportsApi(
     useCallback(() => {
-      if (!token) throw new Error('Authentication token not available')
+      if (!token) throw new Error("Authentication token not available")
       return reportsAPI.getReportFilters(token)
     }, [token]),
     {
       maxRetries: 2,
       retryDelay: 1500,
       showErrorToast: true,
-      errorMessage: 'Failed to load filter options. Please try again.'
+      errorMessage: "Failed to load filter options. Please try again.",
     }
   )
 
-  // Load filter options on component mount
   useEffect(() => {
-    if (token) {
-      resetApiState() // Reset any previous state
-      // The API call will be triggered automatically by the hook
-    }
+    setHubFilters(readReportHubFilters())
+  }, [])
+
+  useEffect(() => {
+    writeReportHubFilters(hubFilters)
+  }, [hubFilters])
+
+  useEffect(() => {
+    if (token) resetApiState()
   }, [token, resetApiState])
 
-  // Handle API errors with user feedback
   useEffect(() => {
     if (error && error !== lastError) {
       setLastError(error)
-      console.error('Reports page error:', error)
+      console.error("Reports page error:", error)
     }
   }, [error, lastError])
 
-  // Optimized handlers with stable callbacks
-  const handleSearch = useStableCallback(() => {
-    try {
-      logPerformance('Search triggered')
-      if (!debouncedSearchTerm.trim()) {
-        toast.info('Enter a search term to filter report categories')
-        return
-      }
-      toast.success('Use the search box to filter report categories')
-    } catch (error) {
-      console.error('Search error:', error)
-      toast.error('Search functionality encountered an error')
-    }
-  }, [debouncedSearchTerm, logPerformance])
-
-  const handleDownloadReport = useStableCallback(() => {
-    logPerformance('Download report clicked')
-    toast.info('Select a specific report to download')
-  }, [logPerformance])
-
-  const handleCategoryClick = useStableCallback((categoryId: string) => {
-    try {
-      logPerformance(`Category click: ${categoryId}`)
-
-      // Validate category ID
-      if (!categoryId || typeof categoryId !== 'string') {
-        toast.error('Invalid category selected')
-        return
-      }
-
-      // Find category for validation and user feedback
-      const category = REPORT_CATEGORIES.find(cat => cat.id === categoryId)
-      if (!category) {
-        toast.error('Category not found')
-        return
-      }
-
-      // Prevent multiple simultaneous clicks
-      if (categoryLoading) {
-        return
-      }
-
-      // Show loading state for this specific category
-      setCategoryLoading(categoryId)
-
-      // Navigate with error handling and performance tracking (use basePath for branch-admin/super-admin)
-      const navigationTimeout = setTimeout(() => {
-        try {
-          setCategoryLoading(null)
-          router.push(`${basePath}/reports/${categoryId}`)
-          toast.success(`Opening ${category.name} reports...`)
-          logPerformance(`Navigation completed: ${categoryId}`)
-        } catch (navError) {
-          console.error('Navigation error:', navError)
-          setCategoryLoading(null)
-          toast.error('Failed to navigate to category page')
+  useEffect(() => {
+    let cancelled = false
+    const loadBranches = async () => {
+      setBranchesLoading(true)
+      try {
+        const authToken = token || TokenManager.getToken()
+        const res = await fetch(getBackendApiUrl("branches"), {
+          headers: {
+            ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+        })
+        if (!res.ok) throw new Error("Failed to load academies")
+        const data = await res.json()
+        const list = (data.branches || data || []).map((b: any) => {
+          const name = String(b.branch?.name || b.name || "Academy")
+          return {
+            id: String(b.id),
+            name,
+            slug: String(b.slug || academySlugFromBranch({ id: b.id, name, slug: b.slug })),
+          }
+        })
+        if (!cancelled) setBranches(list.filter((b: { id: string }) => b.id))
+      } catch {
+        // Fallback to filter options if present
+        const fromFilters = (filterOptions as any)?.filters?.branches || (filterOptions as any)?.branches || []
+        if (!cancelled && Array.isArray(fromFilters)) {
+          setBranches(
+            fromFilters.map((b: any) => {
+              const name = String(b.name || b.branch_name || "Academy")
+              return {
+                id: String(b.id),
+                name,
+                slug: String(b.slug || academySlugFromBranch({ id: b.id, name, slug: b.slug })),
+              }
+            })
+          )
         }
-      }, 300)
-
-      // Cleanup timeout if component unmounts
-      return () => clearTimeout(navigationTimeout)
-    } catch (error) {
-      console.error('Category click error:', error)
-      setCategoryLoading(null)
-      toast.error('Failed to open category')
-    }
-  }, [categoryLoading, router, logPerformance, basePath])
-
-  const handleReportClick = (reportId: string, categoryId: string) => {
-    const category = REPORT_CATEGORIES.find(cat => cat.id === categoryId)
-    const report = category?.reports.find(rep => rep.id === reportId)
-    const reportName = report?.name || reportId
-    setCategoryLoading(reportId)
-    setTimeout(() => {
-      setCategoryLoading(null)
-      router.push(`${basePath}/reports/${categoryId}/${reportId}`)
-      toast.success(`Opening ${reportName} report...`)
-    }, 300)
-  }
-
-  // Optimized filtering with debounced search and memoization
-  const filteredCategories = useMemo(() => {
-    try {
-      logPerformance('Filtering categories')
-
-      if (!debouncedSearchTerm.trim()) {
-        return REPORT_CATEGORIES
+      } finally {
+        if (!cancelled) setBranchesLoading(false)
       }
-
-      const searchLower = debouncedSearchTerm.toLowerCase().trim()
-      const filtered = REPORT_CATEGORIES.filter(category => {
-        if (!category || typeof category !== 'object') return false
-
-        const nameMatch = category.name?.toLowerCase().includes(searchLower) || false
-        const descMatch = category.description?.toLowerCase().includes(searchLower) || false
-
-        return nameMatch || descMatch
-      })
-
-      logPerformance(`Filtered ${filtered.length} categories from ${REPORT_CATEGORIES.length}`)
-      return filtered
-    } catch (error) {
-      console.error('Filter error:', error)
-      toast.error('Error filtering categories')
-      return REPORT_CATEGORIES // Fallback to all categories
     }
-  }, [debouncedSearchTerm, logPerformance])
+    void loadBranches()
+    return () => {
+      cancelled = true
+    }
+  }, [token, filterOptions])
 
-  // Validation for critical data
-  const hasValidCategories = useMemo(() => {
-    return Array.isArray(filteredCategories) && filteredCategories.length > 0
-  }, [filteredCategories])
+  const openCategory = useStableCallback((categoryId: string) => {
+    if (!categoryId || categoryLoading) return
+    const category = REPORT_CATEGORIES.find((cat) => cat.id === categoryId)
+    if (!category) {
+      toast.error("Category not found")
+      return
+    }
+    setCategoryLoading(categoryId)
+    writeReportHubFilters(hubFilters)
+    const qs = reportHubQueryString(hubFilters)
+    const navigationTimeout = setTimeout(() => {
+      try {
+        setCategoryLoading(null)
+        router.push(`${basePath}/reports/${categoryId}${qs}`)
+        toast.success(`Opening ${category.name}…`)
+        logPerformance(`Navigation completed: ${categoryId}`)
+      } catch (navError) {
+        console.error("Navigation error:", navError)
+        setCategoryLoading(null)
+        toast.error("Failed to navigate to category page")
+      }
+    }, 200)
+    return () => clearTimeout(navigationTimeout)
+  }, [categoryLoading, router, logPerformance, basePath, hubFilters])
 
+  const filteredCategories = useMemo(() => {
+    const searchLower = debouncedSearchTerm.toLowerCase().trim()
+    return REPORT_CATEGORIES.filter((category) => {
+      if (groupFilter !== "all" && category.group !== groupFilter) return false
+      if (!searchLower) return true
+      return (
+        category.name.toLowerCase().includes(searchLower) ||
+        category.description.toLowerCase().includes(searchLower) ||
+        category.tags.some((t) => t.toLowerCase().includes(searchLower))
+      )
+    })
+  }, [debouncedSearchTerm, groupFilter])
 
-
-  // Show skeleton loading state for initial load
   if (loading && !filterOptions) {
     return (
       <div className="w-full min-w-0">
@@ -335,255 +339,204 @@ function ReportsPageContent() {
   }
 
   return (
-    <div className="w-full min-w-0">
-        {/* Page Header - Enhanced with loading states */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-[#4F5077]">Reports</h1>
-          <p className="text-gray-600">
-            Comprehensive system reports and analytics
-            {loading && <InlineLoader size="sm" className="ml-2" />}
-          </p>
-        </div>
+    <div className="w-full min-w-0 space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-[#4F5077]">Reports & Analytics</h1>
+        <p className="text-gray-600">
+          Generate, analyze, and download reports for your academy.
+          {loading ? <InlineLoader size="sm" className="ml-2" /> : null}
+        </p>
+      </div>
 
-        {/* Enhanced Search Bar with Accessibility */}
-        <div className="mb-6">
-          <div className="relative max-w-md">
-            <label htmlFor="category-search" className="sr-only">
-              Search report categories
+      {/* Hub filters: academy + duration only (no categories/courses) */}
+      <div className="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm backdrop-blur-sm">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2">
+          <div>
+            <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <Building2 className="h-3.5 w-3.5 text-violet-500" />
+              Select Academy
             </label>
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-black w-4 h-4 pointer-events-none" />
-            <Input
-              id="category-search"
-              type="text"
-              placeholder="Search report categories..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-16 py-2 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              disabled={loading || categoryLoading !== null}
-              aria-describedby="search-help"
-              autoComplete="off"
-              role="searchbox"
-              aria-label="Search through report categories"
-            />
-            <div id="search-help" className="sr-only">
-              Type to filter report categories by name or description
-            </div>
-
-            {/* Search Results Count */}
-            {debouncedSearchTerm && (
-              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                  {filteredCategories.length} found
-                </span>
-              </div>
-            )}
+            <Select
+              value={hubFilters.branch_id || "all"}
+              onValueChange={(value) => {
+                if (value === "all") {
+                  setHubFilters((prev) => ({ ...prev, branch_id: "all", academy: "all" }))
+                  return
+                }
+                const match = branches.find((b) => b.id === value)
+                setHubFilters((prev) => ({
+                  ...prev,
+                  branch_id: value,
+                  academy: match
+                    ? academySlugFromBranch(match)
+                    : academySlugFromBranch({ id: value, name: value }),
+                }))
+              }}
+              disabled={branchesLoading}
+            >
+              <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/80">
+                <SelectValue
+                  placeholder={branchesLoading ? "Loading academies…" : "Select Academy"}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Academies</SelectItem>
+                {branches.map((b) => (
+                  <SelectItem key={b.id} value={b.id}>
+                    {b.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-
-          {/* Search Status */}
-          {searchTerm !== debouncedSearchTerm && (
-            <div className="mt-2 text-sm text-gray-500 flex items-center">
-              <InlineLoader size="sm" className="mr-2" />
-              Searching...
-            </div>
-          )}
-        </div>
-
-        {/* Report categories list with basic info and view option */}
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden mb-8">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
-                    <span className="sr-only">Icon</span>
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Report category
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
-                    Description
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
-                    Action
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredCategories.map((category, index) => {
-                  const IconComponent = category.icon
-                  const rowKey = `${category.id}-${index}`
-                  const isLoading = categoryLoading === category.id
-                  return (
-                    <tr
-                      key={rowKey}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {isLoading ? (
-                          <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
-                        ) : (
-                          <IconComponent className="w-5 h-5 text-blue-600" aria-hidden />
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="font-medium text-gray-900">{category.name}</span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 hidden sm:table-cell max-w-xs">
-                        {category.description}
-                      </td>
-                      <td className="px-4 py-3 text-right whitespace-nowrap">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleCategoryClick(category.id)}
-                          disabled={isLoading}
-                          className="text-[#5A6ACF] border-[#5A6ACF] hover:bg-[#5A6ACF]/10"
-                        >
-                          <Eye className="w-4 h-4 mr-1.5 inline" aria-hidden />
-                          {isLoading ? 'Opening...' : 'View'}
-                        </Button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          <div>
+            <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <CalendarDays className="h-3.5 w-3.5 text-amber-500" />
+              Duration
+            </label>
+            <Select
+              value={hubFilters.date_range || "last-30-days"}
+              onValueChange={(value) =>
+                setHubFilters((prev) => ({ ...prev, date_range: value }))
+              }
+            >
+              <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/80">
+                <SelectValue placeholder="Select duration" />
+              </SelectTrigger>
+              <SelectContent>
+                {REPORT_DURATION_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.id} value={opt.id}>
+                    {opt.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
+      </div>
 
-        {/* Enhanced No Results Section with Better UX */}
-        {debouncedSearchTerm && filteredCategories.length === 0 && (
-          <Card className="border-yellow-200 bg-yellow-50">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-center py-12">
-                <div className="text-center max-w-md">
-                  <Search className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-                  <p className="text-lg font-medium text-gray-900 mb-2">No Categories Found</p>
-                  <p className="text-gray-600 mb-4">
-                    No report categories match your search term "{debouncedSearchTerm}".
-                  </p>
-                  <div className="space-y-2 text-sm text-gray-500">
-                    <p>Try searching for:</p>
-                    <ul className="list-disc list-inside space-y-1">
-                      <li>Student, Course, Coach, Branch, or Financial</li>
-                      <li>Report types like "enrollment" or "revenue"</li>
-                      <li>Shorter or more general terms</li>
-                    </ul>
-                  </div>
-                  <Button
-                    onClick={() => setSearchTerm('')}
-                    variant="outline"
-                    className="mt-4"
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap gap-2">
+          {GROUP_TABS.map((tab) => {
+            const active = groupFilter === tab.id
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setGroupFilter(tab.id)}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  active
+                    ? "bg-[#E1BB33] text-[#171A26] shadow-sm"
+                    : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                {tab.label}
+              </button>
+            )
+          })}
+        </div>
+        <div className="relative w-full max-w-sm">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search reports…"
+            className="h-11 rounded-xl border-slate-200 bg-white pl-10"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+        {filteredCategories.map((category) => {
+          const Icon = category.icon
+          const isLoading = categoryLoading === category.id
+          return (
+            <Card
+              key={category.id}
+              className={`overflow-hidden border bg-gradient-to-br shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${category.tone}`}
+            >
+              <CardContent className="flex h-full flex-col gap-2.5 p-3.5 sm:p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-md ${category.iconWrap}`}
                   >
-                    Clear Search
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Enhanced Loading State - Only show when retrying */}
-        {loading && filterOptions && (
-          <Card className="border-blue-200 bg-blue-50">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-center py-12">
-                <div className="text-center">
-                  <Loader2 className="w-8 h-8 text-blue-500 mx-auto mb-4 animate-spin" />
-                  <p className="text-gray-600 font-medium">Refreshing reports data...</p>
-                  <p className="text-sm text-gray-500 mt-1">This should only take a moment</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Enhanced Error State with Recovery Options */}
-        {error && (
-          <Card className="border-red-200 bg-red-50">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-center py-12">
-                <div className="text-center max-w-md">
-                  <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-                  <p className="text-lg font-medium text-gray-900 mb-2">Unable to Load Reports</p>
-                  <p className="text-gray-600 mb-4">
-                    {error.includes('Authentication')
-                      ? 'Please check your login status and try again.'
-                      : 'There was a problem loading the reports data. This might be a temporary issue.'
-                    }
-                  </p>
-
-                  {/* Error details for development */}
-                  {process.env.NODE_ENV === 'development' && (
-                    <div className="bg-red-100 border border-red-300 rounded p-2 mb-4 text-left">
-                      <p className="text-xs text-red-800 font-mono break-all">{error}</p>
-                    </div>
-                  )}
-
-                  <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                    <Button
-                      onClick={retryLoadOptions}
-                      className="bg-red-600 hover:bg-red-700 text-white"
-                      disabled={loading}
-                    >
-                      {loading ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Retrying...
-                        </>
-                      ) : (
-                        <>
-                          <RefreshCw className="w-4 h-4 mr-2" />
-                          Try Again
-                        </>
-                      )}
-                    </Button>
-
-                    <Button
-                      onClick={() => window.location.reload()}
-                      variant="outline"
-                    >
-                      Refresh Page
-                    </Button>
+                    <Icon className="h-4 w-4" />
                   </div>
-
-                  <p className="text-xs text-gray-500 mt-4">
-                    If the problem persists, please contact support or try again later.
+                  {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-500" /> : null}
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold leading-snug text-slate-900 sm:text-[15px]">
+                    {category.name}
+                  </h3>
+                  <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-slate-600 sm:text-xs">
+                    {category.description}
                   </p>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Critical Error Fallback - when categories can't be loaded */}
-        {!loading && !error && !hasValidCategories && (
-          <Card className="border-yellow-200 bg-yellow-50">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-center py-12">
-                <div className="text-center">
-                  <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-                  <p className="text-lg font-medium text-gray-900 mb-2">No Report Categories Available</p>
-                  <p className="text-gray-600 mb-4">
-                    Report categories could not be loaded. This might be a configuration issue.
-                  </p>
-                  <Button
-                    onClick={() => window.location.reload()}
-                    variant="outline"
-                  >
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Refresh Page
-                  </Button>
+                <div className="flex flex-wrap gap-1">
+                  {category.tags.slice(0, 2).map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-slate-600 ring-1 ring-black/5"
+                    >
+                      {tag}
+                    </span>
+                  ))}
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+                <Button
+                  size="sm"
+                  className={`mt-auto h-8 rounded-lg px-2.5 text-xs font-semibold shadow-sm ${category.button}`}
+                  onClick={() => openCategory(category.id)}
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Opening…" : "Generate"}
+                </Button>
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
+
+      {debouncedSearchTerm && filteredCategories.length === 0 ? (
+        <Card className="border-yellow-200 bg-yellow-50">
+          <CardContent className="p-6 text-center">
+            <Search className="mx-auto mb-3 h-10 w-10 text-yellow-500" />
+            <p className="font-medium text-gray-900">No reports found</p>
+            <p className="mt-1 text-sm text-gray-600">
+              Nothing matches “{debouncedSearchTerm}”.
+            </p>
+            <Button onClick={() => setSearchTerm("")} variant="outline" className="mt-4">
+              Clear Search
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {error ? (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="p-6 text-center">
+            <AlertCircle className="mx-auto mb-3 h-10 w-10 text-red-500" />
+            <p className="font-medium text-gray-900">Unable to load report filters</p>
+            <p className="mt-1 text-sm text-gray-600">{error}</p>
+            <Button onClick={retryLoadOptions} className="mt-4" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Retrying…
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Try Again
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   )
 }
 
-// Main component wrapped with error boundary
 export default function ReportsPage() {
   return (
     <ErrorBoundary
@@ -593,14 +546,7 @@ export default function ReportsPage() {
       showHome={true}
       showBack={true}
       onError={(error, errorInfo) => {
-        // Log error to monitoring service
-        console.error('Reports dashboard error:', error, errorInfo)
-
-        // In production, send to error monitoring service
-        // errorMonitoringService.captureException(error, {
-        //   tags: { component: 'ReportsPage' },
-        //   extra: errorInfo
-        // })
+        console.error("Reports dashboard error:", error, errorInfo)
       }}
     >
       <ReportsPageContent />

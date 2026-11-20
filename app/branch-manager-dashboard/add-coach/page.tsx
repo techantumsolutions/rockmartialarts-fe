@@ -18,6 +18,7 @@ import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { getActiveBranchId } from "@/lib/activeBranch"
 import BranchSelectionField from "@/components/layout/BranchSelectionField"
 import { useToast } from "@/hooks/use-toast"
+import { AdminStickyFormActions } from "@/components/dashboard/AdminStickyFormActions"
 
 // Interface definitions for API data
 interface Branch {
@@ -101,6 +102,15 @@ export default function AddCoachPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+  useEffect(() => {
+    if (!showSuccessPopup) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [showSuccessPopup])
+
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSendingEmail, setIsSendingEmail] = useState(false)
   const [createdCoachId, setCreatedCoachId] = useState<string | null>(null)
@@ -201,25 +211,25 @@ export default function AddCoachPage() {
       try {
         setIsLoadingBranches(true)
 
-        // Get current branch manager user data
+        // Get current academy manager user data
         const currentBranchManager = BranchManagerAuth.getCurrentUser()
         const token = BranchManagerAuth.getToken()
 
         if (!currentBranchManager || !token) {
-          console.log('No authenticated branch manager found')
+          console.log('No authenticated academy manager found')
           toast({
             title: "Authentication Error",
-            description: "Please login as a branch manager to access branch data.",
+            description: "Please login as an academy manager to access academy data.",
             variant: "destructive",
           })
           setIsLoadingBranches(false)
           return
         }
 
-        console.log('Current branch manager:', currentBranchManager)
-        console.log('Branch manager ID:', currentBranchManager.id)
+        console.log('Current academy manager:', currentBranchManager)
+        console.log('Academy manager ID:', currentBranchManager.id)
 
-        // Call real backend API to get all branches
+        // Call real backend API to get all academies
         const response = await fetch(getBackendApiUrl('branches?limit=100'), {
           headers: {
             'Content-Type': 'application/json',
@@ -229,54 +239,54 @@ export default function AddCoachPage() {
 
         if (response.ok) {
           const data = await response.json()
-          console.log('✅ All branches data from backend:', data)
+          console.log('✅ All academies data from backend:', data)
 
           const allBranches = data.branches || []
 
-          // Filter branches to only show those managed by the current branch manager
+          // Filter academies to only show those managed by the current academy manager
           const managedBranches = allBranches.filter((branch: Branch) => {
             const isManaged = branch.manager_id === currentBranchManager.id
-            console.log(`Branch ${branch.branch?.name || 'Unknown'} (ID: ${branch.id}) - Manager ID: ${branch.manager_id}, Current Manager ID: ${currentBranchManager.id}, Is Managed: ${isManaged}`)
+            console.log(`Academy ${branch.branch?.name || 'Unknown'} (ID: ${branch.id}) - Manager ID: ${branch.manager_id}, Current Manager ID: ${currentBranchManager.id}, Is Managed: ${isManaged}`)
             return isManaged
           })
 
-          console.log(`✅ Filtered branches for manager ${currentBranchManager.full_name}:`, managedBranches)
-          console.log(`Total branches: ${allBranches.length}, Managed branches: ${managedBranches.length}`)
+          console.log(`✅ Filtered academies for manager ${currentBranchManager.full_name}:`, managedBranches)
+          console.log(`Total academies: ${allBranches.length}, Managed academies: ${managedBranches.length}`)
 
-          // Set only the branches managed by this branch manager
+          // Set only the academyes managed by this academy manager
           setBranches(managedBranches)
 
           // Show appropriate feedback to user
           if (managedBranches.length === 0) {
             toast({
-              title: "No Branches Assigned",
-              description: "You don't have any branches assigned to manage. Please contact your administrator.",
+              title: "No Academies Assigned",
+              description: "You don't have any academies assigned to manage. Please contact your administrator.",
               variant: "destructive",
             })
           } else {
-            console.log(`✅ Loaded ${managedBranches.length} managed branch(es) for ${currentBranchManager.full_name}`)
+            console.log(`✅ Loaded ${managedBranches.length} managed academy(ies) for ${currentBranchManager.full_name}`)
           }
         } else {
-          console.error('Failed to load branches:', response.status, response.statusText)
+          console.error('Failed to load academyes:', response.status, response.statusText)
           if (response.status === 401) {
             toast({
               title: "Authentication Error",
-              description: "Please login again to access branch data.",
+              description: "Please login again to access academy data.",
               variant: "destructive",
             })
           } else {
             toast({
               title: "Error",
-              description: "Failed to load branches. Please try again.",
+              description: "Failed to load academyes. Please try again.",
               variant: "destructive",
             })
           }
         }
       } catch (error) {
-        console.error('Error loading branches:', error)
+        console.error('Error loading academies:', error)
         toast({
           title: "Error",
-          description: "Failed to load branches. Please check your connection.",
+          description: "Failed to load academyes. Please check your connection.",
           variant: "destructive",
         })
       } finally {
@@ -583,16 +593,16 @@ export default function AddCoachPage() {
     if (!formData.experience) newErrors.experience = "Experience is required"
     if (formData.specializations.length === 0) newErrors.specializations = "At least one specialization is required"
 
-    // Branch assignment validation - only validate if branches are available
+    // Academy assignment validation - only validate if academies are available
     if (branches.length === 0) {
-      newErrors.branch = "No branches available for assignment. Please contact your administrator."
+      newErrors.branch = "No academies available for assignment. Please contact your administrator."
       toast({
         title: "Cannot Create Coach",
-        description: "You don't have any branches assigned to manage. Please contact your administrator to assign branches to your account before creating coaches.",
+        description: "You don't have any academies assigned to manage. Please contact your administrator to assign academies to your account before creating coaches.",
         variant: "destructive",
       })
     } else if (!formData.branch) {
-      newErrors.branch = "Branch assignment is required"
+      newErrors.branch = "Academy assignment is required"
     }
 
     setErrors(newErrors)
@@ -649,7 +659,7 @@ export default function AddCoachPage() {
           certifications: formData.certifications ? formData.certifications.split(',').map(cert => cert.trim()) : []
         },
         areas_of_expertise: formData.specializations,
-        branch_id: formData.branch || null,  // Include branch assignment
+        branch_id: formData.branch || null,  // Include academy assignment
         assignment_details: {
           courses: formData.courses,  // Include course assignments
           salary: formData.salary ? parseFloat(formData.salary) : null,
@@ -664,9 +674,9 @@ export default function AddCoachPage() {
 
       console.log("Creating coach with data:", coachData)
 
-      // Log branch and course assignments for debugging
+      // Log academy and course assignments for debugging
       if (formData.branch || formData.courses.length > 0) {
-        console.log("Branch and course assignments:", {
+        console.log("Academy and course assignments:", {
           selectedBranch: formData.branch,
           selectedCourses: formData.courses,
           assignmentDetails: coachData.assignment_details
@@ -739,7 +749,7 @@ export default function AddCoachPage() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form id="bm-add-coach-form" onSubmit={handleSubmit} className="admin-page-with-sticky-actions space-y-6">
           {/* Personal Information */}
           <Card>
             <CardHeader>
@@ -1059,7 +1069,7 @@ export default function AddCoachPage() {
             <CardContent className="space-y-4 text-[#7D8592]">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="branch">Branch Assignment *</Label>
+                  <Label htmlFor="branch">Academy Assignment *</Label>
                   <BranchSelectionField
                     id="branch"
                     branchName={
@@ -1070,7 +1080,7 @@ export default function AddCoachPage() {
                   {errors.branch && <p className="text-red-500 text-sm">{errors.branch}</p>}
                   {branches.length === 0 && !isLoadingBranches && (
                     <p className="text-sm text-orange-600">
-                      You don't have any branches assigned to manage. Please contact your administrator to assign branches to your account.
+                      You don't have any academies assigned to manage. Please contact your administrator to assign academies to your account.
                     </p>
                   )}
                   {branches.length > 0 && (
@@ -1245,35 +1255,8 @@ export default function AddCoachPage() {
             </CardContent>
           </Card>
 
-          {/* Submit Buttons */}
-          <div className="flex justify-end space-x-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => router.push("/branch-manager-dashboard")}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={isSubmitting || branches.length === 0}
-              className={`${branches.length === 0
-                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                : "bg-yellow-400 hover:bg-yellow-500 text-black"
-              }`}
-              title={branches.length === 0 ? "No branches available for assignment" : ""}
-            >
-              {isSubmitting
-                ? "Creating Coach..."
-                : branches.length === 0
-                  ? "No Branches Available"
-                  : "Create Coach"
-              }
-            </Button>
-          </div>
 
-          {/* No Branches Warning */}
+          {/* No Academies Warning */}
           {branches.length === 0 && !isLoadingBranches && (
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mt-4">
               <div className="flex items-start space-x-3">
@@ -1283,7 +1266,7 @@ export default function AddCoachPage() {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-orange-800">No Branches Assigned</h3>
+                  <h3 className="text-sm font-medium text-orange-800">No Academies Assigned</h3>
                   <p className="text-sm text-orange-700 mt-1">
                     You cannot create coaches because you don't have any branches assigned to manage.
                     Please contact your system administrator to assign branches to your account.
@@ -1294,10 +1277,35 @@ export default function AddCoachPage() {
           )}
         </form>
 
+        <AdminStickyFormActions>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push("/branch-manager-dashboard")}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="bm-add-coach-form"
+            disabled={isSubmitting || branches.length === 0}
+            className={`${branches.length === 0 ? "bg-gray-300 text-gray-500 cursor-not-allowed" : ""}`}
+            title={branches.length === 0 ? "No academies available for assignment" : ""}
+          >
+            {isSubmitting
+              ? "Creating Coach..."
+              : branches.length === 0
+                ? "No Academies Available"
+                : "Create Coach"}
+          </Button>
+        </AdminStickyFormActions>
+
         {/* Success Popup */}
         {showSuccessPopup && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden p-4 sm:p-6">
+        <div className="absolute inset-0 bg-[#0f172a]/55 backdrop-blur-[2px]" aria-hidden />
+            <div className="relative z-[1] bg-white rounded-2xl border border-[#E8EAF0] shadow-[0_24px_80px_rgba(15,23,42,0.28)] p-6 w-full max-w-md">
               <div className="text-center">
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

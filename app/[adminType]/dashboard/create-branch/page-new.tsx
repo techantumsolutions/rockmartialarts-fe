@@ -10,7 +10,7 @@ export default function CreateBranchPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader currentPage="Create Branch" />
+      <DashboardHeader currentPage="Create Academy" />
 
       <main className="w-full p-4 lg:p-6">
         {/* Header with Back Button */}
@@ -22,10 +22,10 @@ export default function CreateBranchPage() {
               className="flex items-center space-x-2 hover:bg-gray-100"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Back to Branches</span>
+              <span>Back to Academies</span>
             </Button>
             <div className="w-px h-6 bg-gray-300"></div>
-            <h1 className="text-2xl font-bold text-gray-900">Create New Branch</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Create New Academy</h1>
           </div>
         </div>
 
@@ -35,19 +35,19 @@ export default function CreateBranchPage() {
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Branch Name *</label>
+                <label className="text-sm font-medium text-gray-700">Academy Name *</label>
                 <input
                   type="text"
-                  placeholder="Enter branch name"
+                  placeholder="Enter academy name"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
                 />
               </div>
               
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Branch Code *</label>
+                <label className="text-sm font-medium text-gray-700">Academy Code *</label>
                 <input
                   type="text"
-                  placeholder="Enter branch code"
+                  placeholder="Enter academy code"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
                 />
               </div>
@@ -58,7 +58,7 @@ export default function CreateBranchPage() {
                 <label className="text-sm font-medium text-gray-700">Email *</label>
                 <input
                   type="email"
-                  placeholder="Enter branch email"
+                  placeholder="Enter academy email"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
                 />
               </div>
@@ -112,7 +112,7 @@ export default function CreateBranchPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Branch Manager</label>
+              <label className="text-sm font-medium text-gray-700">Academy Manager</label>
               <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
                 <option value="">Select Manager</option>
                 <option value="manager1">Ravi Kumar</option>
@@ -130,7 +130,7 @@ export default function CreateBranchPage() {
                 Cancel
               </Button>
               <Button
-                className="bg-yellow-400 hover:bg-yellow-500 text-black px-6 py-2"
+                className=" px-6 py-2"
                 onClick={() => {
                   // Handle form submission here
                   console.log("Creating branch...")

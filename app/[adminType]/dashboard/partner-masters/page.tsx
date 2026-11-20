@@ -135,7 +135,7 @@ export default function PartnerMastersPage() {
         getBackendApiUrl("collaboration-partners/partner-branches?limit=200"),
         { headers: authHeaders() }
       )
-      if (!res.ok) throw new Error("Failed to load partner branches")
+      if (!res.ok) throw new Error("Failed to load partner academies")
       const data = await res.json()
       setPartners(data.partners || [])
     } catch (e: any) {
@@ -162,7 +162,7 @@ export default function PartnerMastersPage() {
         if (res.status === 403) {
           toast({
             title: "Not a collaboration partner",
-            description: "Enable Is Collaboration Partner on the branch first.",
+            description: "Enable Is Collaboration Partner on the academy first.",
             variant: "destructive",
           })
           setBranchId("")
@@ -290,7 +290,7 @@ export default function PartnerMastersPage() {
       if (res.status === 403) {
         toast({
           title: "Partner features disabled",
-          description: "This branch is not marked as a collaboration partner.",
+          description: "This academy is not marked as a collaboration partner.",
           variant: "destructive",
         })
         return
@@ -304,8 +304,8 @@ export default function PartnerMastersPage() {
       toast({
         title: "Saved",
         description: editingId
-          ? "Master/expert updated for this branch only."
-          : "Master/expert created for this branch only.",
+          ? "Master/expert updated for this academy only."
+          : "Master/expert created for this academy only.",
       })
       setDialogOpen(false)
       await loadMasters(branchId)
@@ -393,7 +393,7 @@ export default function PartnerMastersPage() {
                   size="sm"
                   onClick={() => router.push(`${basePath}/branches`)}
                 >
-                  Go to Branches
+                  Go to Academies
                 </Button>
               </div>
             </div>
@@ -403,12 +403,12 @@ export default function PartnerMastersPage() {
                 <Label>Select partner branch</Label>
                 <Select value={branchId || undefined} onValueChange={setBranchId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Choose a partner branch" />
+                    <SelectValue placeholder="Choose a partner academy" />
                   </SelectTrigger>
                   <SelectContent>
                     {partners.map((p) => (
                       <SelectItem key={p.branch_id} value={p.branch_id}>
-                        {p.branch_name || "Branch"}
+                        {p.branch_name || "Academy"}
                         {p.branch_code ? ` (${p.branch_code})` : ""}
                         {typeof p.masters_count === "number"
                           ? ` — ${p.masters_count} master${p.masters_count === 1 ? "" : "s"}`

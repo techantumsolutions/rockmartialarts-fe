@@ -37,8 +37,10 @@ import { getActiveBranchId } from "@/lib/activeBranch"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { useDashboardRole } from "@/lib/useDashboardBasePath"
 import { usePartnerFeaturePermissions } from "@/hooks/usePartnerFeaturePermissions"
+import { AdminStickyFormActions } from "@/components/dashboard/AdminStickyFormActions"
 import { partnerOrgAPI, type PartnerOrg } from "@/lib/partnerOrgAPI"
 import { CourseMediaResourcesFields } from "@/components/dashboard/CourseMediaResourcesFields"
+import { AdminImageUpload } from "@/components/ui/AdminImageUpload"
 import CourseFormSections, { PageContent } from "@/components/dashboard/CourseFormSections"
 
 export default function CreateCoursePage() {
@@ -50,6 +52,15 @@ export default function CreateCoursePage() {
   const { toast } = useToast()
   const { user } = useAuth()
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+  useEffect(() => {
+    if (!showSuccessPopup) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [showSuccessPopup])
+
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
@@ -196,7 +207,7 @@ export default function CreateCoursePage() {
       try {
         setIsLoadingCategories(true)
         const token = TokenManager.getToken()
-        const response = await fetch(getBackendApiUrl('categories?active_only=true&limit=200'), {
+        const response = await fetch(getBackendApiUrl('categories?active_only=true&include_subcategories=true&include_rock_master=true&limit=200'), {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -322,7 +333,7 @@ export default function CreateCoursePage() {
     }
   }, [formData.courseTitle])
 
-  // Fetch branches on mount
+  // Fetch academies on mount
   useEffect(() => {
     const fetchBranches = async () => {
       setLoadingBranches(true)
@@ -337,7 +348,7 @@ export default function CreateCoursePage() {
 
         if (res.ok) {
           const data = await res.json()
-          console.log("Branches API response:", data)
+          console.log("Academies API response:", data)
           
           // Handle different response structures
           let branchList = []
@@ -349,13 +360,13 @@ export default function CreateCoursePage() {
             branchList = data.data
           }
           
-          // Filter only active branches
+          // Filter only active academies
           const activeBranches = branchList.filter(branch => branch.is_active !== false)
-          console.log("Active branches:", activeBranches)
+          console.log("Active academies:", activeBranches)
           setBranches(activeBranches)
         }
       } catch (err) {
-        console.error("Failed to fetch branches:", err)
+        console.error("Failed to fetch academies:", err)
       } finally {
         setLoadingBranches(false)
       }
@@ -591,7 +602,7 @@ export default function CreateCoursePage() {
 
   const fieldLabel = "text-sm font-medium text-[#4F5077]"
   const inputClass =
-    "h-11 rounded-lg border-gray-200 bg-white shadow-sm focus-visible:ring-[#4F5077]/30"
+    "h-14 w-full rounded-xl border-[#E5E7EB] bg-[#F8FAFC] shadow-none focus-visible:border-[#E1BB33] focus-visible:ring-[#E1BB33]/35"
   const sectionCard = "rounded-2xl border border-gray-200/80 bg-white shadow-sm overflow-hidden"
   const categoryName =
     categories.find((cat) => cat.id === formData.category)?.name || "—"
@@ -682,7 +693,7 @@ export default function CreateCoursePage() {
           </div>
         </div>
 
-        <form id="create-course-form" onSubmit={handleSubmit}>
+        <form id="create-course-form" onSubmit={handleSubmit} className="admin-page-with-sticky-actions">
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
             {/* Left column */}
             <div className="space-y-5 xl:col-span-8">
@@ -704,7 +715,7 @@ export default function CreateCoursePage() {
                         onValueChange={(v) => setTargetPartnerOrgId(v === "_rock" ? "" : v)}
                       >
                         <SelectTrigger className={`${inputClass} bg-white`}>
-                          <SelectValue placeholder="Rock main branch (default)" />
+                          <SelectValue placeholder="Rock main academy (default)" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="_rock">Rock main branch (default)</SelectItem>
@@ -717,7 +728,7 @@ export default function CreateCoursePage() {
                       </Select>
                       {targetPartnerOrgId ? (
                         <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50/70 p-3">
-                          <Label className={fieldLabel}>Partner branches to link</Label>
+                          <Label className={fieldLabel}>Partner academyes to link</Label>
                           {loadingPartnerBranches ? (
                             <p className="text-xs text-gray-500">Loading branches…</p>
                           ) : partnerBranches.length === 0 ? (
@@ -1113,16 +1124,13 @@ export default function CreateCoursePage() {
                     className="rounded-lg border-gray-200 bg-white shadow-sm focus-visible:ring-[#4F5077]/30"
                   />
                 </div>
-                <div className="mt-4 space-y-2">
-                  <Label htmlFor="seo_og_image" className={fieldLabel}>
-                    OG Image URL
-                  </Label>
-                  <Input
-                    id="seo_og_image"
+                <div className="mt-4">
+                  <AdminImageUpload
+                    label="OG image"
+                    shape="wide"
                     value={seoData.og_image}
-                    onChange={(e) => setSeoData({ ...seoData, og_image: e.target.value })}
-                    placeholder="https://example.com/og-image.jpg"
-                    className={inputClass}
+                    onChange={(url) => setSeoData({ ...seoData, og_image: url })}
+                    onClear={() => setSeoData({ ...seoData, og_image: "" })}
                   />
                 </div>
               </div>
@@ -1138,32 +1146,6 @@ export default function CreateCoursePage() {
                 <CourseFormSections value={pageContent} onChange={setPageContent} />
               </div>
 
-              {/* Footer actions */}
-              <div className="flex flex-wrap items-center justify-end gap-3 pb-8 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => router.push(`${basePath}/courses`)}
-                  disabled={isSubmitting}
-                  className="h-11 rounded-lg border-gray-200 bg-white px-6 text-[#4F5077]"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  className="h-11 rounded-lg bg-[#F5C518] px-8 font-semibold text-[#2F3153] hover:bg-[#e6b800]"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating Course...
-                    </>
-                  ) : (
-                    "Create Course"
-                  )}
-                </Button>
-              </div>
             </div>
 
             {/* Right sidebar */}
@@ -1297,10 +1279,38 @@ export default function CreateCoursePage() {
             </aside>
           </div>
         </form>
+
+        <AdminStickyFormActions>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push(`${basePath}/courses`)}
+            disabled={isSubmitting}
+            className="h-11 rounded-lg border-gray-200 bg-white px-6 text-[#4F5077]"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="create-course-form"
+            className="h-11 rounded-lg bg-[#F5C518] px-8 font-semibold text-[#2F3153] hover:bg-[#e6b800]"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating Course...
+              </>
+            ) : (
+              "Create Course"
+            )}
+          </Button>
+        </AdminStickyFormActions>
       </main>
 
       {showSuccessPopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden p-4 sm:p-6">
+        <div className="absolute inset-0 bg-[#0f172a]/55 backdrop-blur-[2px]" aria-hidden />
           <div className="mx-4 w-full max-w-md rounded-2xl bg-white p-8 shadow-xl">
             <div className="text-center">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">

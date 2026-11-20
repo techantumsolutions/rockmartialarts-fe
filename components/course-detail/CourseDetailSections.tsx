@@ -24,7 +24,13 @@ import {
   Dumbbell,
   Users,
 } from "lucide-react"
+import useEmblaCarousel from "embla-carousel-react"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
+import {
+  HERO_OVERLAY_COURSE_BOTTOM,
+  HERO_OVERLAY_COURSE_SIDE,
+} from "@/lib/heroOverlay"
+import { useEmblaAutoplay } from "@/lib/emblaAutoplay"
 import type {
   FinalCtaContent,
   HeroFeatureIcon,
@@ -266,8 +272,8 @@ export function CourseHeroBlock({
           : undefined
       }
     >
-      <div className="absolute inset-0 bg-gradient-to-r from-black via-black/82 to-black/20" />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/92 via-transparent to-black/45" />
+      <div className={HERO_OVERLAY_COURSE_SIDE} />
+      <div className={HERO_OVERLAY_COURSE_BOTTOM} />
       <div className="site-content relative z-10 w-full px-0 pb-10 pt-24 sm:px-1 md:pb-12 md:pt-28">
         <motion.div
           className="max-w-3xl"
@@ -353,15 +359,16 @@ export function CourseAboutSection({
 function LearnCardTile({
   card,
   mode,
-  dark,
 }: {
   card: LearnCard
   mode: "image" | "icon"
   dark?: boolean
 }) {
+  const desc = (card.description || card.subtitle || "").trim()
+
   if (mode === "image") {
     return (
-      <article className="group min-w-0 snap-start">
+      <article className="group min-w-0 snap-start select-none" aria-label={card.title}>
         <div
           className="relative overflow-hidden border-2 border-[#FFB70F] bg-black/40 shadow-[0_8px_28px_rgba(0,0,0,0.12)] transition duration-300 group-hover:border-[#FFD24A] group-hover:shadow-[0_12px_32px_rgba(255,183,15,0.25)]"
           style={{ clipPath: "polygon(8% 0, 100% 0, 92% 100%, 0 100%)" }}
@@ -369,34 +376,41 @@ function LearnCardTile({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={resolveUrl(card.image)}
-            alt={card.title}
-            className="aspect-[3/4] w-full object-cover transition duration-500 group-hover:scale-[1.05]"
+            alt=""
+            className="aspect-[3/4] w-full min-h-[280px] object-cover transition duration-500 group-hover:scale-[1.05] sm:min-h-[320px] md:min-h-[380px] lg:min-h-[420px]"
             loading="lazy"
+            draggable={false}
           />
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/55 to-transparent px-2.5 pb-2.5 pt-8 sm:px-3 sm:pb-3">
+          {/* Default title strip */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/45 to-transparent px-3 pb-3 pt-10 transition-opacity duration-300 group-hover:opacity-0 sm:px-4 sm:pb-4">
             <h3
-              className="text-[11px] font-bold uppercase leading-tight tracking-wide text-[#FFB70F] sm:text-xs md:text-sm"
+              className="text-sm font-bold uppercase leading-tight tracking-wide text-[#FFB70F] sm:text-base md:text-lg"
               style={{ fontFamily: "'Oswald', sans-serif" }}
             >
               {card.title}
             </h3>
           </div>
+          {/* Hover overlay — description only; not clickable */}
+          <div className="pointer-events-none absolute inset-0 flex flex-col justify-end bg-black/75 px-4 py-5 opacity-0 transition-opacity duration-300 group-hover:opacity-100 sm:px-5 sm:py-6">
+            <h3
+              className="mb-2 text-sm font-bold uppercase leading-tight tracking-wide text-[#FFB70F] sm:text-base"
+              style={{ fontFamily: "'Oswald', sans-serif" }}
+            >
+              {card.title}
+            </h3>
+            {desc ? (
+              <p className="line-clamp-7 text-xs leading-relaxed text-white/90 sm:text-sm">
+                {desc}
+              </p>
+            ) : null}
+          </div>
         </div>
-        {(card.description || card.subtitle) && (
-          <p
-            className={cn(
-              "mt-2 px-0.5 text-[11px] leading-snug sm:text-xs",
-              dark ? "text-white/70" : "text-gray-600"
-            )}
-          >
-            {card.description || card.subtitle}
-          </p>
-        )}
       </article>
     )
   }
+
   return (
-    <article className="group flex min-h-[5.75rem] snap-start flex-col items-center justify-center gap-2 rounded-md border border-[#FFB70F]/55 bg-white/5 px-3 py-4 text-center transition duration-300 hover:border-[#FFB70F] hover:bg-white/10">
+    <article className="group relative flex min-h-[7.5rem] snap-start flex-col items-center justify-center gap-2 overflow-hidden rounded-md border border-[#FFB70F]/55 bg-white/5 px-3 py-4 text-center transition duration-300 hover:border-[#FFB70F] hover:bg-white/10">
       <div className="flex h-9 w-9 items-center justify-center text-[#FFB70F] transition group-hover:scale-110">
         <span className="text-xl" aria-hidden>
           {card.icon?.trim() || "★"}
@@ -408,10 +422,12 @@ function LearnCardTile({
       >
         {card.title}
       </h3>
-      {card.subtitle || card.description ? (
-        <p className="text-[10px] text-white/60">
-          {card.subtitle || card.description}
-        </p>
+      {desc ? (
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center bg-[#0B0C10]/95 px-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+          <p className="line-clamp-5 text-[11px] leading-relaxed text-white/85">
+            {desc}
+          </p>
+        </div>
       ) : null}
     </article>
   )
@@ -470,16 +486,41 @@ export function CourseLearnCards({
 
   if (!cards.length) return null
 
-  const useCarousel = isNarrow || cards.length > 6
-  const showDesktopGrid = !useCarousel
+  // Carousel when more than 4 cards (larger tiles) or on narrower viewports
+  const useCarousel = isNarrow || cards.length > 4
 
   const scrollByCard = (dir: -1 | 1) => {
     const el = scrollerRef.current
     if (!el) return
     const card = el.querySelector("article")
     const step = card ? (card as HTMLElement).offsetWidth + 12 : el.clientWidth * 0.7
-    el.scrollBy({ left: dir * step, behavior: "smooth" })
+    const max = el.scrollWidth - el.clientWidth
+    const next = el.scrollLeft + dir * step
+    if (dir > 0 && next >= max - 4) {
+      el.scrollTo({ left: 0, behavior: "smooth" })
+    } else if (dir < 0 && el.scrollLeft <= 4) {
+      el.scrollTo({ left: max, behavior: "smooth" })
+    } else {
+      el.scrollBy({ left: dir * step, behavior: "smooth" })
+    }
   }
+
+  /* Autoscroll all learn-card carousels */
+  useEffect(() => {
+    if (!useCarousel) return
+    const el = scrollerRef.current
+    if (!el) return
+    const prefersReduced =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    if (prefersReduced) return
+    const id = window.setInterval(() => {
+      if (document.hidden) return
+      scrollByCard(1)
+    }, 4200)
+    return () => window.clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [useCarousel, cards.length, isNarrow])
 
   const body = (
     <SectionReveal>
@@ -494,7 +535,7 @@ export function CourseLearnCards({
               {cards.map((card, i) => (
                 <div
                   key={`${card.title}-${i}`}
-                  className="w-[42%] min-w-[42%] shrink-0 sm:w-[30%] sm:min-w-[30%] md:w-[22%] md:min-w-[22%] xl:w-[15.5%] xl:min-w-[15.5%]"
+                  className="w-[85%] min-w-[85%] shrink-0 xs:w-[75%] sm:w-[55%] sm:min-w-[55%] md:w-[42%] md:min-w-[42%] lg:w-[34%] lg:min-w-[34%] xl:w-[30%] xl:min-w-[30%]"
                 >
                   <LearnCardTile card={card} mode={mode} dark={darkBand} />
                 </div>
@@ -521,10 +562,18 @@ export function CourseLearnCards({
               </button>
             </div>
           </>
-        ) : null}
-        {showDesktopGrid ? (
-          <div className="grid grid-cols-6 gap-3">
-            {cards.slice(0, 6).map((card, i) => (
+        ) : (
+          <div
+            className={cn(
+              "grid gap-4 md:gap-5",
+              cards.length <= 2
+                ? "grid-cols-1 sm:grid-cols-2 max-w-3xl mx-auto"
+                : cards.length === 3
+                  ? "grid-cols-1 sm:grid-cols-3"
+                  : "grid-cols-2 lg:grid-cols-4"
+            )}
+          >
+            {cards.map((card, i) => (
               <LearnCardTile
                 key={`${card.title}-${i}`}
                 card={card}
@@ -533,7 +582,7 @@ export function CourseLearnCards({
               />
             ))}
           </div>
-        ) : null}
+        )}
       </div>
     </SectionReveal>
   )
@@ -546,7 +595,7 @@ export function CourseLearnCards({
   )
 }
 
-/** Who Can Join — black band, people icon, 2-col checks, yellow pill note */
+/** Who Can Join — expressive card grid with accent rail + note banner */
 export function CourseWhoCanJoin({
   content,
   embed,
@@ -558,34 +607,66 @@ export function CourseWhoCanJoin({
   if (!items.length && !content.note?.trim()) return null
   const inner = (
     <SectionReveal>
-      <div className="flex items-center gap-3 mb-8">
-        <Users className="h-8 w-8 shrink-0 text-[#FFB70F]" strokeWidth={2} />
-        <h2
-          className="text-2xl font-extrabold uppercase italic tracking-tight text-white md:text-3xl lg:text-[2.35rem]"
-          style={{ fontFamily: "'Oswald', sans-serif" }}
-        >
-          {content.title?.trim() || "Who Can Join?"}
-        </h2>
-      </div>
-      <ul className="grid grid-cols-1 gap-x-12 gap-y-5 sm:grid-cols-2 max-w-3xl">
-        {items.map((item, i) => (
-          <li key={i} className="flex items-center gap-3 text-[15px] text-white md:text-base">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#FFB70F] transition hover:scale-110">
-              <Check className="h-3.5 w-3.5 text-black" strokeWidth={3} />
+      <div className="relative overflow-hidden rounded-2xl border border-[#FFB70F]/25 bg-gradient-to-br from-[#151821] via-[#0B0C10] to-[#1a1520] p-6 sm:p-8 md:p-10">
+        <div
+          className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[#FFB70F]/10 blur-3xl"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute -bottom-20 left-10 h-48 w-48 rounded-full bg-[#FFB70F]/5 blur-3xl"
+          aria-hidden
+        />
+        <div className="relative mb-8 flex flex-col gap-3 sm:mb-10 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#FFB70F]/90">
+              Open to everyone ready to train
+            </p>
+            <div className="flex items-center gap-3">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#FFB70F]/40 bg-[#FFB70F]/10 text-[#FFB70F]">
+                <Users className="h-6 w-6" strokeWidth={2} />
+              </span>
+              <h2
+                className="text-2xl font-extrabold uppercase italic tracking-tight text-white md:text-3xl lg:text-[2.35rem]"
+                style={{ fontFamily: "'Oswald', sans-serif" }}
+              >
+                {content.title?.trim() || "Who Can Join?"}
+              </h2>
+            </div>
+          </div>
+          <div className="h-1 w-24 -skew-x-12 bg-[#FFB70F] sm:mb-2" aria-hidden />
+        </div>
+        <ul className="relative grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+          {items.map((item, i) => (
+            <li
+              key={i}
+              className="group flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4 transition duration-300 hover:-translate-y-0.5 hover:border-[#FFB70F]/45 hover:bg-[#FFB70F]/8"
+            >
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#FFB70F] text-sm font-extrabold text-[#171A26] shadow-[0_6px_16px_rgba(255,183,15,0.28)] transition group-hover:scale-105">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <span className="pt-1 text-[15px] leading-snug text-white/95 md:text-base">
+                {item}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <div className="relative mt-8 overflow-hidden rounded-xl border border-[#FFB70F]/35 bg-[#FFB70F] px-5 py-4 text-[#171A26] shadow-[0_12px_32px_rgba(255,183,15,0.28)] sm:mt-10 sm:px-6 sm:py-5">
+          <div className="absolute inset-y-0 left-0 w-1.5 bg-[#171A26]/25" aria-hidden />
+          <div className="flex items-start gap-3 sm:items-center">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#171A26] text-[#FFB70F]">
+              <Check className="h-4 w-4" strokeWidth={3} />
             </span>
-            <span>{item}</span>
-          </li>
-        ))}
-      </ul>
-      <div className="mt-10 inline-flex w-full max-w-xl items-center justify-center gap-2 rounded-full bg-[#FFB70F] px-6 py-3.5 text-sm font-bold text-[#171A26] shadow-[0_8px_24px_rgba(255,183,15,0.25)] transition hover:brightness-110 sm:w-auto md:text-base">
-        <Check className="h-4 w-4 shrink-0" strokeWidth={3} />
-        {content.note?.trim() || "No previous experience required."}
+            <p className="text-sm font-bold leading-relaxed sm:text-base">
+              {content.note?.trim() || "No previous experience required."}
+            </p>
+          </div>
+        </div>
       </div>
     </SectionReveal>
   )
   if (embed) return inner
   return (
-    <section className={cn("bg-black", sectionPad)}>
+    <section className={cn("bg-[#0B0C10]", sectionPad)}>
       <div className="site-content px-0 sm:px-1">{inner}</div>
     </section>
   )
@@ -776,6 +857,64 @@ function PathTrainingCard({ p, index }: { p: TrainingProgramCard; index: number 
   )
 }
 
+function TrainingProgramsCarousel({
+  cards,
+  isGoal,
+}: {
+  cards: TrainingProgramCard[]
+  isGoal: boolean
+}) {
+  const autoplay = useEmblaAutoplay({ delay: 4200 })
+  const [emblaRef, emblaApi] = useEmblaCarousel(
+    {
+      align: "start",
+      loop: cards.length > 4,
+      containScroll: "trimSnaps",
+      slidesToScroll: 1,
+    },
+    cards.length > 4 ? [autoplay] : []
+  )
+  return (
+    <div className="relative">
+      <div className="mb-4 flex justify-end gap-2">
+        <button
+          type="button"
+          aria-label="Previous programs"
+          onClick={() => emblaApi?.scrollPrev()}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#FFB70F] text-[#FFB70F] transition hover:bg-[#FFB70F] hover:text-[#171A26]"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+        <button
+          type="button"
+          aria-label="Next programs"
+          onClick={() => emblaApi?.scrollNext()}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#FFB70F] text-[#FFB70F] transition hover:bg-[#FFB70F] hover:text-[#171A26]"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </button>
+      </div>
+      <div className="overflow-hidden" ref={emblaRef}>
+        <div className="flex gap-5">
+          {cards.map((p, i) => (
+            <div
+              key={`${p.title}-${i}`}
+              className="min-w-0"
+              style={{ flex: "0 0 calc((100% - 60px) / 4)" }}
+            >
+              {isGoal ? (
+                <GoalTrainingCard p={p} />
+              ) : (
+                <PathTrainingCard p={p} index={i} />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function CourseTrainingPrograms({
   title = "Training Program",
   subtitle,
@@ -790,6 +929,7 @@ export function CourseTrainingPrograms({
   const cards = (programs || []).filter((p) => p.title?.trim())
   if (!cards.length) return null
   const isGoal = Boolean(goalBased || cards.length > 2)
+  const useCarousel = cards.length > 4
   return (
     <section className={cn("relative bg-[#F7F7F8]", sectionPad)}>
       <div className="site-content px-0 sm:px-1">
@@ -804,7 +944,9 @@ export function CourseTrainingPrograms({
             }
             subtitleAside={isGoal}
           />
-          {isGoal ? (
+          {useCarousel ? (
+            <TrainingProgramsCarousel cards={cards} isGoal={isGoal} />
+          ) : isGoal ? (
             <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 xl:grid-cols-4 xl:gap-0">
               {cards.map((p, i) => (
                 <div
@@ -1018,22 +1160,51 @@ export function CoursePhilosophyPillars({ items }: { items: PhilosophyPillar[] }
   )
 }
 
-export function CourseQualities({ items }: { items: QualityItem[] }) {
+export function CourseQualities({
+  items,
+  title = "Develop The Complete Warrior",
+}: {
+  items: QualityItem[]
+  title?: string
+}) {
   const cards = (items || []).filter((i) => i.title?.trim())
   if (!cards.length) return null
+  const cols =
+    cards.length <= 4
+      ? "grid-cols-2 sm:grid-cols-4"
+      : cards.length <= 6
+        ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6"
+        : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7"
+
   return (
     <section className={cn("bg-[#0B0C10]", sectionPad)}>
       <div className="site-content px-0 sm:px-1">
-        <SlashTitle title="Develop The Complete Warrior" light />
-        <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-7">
+        <SlashTitle title={title} light />
+        <div className={cn("grid gap-6 md:gap-8", cols)}>
           {cards.map((c, i) => (
-            <div key={`${c.title}-${i}`} className="text-center">
-              <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full border border-[#FFB70F]/40 text-[#FFB70F]">
-                <span aria-hidden>{c.icon || "★"}</span>
+            <div key={`${c.title}-${i}`} className="group text-center">
+              <div className="mx-auto mb-3 h-28 w-28 overflow-hidden rounded-full border-2 border-[#FFB70F]/55 bg-black/40 shadow-[0_10px_28px_rgba(0,0,0,0.35)] transition duration-300 group-hover:border-[#FFB70F] sm:h-32 sm:w-32 md:h-36 md:w-36">
+                {c.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={resolveUrl(c.image)}
+                    alt=""
+                    className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-3xl text-[#FFB70F] sm:text-4xl">
+                    <span aria-hidden>{c.icon || "★"}</span>
+                  </div>
+                )}
               </div>
-              <p className="text-xs font-bold uppercase text-white">{c.title}</p>
+              <p className="text-sm font-bold uppercase tracking-wide text-white md:text-base">
+                {c.title}
+              </p>
               {c.description ? (
-                <p className="mt-1 text-[10px] text-white/60">{c.description}</p>
+                <p className="mt-1.5 px-1 text-xs leading-snug text-white/65 md:text-sm">
+                  {c.description}
+                </p>
               ) : null}
             </div>
           ))}

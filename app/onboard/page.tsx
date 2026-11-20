@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { PasswordInput } from "@/components/ui/password-input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getBackendApiUrl } from "@/lib/config"
+import { filterEnrollableCourses } from "@/lib/studentRegistrationPayment"
 
 interface StudentPreFill {
   id: string
@@ -82,7 +83,7 @@ function OnboardContent() {
     if (!token.trim()) {
       setValidating(false)
       setValid(false)
-      setMessage("Missing link. Please use the link sent to you by the academy.")
+      setMessage("Missing link. Please use the link sent to you by the branch.")
       return
     }
     try {
@@ -181,7 +182,7 @@ function OnboardContent() {
         const res = await fetch(`/api/courses/by-branch/${encodeURIComponent(form.branch_id)}`)
         if (!res.ok) return
         const data = await res.json()
-        setBranchCourses(data.courses || [])
+        setBranchCourses(filterEnrollableCourses(data.courses || []))
       } catch {
         setBranchCourses([])
       }
@@ -234,7 +235,7 @@ function OnboardContent() {
     if (!form.password) newErrors.password = "Password is required"
     else if (form.password.length < 6) newErrors.password = "Password must be at least 6 characters"
     if (form.password !== form.confirm_password) newErrors.confirm_password = "Passwords do not match"
-    if (!form.branch_id) newErrors.branch_id = "Please select a branch"
+    if (!form.branch_id) newErrors.branch_id = "Please select an academy"
     if (!form.course_id) newErrors.course_id = "Please select a course"
     if (!form.duration_id) newErrors.duration_id = "Please select a duration"
     if (!form.joining_date) newErrors.joining_date = "Joining date is required"
@@ -290,7 +291,7 @@ function OnboardContent() {
           <h1 className="text-xl font-bold text-gray-900 mb-2">Invalid or expired link</h1>
           <p className="text-gray-600 mb-6">{message}</p>
           <Link href="/register">
-            <Button className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold">
+            <Button className="w-full  font-semibold">
               Register as new student
             </Button>
           </Link>
@@ -411,14 +412,14 @@ function OnboardContent() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Academy</label>
             <Select
               value={form.branch_id}
               onValueChange={(v) => setForm((p) => ({ ...p, branch_id: v }))}
               disabled={!form.location}
             >
               <SelectTrigger className={errors.branch_id ? "border-red-500" : ""}>
-                <SelectValue placeholder={form.location ? "Select branch" : "Select location first"} />
+                <SelectValue placeholder={form.location ? "Select academy" : "Select location first"} />
               </SelectTrigger>
               <SelectContent>
                 {filteredBranches.map((b) => (
@@ -439,7 +440,7 @@ function OnboardContent() {
               disabled={!form.branch_id}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder={form.branch_id ? "Select category" : "Select branch first"} />
+                <SelectValue placeholder={form.branch_id ? "Select category" : "Select academy first"} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All courses</SelectItem>
@@ -510,7 +511,7 @@ function OnboardContent() {
           <Button
             type="submit"
             disabled={submitting}
-            className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold py-6"
+            className="w-full  font-semibold py-6"
           >
             {submitting ? "Saving..." : "Complete & go to login"}
           </Button>

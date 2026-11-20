@@ -7,16 +7,29 @@ export interface UploadResult {
   size: number
 }
 
+export type UploadFileOptions = {
+  /** When set, partner uploads require academy-scoped branding approval. */
+  branchId?: string | null
+}
+
 /**
  * Upload a file to the backend and return the public URL.
  * Uses the /api/backend/uploads proxy so the browser stays on the same origin.
  */
-export async function uploadFile(file: File): Promise<UploadResult> {
+export async function uploadFile(
+  file: File,
+  options?: UploadFileOptions
+): Promise<UploadResult> {
   const token = TokenManager.getToken()
   const formData = new FormData()
   formData.append("file", file)
 
-  const res = await fetch("/api/backend/uploads", {
+  const qs = new URLSearchParams()
+  const branchId = (options?.branchId || "").trim()
+  if (branchId) qs.set("branch_id", branchId)
+  const suffix = qs.toString() ? `?${qs.toString()}` : ""
+
+  const res = await fetch(`/api/backend/uploads${suffix}`, {
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: formData,
@@ -24,7 +37,14 @@ export async function uploadFile(file: File): Promise<UploadResult> {
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: "Upload failed" }))
-    throw new Error(err.detail || err.message || `Upload failed (${res.status})`)
+    const detail = err.detail
+    const message =
+      typeof detail === "string"
+        ? detail
+        : typeof detail?.message === "string"
+          ? detail.message
+          : err.message || `Upload failed (${res.status})`
+    throw new Error(message)
   }
 
   const data = await res.json()

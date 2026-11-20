@@ -12,6 +12,7 @@ import { searchAPI, SearchResult, GlobalSearchResponse } from "@/lib/searchAPI"
 import SearchResults from "@/components/search-results"
 import NotificationDropdown from "@/components/notification-dropdown"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { usePlatformBranding } from "@/contexts/PlatformBrandingContext"
 
 interface BranchManagerDashboardHeaderProps {
   currentPage?: string;
@@ -20,6 +21,7 @@ interface BranchManagerDashboardHeaderProps {
 export default function BranchManagerDashboardHeader({ currentPage = "Dashboard" }: BranchManagerDashboardHeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const { logoUrl, platformShortName } = usePlatformBranding();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Search functionality state
@@ -121,7 +123,7 @@ export default function BranchManagerDashboardHeader({ currentPage = "Dashboard"
     };
   }, []);
 
-  // Get current branch manager
+  // Get current academy manager
   const currentUser = BranchManagerAuth.getCurrentUser();
 
   // Handle logout
@@ -149,8 +151,8 @@ export default function BranchManagerDashboardHeader({ currentPage = "Dashboard"
           <div className="flex items-center space-x-2 min-w-0">
             <div className="flex-shrink-0">
               <img
-                src="/logo.png"
-                alt="Logo"
+                src={logoUrl || "/logo.png"}
+                alt={platformShortName}
                 className="xl:w-[95px] w-[80px] h-auto"
               />
             </div>
@@ -171,8 +173,8 @@ export default function BranchManagerDashboardHeader({ currentPage = "Dashboard"
                   <div className="p-4 border-b border-gray-200/60">
                     <div className="flex items-center space-x-3">
                       <img
-                        src="/logo.png"
-                        alt="Logo"
+                        src={logoUrl || "/logo.png"}
+                        alt={platformShortName}
                         className="w-8 h-8"
                       />
                     </div>
@@ -439,16 +441,16 @@ export default function BranchManagerDashboardHeader({ currentPage = "Dashboard"
                       <AvatarImage src="" />
                       <AvatarFallback className="bg-gradient-to-br from-blue-400 to-blue-500 text-white font-semibold text-xs">BM</AvatarFallback>
                     </Avatar>
-                    <span className="text-xs font-semibold text-gray-800 hidden xl:inline">Branch Manager</span>
+                    <span className="text-xs font-semibold text-gray-800 hidden xl:inline">Academy Manager</span>
                     <ChevronDown className="w-3 h-3 text-gray-600 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuPortal>
                   <DropdownMenuContent align="end" className="w-56 bg-white/95 backdrop-blur-md border border-gray-200/50 shadow-lg">
                     <div className="px-3 py-2 border-b border-gray-100">
-                      <p className="text-sm font-medium text-gray-900">{currentUser?.full_name || 'Branch Manager'}</p>
-                      <p className="text-xs text-gray-500">{currentUser?.email || 'manager@branch.com'}</p>
-                      <p className="text-xs text-blue-600">{currentUser?.branch_name || 'Main Branch'}</p>
+                      <p className="text-sm font-medium text-gray-900">{currentUser?.full_name || 'Academy Manager'}</p>
+                      <p className="text-xs text-gray-500">{currentUser?.email || 'manager@academy.com'}</p>
+                      <p className="text-xs text-blue-600">{currentUser?.branch_name || 'Main Academy'}</p>
                     </div>
                     <DropdownMenuItem
                       onClick={() => router.push("/branch-manager-dashboard/profile")}

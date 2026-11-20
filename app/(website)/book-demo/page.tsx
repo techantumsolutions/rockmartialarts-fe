@@ -4,7 +4,7 @@ import DemoAvailabilityPublicView from "@/components/demo-sessions/DemoAvailabil
 export const metadata: Metadata = {
   title: "Book a Demo Session | Rock Martial Arts",
   description:
-    "Browse available demo session slots by branch and course at Rock Martial Arts Academy.",
+    "Browse available demo session slots by academy and course at Rock Martial Arts Academy.",
 }
 
 export default function BookDemoPage() {
@@ -14,14 +14,14 @@ export default function BookDemoPage() {
         className="relative py-20 md:py-28 bg-cover bg-center"
         style={{ backgroundImage: "url(/assets/img/banner.jpg)" }}
       >
-        <div className="absolute inset-0 bg-black/60" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#171A26]/50 via-[#171A26]/15 to-black/10" />
         <div className="site-content relative z-10 px-0 sm:px-1">
           <div className="max-w-2xl">
             <h1 className="text-4xl md:text-5xl font-bold text-white uppercase mb-4">
               Demo Sessions
             </h1>
             <p className="text-gray-200 text-lg">
-              Pick a branch and course, reserve a seat, and pay the configured demo fee to confirm.
+              Pick an branch and course, reserve a seat, and pay the configured demo fee to confirm.
             </p>
           </div>
         </div>

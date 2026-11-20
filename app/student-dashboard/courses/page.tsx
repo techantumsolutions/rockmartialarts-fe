@@ -68,7 +68,7 @@ const fetchOpts = (token: string) => ({
   cache: "no-store" as RequestCache,
 })
 
-/** Stable id for Select when the same course exists at multiple branches. */
+/** Stable id for Select when the same course exists at multiple academies. */
 function courseRowKey(c: Pick<AvailableCourse, "id" | "branch_id">) {
   return `${c.id}::${c.branch_id ?? ""}`
 }
@@ -338,7 +338,7 @@ export default function StudentCoursesPage() {
   // Enrollment dialog state
   const [showEnrollDialog, setShowEnrollDialog] = useState(false)
   const [isRenewalDialog, setIsRenewalDialog] = useState(false)
-  /** Existing student's assigned branch — locked during renewal / additional enrollment */
+  /** Existing student's assigned academy — locked during renewal / additional enrollment */
   const [lockedBranchId, setLockedBranchId] = useState<string | null>(null)
   const [selectedCourse, setSelectedCourse] = useState<AvailableCourse | null>(null)
   const [selectedBranch, setSelectedBranch] = useState("")
@@ -353,7 +353,7 @@ export default function StudentCoursesPage() {
   const [enrollPricingLoading, setEnrollPricingLoading] = useState(false)
   const [enrolling, setEnrolling] = useState(false)
 
-  // Branch change request dialog
+  // Academy change request dialog
   const [showBranchChangeDialog, setShowBranchChangeDialog] = useState(false)
   const [changingEnrollment, setChangingEnrollment] = useState<EnrolledCourse | null>(null)
   const [newBranchId, setNewBranchId] = useState("")
@@ -391,17 +391,17 @@ export default function StudentCoursesPage() {
       setLoading(true)
       setError(null)
 
-      // Load all branches first
+      // Load all academies first
       let transformedBranches: any[] = []
       try {
         const branchesResponse = await branchAPI.getBranches(token)
-        console.log("🔍 Branch API Response:", branchesResponse)
+        console.log("🔍 Academy API Response:", branchesResponse)
         const allBranches = branchesResponse.branches || []
         
-        // Transform branches to flatten nested structure
+        // Transform academies to flatten nested structure
         transformedBranches = allBranches.map((b: any) => ({
           id: b.id,
-          name: b.branch?.name || b.name || 'Unknown Branch',
+          name: b.branch?.name || b.name || 'Unknown Academy',
           code: b.branch?.code || b.code,
           email: b.branch?.email || b.email,
           phone: b.branch?.phone || b.phone,
@@ -409,18 +409,18 @@ export default function StudentCoursesPage() {
           assignments: b.assignments || b.branch?.assignments,
         }))
         
-        console.log("✅ Transformed branches:", transformedBranches.length, transformedBranches)
+        console.log("✅ Transformed academies:", transformedBranches.length, transformedBranches)
         
-        // Ensure branches are set even if empty
+        // Ensure academies are set even if empty
         if (Array.isArray(transformedBranches) && transformedBranches.length > 0) {
           setBranches(transformedBranches)
-          console.log("✅ Branches state updated with:", transformedBranches.length, "branches")
+          console.log("✅ Academies state updated with:", transformedBranches.length, "branches")
         } else {
-          console.warn("⚠️ No branches found in API response")
+          console.warn("⚠️ No academies found in API response")
           setBranches([])
         }
       } catch (err) {
-        console.error("❌ Error loading branches:", err)
+        console.error("❌ Error loading academies:", err)
         setBranches([])
       }
       // Load enrolled courses from profile
@@ -432,7 +432,7 @@ export default function StudentCoursesPage() {
         course_id: e.course_id,
         course_name: e.course_name,
         branch_id: e.branch_id,
-        branch_name: e.branch_name || "Unknown Branch",
+        branch_name: e.branch_name || "Unknown Academy",
         start_date: e.start_date,
         end_date: e.end_date,
         enrollment_date: e.enrollment_date || e.start_date,
@@ -492,7 +492,7 @@ export default function StudentCoursesPage() {
       }
       setActiveSchedules(activeSchedList)
 
-      // Get student's branch IDs and all active branch IDs
+      // Get student's academy IDs and all active academy IDs
       const studentBranchIds = Array.from(
         new Set(
           enrolledData.map((e) => e.branch_id).filter(Boolean).concat(
@@ -503,7 +503,7 @@ export default function StudentCoursesPage() {
       const allActiveBranchIds = transformedBranches.map((b: any) => String(b.id)).filter(Boolean)
       const branchIdsToLoad = allActiveBranchIds.length > 0 ? allActiveBranchIds : studentBranchIds
 
-      // Load available courses across all active branches
+      // Load available courses across all active academies
       try {
         let availableCoursesList: any[] = []
 
@@ -519,7 +519,7 @@ export default function StudentCoursesPage() {
                 const branchData = await branchCoursesResponse.json()
                 const branchCourses = branchData.courses || []
                 const bObj = transformedBranches.find((b: any) => String(b.id) === String(branchId))
-                const branchName = bObj?.name || enrolledData.find((e) => e.branch_id === branchId)?.branch_name || "Branch"
+                const branchName = bObj?.name || enrolledData.find((e) => e.branch_id === branchId)?.branch_name || "Academy"
                 const listedAmount = (pricing: any) => {
                   const n = Number(pricing?.amount ?? pricing?.fee_1_month)
                   return Number.isFinite(n) && n > 0 ? n : 0
@@ -540,7 +540,7 @@ export default function StudentCoursesPage() {
                   },
                 }))
               } catch (err) {
-                console.error(`Error loading courses for branch ${branchId}:`, err)
+                console.error(`Error loading courses for academy ${branchId}:`, err)
                 return []
               }
             })
@@ -548,9 +548,9 @@ export default function StudentCoursesPage() {
           availableCoursesList = lists.flat()
         }
         
-        // If no branch-specific courses loaded, load all courses
+        // If no academy-specific courses loaded, load all courses
         if (availableCoursesList.length === 0) {
-          console.log("⚠️ No branch-specific courses found, loading all courses")
+          console.log("⚠️ No academy-specific courses found, loading all courses")
           const allCoursesResponse = await courseAPI.getCourses(token)
           const rawCourses = allCoursesResponse.courses || []
           availableCoursesList = rawCourses.map((c: any) => ({
@@ -571,7 +571,7 @@ export default function StudentCoursesPage() {
           (c: any) => c.settings?.active !== false
         )
 
-        // One row per (course, branch) so branch-specific fees and enrollments stay correct
+        // One row per (course, academy) so academy-specific fees and enrollments stay correct
         const uniqueCourses = Array.from(
           new Map(
             filteredCourses.map((c: any) => [`${c.id}::${c.branch_id || ""}`, c])
@@ -590,7 +590,7 @@ export default function StudentCoursesPage() {
           }
         })
 
-        console.log("✅ Branch courses (including enrolled):", withEnrollment.length)
+        console.log("✅ Academy courses (including enrolled):", withEnrollment.length)
         setAvailableCourses(withEnrollment)
       } catch (err) {
         console.error("Error loading available courses:", err)
@@ -653,7 +653,7 @@ export default function StudentCoursesPage() {
       router.push("/student-dashboard/payments")
       return
     }
-    console.log("📋 Opening enrollment dialog. Branches available:", branches.length, branches)
+    console.log("📋 Opening enrollment dialog. Academies available:", branches.length, branches)
     setIsRenewalDialog(false)
     setSelectedCourse(course)
     setSelectedBranch(branchId)
@@ -672,7 +672,7 @@ export default function StudentCoursesPage() {
     else router.push("/student-dashboard/payments")
   }
 
-  // Load admin-configured batch + duration options for selected branch/course
+  // Load admin-configured batch + duration options for selected academy/course
   useEffect(() => {
     if (!showEnrollDialog || !selectedCourse || !selectedBranch) {
       setBatchOptions([])
@@ -720,7 +720,7 @@ export default function StudentCoursesPage() {
         let branchCourse: any = selectedCourse
         let batchesRaw: any[] = []
 
-        // 1. Check branch assignments course_schedule
+        // 1. Check academy assignments course_schedule
         const branchFromState = branches.find((b) => String(b.id) === String(selectedBranch))
         const scheduleRows = branchFromState?.assignments?.course_schedule
         if (Array.isArray(scheduleRows)) {
@@ -801,7 +801,7 @@ export default function StudentCoursesPage() {
           ? branchCourse.available_durations
           : []
 
-        // Fallback: if branch course payload does not expose durations, load the
+        // Fallback: if academy course payload does not expose durations, load the
         // course duration catalog directly and still apply batch-level filtering later.
         if (durationsRaw.length === 0) {
           const headers: Record<string, string> = {}
@@ -991,7 +991,7 @@ export default function StudentCoursesPage() {
 
   const handleEnrollSubmit = async () => {
     if (!selectedCourse || !selectedBranch || !selectedDurationKey) {
-      alert("Please select course, branch, and duration")
+      alert("Please select course, academy, and duration")
       return
     }
     if (isRenewalDialog && lockedBranchId && selectedBranch !== lockedBranchId) {
@@ -1037,7 +1037,7 @@ export default function StudentCoursesPage() {
       const profileResponse = await studentProfileAPI.getProfile(token)
       const profile = profileResponse.profile
 
-      // Find selected branch details
+      // Find selected academy details
       const selectedBranchData = branches.find(b => b.id === selectedBranch)
 
       const opt = durationOptions.find(
@@ -1082,7 +1082,7 @@ export default function StudentCoursesPage() {
         course_id: selectedCourse.id,
         course_name: (prepJson.course_name as string) || selectedCourse.title,
         branch_id: selectedBranch,
-        branch_name: (prepJson.branch_name as string) || selectedBranchData?.name || "Unknown Branch",
+        branch_name: (prepJson.branch_name as string) || selectedBranchData?.name || "Unknown Academy",
         amount: prepAmount,
         student_name: profile.full_name || `${profile.first_name} ${profile.last_name}`,
         student_email: profile.email,
@@ -1141,7 +1141,7 @@ export default function StudentCoursesPage() {
 
   const handleBranchChangeSubmit = async () => {
     if (!changingEnrollment || !newBranchId) {
-      alert("Please select a new branch")
+      alert("Please select a new academy")
       return
     }
 
@@ -1150,7 +1150,7 @@ export default function StudentCoursesPage() {
       const token = localStorage.getItem("token")
       if (!token) return
 
-      // Submit branch transfer request (existing backend endpoint: /api/requests/transfer)
+      // Submit academy transfer request (existing backend endpoint: /api/requests/transfer)
       const response = await fetch(
         getBackendApiUrl('requests/transfer'),
         {
@@ -1163,7 +1163,7 @@ export default function StudentCoursesPage() {
             enrollment_id: changingEnrollment.enrollment_id,
             current_branch_id: changingEnrollment.branch_id,
             new_branch_id: newBranchId,
-            reason: "Student requested branch change"
+            reason: "Student requested academy change"
           })
         }
       )
@@ -1172,7 +1172,7 @@ export default function StudentCoursesPage() {
         const data = await response.json().catch(() => ({}))
         alert(
           data.message ||
-            "Branch change request submitted successfully! Your request will be sent to the super admin for approval. Once approved, your branch will be updated."
+            "Academy change request submitted successfully! Your request will be sent to the super admin for approval. Once approved, your academy will be updated."
         )
         setShowBranchChangeDialog(false)
         setChangingEnrollment(null)
@@ -1443,7 +1443,7 @@ export default function StudentCoursesPage() {
                           disabled={!course.is_active}
                         >
                           <MapPin className="h-4 w-4 mr-2" />
-                          Change Branch
+                          Change Academy
                         </Button>
                         */}
                         {course.payment_status === 'pending' && (
@@ -1501,10 +1501,10 @@ export default function StudentCoursesPage() {
                 </div>
                 <Select value={selectedBranchFilter} onValueChange={setSelectedBranchFilter}>
                   <SelectTrigger className="w-full sm:w-[220px]">
-                    <SelectValue placeholder="All Branches" />
+                    <SelectValue placeholder="All Academies" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="ALL">All Branches</SelectItem>
+                    <SelectItem value="ALL">All Academies</SelectItem>
                     {branches.map((b) => (
                       <SelectItem key={b.id} value={b.id}>
                         {b.name}
@@ -1629,8 +1629,8 @@ export default function StudentCoursesPage() {
             </DialogTitle>
             <DialogDescription>
               {lockedBranchId
-                ? "Your branch is fixed to your current assignment. You may choose any course, package, and duration available at this branch. Contact admin to change branch."
-                : "Choose course, branch, and duration. Pricing comes from your branch and admin fee settings."}
+                ? "Your academy is fixed to your current assignment. You may choose any course, package, and duration available at this branch. Contact admin to change branch."
+                : "Choose course, academy, and duration. Pricing comes from your academy and admin fee settings."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4 px-6 overflow-y-auto min-h-0">
@@ -1696,7 +1696,7 @@ export default function StudentCoursesPage() {
                 disabled={isRenewalDialog && !!lockedBranchId}
               >
                 <SelectTrigger className="text-gray-900 dark:text-gray-100">
-                  <SelectValue placeholder={branches.length === 0 ? "Loading branches..." : "Choose a branch"} />
+                  <SelectValue placeholder={branches.length === 0 ? "Loading academies..." : "Choose an academy"} />
                 </SelectTrigger>
                 <SelectContent>
                   {branches.length === 0 ? (
@@ -1882,11 +1882,11 @@ export default function StudentCoursesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Branch Change Dialog — temporarily hidden
+      {/* Academy Change Dialog — temporarily hidden
       <Dialog open={showBranchChangeDialog} onOpenChange={setShowBranchChangeDialog}>
         <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-hidden flex flex-col p-0">
           <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
-            <DialogTitle>Request Branch Change</DialogTitle>
+            <DialogTitle>Request Academy Change</DialogTitle>
             <DialogDescription>
               Request to change branch for {changingEnrollment?.course_name}
             </DialogDescription>
@@ -1894,21 +1894,21 @@ export default function StudentCoursesPage() {
           <div className="space-y-4 py-4 px-6 overflow-y-auto min-h-0">
             <div className="rounded-lg bg-gray-50 p-3">
               <div className="text-sm">
-                <span className="font-medium">Current Branch: </span>
+                <span className="font-medium">Current Academy: </span>
                 <span>{changingEnrollment?.branch_name}</span>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="newBranch">Select New Branch</Label>
+              <Label htmlFor="newBranch">Select New Academy</Label>
               <Select value={newBranchId} onValueChange={setNewBranchId}>
                 <SelectTrigger className="text-gray-900 dark:text-gray-100">
-                  <SelectValue placeholder="Choose a new branch" />
+                  <SelectValue placeholder="Choose a new academy" />
                 </SelectTrigger>
                 <SelectContent>
                   {branches
                     .filter(b => b.id !== changingEnrollment?.branch_id)
-                    .map((branch) => (
+                    .map((academy) => (
                       <SelectItem key={branch.id} value={branch.id}>
                         {branch.name}
                       </SelectItem>
@@ -1920,7 +1920,7 @@ export default function StudentCoursesPage() {
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Your request will be sent to the super admin for approval. Once approved, your enrollment branch
+                Your request will be sent to the super admin for approval. Once approved, your enrollment academy
                 will be updated.
               </AlertDescription>
             </Alert>

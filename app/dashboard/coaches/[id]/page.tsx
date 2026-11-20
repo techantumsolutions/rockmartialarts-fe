@@ -160,7 +160,7 @@ export default function CoachDetailPage() {
           difficulty_level: course.difficulty_level || 'Beginner',
           enrolled_students: course.enrolled_students || 0,
           schedule: course.schedule || 'Schedule TBD',
-          branch_name: course.branch_assignments?.[0]?.branch_name || 'Unknown Branch',
+          branch_name: course.branch_assignments?.[0]?.branch_name || 'Unknown Academy',
           status: 'active' as const
         }))
 
@@ -346,7 +346,7 @@ export default function CoachDetailPage() {
               </div>
             </div>
             
-            <Button onClick={handleEdit} className="bg-yellow-400 hover:bg-yellow-500 text-white">
+            <Button onClick={handleEdit} className="">
               <Edit className="w-4 h-4 mr-2" />
               Edit Coach
             </Button>
@@ -732,7 +732,7 @@ export default function CoachDetailPage() {
 
                   {coach.branch_assignments && coach.branch_assignments.length > 0 && (
                     <div>
-                      <span className="text-sm block mb-2">Branch Assignments</span>
+                      <span className="text-sm block mb-2">Academy Assignments</span>
                       <div className="space-y-1">
                         {coach.branch_assignments.map((branch, index) => (
                           <Badge key={index} variant="outline" className="text-xs mr-1">

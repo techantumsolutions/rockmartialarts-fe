@@ -10,7 +10,7 @@ import DashboardLayoutClient from "./DashboardLayoutClient"
 /**
  * Resolves dashboard role from auth and renders the shared dashboard layout.
  * Branch manager -> branch_admin only. Super admin -> super_admin only.
- * Never use token presence alone (branch manager also has a token).
+ * Never use token presence alone (academy manager also has a token).
  */
 export default function DashboardRoleResolver({ children }: { children: React.ReactNode }) {
   const router = useRouter()

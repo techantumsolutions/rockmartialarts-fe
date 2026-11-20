@@ -192,7 +192,7 @@ export function RegPhoneOtpSection({
             size="sm"
             disabled={verifyBusy}
             onClick={() => void verifyOtp()}
-            className="h-9 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
+            className="h-9  font-semibold"
           >
             {verifyBusy ? "Verifying…" : "Verify OTP"}
           </Button>

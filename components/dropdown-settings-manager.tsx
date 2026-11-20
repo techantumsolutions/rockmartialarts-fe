@@ -189,7 +189,7 @@ export function DropdownSettingsManager({ category, title, description }: Dropdo
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <Input placeholder="Value" value={newOption.value} onChange={(e) => setNewOption({ ...newOption, value: e.target.value })} />
                   <Input placeholder="Label" value={newOption.label} onChange={(e) => setNewOption({ ...newOption, label: e.target.value })} />
-                  <Button onClick={handleAddOption} className="bg-yellow-400 hover:bg-yellow-500 text-white">
+                  <Button onClick={handleAddOption} className="">
                     <Plus className="w-4 h-4 mr-2" />Add Option
                   </Button>
                 </div>
@@ -239,7 +239,7 @@ export function DropdownSettingsManager({ category, title, description }: Dropdo
                   <Button onClick={handleReset} variant="outline" disabled={saving}>
                     <RefreshCw className="w-4 h-4 mr-2" />Reset to Defaults
                   </Button>
-                  <Button onClick={handleSave} disabled={saving} className="bg-yellow-400 hover:bg-yellow-500 text-white">
+                  <Button onClick={handleSave} disabled={saving} className="">
                     <Save className="w-4 h-4 mr-2" />{saving ? "Saving..." : "Save Changes"}
                   </Button>
                 </div>

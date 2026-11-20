@@ -198,7 +198,7 @@ export default function StudentDetailsPage() {
         console.warn('Direct user fetch error:', err)
       }
 
-      // 2. Secondary fallback: Search in branch students (/api/search/students)
+      // 2. Secondary fallback: Search in academy students (/api/search/students)
       if (!studentData && coachBranchId) {
         try {
           const branchRes = await fetch(getBackendApiUrl(`search/students?branch_id=${encodeURIComponent(coachBranchId)}&limit=100`), {
@@ -236,7 +236,7 @@ export default function StudentDetailsPage() {
             }
           }
         } catch (err) {
-          console.warn('Branch search fallback error:', err)
+          console.warn('Academy search fallback error:', err)
         }
       }
 
@@ -325,12 +325,12 @@ export default function StudentDetailsPage() {
       }
 
       if (!studentData) {
-        setError("Student not found or not enrolled in your courses/branch")
+        setError("Student not found or not enrolled in your courses/academy")
         setLoading(false)
         return
       }
 
-      // 5. Enrich enrollments if course or branch is missing
+      // 5. Enrich enrollments if course or academy is missing
       if (!studentData.course_name || !studentData.branch_name) {
         try {
           const enrRes = await fetch(getBackendApiUrl(`users/${studentId}/enrollments`), {
@@ -390,7 +390,7 @@ export default function StudentDetailsPage() {
 
       // 7. Fetch performance profile for level_or_belt
       try {
-        const perfRes = await fetch(getBackendApiUrl(`student/performance/${encodeURIComponent(studentId)}`), {
+        const perfRes = await fetch(getBackendApiUrl(`student/dashboard/${encodeURIComponent(studentId)}`), {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -398,9 +398,13 @@ export default function StudentDetailsPage() {
         })
         if (perfRes.ok) {
           const perfData = await perfRes.json()
-          if (perfData?.profile?.level_or_belt) {
-            studentData.level_or_belt = perfData.profile.level_or_belt
-            setBeltValue(perfData.profile.level_or_belt)
+          const belt =
+            perfData?.profile?.level_or_belt ||
+            perfData?.level_or_belt ||
+            perfData?.dashboard?.profile?.level_or_belt
+          if (belt) {
+            studentData.level_or_belt = belt
+            setBeltValue(belt)
           }
         }
       } catch (err) {
@@ -696,7 +700,7 @@ export default function StudentDetailsPage() {
                           </div>
 
                           <div>
-                            <label className="text-sm font-medium text-gray-500">Branch</label>
+                            <label className="text-sm font-medium text-gray-500">Academy</label>
                             <p className="text-gray-900">{student.branch_name || 'N/A'}</p>
                           </div>
 

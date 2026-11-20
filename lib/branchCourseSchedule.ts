@@ -88,7 +88,7 @@ export type CoursePricingSource = {
   }
 }
 
-/** Branch-specific fee_per_duration from course catalog (falls back to course-wide map). */
+/** Academy-specific fee_per_duration from course catalog (falls back to course-wide map). */
 export function getCourseBranchFeePerDuration(
   course: CoursePricingSource | undefined,
   branchId: string
@@ -118,7 +118,7 @@ function batchHasExplicitDurationFees(
   return Object.values(fpd).some((v) => v != null && String(v).trim() !== "")
 }
 
-/** Fill fee_per_duration from legacy batch_fee or course branch pricing when missing. */
+/** Fill fee_per_duration from legacy batch_fee or course academy pricing when missing. */
 export function hydrateBatchDurationPricing(
   batch: NormalizedCourseAssignment["batches"][number],
   masterDurations: MasterDuration[],
@@ -181,7 +181,7 @@ export function hydrateBatchDurationPricing(
   }
 }
 
-/** Normalize duration keys and hydrate pricing from DB (batch_fee / course branch fees). */
+/** Normalize duration keys and hydrate pricing from DB (batch_fee / course academy fees). */
 export function enrichAssignmentsCoursesWithDurationPricing(
   courses: NormalizedCourseAssignment[],
   masterDurations: MasterDuration[],
@@ -420,17 +420,24 @@ export function buildCourseSchedulePayload(
       if (Number.isFinite(maxNum) && maxNum > 0) {
         row.max_students = maxNum
       }
-      // Per-duration fees
+      // Per-duration fees + default pricing type (UI default = monthly when unset)
       if (b.fee_per_duration && Object.keys(b.fee_per_duration).length > 0) {
         const fpd: Record<string, number> = {}
+        const pt: Record<string, string> = {}
+        const existingPt = b.pricing_type_per_duration || {}
         for (const [k, v] of Object.entries(b.fee_per_duration)) {
           const n = parseFloat(String(v))
-          if (!Number.isNaN(n) && n > 0) fpd[k] = n
+          if (!Number.isNaN(n) && n > 0) {
+            fpd[k] = n
+            const t = existingPt[k]
+            pt[k] = t === "flat" || t === "monthly" ? t : "monthly"
+          }
         }
-        if (Object.keys(fpd).length > 0) row.fee_per_duration = fpd
-      }
-      // Pricing type per duration
-      if (b.pricing_type_per_duration && Object.keys(b.pricing_type_per_duration).length > 0) {
+        if (Object.keys(fpd).length > 0) {
+          row.fee_per_duration = fpd
+          row.pricing_type_per_duration = pt
+        }
+      } else if (b.pricing_type_per_duration && Object.keys(b.pricing_type_per_duration).length > 0) {
         const pt: Record<string, string> = {}
         for (const [k, v] of Object.entries(b.pricing_type_per_duration)) {
           if (v === "monthly" || v === "flat") pt[k] = v

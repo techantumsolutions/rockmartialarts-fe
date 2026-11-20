@@ -58,7 +58,7 @@ export async function generateStoreReceipt(order: StoreOrder): Promise<void> {
       ["Student Name", order.student_name || "Student"],
       ["Email", order.student_email || "N/A"],
       ["Phone", order.student_phone || "N/A"],
-      ["Assigned Branch", order.branch_name || "Main Branch"],
+      ["Assigned Academy", order.branch_name || "Main Academy"],
       ["Payment Method", "Online (Razorpay)"],
       ["Payment ID", order.payment_id || "N/A"],
       ["Payment Status", "Paid / Confirmed"],
@@ -177,7 +177,7 @@ export async function generateStoreReceipt(order: StoreOrder): Promise<void> {
   doc.setFontSize(8)
   doc.setTextColor(71, 85, 105)
   doc.text(
-    "Please present this receipt or your Order ID at your training branch to collect your martial arts gear.",
+    "Please present this receipt or your Order ID at your training academy to collect your martial arts gear.",
     margin + 12,
     noteY + 28
   )

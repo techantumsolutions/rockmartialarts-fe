@@ -227,7 +227,9 @@ export default function BranchDetailPage() {
   const params = useParams()
   const router = useRouter()
   const basePath = useDashboardBasePath()
-  const branchId = params.id as string
+  const routeParam = decodeURIComponent((params.id as string) || "")
+  const [resolvedBranchId, setResolvedBranchId] = useState("")
+  const branchId = resolvedBranchId || routeParam
   const coverInputRef = useRef<HTMLInputElement>(null)
 
   const [branch, setBranch] = useState<BranchDetails | null>(null)
@@ -249,7 +251,7 @@ export default function BranchDetailPage() {
 
   useEffect(() => {
     fetchBranchDetails()
-  }, [branchId])
+  }, [routeParam])
 
   const fetchBranchDetails = async () => {
     try {
@@ -262,7 +264,9 @@ export default function BranchDetailPage() {
         return
       }
 
-      const branchResponse = await fetch(`/api/backend/branches/${branchId}`, {
+      const branchResponse = await fetch(
+        `/api/backend/branches/${encodeURIComponent(routeParam)}`,
+        {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -271,32 +275,41 @@ export default function BranchDetailPage() {
 
       if (!branchResponse.ok) {
         if (branchResponse.status === 404) {
-          setError("Branch not found")
+          setError("Academy not found")
           return
         }
-        throw new Error(`Failed to fetch branch: ${branchResponse.status}`)
+        throw new Error(`Failed to fetch academy: ${branchResponse.status}`)
       }
 
       const branchData = await branchResponse.json()
+      if (branchData.id) {
+        setResolvedBranchId(branchData.id)
+      }
+      const slug = String(branchData.slug || "").trim()
+      if (slug && routeParam !== slug) {
+        router.replace(`${basePath}/branches/${encodeURIComponent(slug)}`)
+      }
       setBranch(branchData)
       setDescriptionDraft(branchData.description || "")
 
       await Promise.all([
-        fetchBranchCourses(token),
-        fetchBranchCoaches(token),
-        fetchBranchStats(token),
+        fetchBranchCourses(token, branchData.id || routeParam),
+        fetchBranchCoaches(token, branchData.id || routeParam),
+        fetchBranchStats(token, branchData.id || routeParam),
       ])
     } catch (err: unknown) {
-      console.error("Error fetching branch details:", err)
-      setError(err instanceof Error ? err.message : "Failed to load branch details")
+      console.error("Error fetching academy details:", err)
+      setError(err instanceof Error ? err.message : "Failed to load academy details")
     } finally {
       setLoading(false)
     }
   }
 
-  const fetchBranchStats = async (token: string) => {
+  const fetchBranchStats = async (token: string, id: string = branchId) => {
     try {
-      const response = await fetch(getBackendApiUrl(`branches/${branchId}/stats`), {
+      const response = await fetch(
+        getBackendApiUrl(`branches/${encodeURIComponent(id)}/stats`),
+        {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -307,13 +320,15 @@ export default function BranchDetailPage() {
         setBranchStats(data.statistics ?? null)
       }
     } catch (err) {
-      console.error("Error fetching branch stats:", err)
+      console.error("Error fetching academy stats:", err)
     }
   }
 
-  const fetchBranchCourses = async (token: string) => {
+  const fetchBranchCourses = async (token: string, id: string = branchId) => {
     try {
-      const response = await fetch(`/api/backend/courses/by-branch/${branchId}`, {
+      const response = await fetch(
+        `/api/backend/courses/by-branch/${encodeURIComponent(id)}`,
+        {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -324,20 +339,20 @@ export default function BranchDetailPage() {
         const data = await response.json()
         setCourses(data.courses || [])
       } else {
-        console.error("Failed to fetch branch courses:", response.status, response.statusText)
+        console.error("Failed to fetch academy courses:", response.status, response.statusText)
       }
     } catch (err) {
-      console.error("Error fetching branch courses:", err)
+      console.error("Error fetching academy courses:", err)
     }
   }
 
-  const fetchBranchCoaches = async (token: string) => {
+  const fetchBranchCoaches = async (token: string, id: string = branchId) => {
     try {
       const pageSize = 100
       const collected: Coach[] = []
       for (let skip = 0; skip < 1000; skip += pageSize) {
         const response = await fetch(
-          `/api/backend/coaches?branch_id=${encodeURIComponent(branchId)}&active_only=false&skip=${skip}&limit=${pageSize}`,
+          `/api/backend/coaches?branch_id=${encodeURIComponent(id)}&active_only=false&skip=${skip}&limit=${pageSize}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -354,7 +369,7 @@ export default function BranchDetailPage() {
       }
       setCoaches(collected)
     } catch (err) {
-      console.error("Error fetching branch coaches:", err)
+      console.error("Error fetching academy coaches:", err)
     }
   }
 
@@ -512,7 +527,10 @@ export default function BranchDetailPage() {
   }
 
   const handleEdit = () => {
-    router.push(`${basePath}/branches/edit/${branchId}`)
+    const key = encodeURIComponent(
+      String((branch as { slug?: string } | null)?.slug || branchId).trim() || branchId
+    )
+    router.push(`${basePath}/branches/edit/${key}`)
   }
 
   const handleBack = () => {
@@ -661,12 +679,12 @@ export default function BranchDetailPage() {
       <AdminPageShell>
         <div className="py-12 text-center">
           <Building2 className="mx-auto mb-4 h-16 w-16 text-gray-400" />
-          <h2 className="mb-2 text-2xl font-semibold text-[#2F3158]">Branch Not Found</h2>
+          <h2 className="mb-2 text-2xl font-semibold text-[#2F3158]">Academy Not Found</h2>
           <p className="mb-6 text-[#6B7A99]">{error}</p>
           <div className="flex flex-wrap justify-center gap-3">
             <Button onClick={handleBack} variant="outline" className="btn-admin-outline">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Branches
+              Back to Academies
             </Button>
             <Button
               onClick={() => window.location.reload()}
@@ -703,7 +721,7 @@ export default function BranchDetailPage() {
       <nav className="admin-breadcrumb" aria-label="Breadcrumb">
         <button type="button" onClick={handleBack} className="inline-flex items-center gap-1">
           <Home className="h-3.5 w-3.5" />
-          Branches
+          Academies
         </button>
         <ChevronRight className="admin-breadcrumb-sep h-3.5 w-3.5" />
         <span className="truncate text-[#2F3158]">{branch.branch.name}</span>
@@ -790,7 +808,7 @@ export default function BranchDetailPage() {
               ) : (
                 <div className="flex h-44 flex-col items-center justify-center gap-3 p-4 lg:min-h-[168px]">
                   <ImagePlus className="h-10 w-10 text-gray-300" />
-                  <p className="text-center text-xs text-gray-500">Branch cover image</p>
+                  <p className="text-center text-xs text-gray-500">Academy cover image</p>
                   <Button
                     type="button"
                     size="sm"
@@ -841,7 +859,7 @@ export default function BranchDetailPage() {
                 <AdminCard>
                   <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                     <div className="space-y-5">
-                      {sectionTitle("Branch Information")}
+                      {sectionTitle("Academy Information")}
                       <div className="space-y-5 text-sm text-[#6B7A99]">
                         <div>
                           <h3 className="mb-1.5 flex items-center text-sm font-medium text-[#2F3158]">
@@ -885,7 +903,7 @@ export default function BranchDetailPage() {
                       {mapEmbed ? (
                         <div className="overflow-hidden rounded-xl border border-gray-100">
                           <iframe
-                            title="Branch location map"
+                            title="Academy location map"
                             src={mapEmbed}
                             className="h-56 w-full"
                             loading="lazy"
@@ -917,7 +935,7 @@ export default function BranchDetailPage() {
 
                 <AdminCard>
                   <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                    {sectionTitle("About this Branch")}
+                    {sectionTitle("About this Academy")}
                     {!editingDescription ? (
                       <Button
                         type="button"
@@ -940,7 +958,7 @@ export default function BranchDetailPage() {
                         value={descriptionDraft}
                         onChange={(e) => setDescriptionDraft(e.target.value)}
                         rows={5}
-                        placeholder="Describe this branch, facilities, and what makes it unique…"
+                        placeholder="Describe this academy, facilities, and what makes it unique…"
                         className="rounded-xl"
                       />
                       {descriptionError ? (
@@ -979,7 +997,7 @@ export default function BranchDetailPage() {
                   ) : (
                     <p className="rounded-xl border border-gray-100 bg-[#FAFBFC] p-4 text-sm leading-relaxed text-[#6B7A99]">
                       {branch.description?.trim() ||
-                        "No description has been added for this branch yet. Use Edit to share more about the location, programs, and community."}
+                        "No description has been added for this academy yet. Use Edit to share more about the location, programs, and community."}
                     </p>
                   )}
                 </AdminCard>
@@ -987,14 +1005,14 @@ export default function BranchDetailPage() {
 
               <TabsContent value="courses">
                 <AdminCard>
-                  <h3 className="mb-4 text-[15px] font-semibold text-[#2F3158]">Courses at this Branch</h3>
+                  <h3 className="mb-4 text-[15px] font-semibold text-[#2F3158]">Courses at this Academy</h3>
                   {renderCoursesList()}
                 </AdminCard>
               </TabsContent>
 
               <TabsContent value="coaches">
                 <AdminCard>
-                  <h3 className="mb-4 text-[15px] font-semibold text-[#2F3158]">Coaches at this Branch</h3>
+                  <h3 className="mb-4 text-[15px] font-semibold text-[#2F3158]">Coaches at this Academy</h3>
                   {renderCoachesList()}
                 </AdminCard>
               </TabsContent>
@@ -1021,7 +1039,7 @@ export default function BranchDetailPage() {
         side={
           <>
             <AdminCard>
-              <h3 className="mb-4 text-[15px] font-semibold text-[#2F3158]">Branch Status</h3>
+              <h3 className="mb-4 text-[15px] font-semibold text-[#2F3158]">Academy Status</h3>
               <div className="space-y-3 text-sm text-[#6B7A99]">
                 <div className="flex items-center justify-between gap-2">
                   <span>Status</span>
@@ -1030,14 +1048,14 @@ export default function BranchDetailPage() {
                   </AdminStatusPill>
                 </div>
                 <div className="flex items-start justify-between gap-2">
-                  <span className="shrink-0">Branch ID</span>
+                  <span className="shrink-0">Academy ID</span>
                   <span className="truncate font-mono text-xs text-[#2F3158]">{branch.id}</span>
                 </div>
               </div>
             </AdminCard>
 
             <AdminCard>
-              <h3 className="mb-4 text-[15px] font-semibold text-[#2F3158]">Branch Manager</h3>
+              <h3 className="mb-4 text-[15px] font-semibold text-[#2F3158]">Academy Manager</h3>
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#FFF8E1] text-sm font-semibold text-[#B8860B]">
@@ -1046,7 +1064,7 @@ export default function BranchDetailPage() {
                   <div className="min-w-0">
                     <p className="truncate font-medium text-[#2F3158]">{managerName}</p>
                     <p className="text-xs text-[#6B7A99]">
-                      {branch.manager_id ? "Branch Manager" : "Not assigned"}
+                      {branch.manager_id ? "Academy Manager" : "Not assigned"}
                     </p>
                   </div>
                 </div>
@@ -1055,7 +1073,7 @@ export default function BranchDetailPage() {
                     <a
                       href={`tel:${branch.branch.phone}`}
                       className="btn-admin-outline !h-9 !w-9 !p-0"
-                      title="Call branch"
+                      title="Call academy"
                     >
                       <Phone className="h-4 w-4" />
                     </a>
@@ -1064,7 +1082,7 @@ export default function BranchDetailPage() {
                     <a
                       href={`mailto:${branch.branch.email}`}
                       className="btn-admin-outline !h-9 !w-9 !p-0"
-                      title="Email branch"
+                      title="Email academy"
                     >
                       <Mail className="h-4 w-4" />
                     </a>
@@ -1074,7 +1092,7 @@ export default function BranchDetailPage() {
             </AdminCard>
 
             <AdminCard>
-              <h3 className="mb-4 text-[15px] font-semibold text-[#2F3158]">Branch Details</h3>
+              <h3 className="mb-4 text-[15px] font-semibold text-[#2F3158]">Academy Details</h3>
               <div className="space-y-4 text-sm text-[#6B7A99]">
                 <div>
                   <p className="mb-1 flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-[#9593A8]">

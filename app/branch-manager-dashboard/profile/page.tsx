@@ -78,7 +78,7 @@ export default function BranchManagerProfilePage() {
             const branchManagerData = result.branch_manager
             const profileData: BranchManagerProfile = {
               id: branchManagerData.id,
-              full_name: branchManagerData.full_name || "Branch Manager",
+              full_name: branchManagerData.full_name || "Academy Manager",
               email: branchManagerData.email || "",
               phone: branchManagerData.phone || "",
               branch_name: branchManagerData.branch_assignment?.branch_name || "",
@@ -177,7 +177,7 @@ export default function BranchManagerProfilePage() {
         if (updatedData) {
           const profileData: BranchManagerProfile = {
             id: updatedData.id,
-            full_name: updatedData.full_name || "Branch Manager",
+            full_name: updatedData.full_name || "Academy Manager",
             email: updatedData.email || "",
             phone: updatedData.phone || "",
             branch_name: updatedData.branch_assignment?.branch_name || profile?.branch_name || "",
@@ -361,7 +361,7 @@ export default function BranchManagerProfilePage() {
                       <Shield className="w-4 h-4 text-blue-600" />
                       <div>
                         <p className="text-sm font-medium text-gray-900">Role</p>
-                        <p className="text-xs text-gray-500">Branch Manager</p>
+                        <p className="text-xs text-gray-500">Academy Manager</p>
                       </div>
                     </div>
 
@@ -369,7 +369,7 @@ export default function BranchManagerProfilePage() {
                       <div className="flex items-center space-x-3">
                         <User className="w-4 h-4 text-blue-600" />
                         <div>
-                          <p className="text-sm font-medium text-gray-900">Branch</p>
+                          <p className="text-sm font-medium text-gray-900">Academy</p>
                           <p className="text-xs text-gray-500">{profile.branch_name}</p>
                         </div>
                       </div>

@@ -14,7 +14,7 @@ export default function SuccessPage() {
 
         {/* Login Button */}
         <Link href="/login">
-          <Button className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-3 rounded-lg text-lg">
+          <Button className="w-full  font-bold py-3 rounded-lg text-lg">
             login
           </Button>
         </Link>

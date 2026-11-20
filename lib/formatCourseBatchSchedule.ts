@@ -16,7 +16,7 @@ export type PublicCourseScheduleEntry = {
 }
 
 /**
- * Human-readable lines for course batches at a branch (from assignments.course_schedule).
+ * Human-readable lines for course batches at an academy (from assignments.course_schedule).
  */
 export function formatCourseBatchesForModal(
   courseSchedule: PublicCourseScheduleEntry[] | undefined | null,
@@ -137,7 +137,7 @@ export function formatBatchFeeLabel(
 }
 
 /**
- * Structured batch rows for branch course popup / cards (from assignments.course_schedule).
+ * Structured batch rows for academy course popup / cards (from assignments.course_schedule).
  */
 export function courseScheduleBatchCards(
   courseSchedule: PublicCourseScheduleEntry[] | undefined | null,

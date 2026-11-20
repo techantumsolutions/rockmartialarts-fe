@@ -11,6 +11,7 @@ import { TokenManager } from "@/lib/tokenManager"
 import { requireStudentSession } from "@/lib/sessionAuth"
 import { getBackendApiUrl } from "@/lib/config"
 import { useRazorpay } from "@/hooks/use-razorpay"
+import { filterEnrollableCourses } from "@/lib/studentRegistrationPayment"
 
 const RELATIONSHIPS = [
   { value: "child", label: "Child" },
@@ -33,6 +34,11 @@ interface Course {
   title: string
   category_id?: string
   available_durations?: Array<{ id: string; name: string; duration_months: number }>
+  branch_batches?: Array<{
+    batch_ref?: string
+    batch_fee?: number | null
+    fee_per_duration?: Record<string, number | string>
+  }>
 }
 
 export default function AddLinkedStudentPage() {
@@ -61,9 +67,7 @@ export default function AddLinkedStudentPage() {
     setStudentName(user?.full_name || "Student")
     ;(async () => {
       try {
-        const res = await fetch(getBackendApiUrl("auth/branch-options"), {
-          headers: TokenManager.getAuthHeaders(),
-        })
+        const res = await fetch(getBackendApiUrl("branches/public/all"), { cache: "no-store" })
         if (!res.ok) return
         const data = await res.json()
         setBranches(
@@ -87,7 +91,8 @@ export default function AddLinkedStudentPage() {
       try {
         const res = await fetch(`/api/courses/by-branch/${encodeURIComponent(branchId)}`)
         const data = await res.json().catch(() => ({}))
-        setCourses(Array.isArray(data.courses) ? data.courses : [])
+        const list = Array.isArray(data.courses) ? data.courses : []
+        setCourses(filterEnrollableCourses(list as Course[]))
       } catch {
         setCourses([])
       }
@@ -137,7 +142,7 @@ export default function AddLinkedStudentPage() {
       return
     }
     if (!branchId || !courseId || !duration) {
-      setError("Select a branch, course, and tenure so we can assign and charge the new student.")
+      setError("Select an academy, course, and tenure so we can assign and charge the new student.")
       return
     }
     setSubmitting(true)
@@ -322,7 +327,7 @@ export default function AddLinkedStudentPage() {
           }}
         >
           <SelectTrigger className="h-12">
-            <SelectValue placeholder="Select branch" />
+            <SelectValue placeholder="Select academy" />
           </SelectTrigger>
           <SelectContent>
             {branches.map((b) => (
@@ -378,7 +383,7 @@ export default function AddLinkedStudentPage() {
           <Button type="button" variant="outline" onClick={() => router.push("/student-dashboard")}>
             Cancel
           </Button>
-          <Button type="submit" disabled={submitting} className="bg-yellow-400 hover:bg-yellow-500 text-black">
+          <Button type="submit" disabled={submitting} className="">
             {submitting ? "Processing…" : estimate != null ? `Add & pay ₹${estimate.toLocaleString("en-IN")}` : "Add student"}
           </Button>
         </div>

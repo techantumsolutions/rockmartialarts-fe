@@ -631,7 +631,7 @@ export default function CategoriesManagementPage() {
               <DialogTrigger asChild>
                 <Button
                   onClick={handleNewCategory}
-                  className="bg-yellow-400 hover:bg-yellow-500 text-white"
+                  className=""
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Add Category
@@ -793,7 +793,7 @@ export default function CategoriesManagementPage() {
                   <Button
                     onClick={handleSubmit}
                     disabled={isSubmitting}
-                    className="bg-yellow-400 hover:bg-yellow-500 text-black"
+                    className=""
                   >
                     <Save className="w-4 h-4 mr-2" />
                     {isSubmitting ? "Saving..." : (editingCategory ? "Update" : "Create")}
@@ -806,7 +806,7 @@ export default function CategoriesManagementPage() {
               <DialogTrigger asChild>
                 <Button
                   onClick={handleNewSubCategory}
-                  className="bg-blue-500 hover: text-white"
+                  className=""
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Add Sub Category
@@ -934,7 +934,7 @@ export default function CategoriesManagementPage() {
                     <Button
                       onClick={handleSubCategorySubmit}
                       disabled={isSubmitting}
-                      className="bg-blue-500 hover: text-white"
+                      className=""
                     >
                       <Save className="w-4 h-4 mr-2" />
                       {isSubmitting ? "Creating..." : "Create Sub-Category"}
@@ -995,7 +995,7 @@ export default function CategoriesManagementPage() {
                   {!searchTerm && (
                     <Button
                       onClick={handleNewCategory}
-                      className="bg-yellow-400 hover:bg-yellow-500 text-black"
+                      className=""
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       Add First Category

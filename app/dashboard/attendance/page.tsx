@@ -155,7 +155,7 @@ export default function AttendanceOverviewPage() {
         headers
       })
 
-      // Fetch branches data for branch-wise statistics
+      // Fetch academies data for academy-wise statistics
       const branchesResponse = await fetch('/api/backend/branches', {
         method: 'GET',
         headers
@@ -192,13 +192,13 @@ export default function AttendanceOverviewPage() {
         console.warn("⚠️ Coaches endpoint failed:", coachesResponse.status)
       }
 
-      // Process branches response
+      // Process academies response
       if (branchesResponse.ok) {
         const data = await branchesResponse.json()
         branchData = data.branches || []
-        console.log(`🏢 Branches data received: ${branchData.length} branches`)
+        console.log(`🏢 Academies data received: ${branchData.length} branches`)
       } else {
-        console.warn("⚠️ Branches endpoint failed:", branchesResponse.status)
+        console.warn("⚠️ Academies endpoint failed:", branchesResponse.status)
       }
 
       // Use stats data if available, otherwise calculate from student data
@@ -262,7 +262,7 @@ export default function AttendanceOverviewPage() {
 
       setStats(overviewStats)
 
-      // Calculate branch-wise statistics
+      // Calculate academy-wise statistics
       const branchStatsData: BranchStats[] = branchData.map((branch: any) => {
         const branchStudents = studentData.filter((s: any) => s.branch_id === branch.id)
         const presentStudents = branchStudents.filter((s: any) => s.attendance?.status === "present").length
@@ -275,7 +275,7 @@ export default function AttendanceOverviewPage() {
 
         return {
           id: branch.id,
-          name: branch.branch?.name || branch.name || 'Unknown Branch',
+          name: branch.branch?.name || branch.name || 'Unknown Academy',
           total_students: branchStudents.length,
           total_coaches: branchCoaches.length,
           student_present: presentStudents,
@@ -665,7 +665,7 @@ export default function AttendanceOverviewPage() {
               <div className="text-center py-12">
                 <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No branch data available</h3>
-                <p className="text-gray-500">Branch statistics will appear here once data is loaded.</p>
+                <p className="text-gray-500">Academy statistics will appear here once data is loaded.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -733,7 +733,7 @@ export default function AttendanceOverviewPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => router.push(`/dashboard/attendance/students?branch=${branch.id}`)}
+                            onClick={() => router.push(`/dashboard/attendance/students?academy=${branch.id}`)}
                           >
                             <Eye className="h-4 w-4 mr-1" />
                             View Details

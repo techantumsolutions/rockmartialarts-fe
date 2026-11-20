@@ -70,8 +70,13 @@ export default function PartnerStudentLoginPage() {
       })
       localStorage.setItem("partner_slug", slug)
       localStorage.setItem("partner_name", partnerName)
+      const {
+        markStudentPromoPendingAfterLogin,
+        withStudentPromoLoginQuery,
+      } = await import("@/lib/studentPromoLoginFlag")
+      markStudentPromoPendingAfterLogin()
       toast({ title: "Welcome", description: `Signed in to ${partnerName}` })
-      router.push(safeStudentReturnUrl(null))
+      router.push(withStudentPromoLoginQuery(safeStudentReturnUrl(null)))
     } catch {
       setError("An error occurred during login. Please try again.")
     } finally {

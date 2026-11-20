@@ -212,7 +212,7 @@ export default function DemoSchedulesAdminPage() {
   const save = async () => {
     const branchId = isBranchAdmin ? getActiveBranchId() || form.branch_id : form.branch_id
     if (!branchId || !form.course_id) {
-      toast({ title: "Branch and course are required", variant: "destructive" })
+      toast({ title: "Academy and course are required", variant: "destructive" })
       return
     }
     if (!form.start_time || !form.end_time) {
@@ -344,7 +344,7 @@ export default function DemoSchedulesAdminPage() {
             </Button>
             <Button
               type="button"
-              className="bg-yellow-400 hover:bg-yellow-500 text-white"
+              className=""
               onClick={openCreate}
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -370,13 +370,13 @@ export default function DemoSchedulesAdminPage() {
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input
-                    placeholder="Search title, branch, course…"
+                    placeholder="Search title, academy, course…"
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
                     className="pl-9"
                   />
                 </div>
-                <Button type="submit" className="bg-yellow-400 hover:bg-yellow-500 text-white">
+                <Button type="submit" className="">
                   Search
                 </Button>
               </div>
@@ -392,7 +392,7 @@ export default function DemoSchedulesAdminPage() {
                     }}
                   >
                     <SelectTrigger className="h-10 bg-white">
-                      <SelectValue placeholder="All branches" />
+                      <SelectValue placeholder="All academies" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All branches</SelectItem>
@@ -452,7 +452,7 @@ export default function DemoSchedulesAdminPage() {
                 <table className="w-full text-sm text-left">
                   <thead className="bg-gray-100 text-gray-700">
                     <tr>
-                      <th className="px-3 py-2 font-semibold">Branch</th>
+                      <th className="px-3 py-2 font-semibold">Academy</th>
                       <th className="px-3 py-2 font-semibold">Course</th>
                       <th className="px-3 py-2 font-semibold">Recurrence</th>
                       <th className="px-3 py-2 font-semibold">Time</th>
@@ -565,7 +565,7 @@ export default function DemoSchedulesAdminPage() {
           if (!saving) setEditorOpen(false)
         }}
         title={editing ? "Edit Demo Schedule" : "Add Demo Schedule"}
-        subtitle="Set branch, course, recurrence, timing, capacity and fee."
+        subtitle="Set academy, course, recurrence, timing, capacity and fee."
         icon={CalendarDays}
         tone="violet"
         size="lg"
@@ -582,7 +582,7 @@ export default function DemoSchedulesAdminPage() {
                 />
               </div>
               <div className="space-y-1">
-                <Label>Branch *</Label>
+                <Label>Academy *</Label>
                 {isBranchAdmin ? (
                   <BranchSelectionField readOnly className="h-10" />
                 ) : (
@@ -591,7 +591,7 @@ export default function DemoSchedulesAdminPage() {
                     onValueChange={(v) => setForm((f) => ({ ...f, branch_id: v }))}
                   >
                     <SelectTrigger className="bg-white">
-                      <SelectValue placeholder="Select branch" />
+                      <SelectValue placeholder="Select academy" />
                     </SelectTrigger>
                     <SelectContent>
                       {branches.map((b) => (

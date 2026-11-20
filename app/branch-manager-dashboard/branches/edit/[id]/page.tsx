@@ -16,6 +16,7 @@ import { useRouter, useParams } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import Header from "@/components/layout/Header"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { AdminStickyFormActions } from "@/components/dashboard/AdminStickyFormActions"
 
 interface FormData {
   branch: {
@@ -69,6 +70,15 @@ export default function EditBranch() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+  useEffect(() => {
+    if (!showSuccessPopup) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [showSuccessPopup])
+
   const [errors, setErrors] = useState<FormErrors>({})
 
   // State for new timing form
@@ -129,7 +139,7 @@ export default function EditBranch() {
         setIsLoading(true)
         const token = BranchManagerAuth.getToken()
 
-        // Fetch branch data and other required data in parallel
+        // Fetch academy data and other required data in parallel
         const [branchResponse, coursesResponse, managersResponse, adminsResponse, statesResponse] = await Promise.allSettled([
           fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branches/${branchId}`, {
             headers: {
@@ -163,16 +173,16 @@ export default function EditBranch() {
           })
         ])
 
-        // Handle branch data
+        // Handle academy data
         if (branchResponse.status === 'fulfilled' && branchResponse.value.ok) {
           const branchData = await branchResponse.value.json()
-          console.log('Branch data received:', branchData)
+          console.log('Academy data received:', branchData)
           setFormData(branchData)
         } else {
-          console.error('Failed to fetch branch data:', branchResponse)
+          console.error('Failed to fetch academy data:', branchResponse)
           toast({
             title: "Error",
-            description: "Failed to load branch data. Please try again.",
+            description: "Failed to load academy data. Please try again.",
             variant: "destructive",
           })
         }
@@ -229,7 +239,7 @@ export default function EditBranch() {
         console.error('Error fetching data:', error)
         toast({
           title: "Error",
-          description: "Failed to load branch data. Please try again.",
+          description: "Failed to load academy data. Please try again.",
           variant: "destructive",
         })
       } finally {
@@ -303,7 +313,7 @@ export default function EditBranch() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header title="Edit Branch" role="branch_admin" />
+        <Header title="Edit Academy" role="branch_admin" />
         <main className="w-full mx-auto p-4 sm:p-6 lg:px-8">
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
@@ -318,7 +328,7 @@ export default function EditBranch() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header title="Edit Branch" role="branch_admin" />
+      <Header title="Edit Academy" role="branch_admin" />
 
       <main className="w-full mx-auto p-4 sm:p-6 lg:px-8">
         {/* Header */}
@@ -331,16 +341,19 @@ export default function EditBranch() {
               className="flex items-center space-x-2"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Back to Branches</span>
+              <span>Back to Academies</span>
             </Button>
             <div>
-              <h1 className="text-2xl font-bold text-[#4F5077]">Edit Branch</h1>
+              <h1 className="text-2xl font-bold text-[#4F5077]">Edit Academy</h1>
               <p className="text-[#7D8592]">Update branch information and settings</p>
             </div>
           </div>
         </div>
 
-        <form onSubmit={async (e) => {
+        <form
+          id="bm-branch-edit-form"
+          className="admin-page-with-sticky-actions"
+          onSubmit={async (e) => {
           e.preventDefault()
           setIsSubmitting(true)
 
@@ -357,11 +370,11 @@ export default function EditBranch() {
 
             if (!response.ok) {
               const errorData = await response.json().catch(() => ({}))
-              throw new Error(errorData.detail || 'Failed to update branch')
+              throw new Error(errorData.detail || 'Failed to update academy')
             }
 
             const result = await response.json()
-            console.log('Branch updated successfully:', result)
+            console.log('Academy updated successfully:', result)
 
             setShowSuccessPopup(true)
             setTimeout(() => {
@@ -370,7 +383,7 @@ export default function EditBranch() {
             }, 2000)
 
           } catch (error) {
-            console.error('Error updating branch:', error)
+            console.error('Error updating academy:', error)
             toast({
               title: "Error",
               description: error instanceof Error ? error.message : "Failed to update branch. Please try again.",
@@ -387,28 +400,28 @@ export default function EditBranch() {
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2 text-[#4F5077]">
                     <Building className="w-5 h-5" />
-                    <span>Branch & Address Information</span>
+                    <span>Academy & Address Information</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6 text-[#7D8592]">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="branchName">Branch Name *</Label>
+                      <Label htmlFor="branchName">Academy Name *</Label>
                       <Input
                         id="branchName"
                         value={formData.branch.name}
-                        onChange={(e) => handleInputChange('branch.name', e.target.value)}
-                        placeholder="Enter branch name"
+                        onChange={(e) => handleInputChange('academy.name', e.target.value)}
+                        placeholder="Enter academy name"
                         required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="branchCode">Branch Code *</Label>
+                      <Label htmlFor="branchCode">Academy Code *</Label>
                       <Input
                         id="branchCode"
                         value={formData.branch.code}
-                        onChange={(e) => handleInputChange('branch.code', e.target.value)}
-                        placeholder="Enter branch code"
+                        onChange={(e) => handleInputChange('academy.code', e.target.value)}
+                        placeholder="Enter academy code"
                         required
                       />
                     </div>
@@ -421,7 +434,7 @@ export default function EditBranch() {
                         id="branchEmail"
                         type="email"
                         value={formData.branch.email}
-                        onChange={(e) => handleInputChange('branch.email', e.target.value)}
+                        onChange={(e) => handleInputChange('academy.email', e.target.value)}
                         placeholder="Enter email address"
                         required
                       />
@@ -431,7 +444,7 @@ export default function EditBranch() {
                       <Input
                         id="branchPhone"
                         value={formData.branch.phone}
-                        onChange={(e) => handleInputChange('branch.phone', e.target.value)}
+                        onChange={(e) => handleInputChange('academy.phone', e.target.value)}
                         placeholder="Enter phone number"
                         required
                       />
@@ -443,7 +456,7 @@ export default function EditBranch() {
                     <Input
                       id="addressLine1"
                       value={formData.branch.address.line1}
-                      onChange={(e) => handleInputChange('branch.address.line1', e.target.value)}
+                      onChange={(e) => handleInputChange('academy.address.line1', e.target.value)}
                       placeholder="Enter address line 1"
                       required
                     />
@@ -455,7 +468,7 @@ export default function EditBranch() {
                       <Input
                         id="area"
                         value={formData.branch.address.area}
-                        onChange={(e) => handleInputChange('branch.address.area', e.target.value)}
+                        onChange={(e) => handleInputChange('academy.address.area', e.target.value)}
                         placeholder="Enter area"
                       />
                     </div>
@@ -464,7 +477,7 @@ export default function EditBranch() {
                       <Input
                         id="city"
                         value={formData.branch.address.city}
-                        onChange={(e) => handleInputChange('branch.address.city', e.target.value)}
+                        onChange={(e) => handleInputChange('academy.address.city', e.target.value)}
                         placeholder="Enter city"
                         required
                       />
@@ -476,7 +489,7 @@ export default function EditBranch() {
                       <Label htmlFor="state">State *</Label>
                       <Select
                         value={formData.branch.address.state}
-                        onValueChange={(value) => handleInputChange('branch.address.state', value)}
+                        onValueChange={(value) => handleInputChange('academy.address.state', value)}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select state" />
@@ -495,7 +508,7 @@ export default function EditBranch() {
                       <Input
                         id="pincode"
                         value={formData.branch.address.pincode}
-                        onChange={(e) => handleInputChange('branch.address.pincode', e.target.value)}
+                        onChange={(e) => handleInputChange('academy.address.pincode', e.target.value)}
                         placeholder="Enter pincode"
                         required
                       />
@@ -505,7 +518,7 @@ export default function EditBranch() {
                       <Input
                         id="country"
                         value={formData.branch.address.country}
-                        onChange={(e) => handleInputChange('branch.address.country', e.target.value)}
+                        onChange={(e) => handleInputChange('academy.address.country', e.target.value)}
                         placeholder="Enter country"
                         disabled
                       />
@@ -513,13 +526,13 @@ export default function EditBranch() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="manager">Branch Manager</Label>
+                    <Label htmlFor="manager">Academy Manager</Label>
                     <Select
                       value={formData.manager_id}
                       onValueChange={(value) => handleInputChange('manager_id', value)}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select branch manager" />
+                        <SelectValue placeholder="Select academy manager" />
                       </SelectTrigger>
                       <SelectContent>
                         {availableManagers.map((manager) => (
@@ -549,18 +562,18 @@ export default function EditBranch() {
                       checked={formData.assignments.accessories_available}
                       onCheckedChange={(checked) => handleInputChange('assignments.accessories_available', checked)}
                     />
-                    <Label htmlFor="accessoriesAvailable">Accessories Available at Branch</Label>
+                    <Label htmlFor="accessoriesAvailable">Accessories Available at Academy</Label>
                   </div>
 
                   {/* Course Assignments */}
                   <div className="space-y-2">
-                    <Label>Assign Courses to Branch</Label>
+                    <Label>Assign Courses to Academy</Label>
                     {isLoadingCourses ? (
                       <div className="p-4 text-center text-gray-500">
                         <p className="text-sm">Loading courses...</p>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 gap-3 max-h-40 overflow-y-auto">
+                      <div className="grid grid-cols-1 gap-3 max-h-[min(60vh,28rem)] overflow-y-auto overscroll-contain">
                         {availableCourses.length > 0 ? (
                           availableCourses.map((course) => (
                             <div key={course.id} className="flex items-center space-x-2">
@@ -613,9 +626,9 @@ export default function EditBranch() {
                     )}
                   </div>
 
-                  {/* Branch Admins */}
+                  {/* Academy Admins */}
                   <div className="space-y-2">
-                    <Label>Branch Administrators</Label>
+                    <Label>Academy Administrators</Label>
                     {isLoadingAdmins ? (
                       <div className="p-4 text-center text-gray-500">
                         <p className="text-sm">Loading administrators...</p>
@@ -929,46 +942,49 @@ export default function EditBranch() {
                   </div>
                 </CardContent>
               </Card>
-              {/* Submit Button */}
-              <div className="flex justify-end space-x-4 pt-6 border-t">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => router.push("/branch-manager-dashboard/branches")}
-                  className="px-6 py-2"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  className="bg-yellow-400 hover:bg-yellow-500 text-white px-6 py-2"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Updating Branch...
-                    </>
-                  ) : (
-                    'Update Branch'
-                  )}
-                </Button>
-              </div>
             </div>
           </div>
         </form>
 
+        <AdminStickyFormActions>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push("/branch-manager-dashboard/branches")}
+            className="px-6 py-2"
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="bm-branch-edit-form"
+            className="px-6 py-2"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Updating Branch...
+              </>
+            ) : (
+              "Update Academy"
+            )}
+          </Button>
+        </AdminStickyFormActions>
+
         {/* Success Popup */}
         {showSuccessPopup && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-            <div className="bg-white rounded-lg p-6 max-w-sm mx-4">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden p-4 sm:p-6">
+        <div className="absolute inset-0 bg-[#0f172a]/55 backdrop-blur-[2px]" aria-hidden />
+            <div className="relative z-[1] bg-white rounded-2xl border border-[#E8EAF0] shadow-[0_24px_80px_rgba(15,23,42,0.28)] p-6 max-w-sm mx-4">
               <div className="text-center">
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Branch Updated!</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Academy Updated!</h3>
                 <p className="text-gray-600 mb-4">The branch has been successfully updated.</p>
               </div>
             </div>

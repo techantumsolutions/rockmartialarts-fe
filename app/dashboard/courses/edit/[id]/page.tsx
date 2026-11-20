@@ -33,10 +33,12 @@ import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/AuthContext"
 import { TokenManager } from "@/lib/tokenManager"
 import { CourseMediaResourcesFields } from "@/components/dashboard/CourseMediaResourcesFields"
+import { AdminImageUpload } from "@/components/ui/AdminImageUpload"
 import CourseFormSections, { PageContent } from "@/components/dashboard/CourseFormSections"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { useDashboardRole } from "@/lib/useDashboardBasePath"
 import { usePartnerFeaturePermissions } from "@/hooks/usePartnerFeaturePermissions"
+import { AdminStickyFormActions } from "@/components/dashboard/AdminStickyFormActions"
 
 function resolveCoursesDashboardBase(pathname: string | null): string {
   if (!pathname) return "/super-admin/dashboard"
@@ -61,9 +63,18 @@ export default function EditCoursePage() {
   const dashboardRole = useDashboardRole()
   const { coursePermissions } = usePartnerFeaturePermissions(dashboardRole)
   const coursesBasePath = useMemo(() => resolveCoursesDashboardBase(pathname), [pathname])
-  // Branch admin gets the same full edit form as other admins.
+  // Academy admin gets the same full edit form as other admins.
   const isBranchFeeOnly = false
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+  useEffect(() => {
+    if (!showSuccessPopup) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [showSuccessPopup])
+
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -555,7 +566,7 @@ export default function EditCoursePage() {
     )
   }, [masterDurations.length, formData.duration])
 
-  // Fetch branches on mount
+  // Fetch academies on mount
   useEffect(() => {
     const fetchBranches = async () => {
       setLoadingBranches(true)
@@ -570,7 +581,7 @@ export default function EditCoursePage() {
 
         if (res.ok) {
           const data = await res.json()
-          console.log("Branches API response:", data)
+          console.log("Academies API response:", data)
           
           // Handle different response structures
           let branchList = []
@@ -582,13 +593,13 @@ export default function EditCoursePage() {
             branchList = data.data
           }
           
-          // Filter only active branches
+          // Filter only active academies
           const activeBranches = branchList.filter(branch => branch.is_active !== false)
-          console.log("Active branches:", activeBranches)
+          console.log("Active academies:", activeBranches)
           setBranches(activeBranches)
         }
       } catch (err) {
-        console.error("Failed to fetch branches:", err)
+        console.error("Failed to fetch academies:", err)
       } finally {
         setLoadingBranches(false)
       }
@@ -620,7 +631,7 @@ export default function EditCoursePage() {
         if (entries.length === 0) {
           toast({
             title: "Validation Error",
-            description: "Select your branch and add tenure fees.",
+            description: "Select your academy and add tenure fees.",
             variant: "destructive",
           })
           setIsSubmitting(false)
@@ -638,7 +649,7 @@ export default function EditCoursePage() {
         if (!hasFee) {
           toast({
             title: "Validation Error",
-            description: "Enter at least one branch tenure fee greater than zero.",
+            description: "Enter at least one academy tenure fee greater than zero.",
             variant: "destructive",
           })
           setIsSubmitting(false)
@@ -686,7 +697,7 @@ export default function EditCoursePage() {
         })
         const result = await response.json()
         if (!response.ok) {
-          let errorMessage = `Failed to update branch fees (${response.status})`
+          let errorMessage = `Failed to update academy fees (${response.status})`
           if (result.detail) {
             if (Array.isArray(result.detail)) {
               errorMessage = result.detail
@@ -704,7 +715,7 @@ export default function EditCoursePage() {
           }
           throw new Error(errorMessage)
         }
-        toast({ title: "Success!", description: "Branch fees updated successfully." })
+        toast({ title: "Success!", description: "Academy fees updated successfully." })
         setShowSuccessPopup(true)
         setIsSubmitting(false)
         return
@@ -730,7 +741,7 @@ export default function EditCoursePage() {
         return
       }
 
-      // Live student prices are set on Branch → Course Assignments (batch fees).
+      // Live student prices are set on Academy → Course Assignments (batch fees).
       // Course-level tenure fees are optional and must not block saving course details.
 
       const feePerDurationPayload: Record<string, number> = {}
@@ -947,7 +958,7 @@ export default function EditCoursePage() {
 
   const fieldLabel = "text-sm font-medium text-[#4F5077]"
   const inputClass =
-    "h-11 rounded-lg border-gray-200 bg-white shadow-sm focus-visible:ring-[#4F5077]/30"
+    "h-14 w-full rounded-xl border-[#E5E7EB] bg-[#F8FAFC] shadow-none focus-visible:border-[#E1BB33] focus-visible:ring-[#E1BB33]/35"
   const sectionCard = "rounded-2xl border border-gray-200/80 bg-white shadow-sm overflow-hidden"
   const categoryName =
     categories.find((cat) => cat.id === formData.category)?.name || "—"
@@ -1010,11 +1021,11 @@ export default function EditCoursePage() {
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-[#2F3153]">
-              {isBranchFeeOnly ? "Branch course fees" : "Edit Course"}
+              {isBranchFeeOnly ? "Academy course fees" : "Edit Course"}
             </h1>
             <p className="mt-1 text-sm text-gray-500">
               {isBranchFeeOnly
-                ? "Edit fees for your branch only. Other course details are managed by a super admin."
+                ? "Edit fees for your academy only. Other course details are managed by a super admin."
                 : "Update course details, requirements, media, and the public page layout."}
             </p>
           </div>
@@ -1099,7 +1110,8 @@ export default function EditCoursePage() {
             </div>
           </div>
         ) : (
-          <form id="edit-course-form" onSubmit={handleSubmit}>
+          <>
+          <form id="edit-course-form" onSubmit={handleSubmit} className="admin-page-with-sticky-actions">
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
               <div className="space-y-5 xl:col-span-8">
                 <div className={`${sectionCard} p-5 sm:p-6`}>
@@ -1462,16 +1474,13 @@ export default function EditCoursePage() {
                       className="rounded-lg border-gray-200 bg-white shadow-sm focus-visible:ring-[#4F5077]/30"
                     />
                   </div>
-                  <div className="mt-4 space-y-2">
-                    <Label htmlFor="seo_og_image" className={fieldLabel}>
-                      OG Image URL
-                    </Label>
-                    <Input
-                      id="seo_og_image"
+                  <div className="mt-4">
+                    <AdminImageUpload
+                      label="OG image"
+                      shape="wide"
                       value={seoData.og_image}
-                      onChange={(e) => setSeoData({ ...seoData, og_image: e.target.value })}
-                      placeholder="https://example.com/og-image.jpg"
-                      className={inputClass}
+                      onChange={(url) => setSeoData({ ...seoData, og_image: url })}
+                      onClear={() => setSeoData({ ...seoData, og_image: "" })}
                     />
                   </div>
                 </div>
@@ -1486,31 +1495,6 @@ export default function EditCoursePage() {
                   <CourseFormSections value={pageContent} onChange={setPageContent} />
                 </div>
 
-                <div className="flex flex-wrap items-center justify-end gap-3 pb-8 pt-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => router.push(`${coursesBasePath}/courses`)}
-                    disabled={isSubmitting}
-                    className="h-11 rounded-lg border-gray-200 bg-white px-6 text-[#4F5077]"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="h-11 rounded-lg bg-[#F5C518] px-8 font-semibold text-[#2F3153] hover:bg-[#e6b800]"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      "Save"
-                    )}
-                  </Button>
-                </div>
               </div>
 
               <aside className="space-y-4 xl:col-span-4">
@@ -1646,11 +1630,40 @@ export default function EditCoursePage() {
               </aside>
             </div>
           </form>
+
+          <AdminStickyFormActions>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push(`${coursesBasePath}/courses`)}
+              disabled={isSubmitting}
+              className="h-11 rounded-lg border-gray-200 bg-white px-6 text-[#4F5077]"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="edit-course-form"
+              className="h-11 rounded-lg bg-[#F5C518] px-8 font-semibold text-[#2F3153] hover:bg-[#e6b800]"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save"
+              )}
+            </Button>
+          </AdminStickyFormActions>
+          </>
         )}
       </main>
 
       {showSuccessPopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden p-4 sm:p-6">
+        <div className="absolute inset-0 bg-[#0f172a]/55 backdrop-blur-[2px]" aria-hidden />
           <div className="mx-4 w-full max-w-md rounded-2xl bg-white p-8 shadow-xl">
             <div className="text-center">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">

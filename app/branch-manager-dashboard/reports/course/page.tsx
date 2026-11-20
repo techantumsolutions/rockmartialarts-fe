@@ -54,7 +54,7 @@ export default function BranchManagerCourseReportPage() {
   // Load filter options on component mount
   useEffect(() => {
     const currentUser = BranchManagerAuth.getCurrentUser()
-    console.log('🏢 Branch Manager User Info:', {
+    console.log('🏢 Academy Manager User Info:', {
       user: currentUser?.full_name,
       email: currentUser?.email,
       branch_id: currentUser?.branch_id,
@@ -63,15 +63,15 @@ export default function BranchManagerCourseReportPage() {
       role: currentUser?.role
     })
 
-    // If managed branches are not available, try to fetch them
+    // If managed academies are not available, try to fetch them
     if (!currentUser?.managed_branches || currentUser.managed_branches.length === 0) {
-      console.log('⚠️ No managed branches found, attempting to fetch...')
+      console.log('⚠️ No managed academies found, attempting to fetch...')
       BranchManagerAuth.fetchManagedBranches().then(branches => {
-        console.log('✅ Fetched managed branches:', branches)
-        // Reload filter options after fetching branches
+        console.log('✅ Fetched managed academies:', branches)
+        // Reload filter options after fetching academies
         loadFilterOptions()
       }).catch(error => {
-        console.error('❌ Failed to fetch managed branches:', error)
+        console.error('❌ Failed to fetch managed academies:', error)
         loadFilterOptions() // Still try to load filter options
       })
     } else {
@@ -79,7 +79,7 @@ export default function BranchManagerCourseReportPage() {
     }
   }, [])
 
-  // Load filter options with branch-specific filtering - following branches page pattern
+  // Load filter options with academy-specific filtering - following academies page pattern
   const loadFilterOptions = async () => {
     try {
       setInitialLoading(true)
@@ -92,7 +92,7 @@ export default function BranchManagerCourseReportPage() {
         throw new Error("Authentication required. Please login again.")
       }
 
-      console.log('🔧 Loading course report filter options for branch manager:', currentUser.full_name)
+      console.log('🔧 Loading course report filter options for academy manager:', currentUser.full_name)
 
       // Use the reportsAPI method instead of manual fetch
       const data = await reportsAPI.getCourseReportFilters(token)
@@ -101,24 +101,24 @@ export default function BranchManagerCourseReportPage() {
       const filtersData = data.filters || {}
       setFilterOptions({ filters: filtersData })
 
-      // Extract managed branches from filter options (same as branches page pattern)
+      // Extract managed academies from filter options (same as academies page pattern)
       const branches = filtersData.branches || []
       const branchIds = branches.map((branch: any) => branch.id)
       setManagedBranches(branchIds)
 
-      // Debug: Show branch IDs for cross-reference (same as branches page)
-      console.log('🏢 COURSE REPORTS - Branch IDs available for filtering:')
-      console.log('🏢 Branch IDs:', branchIds)
+      // Debug: Show academy IDs for cross-reference (same as academies page)
+      console.log('🏢 COURSE REPORTS - Academy IDs available for filtering:')
+      console.log('🏢 Academy IDs:', branchIds)
       branches.forEach((branch: any, index: number) => {
-        console.log(`   Branch ${index + 1}: ${branch.name || 'Unknown'} (ID: ${branch.id})`)
+        console.log(`   Academy ${index + 1}: ${branch.name || 'Unknown'} (ID: ${branch.id})`)
       })
 
       if (branches.length === 0) {
-        console.log('No branches found for branch manager')
-        setError("No branches assigned to you. Please contact your administrator to assign branches to your account.")
+        console.log('No academies found for academy manager')
+        setError("No academies assigned to you. Please contact your administrator to assign academies to your account.")
       } else {
-        console.log(`✅ Loaded ${branches.length} branch(es) for ${currentUser.full_name}`)
-        console.log('🔗 These branch IDs should be used for course filtering')
+        console.log(`✅ Loaded ${academies.length} academy(ies) for ${currentUser.full_name}`)
+        console.log('🔗 These academy IDs should be used for course filtering')
       }
 
     } catch (err: any) {
@@ -141,7 +141,7 @@ export default function BranchManagerCourseReportPage() {
     setFilters(prev => ({ ...prev, [key]: processedValue }))
   }
 
-  // Handle course search with branch-specific filtering
+  // Handle course search with academy-specific filtering
   const handleCourseSearch = async () => {
     if (!BranchManagerAuth.isAuthenticated()) {
       toast.error('Authentication required')
@@ -158,18 +158,18 @@ export default function BranchManagerCourseReportPage() {
     setHasSearched(true)
 
     try {
-      // Get current branch manager's managed branches for filtering
+      // Get current academy manager's managed academies for filtering
       const currentUser = BranchManagerAuth.getCurrentUser()
       const managedBranches = currentUser?.managed_branches || []
 
-      console.log('🔍 Branch Manager Course Search:', {
+      console.log('🔍 Academy Manager Course Search:', {
         currentUser: currentUser?.full_name,
         managedBranches,
         filters,
         token: token ? 'Present' : 'Missing'
       })
 
-      // Apply search filters - let backend handle branch manager filtering automatically
+      // Apply search filters - let backend handle academy manager filtering automatically
       const searchFilters = {
         ...filters,
         skip: 0,
@@ -316,7 +316,7 @@ export default function BranchManagerCourseReportPage() {
               <span>Test Search</span>
             </Button>
             <Button
-              className="bg-yellow-400 hover:bg-yellow-500 text-black flex items-center space-x-2"
+              className=" flex items-center space-x-2"
               onClick={handleDownloadReport}
             >
               <Download className="w-4 h-4" />
@@ -347,7 +347,7 @@ export default function BranchManagerCourseReportPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                 {/* Branch Dropdown - Filter to show only managed branches */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Academy</label>
                   <BranchSelectionField readOnly />
                 </div>
 
@@ -510,7 +510,7 @@ export default function BranchManagerCourseReportPage() {
                     <p className="text-sm text-gray-500 mt-2">
                       {currentUser?.managed_branches?.length ?
                         `You manage ${currentUser.managed_branches.length} branch${currentUser.managed_branches.length !== 1 ? 'es' : ''}` :
-                        'No branches assigned - contact your administrator'
+                        'No academies assigned - contact your administrator'
                       }
                     </p>
                   </div>

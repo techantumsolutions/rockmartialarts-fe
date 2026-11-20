@@ -101,6 +101,15 @@ export default function EditCoachPage() {
   const coachId = params.id as string
   const { toast } = useToast()
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+  useEffect(() => {
+    if (!showSuccessPopup) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [showSuccessPopup])
+
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSendingEmail, setIsSendingEmail] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -136,8 +145,6 @@ export default function EditCoachPage() {
     category: "",
     subCategory: "",
     certificates: [] as Array<{title: string, file: File | null, preview: string}>,
-    category: "",
-    subCategory: "",
     certificationFiles: [] as File[],
 
     // Assignment Details
@@ -616,31 +623,31 @@ export default function EditCoachPage() {
 
         if (response.ok) {
           const data = await response.json()
-          console.log('✅ Real backend branches data:', data)
+          console.log('✅ Real backend academies data:', data)
 
-          // Set branches data
+          // Set academies data
           setBranches(data.branches || [])
         } else {
-          console.error('Failed to load branches:', response.status, response.statusText)
+          console.error('Failed to load academyes:', response.status, response.statusText)
           if (response.status === 401) {
             toast({
               title: "Authentication Error",
-              description: "Please login again to access branch data.",
+              description: "Please login again to access academy data.",
               variant: "destructive",
             })
           } else {
             toast({
               title: "Error",
-              description: "Failed to load branches. Please try again.",
+              description: "Failed to load academyes. Please try again.",
               variant: "destructive",
             })
           }
         }
       } catch (error) {
-        console.error('Error loading branches:', error)
+        console.error('Error loading academies:', error)
         toast({
           title: "Error",
-          description: "Failed to load branches. Please check your connection.",
+          description: "Failed to load academyes. Please check your connection.",
           variant: "destructive",
         })
       } finally {
@@ -874,7 +881,7 @@ export default function EditCoachPage() {
           certifications: formData.certificates.map(c => c.title)  // Will be replaced with URLs after upload
         },
         areas_of_expertise: formData.courses || [],
-        branch_id: formData.branch || null,  // Include branch assignment
+        branch_id: formData.branch || null,  // Include academy assignment
         training_mode: formData.trainingMode || null,
         assignment_details: {
           courses: formData.courses,  // Include course assignments
@@ -890,9 +897,9 @@ export default function EditCoachPage() {
 
       console.log("Creating coach with data:", coachData)
 
-      // Log branch and course assignments for debugging
+      // Log academy and course assignments for debugging
       if (formData.branch || formData.courses.length > 0) {
-        console.log("Branch and course assignments:", {
+        console.log("Academy and course assignments:", {
           selectedBranch: formData.branch,
           selectedCourses: formData.courses,
           assignmentDetails: coachData.assignment_details
@@ -1429,7 +1436,7 @@ export default function EditCoachPage() {
             <CardContent className="space-y-4 text-[#7D8592]">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="branch">Assign to Branch</Label>
+                  <Label htmlFor="branch">Assign to Academy</Label>
                   {isLoadingBranches ? (
                     <div className="flex items-center justify-center py-2">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600"></div>
@@ -1441,7 +1448,7 @@ export default function EditCoachPage() {
                       onValueChange={(value) => setFormData({ ...formData, branch: value })}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select branch" />
+                        <SelectValue placeholder="Select academy" />
                       </SelectTrigger>
                       <SelectContent>
                         {branches.length === 0 ? (
@@ -1630,7 +1637,7 @@ export default function EditCoachPage() {
             </Button>
             <Button
               type="submit"
-              className="bg-yellow-400 hover:bg-yellow-500 text-white"
+              className=""
               disabled={isSubmitting}
             >
               {isSubmitting ? (
@@ -1648,15 +1655,16 @@ export default function EditCoachPage() {
 
       {/* Success Popup */}
       {showSuccessPopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4 text-center">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden p-4 sm:p-6">
+        <div className="absolute inset-0 bg-[#0f172a]/55 backdrop-blur-[2px]" aria-hidden />
+          <div className="relative z-[1] bg-white rounded-2xl border border-[#E8EAF0] shadow-[0_24px_80px_rgba(15,23,42,0.28)] p-8 max-w-md w-full mx-4 text-center">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Coach Created Successfully!</h3>
-            <p className="text-gray-600 mb-6">The new coach has been added to your academy.</p>
+            <p className="text-gray-600 mb-6">The new coach has been added to your branch.</p>
 
             <div className="space-y-3">
               <Button

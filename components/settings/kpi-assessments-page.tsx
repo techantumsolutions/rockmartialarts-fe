@@ -652,7 +652,7 @@ export default function KpiAssessmentsPage() {
                 ) : (
                   <Select value={branchId} onValueChange={setBranchId}>
                     <SelectTrigger>
-                      <SelectValue placeholder="All branches" />
+                      <SelectValue placeholder="All academies" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All branches</SelectItem>
@@ -866,7 +866,7 @@ export default function KpiAssessmentsPage() {
                   ) : (
                     <Select value={branchId} onValueChange={setBranchId}>
                       <SelectTrigger>
-                        <SelectValue placeholder="All branches" />
+                        <SelectValue placeholder="All academies" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All branches</SelectItem>
@@ -1105,7 +1105,7 @@ export default function KpiAssessmentsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="overall">Overall</SelectItem>
-                      <SelectItem value="branch">Branch</SelectItem>
+                      <SelectItem value="branch">Academy</SelectItem>
                       <SelectItem value="course">Course</SelectItem>
                       <SelectItem value="category">Category</SelectItem>
                       <SelectItem value="all">All populations (recalc)</SelectItem>
@@ -1113,13 +1113,13 @@ export default function KpiAssessmentsPage() {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Branch filter</Label>
+                  <Label>Academy filter</Label>
                   {isBranchAdmin ? (
                     <BranchSelectionField readOnly />
                   ) : (
                     <Select value={branchId} onValueChange={setBranchId}>
                       <SelectTrigger>
-                        <SelectValue placeholder="All branches" />
+                        <SelectValue placeholder="All academies" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All branches</SelectItem>

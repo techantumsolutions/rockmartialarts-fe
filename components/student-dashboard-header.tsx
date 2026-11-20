@@ -9,6 +9,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { usePermissions } from "@/hooks/use-permissions"
 import NotificationDropdown from "@/components/notification-dropdown"
 import { useCMS } from "@/contexts/CMSContext"
+import { usePlatformBranding } from "@/contexts/PlatformBrandingContext"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import { getBackendApiUrl } from "@/lib/config"
 import { TokenManager } from "@/lib/tokenManager"
@@ -58,6 +59,7 @@ export default function StudentDashboardHeader({
   const [profileImage, setProfileImage] = useState<string>("")
   const [hasRegistrationForms, setHasRegistrationForms] = useState(() => readRegistrationFormsCache())
   const { cms } = useCMS()
+  const { logoUrl: platformLogoUrl, platformShortName } = usePlatformBranding()
 
   const readProfileImage = () => {
     try {
@@ -247,7 +249,8 @@ export default function StudentDashboardHeader({
 
   // Filter navigation items based on permissions
   const navigationItems = allNavigationItems.filter(item => hasPermission(item.permissionId))
-  const navbarLogo = resolvePublicAssetUrl(cms?.branding?.navbar_logo) || "/logo.png"
+  const navbarLogo =
+    platformLogoUrl || resolvePublicAssetUrl(cms?.branding?.navbar_logo) || "/logo.png"
 
 
   return (
@@ -259,7 +262,7 @@ export default function StudentDashboardHeader({
             <div className="flex-shrink-0">
               <img
                 src={navbarLogo}
-                alt="Logo"
+                alt={platformShortName}
                 className="w-[68px] sm:w-[75px] xl:w-[85px] 2student-dash-header-logo xl:w-[95px] h-auto object-contain flex-shrink-0"
               />
             </div>

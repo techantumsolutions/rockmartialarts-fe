@@ -52,7 +52,7 @@ const TIME_WINDOWS = [
 
 function getBranchName(b: Record<string, unknown>): string {
   const nested = b.branch as { name?: string } | undefined
-  return nested?.name || (b.name as string) || (b.code as string) || "Branch"
+  return nested?.name || (b.name as string) || (b.code as string) || "Academy"
 }
 
 export default function CallbackRequestPublicForm() {
@@ -242,7 +242,7 @@ export default function CallbackRequestPublicForm() {
             }
           >
             <SelectTrigger className="bg-gray-950 border-gray-700 text-white">
-              <SelectValue placeholder="Any branch" />
+              <SelectValue placeholder="Any academy" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">Any branch</SelectItem>

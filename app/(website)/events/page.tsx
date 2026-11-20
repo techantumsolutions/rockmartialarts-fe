@@ -73,14 +73,14 @@ export default function EventsCataloguePage() {
         className="relative py-20 md:py-28 bg-cover bg-center"
         style={{ backgroundImage: "url(/assets/img/banner.jpg)" }}
       >
-        <div className="absolute inset-0 bg-black/60" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#171A26]/50 via-[#171A26]/15 to-black/10" />
         <div className="site-content relative z-10 px-0 sm:px-1">
           <div className="max-w-2xl">
             <h1 className="text-4xl md:text-5xl font-bold text-white uppercase mb-4">
               Events, Seminars &amp; Workshops
             </h1>
             <p className="text-gray-200 text-lg">
-              Join upcoming academy sessions. Browse details, venues, and
+              Join upcoming branch sessions. Browse details, venues, and
               register when seats are open.
             </p>
           </div>

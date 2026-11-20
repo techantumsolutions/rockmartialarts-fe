@@ -40,6 +40,10 @@ export type PartnerOrg = {
     can_create_courses?: boolean
     can_edit_courses?: boolean
   }
+  /** When false, partner public landing hides custom Page CMS content. Default true. */
+  page_cms_enabled?: boolean
+  /** When true, show Rock website footer on partner public pages. Default false. */
+  public_footer_enabled?: boolean
   sms_allocated?: number | null
   whatsapp_allocated?: number | null
   sms_utilized?: number | null
@@ -164,6 +168,21 @@ class PartnerOrgAPI {
     }>
   }
 
+  async resetPassword(partnerOrgId: string, newPassword: string) {
+    const res = await fetch(
+      getBackendApiUrl(
+        `partner-organizations/${encodeURIComponent(partnerOrgId)}/reset-password`
+      ),
+      {
+        method: "POST",
+        headers: authHeaders(true),
+        body: JSON.stringify({ new_password: newPassword }),
+      }
+    )
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{ message?: string; partner?: PartnerOrg }>
+  }
+
   async updateValidity(
     partnerOrgId: string,
     body: { valid_from?: string | null; valid_until?: string | null }
@@ -258,6 +277,55 @@ class PartnerOrgAPI {
       }
       partner?: PartnerOrg
     }>
+  }
+
+  async patchPublicSiteSettings(
+    partnerOrgId: string,
+    body: { page_cms_enabled?: boolean; public_footer_enabled?: boolean }
+  ) {
+    const res = await fetch(
+      getBackendApiUrl(
+        `partner-organizations/${encodeURIComponent(partnerOrgId)}/public-site-settings`
+      ),
+      {
+        method: "PATCH",
+        headers: authHeaders(true),
+        body: JSON.stringify(body),
+      }
+    )
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{
+      message?: string
+      page_cms_enabled: boolean
+      public_footer_enabled: boolean
+      partner?: PartnerOrg
+    }>
+  }
+
+  async getAdminBranding(partnerOrgId: string) {
+    const res = await fetch(
+      getBackendApiUrl(
+        `partner-organizations/${encodeURIComponent(partnerOrgId)}/branding`
+      ),
+      { headers: authHeaders(), cache: "no-store" }
+    )
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<PartnerOrgBranding>
+  }
+
+  async upsertAdminBranding(partnerOrgId: string, body: PartnerOrgBrandingUpsert) {
+    const res = await fetch(
+      getBackendApiUrl(
+        `partner-organizations/${encodeURIComponent(partnerOrgId)}/branding`
+      ),
+      {
+        method: "PUT",
+        headers: authHeaders(true),
+        body: JSON.stringify(body),
+      }
+    )
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json() as Promise<{ message?: string; branding: PartnerOrgBranding }>
   }
 
   async getMyFeaturePermissions() {
@@ -389,22 +457,28 @@ class PartnerOrgAPI {
     return res.json() as Promise<{ message?: string; branding: PartnerOrgBranding }>
   }
 
-  async getMyBrandingEditPermission() {
+  async getMyBrandingEditPermission(branchId?: string) {
+    const qs = new URLSearchParams()
+    if (branchId) qs.set("branch_id", branchId)
+    const suffix = qs.toString() ? `?${qs.toString()}` : ""
     const res = await fetch(
-      getBackendApiUrl("partner-organizations/me/branding-edit-permission"),
+      getBackendApiUrl(`partner-organizations/me/branding-edit-permission${suffix}`),
       { headers: authHeaders(), cache: "no-store" }
     )
     if (!res.ok) throw new Error(await parseError(res))
     return res.json() as Promise<PartnerBrandingEditPermission>
   }
 
-  async requestBrandingEditAccess(note?: string) {
+  async requestBrandingEditAccess(note?: string, branchId?: string) {
     const res = await fetch(
       getBackendApiUrl("partner-organizations/me/branding-edit-request"),
       {
         method: "POST",
         headers: authHeaders(true),
-        body: JSON.stringify({ note: note || undefined }),
+        body: JSON.stringify({
+          note: note || undefined,
+          branch_id: branchId || undefined,
+        }),
       }
     )
     if (!res.ok) throw new Error(await parseError(res))
@@ -467,10 +541,17 @@ class PartnerOrgAPI {
     return res.json()
   }
 
-  async revokeBrandingEditAccess(partnerOrgId: string, reason?: string) {
+  async revokeBrandingEditAccess(
+    partnerOrgId: string,
+    reason?: string,
+    branchId?: string
+  ) {
+    const qs = new URLSearchParams()
+    if (branchId) qs.set("branch_id", branchId)
+    const suffix = qs.toString() ? `?${qs.toString()}` : ""
     const res = await fetch(
       getBackendApiUrl(
-        `partner-organizations/${encodeURIComponent(partnerOrgId)}/branding-edit-revoke`
+        `partner-organizations/${encodeURIComponent(partnerOrgId)}/branding-edit-revoke${suffix}`
       ),
       {
         method: "POST",
@@ -568,6 +649,9 @@ export type PartnerBrandingEditRequest = {
   partner_org_id?: string
   partner_name?: string
   partner_slug?: string
+  branch_id?: string | null
+  branch_name?: string | null
+  scope?: "academy" | "organization" | string
   requested_by?: string
   requested_by_name?: string
   requested_by_email?: string
@@ -584,6 +668,9 @@ export type PartnerBrandingEditRequest = {
 
 export type PartnerBrandingEditPermission = {
   partner_org_id: string
+  branch_id?: string | null
+  branch_name?: string | null
+  scope?: "academy" | "organization" | string
   permission: "none" | "pending" | "approved" | "rejected" | "revoked" | string
   can_edit: boolean
   can_request: boolean
@@ -673,6 +760,8 @@ export type PartnerOrgLanding = {
   partner_org_id: string
   slug?: string
   has_branding?: boolean
+  page_cms_enabled?: boolean
+  public_footer_enabled?: boolean
   hero?: {
     name?: string
     tagline?: string | null
@@ -728,7 +817,7 @@ function normKey(v: unknown): string {
     .toLowerCase()
 }
 
-/** Match a branch on a public landing by slug, id, or code. */
+/** Match an academy on a public landing by slug, id, or code. */
 export function findPartnerLandingBranch(
   landing: PartnerOrgLanding | null | undefined,
   branchKey: string
@@ -746,7 +835,7 @@ export function findPartnerLandingBranch(
   )
 }
 
-/** Match a course on a branch by slug, id, or code. */
+/** Match a course on an academy by slug, id, or code. */
 export function findPartnerBranchCourse(
   branch: PartnerOrgSiteBranch | null | undefined,
   courseKey: string

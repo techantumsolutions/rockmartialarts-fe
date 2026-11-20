@@ -51,7 +51,7 @@ export default function BranchManagerMessagesPage() {
         setBranchManagerData(user)
         await Promise.all([loadConversations(), loadMessageStats(), loadRecipients()])
       } catch (error) {
-        console.error("Error initializing branch manager messages:", error)
+        console.error("Error initializing academy manager messages:", error)
         setError("Failed to load messages. Please try again.")
       } finally {
         setLoading(false)
@@ -246,7 +246,7 @@ export default function BranchManagerMessagesPage() {
     switch (userType) {
       case "coach": return "Coach"
       case "student": return "Student"
-      case "branch_manager": return "Branch Manager"
+      case "branch_manager": return "Academy Manager"
       case "superadmin": return "Admin"
       default: return "User"
     }

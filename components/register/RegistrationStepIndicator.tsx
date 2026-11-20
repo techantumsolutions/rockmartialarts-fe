@@ -12,7 +12,7 @@ type StepDef = {
 
 const SINGLE_STEPS: StepDef[] = [
   { n: 1, label: "Personal Information", href: "/register" },
-  { n: 2, label: "Branch Selection", href: "/register/select-branch" },
+  { n: 2, label: "Academy Selection", href: "/register/select-branch" },
   { n: 3, label: "Course Selection", href: "/register/select-course" },
   { n: 4, label: "Payment", href: "/register/payment" },
   { n: 5, label: "Payment Confirmation" },

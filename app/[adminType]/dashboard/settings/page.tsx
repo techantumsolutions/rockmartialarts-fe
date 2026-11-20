@@ -344,7 +344,7 @@ function SuperAdminSettingsPage() {
         <div>
           <h1 className="text-2xl font-bold text-[#171A26]">System Settings</h1>
           <p className="mt-1 text-sm text-[#64748B]">
-            Configure system-wide settings and preferences for your academy.
+            Configure system-wide settings and preferences for your branch.
           </p>
         </div>
         {showSaveActions && (
@@ -493,7 +493,7 @@ function SuperAdminSettingsPage() {
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   {(
                     [
-                      ["registration_fee", "Registration fee (INR)", "Default admission/registration amount on the public registration payment page (unless overridden per branch)."],
+                      ["registration_fee", "Registration fee (INR)", "Default admission/registration amount on the public registration payment page (unless overridden per academy)."],
                       ["coach_registration_fee", "Coach registration fee (INR)", "Fee collected via Razorpay on the public coach registration page (set to 0 for free registration)."],
                       ["partner_registration_fee", "Partner registration fee (INR)", "Fee charged via Razorpay when creating a white-label partner with online payment."],
                       ["home_training_fee", "Home training fee (INR)", "Fee collected via Razorpay on the public home training request page."],

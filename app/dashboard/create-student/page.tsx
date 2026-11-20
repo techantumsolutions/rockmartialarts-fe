@@ -27,11 +27,14 @@ import { useToast } from "@/hooks/use-toast"
 import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
 import PaymentSelectionSection from "@/components/registration/PaymentSelectionSection"
+import { CreateStudentPaymentActions } from "@/components/registration/CreateStudentPaymentActions"
 import {
   fetchBranchCourseBatches,
+  fetchRegistrationDurations,
   fetchRegistrationPricing,
   createRegistrationOrder,
   submitRegistrationPayment,
+  filterEnrollableCourses,
   RegistrationBatch,
   RegistrationPricing,
 } from "@/lib/studentRegistrationPayment"
@@ -95,13 +98,9 @@ export default function CreateStudent() {
   const [pricing, setPricing] = useState<RegistrationPricing | null>(null)
   const [isLoadingPricing, setIsLoadingPricing] = useState(false)
 
-  // Durations
-  const [durations, setDurations] = useState<{ id: string; name: string }[]>([
-    { id: "1-month", name: "1 Month" },
-    { id: "3-months", name: "3 Months" },
-    { id: "6-months", name: "6 Months" },
-    { id: "12-months", name: "12 Months" },
-  ])
+  // Durations (loaded from academy course + batch tenure setup)
+  const [durations, setDurations] = useState<{ id: string; name: string }[]>([])
+  const [isLoadingDurations, setIsLoadingDurations] = useState(false)
 
   // Form state
   const [formData, setFormData] = useState<FormData>({
@@ -124,13 +123,22 @@ export default function CreateStudent() {
   const [errors, setErrors] = useState<FormErrors>({})
   const [selectedDate, setSelectedDate] = useState<Date>()
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+  useEffect(() => {
+    if (!showSuccessPopup) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [showSuccessPopup])
 
-  // Load branches & durations on mount
+
+  // Load academies & durations on mount
   useEffect(() => {
     const loadInitialData = async () => {
       setIsLoading(true)
       try {
-        // 1. Load active branches
+        // 1. Load active academies
         try {
           const bRes = await fetch(getBackendApiUrl("branches/public/all?active_only=true"))
           if (bRes.ok) {
@@ -142,29 +150,7 @@ export default function CreateStudent() {
             }
           }
         } catch (bErr) {
-          console.error("Error loading branches:", bErr)
-        }
-
-        // 2. Load active durations
-        try {
-          const durRes = await fetch(getBackendApiUrl("durations/public/all"))
-          if (durRes.ok) {
-            const durData = await durRes.json()
-            const durList = Array.isArray(durData.durations) ? durData.durations : []
-            if (durList.length > 0) {
-              const mapped = durList.map((d: any) => ({
-                id: d.id,
-                name: d.name || d.code || `${d.duration_months} Months`,
-              }))
-              setDurations(mapped)
-              setFormData((prev) => {
-                const exists = mapped.some((m: any) => m.id === prev.duration)
-                return exists ? prev : { ...prev, duration: mapped[0].id }
-              })
-            }
-          }
-        } catch (durErr) {
-          console.error("Error loading durations:", durErr)
+          console.error("Error loading academies:", bErr)
         }
       } catch (err) {
         console.error("Error in loadInitialData:", err)
@@ -176,7 +162,7 @@ export default function CreateStudent() {
     loadInitialData()
   }, [])
 
-  // When branch changes, load courses for that branch
+  // When academy changes, load courses for that academy
   useEffect(() => {
     if (!formData.branch) {
       setCourses([])
@@ -190,8 +176,8 @@ export default function CreateStudent() {
         )
         if (cRes.ok) {
           const cData = await cRes.json()
-          const list: Course[] = Array.isArray(cData.courses) ? cData.courses : []
-          setCourses(list)
+          const raw: Course[] = Array.isArray(cData.courses) ? cData.courses : []
+          setCourses(filterEnrollableCourses(raw))
 
           setFormData((prev) => {
             if (prev.course && !list.some((c) => c.id === prev.course)) {
@@ -203,7 +189,7 @@ export default function CreateStudent() {
           setCourses([])
         }
       } catch (err) {
-        console.error("Error loading courses for branch:", err)
+        console.error("Error loading courses for academy:", err)
         setCourses([])
       }
     }
@@ -211,7 +197,7 @@ export default function CreateStudent() {
     loadCoursesForBranch()
   }, [formData.branch])
 
-  // When branch or course changes, load available batches
+  // When academy or course changes, load available batches
   useEffect(() => {
     if (!formData.course || !formData.branch) {
       setAvailableBatches([])
@@ -252,9 +238,50 @@ export default function CreateStudent() {
     }
   }, [formData.course, formData.branch, courses])
 
-  // Load pricing when course, branch, duration, or slot changes
+  // Durations follow the selected academy course + batch (Course Assignments tenure setup)
   useEffect(() => {
     if (!formData.course || !formData.branch) {
+      setDurations([])
+      return
+    }
+
+    let isMounted = true
+    const loadDurations = async () => {
+      setIsLoadingDurations(true)
+      try {
+        const list = await fetchRegistrationDurations(
+          formData.course,
+          formData.branch,
+          formData.slot || undefined
+        )
+        if (!isMounted) return
+        const mapped = list.map((d) => ({
+          id: d.id,
+          name: d.name || d.code || "Duration",
+        }))
+        setDurations(mapped)
+        setFormData((prev) => {
+          const stillValid = mapped.some((m) => m.id === prev.duration)
+          if (stillValid) return prev
+          return { ...prev, duration: mapped[0]?.id || "" }
+        })
+      } catch (err) {
+        console.error("Error loading durations:", err)
+        if (isMounted) setDurations([])
+      } finally {
+        if (isMounted) setIsLoadingDurations(false)
+      }
+    }
+
+    void loadDurations()
+    return () => {
+      isMounted = false
+    }
+  }, [formData.course, formData.branch, formData.slot])
+
+  // Load pricing when course, academy, duration, or slot changes
+  useEffect(() => {
+    if (!formData.course || !formData.branch || !formData.duration) {
       setPricing(null)
       return
     }
@@ -263,11 +290,10 @@ export default function CreateStudent() {
     const loadPricing = async () => {
       setIsLoadingPricing(true)
       try {
-        const dur = formData.duration || (durations.length > 0 ? durations[0].id : "1-month")
         const p = await fetchRegistrationPricing(
           formData.course,
           formData.branch,
-          dur,
+          formData.duration,
           formData.slot || undefined
         )
         if (isMounted) {
@@ -317,7 +343,7 @@ export default function CreateStudent() {
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {}
 
-    if (!formData.branch) newErrors.branch = "Branch is required"
+    if (!formData.branch) newErrors.branch = "Academy is required"
     if (!formData.firstName.trim()) newErrors.firstName = "First name is required"
     if (!formData.lastName.trim()) newErrors.lastName = "Last name is required"
     if (!formData.email.trim()) newErrors.email = "Email is required"
@@ -345,13 +371,34 @@ export default function CreateStudent() {
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!validateForm()) {
-      return
+  const beforePaymentConfirm = (method: "razorpay" | "physical_cash") => {
+    if (!validateForm()) return false
+    if (!formData.course || !formData.branch) {
+      toast({
+        title: "Course & academy required",
+        description: "Select academy, course, batch, and duration before payment.",
+        variant: "destructive",
+      })
+      return false
     }
+    if (method === "physical_cash") {
+      const cashNum = Number(cashAmount)
+      if (!cashAmount.trim() || !Number.isFinite(cashNum) || cashNum <= 0) {
+        setErrors({ submit: "Cash Payment Amount is required and must be a positive amount." })
+        setPaymentMethod("physical_cash")
+        toast({
+          title: "Cash amount required",
+          description: "Enter the cash amount received before recording payment.",
+          variant: "destructive",
+        })
+        return false
+      }
+    }
+    setPaymentMethod(method)
+    return true
+  }
 
+  const executeRegistrationPayment = async (method: "razorpay" | "physical_cash") => {
     setIsSubmitting(true)
     const token =
       TokenManager.getToken() ||
@@ -399,7 +446,7 @@ export default function CreateStudent() {
         created_by: createdBy,
       }
 
-      if (paymentMethod === "razorpay") {
+      if (method === "razorpay") {
         const order = await createRegistrationOrder({
           course_id: formData.course,
           branch_id: formData.branch,
@@ -449,24 +496,24 @@ export default function CreateStudent() {
           },
         })
         return
-      } else {
-        const cashNum = Number(cashAmount)
-        if (!cashAmount.trim() || !Number.isFinite(cashNum) || cashNum <= 0) {
-          setErrors({ submit: "Cash Payment Amount is required and must be a positive amount." })
-          setIsSubmitting(false)
-          return
-        }
-        await submitRegistrationPayment(
-          {
-            ...studentPayload,
-            payment_method: "physical_cash",
-            cash_notes: cashNotes || undefined,
-            cash_amount: cashNum,
-          },
-          token
-        )
-        setShowSuccessPopup(true)
       }
+
+      const cashNum = Number(cashAmount)
+      if (!cashAmount.trim() || !Number.isFinite(cashNum) || cashNum <= 0) {
+        setErrors({ submit: "Cash Payment Amount is required and must be a positive amount." })
+        setIsSubmitting(false)
+        return
+      }
+      await submitRegistrationPayment(
+        {
+          ...studentPayload,
+          payment_method: "physical_cash",
+          cash_notes: cashNotes || undefined,
+          cash_amount: cashNum,
+        },
+        token
+      )
+      setShowSuccessPopup(true)
     } catch (error: any) {
       console.error("Error creating student:", error)
       setErrors({ submit: error.message || "Failed to create student. Please try again." })
@@ -476,10 +523,14 @@ export default function CreateStudent() {
         variant: "destructive",
       })
     } finally {
-      if (paymentMethod !== "razorpay") {
+      if (method !== "razorpay") {
         setIsSubmitting(false)
       }
     }
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
   }
 
   const handleSuccessOk = () => {
@@ -511,12 +562,12 @@ export default function CreateStudent() {
 
         {/* Loading State */}
         {isLoading ? (
-          <div className="bg-white rounded-2xl shadow-sm border p-12 text-center">
+          <div className="relative z-[1] bg-white rounded-2xl border border-[#E8EAF0] shadow-[0_24px_80px_rgba(15,23,42,0.28)] shadow-sm border p-12 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto"></div>
             <p className="mt-4 text-gray-600">Loading branches and form options...</p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="relative z-[1] bg-white rounded-2xl border border-[#E8EAF0] shadow-[0_24px_80px_rgba(15,23,42,0.28)] shadow-sm border border-gray-200 overflow-hidden">
             <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-8">
               {errors.submit && (
                 <div className="bg-red-50 border border-red-200 rounded-xl p-4">
@@ -541,7 +592,7 @@ export default function CreateStudent() {
                     </div>
                     <div className="flex items-center text-xs text-green-700 bg-white/80 px-3 py-1.5 rounded-lg border border-green-200 self-start sm:self-auto font-medium">
                       <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-green-600" />
-                      All Branches Available
+                      All Academies Available
                     </div>
                   </div>
 
@@ -553,7 +604,7 @@ export default function CreateStudent() {
                           errors.branch ? "!border-red-500 !bg-red-50" : ""
                         )}
                       >
-                        <SelectValue placeholder="Select a Branch" className="text-gray-500" />
+                        <SelectValue placeholder="Select an Academy" className="text-gray-500" />
                       </SelectTrigger>
                       <SelectContent className="rounded-xl border border-gray-200 bg-white shadow-lg max-h-60">
                         {branches.map((b) => (
@@ -812,9 +863,9 @@ export default function CreateStudent() {
                             <SelectValue
                               placeholder={
                                 !formData.branch
-                                  ? "Select a branch first"
+                                  ? "Select an academy first"
                                   : courses.length === 0
-                                  ? "No courses found for this branch"
+                                  ? "No courses found for this academy"
                                   : "Select Course"
                               }
                               className="text-gray-500"
@@ -910,16 +961,32 @@ export default function CreateStudent() {
                       <Select
                         value={formData.duration}
                         onValueChange={(value) => handleInputChange("duration", value)}
+                        disabled={isLoadingDurations || durations.length === 0}
                       >
                         <SelectTrigger className="!w-full !h-14 !pl-4 !pr-4 !py-4 !text-base !bg-gray-50 !border-gray-200 !rounded-xl !min-h-14">
-                          <SelectValue placeholder="Select Duration" className="text-gray-500" />
+                          <SelectValue
+                            placeholder={
+                              isLoadingDurations
+                                ? "Loading durations…"
+                                : durations.length === 0
+                                  ? "No durations for this batch"
+                                  : "Select Duration"
+                            }
+                            className="text-gray-500"
+                          />
                         </SelectTrigger>
                         <SelectContent className="rounded-xl border border-gray-200 bg-white shadow-lg max-h-60">
-                          {durations.map((duration) => (
-                            <SelectItem key={duration.id} value={duration.id}>
-                              {duration.name}
-                            </SelectItem>
-                          ))}
+                          {durations.length > 0 ? (
+                            durations.map((duration) => (
+                              <SelectItem key={duration.id} value={duration.id}>
+                                {duration.name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <div className="p-3 text-sm text-gray-500">
+                              Configure duration pricing under Academy → Course Assignments
+                            </div>
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
@@ -942,31 +1009,31 @@ export default function CreateStudent() {
               </div>
 
               {/* Form Actions */}
-              <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => router.push("/dashboard/students")}
-                  className="flex-1 sm:flex-none px-8 py-3 text-base font-medium border-gray-300 hover:bg-gray-50"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-1 sm:flex-none px-8 py-3 text-base font-medium bg-yellow-400 hover:bg-yellow-500 text-gray-900"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-900 mr-2"></div>
-                      Processing...
-                    </>
-                  ) : paymentMethod === "razorpay" ? (
-                    "Proceed to Razorpay Payment"
-                  ) : (
-                    "Record Cash & Create Student"
-                  )}
-                </Button>
+              <div className="flex flex-col sm:flex-row flex-wrap gap-4 pt-6 border-t border-gray-200">
+                <CreateStudentPaymentActions
+                  isSubmitting={isSubmitting}
+                  disabled={isLoadingPricing || !formData.course || !formData.branch}
+                  paymentMethod={paymentMethod}
+                  onCancel={() => router.push("/dashboard/students")}
+                  primaryButtonClassName="flex-1 sm:flex-none px-8 py-3 text-base font-medium bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded-xl"
+                  cancelButtonClassName="flex-1 sm:flex-none px-8 py-3 text-base font-medium border-gray-300 hover:bg-gray-50 rounded-xl"
+                  summary={{
+                    studentName: `${formData.firstName} ${formData.lastName}`.trim(),
+                    academyName: branches.find((b) => b.id === formData.branch)?.name || "—",
+                    courseName: courses.find((c) => c.id === formData.course)?.title || "Selected course",
+                    batchName:
+                      availableBatches.find((b) => b.id === formData.slot || b.batch_id === formData.slot)
+                        ?.batch_name || "—",
+                    durationName:
+                      durations.find((d) => d.id === formData.duration)?.name || formData.duration || "—",
+                    courseFee: pricing?.course_fee,
+                    admissionFee: pricing?.admission_fee,
+                    quotedTotal: pricing?.total_amount,
+                    cashAmount,
+                  }}
+                  onBeforeConfirm={beforePaymentConfirm}
+                  onConfirmPayment={(method) => void executeRegistrationPayment(method)}
+                />
               </div>
             </form>
           </div>
@@ -974,8 +1041,9 @@ export default function CreateStudent() {
 
         {/* Success Popup */}
         {showSuccessPopup && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-            <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden p-4 sm:p-6">
+        <div className="absolute inset-0 bg-[#0f172a]/55 backdrop-blur-[2px]" aria-hidden />
+            <div className="relative z-[1] bg-white rounded-2xl border border-[#E8EAF0] shadow-[0_24px_80px_rgba(15,23,42,0.28)] p-8 max-w-md w-full mx-4 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
               <div className="text-center">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <CheckCircle2 className="w-10 h-10 text-green-600" />

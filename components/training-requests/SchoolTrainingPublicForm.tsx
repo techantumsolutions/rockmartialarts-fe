@@ -84,7 +84,7 @@ function formatInr(n?: number | null) {
 
 function getBranchName(b: Record<string, unknown>): string {
   const nested = b.branch as { name?: string } | undefined
-  return nested?.name || (b.name as string) || (b.code as string) || "Branch"
+  return nested?.name || (b.name as string) || (b.code as string) || "Academy"
 }
 
 export default function SchoolTrainingPublicForm() {
@@ -413,7 +413,7 @@ export default function SchoolTrainingPublicForm() {
               }
             >
               <SelectTrigger className={`h-10 ${fieldClass}`}>
-                <SelectValue placeholder="Select branch" />
+                <SelectValue placeholder="Select academy" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">No preference</SelectItem>

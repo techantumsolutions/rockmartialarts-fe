@@ -600,7 +600,7 @@ export default function StudentDetailPage() {
                 <TrendingUp className="w-4 h-4 mr-2" />
                 Performance
               </Button>
-              <Button onClick={handleEdit} className="bg-yellow-400 hover:bg-yellow-500 text-white">
+              <Button onClick={handleEdit} className="">
                 <Edit className="w-4 h-4 mr-2" />
                 Edit Student
               </Button>

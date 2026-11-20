@@ -172,7 +172,7 @@ export default function StudentsListPage() {
       setLoading(true)
       setError(null)
 
-      // 1. Fetch coach courses and assigned batches in this branch
+      // 1. Fetch coach courses and assigned batches in this academy
       const assignments = await fetchCoachAssignments(token, coach)
       setCoachAssignments(assignments)
 
@@ -180,15 +180,15 @@ export default function StudentsListPage() {
       assignments.courses.forEach((c) => allBatches.push(...c.batches))
       setAvailableBatches(allBatches)
 
-      // Get the coach's branch ID
+      // Get the coach's academy ID
       const branchId = coach?.branch_id
       if (!branchId) {
-        setError("Coach is not assigned to any branch")
+        setError("Coach is not assigned to any academy")
         setLoading(false)
         return
       }
 
-      // 2. Fetch students: merge coach-specific endpoint and branch search endpoint
+      // 2. Fetch students: merge coach-specific endpoint and academy search endpoint
       const studentMap = new Map<string, any>()
 
       const mergeStudent = (st: any, isFromCoachEndpoint = false) => {
@@ -261,7 +261,7 @@ export default function StudentsListPage() {
         console.warn("Could not fetch from coach endpoint:", e)
       }
 
-      // Fetch students from branch search via getBackendApiUrl
+      // Fetch students from academy search via getBackendApiUrl
       try {
         const response = await fetch(
           getBackendApiUrl(`search/students?branch_id=${encodeURIComponent(branchId)}&limit=200`),
@@ -321,7 +321,7 @@ export default function StudentsListPage() {
 
       const rawStudents = Array.from(studentMap.values())
 
-      // 3. Filter strictly based on assigned courses and assigned batches in this branch!
+      // 3. Filter strictly based on assigned courses and assigned batches in this academy!
       const assigned = filterStudentsForCoach(rawStudents, assignments)
 
       // Map batch names

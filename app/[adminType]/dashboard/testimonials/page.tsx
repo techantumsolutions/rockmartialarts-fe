@@ -22,6 +22,7 @@ import { getBackendApiUrl } from "@/lib/config"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { getActiveBranch, getActiveBranchId } from "@/lib/activeBranch"
 import BranchSelectionField from "@/components/layout/BranchSelectionField"
+import { AdminImageUpload } from "@/components/ui/AdminImageUpload"
 
 type Row = {
   id: string
@@ -50,6 +51,7 @@ export default function ManageTestimonialsPage() {
   const params = useParams()
   const adminType = ((params?.adminType as string) || "super-admin").toLowerCase().replace(/_/g, "-")
   const isSuperAdmin = adminType === "super-admin"
+  const isPartnerAdmin = adminType === "partner-admin" || adminType === "partners"
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [rows, setRows] = useState<Row[]>([])
@@ -60,6 +62,16 @@ export default function ManageTestimonialsPage() {
   const [saving, setSaving] = useState(false)
 
   const bmManaged = BranchManagerAuth.getCurrentUser()?.managed_branches || []
+
+  const resolvePartnerBranchId = useCallback(() => {
+    return (
+      getActiveBranchId() ||
+      form.branch_id ||
+      branches[0]?.id ||
+      (Array.isArray(bmManaged) ? bmManaged[0] : "") ||
+      ""
+    )
+  }, [branches, bmManaged, form.branch_id])
 
   const load = useCallback(async () => {
     const token = TokenManager.getToken()
@@ -85,34 +97,39 @@ export default function ManageTestimonialsPage() {
   }, [load])
 
   useEffect(() => {
-    if (!isSuperAdmin) return
+    if (!isSuperAdmin && !isPartnerAdmin) return
     const token = TokenManager.getToken()
     if (!token) return
     ;(async () => {
       try {
-        const res = await fetch(getBackendApiUrl("branches?skip=0&limit=200"), {
+        const res = await fetch(getBackendApiUrl("branches?skip=0&limit=200&active_only=true"), {
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         })
         if (!res.ok) return
         const data = await res.json()
         const list = data.branches || []
         setBranches(
-          list.map((b: { id: string; branch?: { name?: string; code?: string } }) => ({
+          list.map((b: { id: string; branch?: { name?: string; code?: string }; name?: string }) => ({
             id: b.id,
-            name: b.branch?.name || b.branch?.code || b.id,
+            name: b.branch?.name || b.name || b.branch?.code || b.id,
           }))
         )
       } catch {
         /* ignore */
       }
     })()
-  }, [isSuperAdmin])
+  }, [isSuperAdmin, isPartnerAdmin])
 
   const openCreate = () => {
     setEditingId(null)
+    const partnerBranch =
+      getActiveBranchId() ||
+      (Array.isArray(bmManaged) ? bmManaged[0] : "") ||
+      branches[0]?.id ||
+      ""
     setForm({
       ...emptyForm,
-      branch_id: !isSuperAdmin ? getActiveBranchId() || bmManaged[0] || "" : "",
+      branch_id: !isSuperAdmin ? partnerBranch : "",
       is_global: false,
     })
     setDialogOpen(true)
@@ -131,21 +148,6 @@ export default function ManageTestimonialsPage() {
       display_order: r.display_order ?? 0,
     })
     setDialogOpen(true)
-  }
-
-  const uploadTestimonialImage = async (file: File) => {
-    const token = TokenManager.getToken()
-    if (!token) return null
-    const formData = new FormData()
-    formData.append("file", file)
-    const uploadRes = await fetch(getBackendApiUrl("uploads"), {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    })
-    if (!uploadRes.ok) throw new Error("Upload failed")
-    const uploadData = await uploadRes.json()
-    return uploadData.url || uploadData.file_url || uploadData.image_url || null
   }
 
   const save = async () => {
@@ -168,7 +170,7 @@ export default function ManageTestimonialsPage() {
         display_order: Number(form.display_order) || 0,
       }
       if (!isSuperAdmin) {
-        body.branch_id = getActiveBranchId() || bmManaged[0] || form.branch_id
+        body.branch_id = resolvePartnerBranchId() || null
         body.is_global = false
       }
       if (editingId) {
@@ -228,7 +230,7 @@ export default function ManageTestimonialsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Student testimonials</h1>
           <p className="text-gray-600 text-sm mt-1">
-            Website home shows global items; branch pages show items for that branch only. Managed here — not from CMS.
+            Public website shows all academy testimonials with academy names. Each academy page shows only that academy&apos;s testimonials.
           </p>
         </div>
         <Button onClick={openCreate} className="gap-2">
@@ -278,7 +280,11 @@ export default function ManageTestimonialsPage() {
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent
+          className="max-w-lg max-h-[90vh] overflow-y-auto"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>{editingId ? "Edit testimonial" : "New testimonial"}</DialogTitle>
           </DialogHeader>
@@ -290,42 +296,14 @@ export default function ManageTestimonialsPage() {
                 onChange={(e) => setForm((f) => ({ ...f, student_name: e.target.value }))}
               />
             </div>
-            <div className="space-y-2">
-              <Label>Photo</Label>
-              <div className="flex flex-wrap items-center gap-2">
-                {(form.student_photo || "").startsWith("http") || (form.student_photo || "").includes("/") ? (
-                  <img
-                    src={
-                      (form.student_photo || "").startsWith("http") || (form.student_photo || "").startsWith("/")
-                        ? form.student_photo || ""
-                        : `/api/backend/uploads/${encodeURIComponent(form.student_photo || "")}`
-                    }
-                    alt=""
-                    className="h-16 w-16 rounded-full object-cover border"
-                  />
-                ) : null}
-                <Input
-                  type="file"
-                  accept="image/*"
-                  className="max-w-xs"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0]
-                    if (!file) return
-                    try {
-                      const url = await uploadTestimonialImage(file)
-                      if (url) setForm((f) => ({ ...f, student_photo: url || "" }))
-                    } catch {
-                      toast({ title: "Upload failed", variant: "destructive" })
-                    }
-                  }}
-                />
-              </div>
-              <Input
-                value={form.student_photo || ""}
-                onChange={(e) => setForm((f) => ({ ...f, student_photo: e.target.value }))}
-                placeholder="Optional: paste image URL after upload"
-              />
-            </div>
+            <AdminImageUpload
+              label="Photo"
+              value={form.student_photo}
+              shape="circle"
+              helperText="JPG, PNG or WEBP, max 2MB. Preview appears after you choose a file."
+              onChange={(url) => setForm((f) => ({ ...f, student_photo: url }))}
+              onClear={() => setForm((f) => ({ ...f, student_photo: "" }))}
+            />
             <div className={!isSuperAdmin ? "space-y-2" : undefined}>
               <Label>Testimonial</Label>
               <Textarea
@@ -358,14 +336,14 @@ export default function ManageTestimonialsPage() {
                 </div>
                 {!form.is_global ? (
                   <div>
-                    <Label>Branch</Label>
+                    <Label>Academy</Label>
                     {isSuperAdmin ? (
                       <Select
                         value={form.branch_id || ""}
                         onValueChange={(v) => setForm((f) => ({ ...f, branch_id: v }))}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select branch" />
+                          <SelectValue placeholder="Select academy" />
                         </SelectTrigger>
                         <SelectContent>
                           {branches.map((b) => (
@@ -382,7 +360,30 @@ export default function ManageTestimonialsPage() {
                 ) : null}
               </>
             ) : (
-              <p className="text-sm text-gray-500">Branch: {getActiveBranch()?.name || "—"}</p>
+              <div className="space-y-2">
+                <Label>Academy</Label>
+                {branches.length > 1 ? (
+                  <Select
+                    value={form.branch_id || branches[0]?.id || ""}
+                    onValueChange={(v) => setForm((f) => ({ ...f, branch_id: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select academy" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {branches.map((b) => (
+                        <SelectItem key={b.id} value={b.id}>
+                          {b.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="text-sm text-gray-500">
+                    {getActiveBranch()?.name || branches[0]?.name || "Your academy"}
+                  </p>
+                )}
+              </div>
             )}
             <div className="flex items-center gap-3">
               <Label className="shrink-0">Active</Label>

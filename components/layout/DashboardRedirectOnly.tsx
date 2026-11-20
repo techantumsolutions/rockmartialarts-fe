@@ -10,8 +10,8 @@ import { SuperAdminAuth } from "@/lib/auth"
  * Never renders dashboard content. Always redirects to role-specific path:
  * - Branch manager -> /branch-admin/dashboard (and same subpath)
  * - Super admin -> /super-admin/dashboard (and same subpath)
- * - Not logged in -> /superadmin/login (or /branch-manager/login for branch)
- * Ensures Super Admin and Branch Admin never share /dashboard and never switch.
+ * - Not logged in -> /superadmin/login (or /branch-manager/login for academy)
+ * Ensures Super Admin and Academy Admin never share /dashboard and never switch.
  */
 export default function DashboardRedirectOnly({ children }: { children: React.ReactNode }) {
   const router = useRouter()

@@ -96,7 +96,7 @@ export default function BranchManagerStudentReports() {
     status: "all"
   })
 
-  // Branch and course data
+  // Academy and course data
   const [branches, setBranches] = useState<Branch[]>([])
   const [branchesLoading, setBranchesLoading] = useState(false)
   const [branchesError, setBranchesError] = useState<string | null>(null)
@@ -127,7 +127,7 @@ export default function BranchManagerStudentReports() {
 
         const branchManager = BranchManagerAuth.getCurrentUser()
         if (!branchManager) {
-          toast.error('Branch manager information not found')
+          toast.error('Academy manager information not found')
           router.push('/branch-manager-login')
           return
         }
@@ -135,18 +135,18 @@ export default function BranchManagerStudentReports() {
         setToken(authToken)
         setCurrentBranchManager(branchManager)
 
-        // Fetch managed branches to ensure they're available for filtering
+        // Fetch managed academies to ensure they're available for filtering
         try {
           const managedBranches = await BranchManagerAuth.fetchManagedBranches()
-          console.log('Fetched managed branches:', managedBranches)
+          console.log('Fetched managed academies:', managedBranches)
 
-          // Update the current branch manager with managed branches
+          // Update the current academy manager with managed academies
           const updatedBranchManager = BranchManagerAuth.getCurrentUser()
           if (updatedBranchManager) {
             setCurrentBranchManager(updatedBranchManager)
           }
         } catch (error) {
-          console.error('Error fetching managed branches:', error)
+          console.error('Error fetching managed academies:', error)
         }
       } catch (error) {
         console.error('Authentication error:', error)
@@ -158,7 +158,7 @@ export default function BranchManagerStudentReports() {
     checkAuth()
   }, [router])
 
-  // Load branches with courses (adapted for branch manager)
+  // Load academies with courses (adapted for academy manager)
   useEffect(() => {
     const fetchBranchesWithCourses = async () => {
       if (!token) return
@@ -167,7 +167,7 @@ export default function BranchManagerStudentReports() {
       setBranchesError(null)
 
       try {
-        // For branch managers, we'll get their assigned branches
+        // For academy managers, we'll get their assigned academyes
         const response = await fetch(getBackendApiUrl('branches'), {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -182,15 +182,15 @@ export default function BranchManagerStudentReports() {
         const data = await response.json()
         const branchesData = data.branches || []
 
-        // Filter to only show branches managed by this branch manager
+        // Filter to only show academies managed by this academy manager
         const managedBranches = branchesData.filter((branch: Branch) =>
           currentBranchManager?.managed_branches?.includes(branch.id)
         )
 
         setBranches(managedBranches)
       } catch (error) {
-        console.error('Error fetching branches:', error)
-        setBranchesError('Failed to load branches')
+        console.error('Error fetching academies:', error)
+        setBranchesError('Failed to load academyes')
         setBranches([])
       } finally {
         setBranchesLoading(false)
@@ -202,12 +202,12 @@ export default function BranchManagerStudentReports() {
     }
   }, [token, currentBranchManager])
 
-  // Computed courses based on selected branch (same as superadmin)
+  // Computed courses based on selected academy (same as superadmin)
   const filteredCourses = useMemo(() => {
     if (!branches || branches.length === 0) return []
 
     if (!filters.branch_id || filters.branch_id === 'all') {
-      // Return all courses from all managed branches
+      // Return all courses from all managed academies
       const allCourses: any[] = []
       branches.forEach(branch => {
         if (branch.operational_details?.courses_offered) {
@@ -225,7 +225,7 @@ export default function BranchManagerStudentReports() {
       })
       return allCourses
     } else {
-      // Return courses for selected branch
+      // Return courses for selected academy
       const selectedBranch = branches.find(b => b.id === filters.branch_id)
       if (!selectedBranch?.operational_details?.courses_offered) return []
 
@@ -508,7 +508,7 @@ export default function BranchManagerStudentReports() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                 {/* Branch Dropdown */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Academy</label>
                   <BranchSelectionField readOnly />
                   {branchesError && (
                     <p className="text-sm text-red-600 mt-1">
@@ -701,7 +701,7 @@ export default function BranchManagerStudentReports() {
                           <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">Student Details</th>
                           <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden sm:table-cell">Contact</th>
                           <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden md:table-cell">Courses</th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden lg:table-cell">Branch</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden lg:table-cell">Academy</th>
                           <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">Status</th>
                           <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden xl:table-cell">Registration</th>
                           <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">Actions</th>
@@ -771,7 +771,7 @@ export default function BranchManagerStudentReports() {
                                   <div className="space-y-1">
                                     {student.branches.slice(0, 1).map((branch: any, idx: number) => (
                                       <div key={idx}>
-                                        <p className="text-gray-900 truncate">{branch.name || 'Unknown Branch'}</p>
+                                        <p className="text-gray-900 truncate">{branch.name || 'Unknown Academy'}</p>
                                         {branch.code && (
                                           <p className="text-xs text-gray-500">({branch.code})</p>
                                         )}

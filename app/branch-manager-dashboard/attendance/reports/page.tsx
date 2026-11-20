@@ -70,7 +70,7 @@ export default function BranchManagerAttendanceReportsPage() {
   useEffect(() => {
     const authResult = checkBranchManagerAuth()
     if (!authResult.isAuthenticated) {
-      console.log("Branch manager not authenticated")
+      console.log("Academy manager not authenticated")
       router.push("/branch-manager/login")
       return
     }
@@ -79,7 +79,7 @@ export default function BranchManagerAttendanceReportsPage() {
       setBranchManagerData(authResult.user)
       loadDropdownData()
     } else {
-      setError("Branch manager information not found")
+      setError("Academy manager information not found")
       setLoading(false)
     }
   }, [router])
@@ -89,7 +89,7 @@ export default function BranchManagerAttendanceReportsPage() {
     try {
       const headers = getBranchManagerAuthHeaders()
 
-      // Load students, courses, and branches for filtering
+      // Load students, courses, and academies for filtering
       const [studentsRes, coursesRes, branchesRes] = await Promise.all([
         fetch('/api/backend/students/search', { headers }),
         fetch('/api/backend/courses', { headers }),
@@ -203,7 +203,7 @@ export default function BranchManagerAttendanceReportsPage() {
         'Date',
         'Student Name',
         'Course',
-        'Branch',
+        'Academy',
         'Status',
         'Check-in Time',
         'Check-out Time',
@@ -488,7 +488,7 @@ export default function BranchManagerAttendanceReportsPage() {
                       <th className="text-left py-3">Date</th>
                       <th className="text-left py-3">Student</th>
                       <th className="text-left py-3">Course</th>
-                      <th className="text-left py-3">Branch</th>
+                      <th className="text-left py-3">Academy</th>
                       <th className="text-left py-3">Status</th>
                       <th className="text-left py-3">Check-in</th>
                       <th className="text-left py-3">Check-out</th>

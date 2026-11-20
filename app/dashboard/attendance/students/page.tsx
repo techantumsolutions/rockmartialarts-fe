@@ -74,7 +74,7 @@ function getAttendanceAuthHeaders(): Record<string, string> | null {
   const bmUser = BranchManagerAuth.getCurrentUser()
   const partnerUser = TokenManager.getUser()
   const activeBranchId = getActiveBranchId()
-  // Branch-admin must use BM token so the API scopes to managed branches only.
+  // Branch-admin must use BM token so the API scopes to managed academies only.
   if (onBranchAdmin || bmUser?.role === "branch_manager") {
     const token = BranchManagerAuth.getToken() || TokenManager.getToken()
     if (token) {
@@ -258,7 +258,7 @@ export default function SuperAdminStudentAttendancePage() {
   const isPartnerAdminRoute =
     !!pathname && isPartnerDashboardPath(pathname)
 
-  /** Deep-link `?branch=` from Branch-wise Overview — Rock SA / Partner SA */
+  /** Deep-link `?academy=` from Academy-wise Overview — Rock SA / Partner SA */
   const isSuperAdminRoute =
     !!pathname &&
     (pathname.startsWith("/super-admin/") || isPartnerAdminRoute)
@@ -327,7 +327,7 @@ export default function SuperAdminStudentAttendancePage() {
   >({})
   const [batchesLoading, setBatchesLoading] = useState(false)
 
-  // Keep super-admin branch filter in sync with `?branch=` deep links only
+  // Keep super-admin academy filter in sync with `?academy=` deep links only
   useEffect(() => {
     if (!isSuperAdminRoute) return
     if (superAdminBranchFromUrl) {
@@ -397,7 +397,7 @@ export default function SuperAdminStudentAttendancePage() {
         "")) ||
     (selectedBranch !== "all" ? selectedBranch : "")
 
-  // Fetch batches dynamically whenever course or branch changes
+  // Fetch batches dynamically whenever course or academy changes
   useEffect(() => {
     if (selectedCourse === "all" || !selectedCourse) {
       setBatchOptions([])
@@ -585,7 +585,7 @@ export default function SuperAdminStudentAttendancePage() {
     }
   }, [error])
 
-  // Fetch branches for filtering
+  // Fetch academies for filtering
   const fetchBranches = async () => {
     try {
       if (!isAttendanceAuthenticated()) return
@@ -610,7 +610,7 @@ export default function SuperAdminStudentAttendancePage() {
         const data = await response.json()
         let branchList = (data.branches || []).map((branch: any) => ({
           id: branch.id,
-          name: branch.branch?.name || branch.name || 'Unknown Branch',
+          name: branch.branch?.name || branch.name || 'Unknown Academy',
           assignments: branch.assignments || branch.branch?.assignments
         }))
         if (isBranchAdminRoute) {
@@ -636,7 +636,7 @@ export default function SuperAdminStudentAttendancePage() {
         setBranches(branchList)
       }
     } catch (error) {
-      console.error("Error fetching branches:", error)
+      console.error("Error fetching academies:", error)
     }
   }
 
@@ -688,7 +688,7 @@ export default function SuperAdminStudentAttendancePage() {
       const managedIds = getManagedBranchIds()
       const bmUser = BranchManagerAuth.getCurrentUser()
       const activeBranchId = getActiveBranchId()
-      // Lock to the BM's active or assigned branch
+      // Lock to the BM's active or assigned academy
       const lockedBranchId =
         (isBranchAdminRoute &&
           ((activeBranchId && (managedIds.length === 0 || managedIds.includes(activeBranchId))
@@ -724,7 +724,7 @@ export default function SuperAdminStudentAttendancePage() {
         selectedBranch &&
         selectedBranch !== "all"
       ) {
-        // Super-admin Branch-wise Overview deep link / branch dropdown
+        // Super-admin Academy-wise Overview deep link / academy dropdown
         qs.set("branch_id", selectedBranch)
       }
 
@@ -741,7 +741,7 @@ export default function SuperAdminStudentAttendancePage() {
         console.log("✅ Attendance data received:", data)
 
         let students = data.students || []
-        // When the backend has already applied the branch scope (for Branch Manager or when branch_id was sent),
+        // When the backend has already applied the academy scope (for Academy Manager or when branch_id was sent),
         // do not discard valid backend roster entries due to a conflicting or missing student.branch_id.
         if (isBranchAdminRoute && lockedBranchId && !qs.has("branch_id")) {
           const bm = BranchManagerAuth.getCurrentUser()
@@ -761,13 +761,13 @@ export default function SuperAdminStudentAttendancePage() {
           // Handle multiple courses per student
           const courses = student.courses || []
           const primaryCourse = courses[0] || {}
-          // Branch-admin table always shows the manager's branch name (avoids Madhapur/etc. confusion).
+          // Branch-admin table always shows the manager's academy name (avoids Madhapur/etc. confusion).
           const displayBranchId =
             isBranchAdminRoute && lockedBranchId ? lockedBranchId : student.branch_id || ""
           const displayBranchName =
             isBranchAdminRoute && lockedBranchName
               ? lockedBranchName
-              : branches.find((b) => b.id === student.branch_id)?.name || "Unknown Branch"
+              : branches.find((b) => b.id === student.branch_id)?.name || "Unknown Academy"
 
           const batchRefs: string[] = Array.isArray(student.batch_refs)
             ? student.batch_refs
@@ -929,7 +929,7 @@ export default function SuperAdminStudentAttendancePage() {
         setSaveStatus((prev) => ({ ...prev, [recordId]: "error" }))
         toast({
           title: "Missing data",
-          description: "Course or branch is missing for this student.",
+          description: "Course or academy is missing for this student.",
           variant: "destructive",
         })
         return
@@ -1266,12 +1266,12 @@ export default function SuperAdminStudentAttendancePage() {
     initializeData()
   }, [])
 
-  // Fetch attendance data when date (or super-admin branch filter) changes
+  // Fetch attendance data when date (or super-admin academy filter) changes
   useEffect(() => {
     if (branches.length > 0) {
       fetchAttendanceData()
     }
-    // selectedBranch only drives refetch on super-admin (URL/dropdown branch filter)
+    // selectedBranch only drives refetch on super-admin (URL/dropdown academy filter)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate, branches, isSuperAdminRoute ? selectedBranch : null])
 
@@ -1319,7 +1319,7 @@ export default function SuperAdminStudentAttendancePage() {
   // Export functionality
   const handleExportData = () => {
     const csvContent = [
-      ['Student Name', 'Email', 'Course', 'Branch', 'Status', 'Check In Time', 'Notes', 'Date'].join(','),
+      ['Student Name', 'Email', 'Course', 'Academy', 'Status', 'Check In Time', 'Notes', 'Date'].join(','),
       ...filteredRecords.map(record => [
         record.student_name,
         record.email,
@@ -1387,10 +1387,10 @@ export default function SuperAdminStudentAttendancePage() {
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Student Attendance Management</h1>
             <p className="text-gray-600">
               {isBranchAdminRoute
-                ? "Manage attendance for your branch students"
+                ? "Manage attendance for your academy students"
                 : isPartnerAdminRoute
-                  ? "Manage attendance for your organization branches and courses"
-                  : "Manage attendance across all branches and courses"}
+                  ? "Manage attendance for your organization academies and courses"
+                  : "Manage attendance across all academies and courses"}
             </p>
           </div>
 
@@ -1407,17 +1407,17 @@ export default function SuperAdminStudentAttendancePage() {
                     ? branches[0].name
                     : branches.find((b) => b.id === selectedBranch)?.name ||
                       BranchManagerAuth.getCurrentUser()?.branch_name ||
-                      "Your branch"}
+                      "Your academy"}
                 </span>
               </div>
             ) : (
               <Select value={selectedBranch} onValueChange={setSelectedBranch}>
                 <SelectTrigger className="bg-white shadow-sm">
                   <MapPin className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                  <SelectValue placeholder="All Branches" />
+                  <SelectValue placeholder="All Academies" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Branches</SelectItem>
+                  <SelectItem value="all">All Academies</SelectItem>
                   {branches.map((branch) => (
                     <SelectItem key={branch.id} value={branch.id}>
                       {branch.name}
@@ -1721,30 +1721,21 @@ export default function SuperAdminStudentAttendancePage() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
+                  <div className="overflow-x-hidden">
+                    <div className="overflow-x-auto lg:overflow-x-hidden min-w-0">
+                      <table className="table-fixed w-full min-w-0 divide-y divide-gray-200">
                       <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                         <tr>
-                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                          <th className="w-[34%] px-3 py-2.5 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                             Student
                           </th>
-                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                          <th className="w-[28%] px-3 py-2.5 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                             Course
                           </th>
-                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                            Branch
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                          <th className="w-[16%] px-3 py-2.5 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                             Status
                           </th>
-                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                            Check In
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                            Check Out
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                          <th className="w-[22%] px-3 py-2.5 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                             Actions
                           </th>
                         </tr>
@@ -1757,250 +1748,84 @@ export default function SuperAdminStudentAttendancePage() {
                               index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
                             }`}
                           >
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div className="flex-shrink-0 h-12 w-12">
-                                  <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-md">
-                                    <span className="text-white font-semibold text-sm">
+                            <td className="px-3 py-2.5">
+                              <div className="flex items-center min-w-0">
+                                <div className="flex-shrink-0 h-9 w-9">
+                                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-sm">
+                                    <span className="text-white font-semibold text-xs">
                                       {record.student_name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
                                     </span>
                                   </div>
                                 </div>
-                                <div className="ml-4 min-w-0">
-                                  <div className="text-sm font-semibold text-gray-900">
+                                <div className="ml-2.5 min-w-0">
+                                  <div className="text-sm font-semibold text-gray-900 truncate" title={record.student_name}>
                                     {record.student_name}
                                   </div>
-                                  <div className="text-xs text-gray-500 mt-0.5 truncate max-w-[16rem]">
+                                  <div className="text-xs text-gray-500 mt-0.5 truncate" title={record.branch_name}>
                                     {record.branch_name}
-                                    <span className="text-gray-400 mx-1">•</span>
-                                    {record.course_name}
                                   </div>
                                 </div>
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div className="bg-indigo-100 p-2 rounded-lg mr-3">
-                                  <BookOpen className="h-4 w-4 text-indigo-600" />
+                            <td className="px-3 py-2.5">
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium text-gray-900 truncate" title={record.course_name}>
+                                  {record.course_name}
                                 </div>
-                                <div>
-                                  <div className="text-sm font-medium text-gray-900">{record.course_name}</div>
-                                  {(() => {
-                                    const batchTiming = resolveBatchTimingLabel(record)
-                                    return batchTiming ? (
-                                      <div className="text-xs text-gray-500">{batchTiming}</div>
-                                    ) : null
-                                  })()}
-                                  <div className="text-xs text-gray-500">Course</div>
-                                </div>
+                                {(() => {
+                                  const batchTiming = resolveBatchTimingLabel(record)
+                                  return batchTiming ? (
+                                    <div className="text-xs text-gray-500 truncate" title={batchTiming}>
+                                      {batchTiming}
+                                    </div>
+                                  ) : null
+                                })()}
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div className="bg-green-100 p-2 rounded-lg mr-3">
-                                  <MapPin className="h-4 w-4 text-green-600" />
-                                </div>
-                                <div>
-                                  <div className="text-sm font-medium text-gray-900">{record.branch_name}</div>
-                                  <div className="text-xs text-gray-500">Branch</div>
-                                </div>
-                              </div>
+                            <td className="px-3 py-2.5">
+                              {getStatusBadge(record.status)}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                {getStatusIcon(record.status)}
-                                <span className="ml-2">{getStatusBadge(record.status)}</span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap align-top">
-                              {editingCheckInId === record.id &&
-                              canEditCheckInTime &&
-                              (record.status === "present" || record.status === "late") ? (
-                                <div className="flex flex-col gap-1 max-w-[14rem]">
-                                  <Input
-                                    type="datetime-local"
-                                    className="h-8 text-xs"
-                                    value={checkInEditDraft}
-                                    onChange={(e) => setCheckInEditDraft(e.target.value)}
-                                  />
-                                  <div className="flex gap-1">
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      className="h-7 text-xs"
-                                      disabled={saveStatus[record.id] === "saving"}
-                                      onClick={() => {
-                                        const iso = parseDatetimeLocalToIso(checkInEditDraft)
-                                        if (!iso) {
-                                          toast({
-                                            title: "Invalid check-in time",
-                                            description: "Choose a valid date and time.",
-                                            variant: "destructive",
-                                          })
-                                          return
-                                        }
-                                        void handleUpdateCheckInTime(record.id, iso)
-                                      }}
-                                    >
-                                      Save
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-7 text-xs"
-                                      onClick={() => setEditingCheckInId(null)}
-                                    >
-                                      Cancel
-                                    </Button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="text-sm text-gray-900 font-medium">
-                                  {record.check_in_time || (
-                                    <span className="text-gray-400 italic">Not recorded</span>
-                                  )}
-                                  {record.admin_adjusted && (
-                                    <span
-                                      className="ml-2 text-[10px] uppercase tracking-wide text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded"
-                                      title={record.correction_reason || "Manually adjusted"}
-                                    >
-                                      Adjusted
-                                    </span>
-                                  )}
-                                  {canEditCheckInTime &&
-                                    (record.status === "present" || record.status === "late") &&
-                                    record.check_in_iso && (
-                                      <Button
-                                        type="button"
-                                        variant="link"
-                                        className="h-auto p-0 ml-2 text-xs"
-                                        onClick={() => {
-                                          setEditingCheckOutId(null)
-                                          setEditingCheckInId(record.id)
-                                          try {
-                                            setCheckInEditDraft(
-                                              format(parseISO(record.check_in_iso as string), "yyyy-MM-dd'T'HH:mm")
-                                            )
-                                          } catch {
-                                            setCheckInEditDraft("")
-                                          }
-                                        }}
-                                      >
-                                        Edit
-                                      </Button>
-                                    )}
-                                </div>
-                              )}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap align-top">
-                              {editingCheckOutId === record.id &&
-                              canEditCheckInTime &&
-                              (record.status === "present" || record.status === "late") ? (
-                                <div className="flex flex-col gap-1 max-w-[14rem]">
-                                  <Input
-                                    type="datetime-local"
-                                    className="h-8 text-xs"
-                                    value={checkOutEditDraft}
-                                    onChange={(e) => setCheckOutEditDraft(e.target.value)}
-                                  />
-                                  <div className="flex gap-1">
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      className="h-7 text-xs"
-                                      disabled={saveStatus[record.id] === "saving"}
-                                      onClick={() => {
-                                        void handleUpdateCheckOutTime(record.id, checkOutEditDraft)
-                                      }}
-                                    >
-                                      Save
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-7 text-xs"
-                                      onClick={() => setEditingCheckOutId(null)}
-                                    >
-                                      Cancel
-                                    </Button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="text-sm text-gray-900 font-medium">
-                                  {record.check_out_time || (
-                                    <span className="text-gray-400 italic">Not recorded</span>
-                                  )}
-                                  {canEditCheckInTime &&
-                                    (record.status === "present" || record.status === "late") &&
-                                    record.check_in_iso && (
-                                      <Button
-                                        type="button"
-                                        variant="link"
-                                        className="h-auto p-0 ml-2 text-xs"
-                                        onClick={() => {
-                                          setEditingCheckInId(null)
-                                          setEditingCheckOutId(record.id)
-                                          const baseIso = record.check_out_iso || record.check_in_iso
-                                          try {
-                                            setCheckOutEditDraft(
-                                              format(parseISO(baseIso as string), "yyyy-MM-dd'T'HH:mm")
-                                            )
-                                          } catch {
-                                            setCheckOutEditDraft("")
-                                          }
-                                        }}
-                                      >
-                                        Edit
-                                      </Button>
-                                    )}
-                                </div>
-                              )}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex flex-wrap items-center gap-2">
+                            <td className="px-3 py-2.5">
+                              <div className="flex items-center gap-1.5 flex-wrap">
                                 <Button
                                   onClick={() => handleMarkAttendance(record.id, "present")}
                                   size="sm"
                                   variant={record.status === "present" ? "default" : "outline"}
-                                  className={`text-xs font-medium transition-all duration-200 ${
+                                  title="Mark present"
+                                  className={`h-8 px-2.5 text-xs shrink-0 ${
                                     record.status === "present"
-                                      ? "bg-green-600 hover:bg-green-700 text-white shadow-md"
+                                      ? "bg-green-600 hover:bg-green-700 text-white"
                                       : "hover:bg-green-50 hover:border-green-300 hover:text-green-700"
                                   }`}
                                   disabled={isStatusButtonDisabled(record, "present")}
                                 >
                                   {saveStatus[record.id] === "saving" &&
                                   markActionPending[record.id] === "present" ? (
-                                    <RefreshCw className="h-3 w-3 animate-spin mr-1" />
+                                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                                   ) : (
-                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                    "Present"
                                   )}
-                                  Present
                                 </Button>
                                 <Button
                                   onClick={() => handleMarkAttendance(record.id, "absent")}
                                   size="sm"
                                   variant={record.status === "absent" ? "default" : "outline"}
-                                  className={`text-xs font-medium transition-all duration-200 ${
+                                  title="Mark absent"
+                                  className={`h-8 px-2.5 text-xs shrink-0 ${
                                     record.status === "absent"
-                                      ? "bg-red-600 hover:bg-red-700 text-white shadow-md"
+                                      ? "bg-red-600 hover:bg-red-700 text-white"
                                       : "hover:bg-red-50 hover:border-red-300 hover:text-red-700"
                                   }`}
                                   disabled={isStatusButtonDisabled(record, "absent")}
                                 >
                                   {saveStatus[record.id] === "saving" &&
                                   markActionPending[record.id] === "absent" ? (
-                                    <RefreshCw className="h-3 w-3 animate-spin mr-1" />
+                                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                                   ) : (
-                                    <XCircle className="h-3 w-3 mr-1" />
+                                    "Absent"
                                   )}
-                                  Absent
                                 </Button>
-                                <div className="ml-1">
-                                  {getSaveStatusIcon(record.id)}
-                                </div>
+                                {getSaveStatusIcon(record.id)}
                               </div>
                             </td>
                           </tr>
@@ -2047,7 +1872,7 @@ export default function SuperAdminStudentAttendancePage() {
             {/* Branch-wise Statistics */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Branch-wise Attendance</CardTitle>
+                <CardTitle className="text-lg">Academy-wise Attendance</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="h-64">
@@ -2080,7 +1905,7 @@ export default function SuperAdminStudentAttendancePage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Total Branches</span>
+                  <span className="text-sm text-gray-600">Total Academies</span>
                   <span className="font-semibold">{branches.length}</span>
                 </div>
                 <div className="flex justify-between items-center">

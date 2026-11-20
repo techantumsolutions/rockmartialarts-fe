@@ -262,7 +262,7 @@ export default function AdminMessagesPage() {
     return true
   })
 
-  // Build a merged contact list: coaches & branch admins with conversation info
+  // Build a merged contact list: coaches & academy admins with conversation info
   const contactList = recipients
     .filter(r => r.type === "coach" || r.type === "branch_manager")
     .filter(r => {
@@ -305,7 +305,7 @@ export default function AdminMessagesPage() {
     switch (userType) {
       case "coach": return "Coach"
       case "student": return "Student"
-      case "branch_manager": return "Branch Manager"
+      case "branch_manager": return "Academy Manager"
       case "superadmin": return "Admin"
       default: return "User"
     }

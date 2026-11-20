@@ -9,6 +9,7 @@ import { BranchDistanceControls } from "@/components/website/BranchDistanceLabel
 import { NearbyAcademyCard, type NearbyAcademyCardData } from "@/components/website/NearbyAcademyCard"
 import { useVisitorBranchDistances } from "@/hooks/useVisitorBranchDistances"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
+import { getBranchDisplayLabels } from "@/lib/branchDisplay"
 import {
   Select,
   SelectContent,
@@ -24,6 +25,9 @@ type Branch = {
   slug?: string
   email?: string
   phone?: string
+  partner_org_id?: string | null
+  partner_org_name?: string | null
+  brand_name?: string | null
   cover_image_url?: string | null
   rating?: number | null
   review_count?: number | null
@@ -48,7 +52,7 @@ type Branch = {
 }
 
 function getBranchName(b: Branch): string {
-  return b.branch?.name || b.name || b.code || "Branch"
+  return b.branch?.name || b.name || b.code || "Academy"
 }
 
 function getBranchAddress(b: Branch) {
@@ -68,8 +72,8 @@ function branchHref(b: Branch): string {
 function toAcademyCard(b: Branch, idx: number): NearbyAcademyCardData {
   const addr = getBranchAddress(b)
   const location = formatLocation(addr)
-  const area = [addr?.area, addr?.city].filter(Boolean).join(", ") || location
-  const name = getBranchName(b)
+  const labels = getBranchDisplayLabels(b)
+  const area = labels.locationName || [addr?.area, addr?.city].filter(Boolean).join(", ") || location
   const coverRaw = b.cover_image_url || ""
   const cover =
     (coverRaw && (resolvePublicAssetUrl(coverRaw) || coverRaw)) ||
@@ -79,7 +83,11 @@ function toAcademyCard(b: Branch, idx: number): NearbyAcademyCardData {
     : []
   return {
     id: b.id,
-    name,
+    name: labels.brandName,
+    brandName: labels.brandName,
+    poweredByLine: labels.poweredByLine,
+    locationName: labels.locationName,
+    logoUrl: labels.logoUrl || null,
     location,
     area,
     href: branchHref(b),
@@ -118,7 +126,7 @@ function getInitialBranches(): { branches: Branch[]; total: number } {
   return { branches: [], total: 0 }
 }
 
-export default function BranchesDiscoveryPage() {
+export default function AcademiesDiscoveryPage() {
   const geography = useGeographyDropdowns()
   const [searchInput, setSearchInput] = useState("")
   const [q, setQ] = useState("")
@@ -126,7 +134,7 @@ export default function BranchesDiscoveryPage() {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
 
-  // Immediately restore cached branches before paint
+  // Immediately restore cached academies before paint
   useLayoutEffect(() => {
     if (branches.length === 0 && !geography.selectedStateId && !geography.selectedCityId && !q) {
       const cached = getInitialBranches()
@@ -227,12 +235,12 @@ export default function BranchesDiscoveryPage() {
         className="relative py-20 md:py-28 bg-cover bg-center"
         style={{ backgroundImage: "url(/assets/img/banner.jpg)" }}
       >
-        <div className="absolute inset-0 bg-black/60" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#171A26]/50 via-[#171A26]/15 to-black/10" />
         <div className="site-content relative z-10 px-0 sm:px-1">
           <div className="max-w-2xl">
-            <h1 className="text-4xl md:text-5xl font-bold text-white uppercase mb-4">Our Branches</h1>
+            <h1 className="text-4xl md:text-5xl font-bold text-white uppercase mb-4">Our Academies</h1>
             <p className="text-gray-200 text-lg">
-              Find a Rock Martial Arts academy by state, city, or name. Open a branch for courses and contact details.
+              Find a Rock Martial Arts branch by state, city, or name. Open an branch for courses and contact details.
             </p>
           </div>
         </div>
@@ -306,16 +314,16 @@ export default function BranchesDiscoveryPage() {
                   type="search"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
-                  placeholder="Branch name, area, or city"
+                  placeholder="Academy name, area, or city"
                   className={`${selectClass} pl-10`}
-                  aria-label="Search branches"
+                  aria-label="Search academies"
                 />
               </div>
             </div>
           </div>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-gray-400">
             <p>
-              {loading ? "Searching…" : `${total} ${total === 1 ? "branch" : "branches"} found`}
+              {loading ? "Searching…" : `${total} ${total === 1 ? "academy" : "academies"} found`}
             </p>
             {hasFilters ? (
               <button
@@ -341,8 +349,8 @@ export default function BranchesDiscoveryPage() {
               <Building2 className="w-16 h-16 mx-auto mb-4 text-gray-600" />
               <p className="mb-4 text-lg">
                 {hasFilters
-                  ? "No branches match these filters. Try another state, city, or search."
-                  : "No branches available yet. Check back soon."}
+                  ? "No academies match these filters. Try another state, city, or search."
+                  : "No academies available yet. Check back soon."}
               </p>
               {hasFilters ? (
                 <button type="button" onClick={clearFilters} className="text-[#FFB70F] hover:text-white font-medium">
@@ -360,10 +368,7 @@ export default function BranchesDiscoveryPage() {
               supported={branchDistances.supported}
               status={branchDistances.status}
               loading={branchDistances.loading}
-              hasCoords={Boolean(branchDistances.coords)}
               errorMessage={branchDistances.errorMessage}
-              onRequest={branchDistances.requestLocation}
-              onRefresh={branchDistances.refreshLocation}
             />
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 md:gap-6">
               {orderedBranches.map((card) => (

@@ -8,7 +8,7 @@ import { SuperAdminAuth } from "@/lib/auth"
 /**
  * /dashboard redirects to role-based dashboard.
  * Branch admin -> /branch-admin/dashboard only. Super admin -> /super-admin/dashboard only.
- * Never use token presence alone: branch manager also has a token; use role-specific auth.
+ * Never use token presence alone: academy manager also has a token; use role-specific auth.
  */
 export default function DashboardRedirectPage() {
   const router = useRouter()

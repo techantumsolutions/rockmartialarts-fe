@@ -821,8 +821,8 @@ export function ResidentialCampRegistrationModal({ open, onClose, content }: Pro
                 <div className="camp-form-stack">
                   <p>
                     I, the undersigned parent/guardian, give permission for my child to participate in {eventName}
-                    {dates ? ` (${dates})` : ""} conducted by Rock Martial Arts Academy. I confirm that the information
-                    provided is accurate and that I have informed the academy about relevant medical, dietary or safety
+                    {dates ? ` (${dates})` : ""} conducted by Rock Martial Arts Branch. I confirm that the information
+                    provided is accurate and that I have informed the branch about relevant medical, dietary or safety
                     requirements.
                   </p>
                   <Check

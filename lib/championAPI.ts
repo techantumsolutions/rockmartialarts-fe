@@ -11,7 +11,7 @@ export const CHAMPION_STATUSES = [
 ] as const
 
 export const RECOGNITION_LEVELS = [
-  { value: "academy", label: "Academy" },
+  { value: "branch", label: "Academy" },
   { value: "local", label: "Local" },
   { value: "regional", label: "Regional" },
   { value: "state", label: "State" },

@@ -31,6 +31,12 @@ import { getEnrollmentUiStatus, formatEnrollmentUiStatusLabel } from "@/lib/stud
 import { mergeEnrollmentsByCourseBranch } from "@/lib/merge-enrollment-groups"
 import { TokenManager } from "@/lib/tokenManager"
 import { requireStudentSession } from "@/lib/sessionAuth"
+import {
+  academyEventAPI,
+  academyEventTypeLabel,
+  formatEventFee,
+  type AcademyEvent,
+} from "@/lib/academyEventAPI"
 
 export default function StudentDashboard() {
   const router = useRouter()
@@ -38,7 +44,8 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true)
   const [dashboardStats, setDashboardStats] = useState<any>(null)
   const [recentActivity, setRecentActivity] = useState<any[]>([])
-  const [upcomingEvents, setUpcomingEvents] = useState<any[]>([])
+  const [upcomingEvents, setUpcomingEvents] = useState<AcademyEvent[]>([])
+  const [eventsLoading, setEventsLoading] = useState(false)
   const [quickActions, setQuickActions] = useState<any[]>([])
   const [attendanceData, setAttendanceData] = useState<any>(null)
   /** True when attendance API returned an error — do not show fabricated zeros as live data. */
@@ -215,13 +222,39 @@ export default function StudentDashboard() {
           date: record.date || "Unknown",
           status: record.status === "present" ? "completed" : record.status,
           icon: record.status === "present" ? BookOpen : record.status === "late" ? Clock : Target,
-          branch: record.branch || "Unknown Branch"
+          branch: record.branch || "Unknown Academy"
         }))
 
         setRecentActivity(activityList)
 
-        // Set upcoming events - empty, no static data
-        setUpcomingEvents([])
+        // Published academy events (same catalogue as public /events)
+        setEventsLoading(true)
+        try {
+          const eventsData = await academyEventAPI.listPublic({ skip: 0, limit: 20 })
+          const now = Date.now()
+          const published = Array.isArray(eventsData.events) ? eventsData.events : []
+          const upcoming = published
+            .filter((ev) => {
+              if (!ev?.start_at) return true
+              const t = new Date(ev.start_at).getTime()
+              if (Number.isNaN(t)) return true
+              // Keep events that haven't ended yet (or start within last day as fallback)
+              const endT = ev.end_at ? new Date(ev.end_at).getTime() : t
+              return (Number.isNaN(endT) ? t : endT) >= now - 24 * 60 * 60 * 1000
+            })
+            .sort((a, b) => {
+              const ta = new Date(a.start_at || 0).getTime()
+              const tb = new Date(b.start_at || 0).getTime()
+              return ta - tb
+            })
+            .slice(0, 5)
+          setUpcomingEvents(upcoming)
+        } catch (eventsErr) {
+          console.error("Failed to load upcoming events:", eventsErr)
+          setUpcomingEvents([])
+        } finally {
+          setEventsLoading(false)
+        }
 
         // Check for applicable registration forms
         let registrationFormsAvailable = false
@@ -247,7 +280,7 @@ export default function StudentDashboard() {
         const actions = [
           { id: 1, title: "View Courses", description: "See all enrolled courses", icon: BookOpen, href: "/student-dashboard/courses", color: "blue" },
           { id: 2, title: "Check Attendance", description: "View attendance record", icon: Calendar, href: "/student-dashboard/attendance", color: "green" },
-          { id: 3, title: "Track Progress", description: "Monitor your development", icon: TrendingUp, href: "/student-dashboard/progress", color: "purple" },
+          { id: 3, title: "Browse Events", description: "Workshops, seminars & camps", icon: Users, href: "/events", color: "purple" },
           { id: 4, title: "Make Payment", description: "Pay fees and dues", icon: CreditCard, href: "/student-dashboard/payments", color: "orange" }
         ]
         if (registrationFormsAvailable) {
@@ -521,14 +554,14 @@ export default function StudentDashboard() {
               </CardContent>
             </Card>
 
-            {/* Achievements (from coaches / branch admins) */}
+            {/* Achievements (from coaches / academy admins) */}
             <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
               <CardHeader className="bg-gradient-to-r from-amber-50 to-yellow-50 border-b border-amber-100">
                 <CardTitle className="flex items-center space-x-2">
                   <Award className="w-5 h-5 text-amber-600" />
                   <span>Your achievements</span>
                 </CardTitle>
-                <CardDescription>Awards and milestones added by your academy</CardDescription>
+                <CardDescription>Awards and milestones added by your branch</CardDescription>
               </CardHeader>
               <CardContent className="p-6">
                 {achievementsLoading ? (
@@ -601,6 +634,76 @@ export default function StudentDashboard() {
 
           {/* Right Column - Upcoming Events & Recent Activity */}
           <div className="space-y-6">
+            {/* Upcoming Events from Super Admin Events catalogue */}
+            <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Users className="w-5 h-5 text-amber-600" />
+                  <span>Upcoming Events</span>
+                </CardTitle>
+                <CardDescription>Workshops, seminars &amp; camps you can join</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                {eventsLoading ? (
+                  <div className="p-6 text-sm text-muted-foreground">Loading events…</div>
+                ) : upcomingEvents.length === 0 ? (
+                  <div className="p-6 text-center">
+                    <Calendar className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">No upcoming events right now</p>
+                  </div>
+                ) : (
+                  <div className="space-y-0">
+                    {upcomingEvents.map((ev, index) => {
+                      const when = ev.start_at
+                        ? new Date(ev.start_at).toLocaleString(undefined, {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })
+                        : "Date TBA"
+                      return (
+                        <button
+                          key={ev.id || ev.slug || index}
+                          type="button"
+                          className={`w-full text-left p-4 hover:bg-amber-50/60 transition-colors duration-200 ${
+                            index !== upcomingEvents.length - 1 ? "border-b border-gray-100" : ""
+                          }`}
+                          onClick={() => router.push(`/events/${ev.slug}`)}
+                        >
+                          <div className="flex items-start space-x-3">
+                            <div className="p-2 rounded-lg bg-amber-100 text-amber-700 shrink-0">
+                              <Calendar className="w-4 h-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-gray-900 truncate">{ev.title}</p>
+                              <p className="text-xs text-amber-700 mt-0.5">
+                                {academyEventTypeLabel(ev.event_type)}
+                                {ev.venue ? ` · ${ev.venue}` : ""}
+                              </p>
+                              <p className="text-xs text-gray-500 mt-1">{when}</p>
+                              <p className="text-xs font-medium text-gray-700 mt-1">
+                                {formatEventFee(ev.fee_inr)}
+                                {ev.registration_open === false ? " · Registration closed" : ""}
+                              </p>
+                            </div>
+                            <ArrowRight className="w-4 h-4 text-gray-400 shrink-0 mt-1" />
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+                <div className="p-4 border-t border-gray-100">
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => router.push("/events")}
+                  >
+                    Browse all events
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Enrolled Courses Quick View */}
             <Card className="rounded-xl border bg-gradient-to-br from-green-50 to-emerald-50 border-green-200/60 shadow-sm hover:shadow-md transition-all">
               <CardHeader className="pb-3">
@@ -654,7 +757,7 @@ export default function StudentDashboard() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-gray-900 truncate">{enrollment.course_name}</p>
-                            <p className="text-sm text-gray-600">{enrollment.branch_name || 'Branch'}</p>
+                            <p className="text-sm text-gray-600">{enrollment.branch_name || 'Academy'}</p>
                             <p className="text-xs text-gray-500 mt-1">
                               {formatEnrollmentUiStatusLabel(
                                 getEnrollmentUiStatus({

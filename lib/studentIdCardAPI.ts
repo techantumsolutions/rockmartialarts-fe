@@ -7,6 +7,10 @@ export interface StudentIdCardDisplay {
   student_ref?: string
   branch_name?: string
   course_name?: string
+  belt_rank?: string
+  batch_name?: string
+  date_of_joining?: string
+  valid_until?: string
   account_status?: string
   photo_url?: string | null
   card_status?: string
@@ -102,6 +106,39 @@ class StudentIdCardAPI {
     return res.json()
   }
 
+  /** Admin: upload/replace student profile photo used on the ID card. */
+  async uploadProfilePhoto(
+    studentId: string,
+    file: File,
+    token?: string
+  ): Promise<{
+    message: string
+    profile_image: string
+    id_card?: StudentIdCardResponse | null
+  }> {
+    const authToken = token || TokenManager.getToken()
+    const form = new FormData()
+    form.append("file", file)
+    const res = await fetch(getBackendApiUrl(`users/${studentId}/profile-photo`), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        "Cache-Control": "no-cache",
+      },
+      body: form,
+      cache: "no-store",
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(
+        typeof err.detail === "string"
+          ? err.detail
+          : `Failed to update student photo (${res.status})`
+      )
+    }
+    return res.json()
+  }
+
   async verifyPublic(token: string): Promise<StudentIdVerifyResponse> {
     const res = await fetch(getBackendApiUrl(`public/student-id/verify/${encodeURIComponent(token)}`), {
       method: "GET",
@@ -129,6 +166,10 @@ class StudentIdCardAPI {
         "card_number",
         "branch_name",
         "course_name",
+        "belt_rank",
+        "batch_name",
+        "date_of_joining",
+        "valid_until",
         "account_status",
         "photo_url",
         "card_status",

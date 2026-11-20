@@ -219,7 +219,7 @@ export function useBreadcrumbFromRoute() {
           label = 'Coaches'
           break
         case 'branches':
-          label = 'Branches'
+          label = 'Academies'
           break
         default:
           // Capitalize and format segment

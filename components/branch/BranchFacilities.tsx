@@ -11,7 +11,7 @@ const facilityIcons: Record<string, typeof Dumbbell> = {
 }
 
 /**
- * Facilities / features section when available in branch data.
+ * Facilities / features section when available in academy data.
  */
 export function BranchFacilities({ branch }: { branch: BranchData }) {
   const facilities = (branch as BranchData & { facilities?: string[] }).facilities ?? []

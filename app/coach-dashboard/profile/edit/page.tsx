@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
+import { AppModal } from "@/components/ui/AppModal"
 import { 
   User, 
   Mail, 
@@ -32,6 +33,7 @@ import {
 } from "lucide-react"
 import CoachDashboardHeader from "@/components/coach-dashboard-header"
 import { checkCoachAuth } from "@/lib/coachAuth"
+import { AdminStickyFormActions } from "@/components/dashboard/AdminStickyFormActions"
 
 interface CoachProfile {
   id: string
@@ -82,6 +84,7 @@ export default function CoachProfileEditPage() {
   const [error, setError] = useState<string | null>(null)
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+
   const [profileImageUrl, setProfileImageUrl] = useState<string>("")
   const [uploadingImage, setUploadingImage] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -642,7 +645,12 @@ export default function CoachProfileEditPage() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} noValidate className="space-y-4 sm:space-y-6">
+          <form
+            id="coach-profile-edit-form"
+            onSubmit={handleSubmit}
+            noValidate
+            className="admin-page-with-sticky-actions space-y-4 sm:space-y-6"
+          >
             {/* Personal Information */}
             <Card className="shadow-sm">
               <CardHeader className="pb-4">
@@ -1070,63 +1078,69 @@ export default function CoachProfileEditPage() {
               </CardContent>
             </Card>
 
-            {/* Form Actions */}
-            <div className="pt-6 border-t border-gray-200">
-              <div className="flex flex-col sm:flex-row gap-4 justify-center sm:justify-start">
-                <Button
-                  type="submit"
-                  disabled={saving}
-                  className="w-full sm:w-auto h-12 bg-yellow-400 hover:bg-yellow-500 text-white font-semibold px-8 rounded-xl"
-                >
-                  {saving ? (
-                    <div className="flex items-center">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-black mr-3"></div>
-                      Updating Profile...
-                    </div>
-                  ) : (
-                    "Save Changes"
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleCancel}
-                  disabled={saving}
-                  className="w-full sm:w-auto h-12 px-8 rounded-xl font-medium border-gray-300"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
           </form>
+
+          <AdminStickyFormActions>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCancel}
+              disabled={saving}
+              className="h-12 px-8 rounded-xl font-medium border-gray-300"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="coach-profile-edit-form"
+              disabled={saving}
+              className="h-12 font-semibold px-8 rounded-xl"
+            >
+              {saving ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-black mr-3"></div>
+                  Updating Profile...
+                </div>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </AdminStickyFormActions>
         </div>
       </main>
 
-      {/* Success Popup */}
-      {showSuccessPopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Profile Updated Successfully!</h3>
-              <p className="text-gray-600 mb-6">Your profile information has been updated successfully.</p>
-              <Button
-                onClick={() => {
-                  setShowSuccessPopup(false)
-                  router.push("/coach-dashboard/profile")
-                }}
-                className="w-full bg-yellow-400 hover:bg-yellow-500 text-white font-semibold py-3 rounded-xl"
-              >
-                Continue
-              </Button>
-            </div>
+      <AppModal
+        open={showSuccessPopup}
+        onClose={() => {
+          setShowSuccessPopup(false)
+          router.push("/coach-dashboard/profile")
+        }}
+        title="Profile Updated Successfully!"
+        size="sm"
+        centered
+        header={
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+            </svg>
           </div>
-        </div>
-      )}
+        }
+        footer={
+          <Button
+            onClick={() => {
+              setShowSuccessPopup(false)
+              router.push("/coach-dashboard/profile")
+            }}
+            className="w-full bg-[#E1BB33] text-[#171A26] hover:bg-[#d4a82a] sm:w-auto sm:ml-auto"
+          >
+            Continue
+          </Button>
+        }
+      >
+        <p className="text-center text-sm leading-relaxed text-[#6B7280]">
+          Your profile information has been updated successfully.
+        </p>
+      </AppModal>
     </div>
   )
 }

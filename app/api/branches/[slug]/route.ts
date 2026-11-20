@@ -7,7 +7,7 @@ export async function GET(
 ) {
   const slug = params.slug
   if (!slug) {
-    return NextResponse.json({ error: "Branch not found" }, { status: 404 })
+    return NextResponse.json({ error: "Academy not found" }, { status: 404 })
   }
 
   try {
@@ -25,11 +25,11 @@ export async function GET(
     try {
       body = text ? JSON.parse(text) : {}
     } catch {
-      body = { error: text || "Failed to fetch branch" }
+      body = { error: text || "Failed to fetch academy" }
     }
     return NextResponse.json(body, { status: response.status })
   } catch (error) {
-    console.error("[branch-by-slug] error:", error)
-    return NextResponse.json({ error: "Failed to fetch branch" }, { status: 500 })
+    console.error("[academy-by-slug] error:", error)
+    return NextResponse.json({ error: "Failed to fetch academy" }, { status: 500 })
   }
 }

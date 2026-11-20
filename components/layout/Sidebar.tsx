@@ -8,6 +8,7 @@ import {
   filterNavItemsByPermission,
   getBasePath,
   getMenuForRole,
+  getPortalIdentityLabel,
   isPartnerBranchManagerNav,
   isPartnerStudentNav,
   remapNavBase,
@@ -15,10 +16,12 @@ import {
   type NavChild,
   type NavItem,
 } from "@/lib/dashboard-config"
+import { PortalIdentityBadge } from "@/components/layout/PortalIdentityBadge"
 import { usePermissions } from "@/hooks/use-permissions"
 import { usePartnerFeaturePermissions } from "@/hooks/usePartnerFeaturePermissions"
 import { filterPartnerNavByFeatures } from "@/lib/partnerFeaturePermissions"
 import { useCMS } from "@/contexts/CMSContext"
+import { usePlatformBranding } from "@/contexts/PlatformBrandingContext"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 
@@ -124,6 +127,7 @@ export default function Sidebar({
   const roleBasePath = getBasePath(role)
   const urlBasePath = useDashboardBasePath()
   const { cms } = useCMS()
+  const { logoUrl: platformLogoUrl, platformShortName } = usePlatformBranding()
   const [partnerBranchManager, setPartnerBranchManager] = useState(false)
   const [partnerStudent, setPartnerStudent] = useState(false)
   const [openKeys, setOpenKeys] = useState<Set<string>>(new Set())
@@ -183,7 +187,8 @@ export default function Sidebar({
         ? filterPartnerNavByFeatures(all, partnerFeaturePermissions)
         : all
 
-    return filtered.filter((i) => (role === "student" ? true : i.label !== "Settings") && !i.overflowOnly)
+    // Keep Settings/CMS in sidebar when present in role menu; only drop overflow-only items.
+    return filtered.filter((i) => !i.overflowOnly)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- hasPermission intentionally omitted
   }, [role, roleBasePath, urlBasePath, menuOptions, partnerFeaturePermissions])
 
@@ -260,7 +265,8 @@ export default function Sidebar({
     })
   }
 
-  const logoSrc = resolvePublicAssetUrl(cms?.branding?.navbar_logo) || "/logo.png"
+  const logoSrc =
+    platformLogoUrl || resolvePublicAssetUrl(cms?.branding?.navbar_logo) || "/logo.png"
 
   const parentClass = (active: boolean) =>
     `group relative flex h-11 w-full items-center gap-2.5 rounded-lg px-3 text-[14px] font-medium transition-colors touch-manipulation ${
@@ -336,11 +342,14 @@ export default function Sidebar({
         )}
         <Link
           href={child.path}
+          {...(child.openInNewTab
+            ? { target: "_blank", rel: "noopener noreferrer" }
+            : {})}
           onClick={() => notify(child.path)}
-          aria-current={isLeafActive ? "page" : undefined}
+          aria-current={child.openInNewTab ? undefined : isLeafActive ? "page" : undefined}
           className={childClass(isLeafActive, depth)}
         >
-          {isLeafActive && (
+          {isLeafActive && !child.openInNewTab && (
             <span
               aria-hidden
               className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-[#FFB70F]"
@@ -365,14 +374,15 @@ export default function Sidebar({
             <Link
               href={activeBase}
               onClick={() => notify(activeBase)}
-              className={`flex min-w-0 items-center ${collapsed ? "" : "flex-1"}`}
-              title="Dashboard"
+              className={`flex min-w-0 items-center ${collapsed ? "" : "flex-1 gap-2"}`}
+              title={getPortalIdentityLabel(role)}
             >
               <img
                 src={logoSrc}
-                alt="Logo"
+                alt={platformShortName || getPortalIdentityLabel(role)}
                 className="h-9 w-auto max-w-[40px] shrink-0 object-contain"
               />
+              {!collapsed ? <PortalIdentityBadge role={role} compact /> : null}
             </Link>
             {!collapsed && (
               <button
@@ -393,7 +403,7 @@ export default function Sidebar({
                 onClick={() => setCollapsed(false)}
                 className="hidden h-8 w-8 items-center justify-center rounded-md text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#171A26] lg:inline-flex"
                 aria-label="Expand sidebar"
-                title="Expand sidebar"
+                title={getPortalIdentityLabel(role)}
               >
                 <PanelLeftOpen className="h-4 w-4" />
               </button>
@@ -470,16 +480,20 @@ export default function Sidebar({
               const href = hasChildren
                 ? item.children?.[0]?.path || item.path
                 : item.path
+              const openNew =
+                (!hasChildren && item.openInNewTab) ||
+                Boolean(item.children?.[0] && (item.children[0] as NavChild).openInNewTab)
               return (
                 <Link
                   key={key}
                   href={href}
                   title={item.label}
+                  {...(openNew ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                   onClick={() => {
                     if (hasChildren) toggleKey(key, true)
                     notify(href)
                   }}
-                  aria-current={containsActive ? "page" : undefined}
+                  aria-current={openNew ? undefined : containsActive ? "page" : undefined}
                   className={`relative mx-auto flex h-11 w-11 items-center justify-center rounded-lg transition-colors ${
                     containsActive
                       ? "bg-[#FFF7DF] text-[#171A26]"
@@ -551,14 +565,17 @@ export default function Sidebar({
               <Link
                 key={key}
                 href={item.path}
+                {...(item.openInNewTab
+                  ? { target: "_blank", rel: "noopener noreferrer" }
+                  : {})}
                 onClick={() => {
                   setOpenKeys(new Set())
                   notify(item.path)
                 }}
-                aria-current={isLeafActive ? "page" : undefined}
+                aria-current={item.openInNewTab ? undefined : isLeafActive ? "page" : undefined}
                 className={`${parentClass(isLeafActive)} relative`}
               >
-                {isLeafActive && (
+                {isLeafActive && !item.openInNewTab && (
                   <span
                     aria-hidden
                     className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-[#FFB70F]"

@@ -61,7 +61,7 @@ export function CourseInfoModal({
   course: CourseInfoModalCourse | null
   branchId: string
   branchDisplayName: string
-  /** From branch page `operational_details.timings` when API omits timings string. */
+  /** From academy page `operational_details.timings` when API omits timings string. */
   branchTimings?: Parameters<typeof formatOperationalTimingsForDisplay>[0]
   /** From `assignments.course_schedule` (per-course batch days & times). */
   courseSchedule?: BranchCourseScheduleEntry[] | null
@@ -87,16 +87,28 @@ export function CourseInfoModal({
     setError(null)
     setBranchInfo(null)
 
-    const infoUrl = `/api/backend/courses/public/detail/${encodeURIComponent(courseId)}/branch-info?branch_id=${encodeURIComponent(branchId)}`
+    const qs = `branch_id=${encodeURIComponent(branchId)}`
+    const base = `/api/backend/courses/public/detail/${encodeURIComponent(courseId)}`
 
-    fetch(infoUrl, { headers: { "Content-Type": "application/json" }, cache: "no-store" })
-      .then(async (infoRes) => {
-        const data = await infoRes.json().catch(() => ({}))
+    ;(async () => {
+      try {
+        let infoRes = await fetch(`${base}/academy-info?${qs}`, {
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+        })
+        let data = await infoRes.json().catch(() => ({}))
+        if (!infoRes.ok) {
+          infoRes = await fetch(`${base}/branch-info?${qs}`, {
+            headers: { "Content-Type": "application/json" },
+            cache: "no-store",
+          })
+          data = await infoRes.json().catch(() => ({}))
+        }
         if (!infoRes.ok) {
           const msg =
             typeof data?.detail === "string"
               ? data.detail
-              : "Could not load details for this course at this branch."
+              : "Could not load details for this course at this academy."
           if (!cancelled) {
             setError(msg)
             setBranchInfo(null)
@@ -104,16 +116,15 @@ export function CourseInfoModal({
           return
         }
         if (!cancelled) setBranchInfo(data as BranchInfoPayload)
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) {
           setError("Something went wrong. Please try again.")
           setBranchInfo(null)
         }
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false)
-      })
+      }
+    })()
 
     return () => {
       cancelled = true
@@ -144,7 +155,7 @@ export function CourseInfoModal({
     !loading && !error && (!timingsText || timingsText === "—") && batchCards.length === 0
 
   const branchNameResolved =
-    (branchInfo?.branch_name?.trim() || branchDisplayName || "This branch").trim()
+    (branchInfo?.branch_name?.trim() || branchDisplayName || "This academy").trim()
   const durationLine = (branchInfo?.duration ?? "").trim()
   const showDuration = durationLine && durationLine !== "—"
 

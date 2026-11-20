@@ -209,7 +209,8 @@ export default function StudentDetailPage() {
 
   const getAuthToken = () => {
     let token = isBranchAdmin ? BranchManagerAuth.getToken() : TokenManager.getToken()
-    if (!token && isBranchAdmin) token = TokenManager.getToken()
+    if (!token) token = TokenManager.getToken()
+    if (!token) token = BranchManagerAuth.getToken()
     return token
   }
 
@@ -393,7 +394,7 @@ export default function StudentDetailPage() {
     try {
       setEnrollmentsLoading(true)
       if (isBranchAdmin) {
-        // Confirm student is in managed branches, then load full enrollment records
+        // Confirm student is in managed academies, then load full enrollment records
         const studentsResponse = await fetch(getBackendApiUrl("users/students/details"), {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -402,14 +403,14 @@ export default function StudentDetailPage() {
           cache: "no-store",
         })
         if (!studentsResponse.ok) {
-          throw new Error(`Failed to load branch students (${studentsResponse.status})`)
+          throw new Error(`Failed to load academy students (${studentsResponse.status})`)
         }
         const studentsData = await studentsResponse.json()
         const listedStudent = studentsData.students?.find(
           (candidate: any) => candidate.id === studentId || candidate.student_id === studentId
         )
         if (!listedStudent) {
-          throw new Error("Student is not available in the branches assigned to this manager")
+          throw new Error("Student is not available in the academyes assigned to this manager")
         }
       }
 
@@ -1467,7 +1468,7 @@ export default function StudentDetailPage() {
                       variant={paymentPeriodFilter === opt.id ? "default" : "outline"}
                       className={
                         paymentPeriodFilter === opt.id
-                          ? "h-8 bg-[#4D5077] hover:bg-[#3d4060] text-white"
+                          ? "h-8"
                           : "h-8"
                       }
                       onClick={() => setPaymentPeriodFilter(opt.id)}

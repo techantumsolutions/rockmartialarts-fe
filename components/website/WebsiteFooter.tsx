@@ -5,12 +5,19 @@ import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 import { toCourseSlug } from "@/lib/course-slug"
 import { useCMS } from "@/contexts/CMSContext"
+import { usePlatformBranding } from "@/contexts/PlatformBrandingContext"
+import { useBranchPublicBrand } from "@/contexts/BranchPublicBrandContext"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import { isPartnerOrgSitePath } from "@/lib/partnerOrgSitePath"
+import {
+  getPartnerPublicChrome,
+  subscribePartnerPublicChrome,
+} from "@/lib/partnerPublicChrome"
+import { formatAcademyPoweredBy } from "@/lib/portalIdentity"
 
 const quickLinks = [
   { label: "Courses", href: "/courses" },
-  { label: "Branches", href: "/branches" },
+  { label: "Academies", href: "/branches" },
   { label: "Champions", href: "/champions" },
   { label: "Events", href: "/events" },
   { label: "My registrations", href: "/events/my-registrations" },
@@ -25,10 +32,27 @@ export function WebsiteFooter() {
   const pathname = usePathname()
   const [courses, setCourses] = useState<CourseItem[]>([])
   const { cms } = useCMS()
+  const {
+    logoUrl: platformLogoUrl,
+    footerLogoUrl,
+    platformName,
+    platformShortName,
+  } = usePlatformBranding()
+  const { override: branchBrand } = useBranchPublicBrand()
+  const [partnerChrome, setPartnerChrome] = useState(getPartnerPublicChrome)
+
+  useEffect(() => subscribePartnerPublicChrome(setPartnerChrome), [])
 
   const footer = cms?.footer
   const branding = cms?.branding
-  const hideForPartnerSite = isPartnerOrgSitePath(pathname)
+  const partnerOrgId =
+    partnerChrome?.partnerOrgId || branchBrand?.partnerOrgId || ""
+  const footerEnabled =
+    partnerChrome?.footerEnabled === true || branchBrand?.footerEnabled === true
+  const isPartnerChrome =
+    isPartnerOrgSitePath(pathname) || Boolean(partnerOrgId)
+  // Partner public pages hide Rock footer unless Super Admin enables it.
+  const hideForPartnerSite = isPartnerChrome && !footerEnabled
 
   useEffect(() => {
     if (hideForPartnerSite) return
@@ -56,12 +80,34 @@ export function WebsiteFooter() {
     { href: footer?.social_youtube || "#", img: "/assets/img/yt.png", alt: "youtube" },
   ]
 
-  const footerLogo = resolvePublicAssetUrl(branding?.footer_logo) || "/logo.png"
-  const footerText = footer?.footer_text || "Kungfu @ ROCK has improved my physical and mental strength, stamina, and focus. Self-defense skills have given me confidence to travel alone fearlessly. It\u2019s a life skill that I highly recommend for discipline, self-esteem, and fitness. Thank you ROCK team for the support."
-  const copyrightText = footer?.copyright_text || "\u00A9 Copyright 2025 | ROCK | All Rights Reserved."
-  const address = footer?.address || "KJS Plaza, 4-39, Balaji Nagar Main Rd, Santoshi Nagar, Secunderabad, Telangana 500087"
-  const phone = footer?.phone || "+91 8179041226, +91 8977933876"
-  const email = footer?.email || "info@rockmartialarts.com"
+  const partnerFooterLogo = resolvePublicAssetUrl(
+    branchBrand?.footerLogoUrl || branchBrand?.logoUrl || ""
+  )
+  const footerLogo =
+    partnerFooterLogo ||
+    footerLogoUrl ||
+    platformLogoUrl ||
+    resolvePublicAssetUrl(branding?.footer_logo) ||
+    "/logo.png"
+  const footerText =
+    (branchBrand?.footerDescription || "").trim() ||
+    footer?.footer_text ||
+    "Kungfu @ ROCK has improved my physical and mental strength, stamina, and focus. Self-defense skills have given me confidence to travel alone fearlessly. It\u2019s a life skill that I highly recommend for discipline, self-esteem, and fitness. Thank you ROCK team for the support."
+  const copyrightText =
+    footer?.copyright_text ||
+    `\u00A9 Copyright ${new Date().getFullYear()} | ${platformShortName || "ROCK"} | All Rights Reserved.`
+  const address =
+    (branchBrand?.address || "").trim() ||
+    footer?.address ||
+    "KJS Plaza, 4-39, Balaji Nagar Main Rd, Santoshi Nagar, Secunderabad, Telangana 500087"
+  const phone =
+    (branchBrand?.phone || "").trim() ||
+    footer?.phone ||
+    "+91 8179041226, +91 8977933876"
+  const email =
+    (branchBrand?.email || "").trim() ||
+    footer?.email ||
+    "info@rockmartialarts.com"
 
   return (
     <footer className="w-full bg-[#171A26] border-t border-[#383D4D] text-[#D8DCE6] pt-12 pb-0">
@@ -70,7 +116,11 @@ export function WebsiteFooter() {
           <div className="md:col-span-2 lg:col-span-3">
             <img
               src={footerLogo}
-              alt="Rock Martial Arts Academy"
+              alt={
+                branchBrand?.orgName
+                  ? formatAcademyPoweredBy(branchBrand.orgName)
+                  : platformName
+              }
               data-placeholder="/logo.png"
               className="mb-4 w-[170px] h-auto"
               width={170}

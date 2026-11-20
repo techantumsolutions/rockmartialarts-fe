@@ -14,6 +14,11 @@ import {
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import type { PartnerOrgLanding } from "@/lib/partnerOrgAPI"
 import { PartnerOrgSiteSections } from "@/components/partner-org/PartnerOrgSiteSections"
+import { useBranchPublicBrand } from "@/contexts/BranchPublicBrandContext"
+import {
+  clearPartnerPublicChrome,
+  setPartnerPublicChrome,
+} from "@/lib/partnerPublicChrome"
 
 function SectionHeading({
   eyebrow,
@@ -37,6 +42,7 @@ export default function PartnerOrgLandingClient() {
   const params = useParams()
   const router = useRouter()
   const slug = params.slug as string
+  const { setOverride, clearOverride } = useBranchPublicBrand()
   const [data, setData] = useState<PartnerOrgLanding | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -97,6 +103,36 @@ export default function PartnerOrgLandingClient() {
     if (decodeURIComponent(slug).toLowerCase() === canonical.toLowerCase()) return
     router.replace(`/partner-orgs/${encodeURIComponent(canonical)}`, { scroll: false })
   }, [data?.slug, slug, router])
+
+  useEffect(() => {
+    const partnerOrgId = String(data?.partner_org_id || "").trim()
+    if (!partnerOrgId) {
+      clearOverride()
+      clearPartnerPublicChrome()
+      return
+    }
+    const footerEnabled = !!data?.public_footer_enabled
+    setPartnerPublicChrome({ partnerOrgId, footerEnabled })
+    setOverride({
+      partnerOrgId,
+      orgName: data?.hero?.name || null,
+      logoUrl: data?.hero?.logo_url || null,
+      logoAlt: data?.footer?.logo_alt || data?.hero?.name || null,
+      footerLogoUrl: data?.footer?.logo_url || data?.hero?.logo_url || null,
+      footerDescription: data?.footer?.description || null,
+      phone: data?.contact?.phone || null,
+      email: data?.contact?.email || null,
+      address: data?.contact?.address || null,
+      footerEnabled,
+    })
+  }, [data, setOverride, clearOverride])
+
+  useEffect(() => {
+    return () => {
+      clearOverride()
+      clearPartnerPublicChrome()
+    }
+  }, [clearOverride])
 
   useEffect(() => {
     AOS.refresh()
@@ -213,7 +249,7 @@ export default function PartnerOrgLandingClient() {
             alt=""
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#171A26] via-[#171A26]/70 to-black/30" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#171A26]/55 via-[#171A26]/18 to-transparent" />
         </div>
         <div className="relative site-content px-4 pb-16 pt-28">
           <Link

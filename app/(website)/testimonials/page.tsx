@@ -11,7 +11,8 @@ async function getMongoTestimonials(): Promise<TestimonialCardItem[]> {
   try {
     const siteOrigin =
       process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "")
-    const qs = `is_global=true&limit=48`
+    // All academy testimonials site-wide (academy pages use branch_id separately).
+    const qs = `limit=48`
     if (siteOrigin) {
       const res = await fetch(`${siteOrigin.replace(/\/$/, "")}/api/backend/testimonials?${qs}`, {
         cache: "no-store",

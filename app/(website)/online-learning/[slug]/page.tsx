@@ -272,7 +272,7 @@ export default function OnlineLearningDetailPage() {
         className="relative py-16 md:py-24 bg-cover bg-center"
         style={{ backgroundImage: "url(/assets/img/banner.jpg)" }}
       >
-        <div className="absolute inset-0 bg-black/60" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#171A26]/50 via-[#171A26]/15 to-black/10" />
         <div className="site-content relative z-10 px-0 sm:px-1">
           <Link
             href="/online-learning"

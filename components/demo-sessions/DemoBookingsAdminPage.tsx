@@ -260,7 +260,7 @@ export default function DemoBookingsAdminPage() {
             </Button>
             <Button
               type="button"
-              className="bg-yellow-400 hover:bg-yellow-500 text-white"
+              className=""
               onClick={doExport}
               disabled={exporting}
             >
@@ -329,7 +329,7 @@ export default function DemoBookingsAdminPage() {
                     className="pl-9"
                   />
                 </div>
-                <Button type="submit" className="bg-yellow-400 hover:bg-yellow-500 text-white">
+                <Button type="submit" className="">
                   Search
                 </Button>
               </div>
@@ -345,7 +345,7 @@ export default function DemoBookingsAdminPage() {
                     }}
                   >
                     <SelectTrigger className="h-10 bg-white">
-                      <SelectValue placeholder="Branch" />
+                      <SelectValue placeholder="Academy" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All branches</SelectItem>
@@ -447,7 +447,7 @@ export default function DemoBookingsAdminPage() {
                   <thead className="bg-gray-100 text-gray-700">
                     <tr>
                       <th className="px-3 py-2 font-semibold">Slot</th>
-                      <th className="px-3 py-2 font-semibold">Branch / Course</th>
+                      <th className="px-3 py-2 font-semibold">Academy / Course</th>
                       <th className="px-3 py-2 font-semibold">Participant</th>
                       <th className="px-3 py-2 font-semibold">Fee</th>
                       <th className="px-3 py-2 font-semibold">Status</th>
@@ -564,7 +564,7 @@ export default function DemoBookingsAdminPage() {
                 icon={CalendarDays}
                 tone="green"
               />
-              <BeautifiedField label="Branch" value={detail.branch_name} tone="green" />
+              <BeautifiedField label="Academy" value={detail.branch_name} tone="green" />
               <BeautifiedField label="Course" value={detail.course_name} tone="green" />
               <BeautifiedField label="Fee" value={`₹${detail.fee_inr}`} tone="green" />
               <BeautifiedField label="Payment" value={detail.payment_status} tone="green" />

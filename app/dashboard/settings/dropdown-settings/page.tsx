@@ -384,7 +384,7 @@ export default function DropdownSettingsPage() {
             <DropdownSettingsManager
               category="banks"
               title="Banks"
-              description="Bank names available for selection in branch bank details"
+              description="Bank names available for selection in academy bank details"
             />
 
             <DropdownSettingsManager
@@ -420,7 +420,7 @@ export default function DropdownSettingsPage() {
             <DropdownSettingsManager
               category="locations"
               title="Locations"
-              description="Branch location options available for selection"
+              description="Academy location options available for selection"
             />
             <DropdownSettingsManager
               category="emergency_relations"

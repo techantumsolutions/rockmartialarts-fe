@@ -63,7 +63,7 @@ export default function CourseListPage() {
   const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  // Fetch courses from API (branch admin: only courses assigned to managed branches)
+  // Fetch courses from API (academy admin: only courses assigned to managed academies)
   useEffect(() => {
     const fetchCourses = async () => {
       try {
@@ -111,7 +111,7 @@ export default function CourseListPage() {
 
 
 
-  // Branch admins search the displayed course name; other admins keep the broader search.
+  // Academy admins search the displayed course name; other admins keep the broader search.
   const filteredCourses = courses.filter((course) => {
     const searchLower = searchTerm.trim().toLowerCase()
     if (!searchLower) return true
@@ -195,7 +195,7 @@ export default function CourseListPage() {
           {canAddCourse ? (
             <Button
               onClick={() => router.push(`${basePath}/create-course`)}
-              className="bg-yellow-400 hover:bg-yellow-500 text-white px-6 py-2 rounded-lg font-medium"
+              className=" px-6 py-2 rounded-lg font-medium"
             >
               + Add Course
             </Button>
@@ -239,7 +239,7 @@ export default function CourseListPage() {
                         </div>
                       </td>
                       <td className="py-4 px-6">
-                        <span className="text-[#6B7A99]">{course.branches || 0} Branches</span>
+                        <span className="text-[#6B7A99]">{course.branches || 0} Academies</span>
                       </td>
                       <td className="py-4 px-6">
                         <span className="text-[#6B7A99]">{course.coachs || 0} coachs</span>

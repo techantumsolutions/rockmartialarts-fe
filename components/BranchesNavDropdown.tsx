@@ -4,11 +4,19 @@ import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { ChevronDown, Building2, Loader2 } from "lucide-react"
 import { branchNameToSlug } from "@/lib/branch-slug"
+import { getBranchDisplayLabels } from "@/lib/branchDisplay"
+import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
+import { usePlatformBranding } from "@/contexts/PlatformBrandingContext"
 
 export type BranchItem = {
   id: string
   name?: string
   code?: string
+  slug?: string
+  partner_org_id?: string | null
+  partner_org_name?: string | null
+  brand_name?: string | null
+  logo_url?: string | null
   address?: {
     line1?: string
     area?: string
@@ -17,14 +25,12 @@ export type BranchItem = {
     pincode?: string
     country?: string
   }
-}
-
-/** Second line under branch name: area/locality when set, otherwise city + state */
-function formatBranchSecondaryLine(addr: BranchItem["address"]): string {
-  if (!addr) return ""
-  const area = typeof addr.area === "string" ? addr.area.trim() : ""
-  if (area) return area
-  return [addr.city, addr.state].filter(Boolean).join(", ")
+  branch?: {
+    name?: string
+    code?: string
+    address?: BranchItem["address"]
+  }
+  site_branding?: { logo_url?: string | null; org_name?: string | null } | null
 }
 
 type BranchesNavDropdownProps = {
@@ -37,6 +43,7 @@ export function BranchesNavDropdown({ variant = "desktop", onNavigate }: Branche
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const { logoUrl: platformLogoUrl } = usePlatformBranding()
 
   const isMobile = variant === "mobile"
 
@@ -67,8 +74,6 @@ export function BranchesNavDropdown({ variant = "desktop", onNavigate }: Branche
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  const displayName = (b: BranchItem) => b.name || b.code || "Branch"
-
   return (
     <div
       ref={ref}
@@ -87,7 +92,7 @@ export function BranchesNavDropdown({ variant = "desktop", onNavigate }: Branche
         aria-expanded={open}
         aria-haspopup="true"
       >
-        Branches
+        Academies
         <ChevronDown
           className={`h-4 w-4 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
         />
@@ -98,7 +103,7 @@ export function BranchesNavDropdown({ variant = "desktop", onNavigate }: Branche
           className={
             isMobile
               ? "mt-2 w-full rounded-lg border border-[#383D4D] bg-[#292E40] py-2 shadow-xl z-50"
-              : "absolute left-0 top-full min-w-[240px] rounded-lg border border-[#383D4D] bg-[#292E40] py-2 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200"
+              : "absolute left-0 top-full min-w-[280px] max-w-[340px] rounded-lg border border-[#383D4D] bg-[#292E40] py-2 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200"
           }
         >
           <Link
@@ -124,24 +129,50 @@ export function BranchesNavDropdown({ variant = "desktop", onNavigate }: Branche
           ) : (
             <ul className="max-h-[70vh] overflow-y-auto">
               {branches.map((b) => {
-                const secondary = formatBranchSecondaryLine(b.address)
+                const labels = getBranchDisplayLabels(b)
+                const hrefSlug = (b.slug || branchNameToSlug(labels.placeName)).trim()
+                const logo =
+                  resolvePublicAssetUrl(labels.logoUrl || "") || platformLogoUrl || ""
                 return (
                   <li key={b.id}>
                     <Link
-                      href={`/branches/${branchNameToSlug(displayName(b))}`}
+                      href={`/branches/${encodeURIComponent(hrefSlug)}`}
                       onClick={() => {
                         setOpen(false)
                         onNavigate?.()
                       }}
-                      className="flex items-start gap-2 px-4 py-3 hover:bg-white/10 transition-colors text-left"
+                      className="flex items-start gap-2.5 px-4 py-3 hover:bg-white/10 transition-colors text-left"
+                      title={labels.title}
                     >
-                      <Building2 className="h-4 w-4 text-[#FFB70F] mt-0.5 flex-shrink-0" />
-                      <div className="min-w-0">
-                        <span className="block font-medium text-white truncate">
-                          {displayName(b)}
+                      {logo ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={logo}
+                          alt=""
+                          className="mt-0.5 h-8 w-8 flex-shrink-0 rounded-md object-contain bg-white/5 ring-1 ring-white/10"
+                        />
+                      ) : (
+                        <Building2 className="h-4 w-4 text-[#FFB70F] mt-1.5 flex-shrink-0" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <span className="block font-medium text-white truncate leading-snug">
+                          {labels.brandName}
                         </span>
-                        {secondary ? (
-                          <span className="block text-xs text-gray-400 truncate mt-0.5">{secondary}</span>
+                        {labels.poweredByLine ? (
+                          <span className="block text-[10px] leading-tight text-gray-400 normal-case tracking-normal mt-0.5 truncate">
+                            {labels.poweredByLine}
+                          </span>
+                        ) : null}
+                        {!labels.poweredByLine && labels.locationName ? (
+                          <span className="block text-xs text-gray-400 truncate mt-0.5">
+                            {labels.locationName}
+                          </span>
+                        ) : labels.poweredByLine &&
+                          labels.locationName &&
+                          labels.locationName.toLowerCase() !== labels.brandName.toLowerCase() ? (
+                          <span className="block text-[11px] text-gray-500 truncate mt-0.5">
+                            {labels.locationName}
+                          </span>
                         ) : null}
                       </div>
                     </Link>
@@ -155,3 +186,5 @@ export function BranchesNavDropdown({ variant = "desktop", onNavigate }: Branche
     </div>
   )
 }
+
+export { BranchesNavDropdown as AcademiesNavDropdown }

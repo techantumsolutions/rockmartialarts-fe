@@ -51,7 +51,7 @@ async function testAPIEndpoint() {
         
         return data;
       } else {
-        console.log('⚠️  No branches found in response');
+        console.log('⚠️  No academies found in response');
         return null;
       }
     } else {
@@ -82,7 +82,7 @@ function testDropdownInteraction() {
     
     if (courseDropdown) {
       console.log('✅ Course dropdown found');
-      console.log('✅ Manual test: Select a branch and verify courses update');
+      console.log('✅ Manual test: Select an academy and verify courses update');
     } else {
       console.log('⚠️  Course dropdown not found');
     }
@@ -107,7 +107,7 @@ function verifyExpectedBehavior() {
   console.log('3. When selecting "testtt (test)" branch:');
   console.log('   - Course dropdown should show "sunil (test)" option');
   console.log('   - Previous course selection should be cleared if not available');
-  console.log('4. When selecting "All Branches":');
+  console.log('4. When selecting "All Academies":');
   console.log('   - Course dropdown should show all available courses');
   console.log('5. Loading states should be shown during API calls');
 }

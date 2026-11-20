@@ -1,15 +1,23 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Loader2, CalendarRange, Search, RefreshCw } from "lucide-react"
 import { billingAPI, type BillingCycle } from "@/lib/billingAPI"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
+import { ADMIN_LIST_PAGE_SIZE } from "@/lib/adminListConfig"
+import {
+  AdminCard,
+  AdminFilterBar,
+  AdminPageHeader,
+  AdminPageShell,
+  AdminTableShell,
+  adminFilterSearchClass,
+} from "@/components/dashboard/AdminPageShell"
 
 function fmt(d?: string | null) {
   if (!d) return "—"
@@ -36,6 +44,7 @@ export default function AdminBillingCyclesPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [cycles, setCycles] = useState<BillingCycle[]>([])
+  const [page, setPage] = useState(1)
 
   async function load() {
     setLoading(true)
@@ -61,87 +70,136 @@ export default function AdminBillingCyclesPage() {
     void load()
   }, [])
 
-  const filtered = cycles.filter((c) => {
+  const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return true
-    return (
-      (c.course_name || "").toLowerCase().includes(q) ||
-      (c.branch_name || "").toLowerCase().includes(q) ||
-      (c.student_id || "").toLowerCase().includes(q) ||
-      (c.enrollment_id || "").toLowerCase().includes(q)
-    )
-  })
+    if (!q) return cycles
+    return cycles.filter((c) => {
+      return (
+        (c.course_name || "").toLowerCase().includes(q) ||
+        (c.branch_name || "").toLowerCase().includes(q) ||
+        (c.student_id || "").toLowerCase().includes(q) ||
+        (c.enrollment_id || "").toLowerCase().includes(q)
+      )
+    })
+  }, [cycles, search])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ADMIN_LIST_PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const pageStart = (safePage - 1) * ADMIN_LIST_PAGE_SIZE
+  const pageRows = filtered.slice(pageStart, pageStart + ADMIN_LIST_PAGE_SIZE)
+  const rangeFrom = filtered.length === 0 ? 0 : pageStart + 1
+  const rangeTo = Math.min(pageStart + ADMIN_LIST_PAGE_SIZE, filtered.length)
+
+  useEffect(() => {
+    setPage(1)
+  }, [search])
 
   return (
-    <div className="w-full max-w-none space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Billing cycles</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Paid-date based renewal schedules linked to enrollments.
-          </p>
-        </div>
-        <Button variant="outline" onClick={() => void load()} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
-      </div>
+    <AdminPageShell>
+      <AdminPageHeader
+        icon={CalendarRange}
+        title="Billing cycles"
+        subtitle="Paid-date based renewal schedules linked to enrollments."
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            className="btn-admin-outline h-10"
+            onClick={() => void load()}
+            disabled={loading}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        }
+      />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <CalendarRange className="h-5 w-5" />
-            Cycle register
-          </CardTitle>
-          <CardDescription>{filtered.length} cycle(s)</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              className="pl-9"
-              placeholder="Filter by course, branch, student or enrollment id"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+      <AdminCard padding={false}>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-4 py-3 sm:px-5">
+          <div>
+            <h2 className="text-[15px] font-semibold text-[#4F5077]">Cycle register</h2>
+            <p className="text-xs text-[#6B7A99]">{filtered.length} cycle(s)</p>
           </div>
+        </div>
+
+        <div className="space-y-3 p-4 pt-3 sm:p-5 sm:pt-3">
+          <AdminFilterBar flat>
+            <div className={adminFilterSearchClass}>
+              <Search className="pointer-events-none absolute left-3 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 text-[#6B7A99]" />
+              <Input
+                className="pl-10"
+                placeholder="Filter by course, academy, student or enrollment id"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </AdminFilterBar>
 
           {loading ? (
-            <div className="flex justify-center py-16">
-              <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-[#E1BB33]" />
             </div>
           ) : filtered.length === 0 ? (
-            <div className="rounded-lg border border-dashed p-10 text-center text-muted-foreground">
+            <div className="rounded-lg border border-dashed p-10 text-center text-sm text-[#6B7A99]">
               No billing cycles yet. They are created automatically after successful payments.
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <AdminTableShell
+              footer={
+                <>
+                  <span>
+                    Showing {rangeFrom}–{rangeTo} of {filtered.length}
+                  </span>
+                  <nav className="admin-pagination flex flex-wrap items-center gap-2" aria-label="Pagination">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={safePage <= 1}
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-xs text-[#6B7A99]">
+                      Page {safePage} of {totalPages}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={safePage >= totalPages}
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    >
+                      Next
+                    </Button>
+                  </nav>
+                </>
+              }
+            >
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                <thead>
                   <tr>
-                    <th className="px-4 py-3">Course / Branch</th>
-                    <th className="px-4 py-3">Period</th>
-                    <th className="px-4 py-3">Next due</th>
-                    <th className="px-4 py-3">Months</th>
-                    <th className="px-4 py-3">Status</th>
+                    <th>Course / Academy</th>
+                    <th>Period</th>
+                    <th>Next due</th>
+                    <th>Months</th>
+                    <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((c) => (
-                    <tr key={c.id} className="border-t">
-                      <td className="px-4 py-3">
+                  {pageRows.map((c) => (
+                    <tr key={c.id}>
+                      <td>
                         <div className="font-medium">{c.course_name || "Course"}</div>
-                        <div className="text-xs text-muted-foreground">{c.branch_name || "—"}</div>
-                        <div className="text-xs text-muted-foreground">Enr: {c.enrollment_id}</div>
+                        <div className="text-xs text-[#6B7A99]">{c.branch_name || "—"}</div>
+                        <div className="text-xs text-[#6B7A99]">Enr: {c.enrollment_id}</div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="whitespace-nowrap">
                         {fmt(c.period_start)} → {fmt(c.period_end || c.validity_end_date)}
                       </td>
-                      <td className="px-4 py-3 font-medium text-amber-700 whitespace-nowrap">
-                        {fmt(c.next_due_date)}
-                      </td>
-                      <td className="px-4 py-3">{c.duration_months || 1}</td>
-                      <td className="px-4 py-3">
+                      <td className="whitespace-nowrap font-medium text-[#C9971A]">{fmt(c.next_due_date)}</td>
+                      <td>{c.duration_months || 1}</td>
+                      <td>
                         <Badge className={statusClass(c.status)}>
                           {(c.status || "active").replace("_", " ")}
                         </Badge>
@@ -150,10 +208,10 @@ export default function AdminBillingCyclesPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </AdminTableShell>
           )}
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </AdminCard>
+    </AdminPageShell>
   )
 }

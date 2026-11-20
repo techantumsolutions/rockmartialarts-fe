@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
           next_due_date: enrollment.next_due_date,
           branch_details: branch ? {
             id: branch.id,
-            name: branch.name || "Unknown Branch",
+            name: branch.name || "Unknown Academy",
             location: branch.location || "Unknown Location",
             location_id: branch.location_id || "unknown"
           } : null

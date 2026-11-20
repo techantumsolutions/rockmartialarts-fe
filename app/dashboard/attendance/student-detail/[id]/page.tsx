@@ -160,7 +160,7 @@ export default function StudentAttendanceDetailPage() {
     const headers = [
       "Date",
       "Course",
-      "Branch",
+      "Academy",
       "Status",
       "Check-in",
       "Check-out",
@@ -343,7 +343,7 @@ export default function StudentAttendanceDetailPage() {
                           : "—"}
                       </p>
                       <p className="text-xs text-slate-500">
-                        {r.course_name || "Course"} · {r.branch_name || "Branch"}
+                        {r.course_name || "Course"} · {r.branch_name || "Academy"}
                         {r.method ? ` · ${r.method}` : ""}
                       </p>
                     </div>

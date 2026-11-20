@@ -12,6 +12,7 @@ import { useCMS } from "@/contexts/CMSContext"
 import { toast } from "@/components/ui/use-toast"
 import type { BranchCoursePricing } from "@/lib/registrationPricing"
 import { RegistrationStepIndicator } from "@/components/register/RegistrationStepIndicator"
+import { filterEnrollableCourses } from "@/lib/studentRegistrationPayment"
 
 interface BranchBatchOption {
   batch_ref: string
@@ -113,7 +114,7 @@ export default function SelectCoursePage() {
   const [estimateLoading, setEstimateLoading] = useState(false)
   const [estimateError, setEstimateError] = useState<string | null>(null)
 
-  // Require branch to be selected first
+  // Require academy to be selected first
   useEffect(() => {
     if (!branchId) {
       router.replace("/register/select-branch")
@@ -121,7 +122,7 @@ export default function SelectCoursePage() {
     }
   }, [branchId, router])
 
-  // Fetch categories and courses for the selected branch
+  // Fetch categories and courses for the selected academy
   useEffect(() => {
     if (!branchId) return
 
@@ -139,9 +140,9 @@ export default function SelectCoursePage() {
         const categoriesList = catData.categories || []
         setAllCategories(categoriesList)
 
-        if (!coursesRes.ok) throw new Error("Failed to load courses for this branch")
+        if (!coursesRes.ok) throw new Error("Failed to load courses for this academy")
         const coursesData = await coursesRes.json()
-        const coursesList = coursesData.courses || []
+        const coursesList = filterEnrollableCourses((coursesData.courses || []) as Course[])
         setBranchCourses(coursesList)
       } catch (err) {
         console.error("Error loading data:", err)
@@ -195,12 +196,12 @@ export default function SelectCoursePage() {
     loadDurations()
   }, [branchId, branchCourses, masterDurations])
 
-  // Categories that have at least one course at this branch (don't show 0-course categories).
+  // Categories that have at least one course at this academy (don't show 0-course categories).
   // If no category mapping exists but we have courses, fall back to a single "All Courses" option.
   const categoryIdsWithCourses = new Set(
     branchCourses.map((c) => c.category_id).filter(Boolean) as string[]
   )
-  // Show parent category if any branch course uses that category or one of its sub-categories (legacy data).
+  // Show parent category if any academy course uses that category or one of its sub-categories (legacy data).
   const categoriesWithBranchCourses = allCategories.filter((cat) => {
     if (categoryIdsWithCourses.has(cat.id)) return true
     const subIds = new Set((cat.subcategories || []).map((s) => s.id))
@@ -215,7 +216,7 @@ export default function SelectCoursePage() {
             id: "all",
             name: "All Courses",
             code: "all",
-            description: "All courses available at this branch",
+            description: "All courses available at this academy",
             icon_url: null,
             color_code: "#000000",
             course_count: branchCourses.length,
@@ -223,7 +224,7 @@ export default function SelectCoursePage() {
           },
         ]
 
-  // For each category, count of courses at this branch
+  // For each category, count of courses at this academy
   const courseCountByCategoryId: Record<string, number> = {}
   branchCourses.forEach((c) => {
     if (c.category_id) {
@@ -231,7 +232,7 @@ export default function SelectCoursePage() {
     }
   })
 
-  // Courses for the selected category (filter from branch courses, no extra fetch)
+  // Courses for the selected category (filter from academy courses, no extra fetch)
   const courses =
     !formData.category_id || formData.category_id === "all"
       ? branchCourses
@@ -329,7 +330,7 @@ export default function SelectCoursePage() {
     }
   }, [branchId, branchCourses, effectiveCategories, formData.category_id])
 
-  // If selected course is not in branch courses (e.g. navigated back), clear course and duration
+  // If selected course is not in academy courses (e.g. navigated back), clear course and duration
   useEffect(() => {
     if (!formData.course_id || branchCourses.length === 0) return
     const branchCourseIds = new Set(branchCourses.map((c) => c.id))
@@ -338,7 +339,7 @@ export default function SelectCoursePage() {
     }
   }, [branchCourses, formData.course_id])
 
-  // Single batch at this branch: pre-select batch_ref
+  // Single batch at this academy: pre-select batch_ref
   useEffect(() => {
     if (!selectedCourse?.id) return
     if (!branchBatches?.length) return
@@ -390,8 +391,8 @@ export default function SelectCoursePage() {
     const selectedDuration = durationOptions.find((d) => d.id === formData.duration)
     if (!branchId) {
       toast({
-        title: "Branch required",
-        description: "Please select a branch first.",
+        title: "Academy required",
+        description: "Please select an academy first.",
         variant: "destructive",
       })
       return
@@ -565,7 +566,7 @@ export default function SelectCoursePage() {
             </div>
           ) : (
           <form onSubmit={handleNextStep} className="space-y-4">
-            {/* Select Category - only categories that have courses at this branch (or All Courses fallback) */}
+            {/* Select Category - only categories that have courses at this academy (or All Courses fallback) */}
             <div>
               <Select
                 value={formData.category_id}
@@ -578,7 +579,7 @@ export default function SelectCoursePage() {
                       isLoading
                         ? "Loading..."
                         : effectiveCategories.length === 0
-                          ? "No courses available at this branch"
+                          ? "No courses available at this academy"
                           : "Select a category"
                     }
                     className="!placeholder:text-[#000]"
@@ -605,7 +606,7 @@ export default function SelectCoursePage() {
               {fieldErrors.category_id && <p className="text-red-500 text-xs mt-1 ml-1">{fieldErrors.category_id}</p>}
             </div>
 
-            {/* Choose Course - only courses at this branch for selected category */}
+            {/* Choose Course - only courses at this academy for selected category */}
             <div>
               <Select
                 value={formData.course_id}

@@ -79,23 +79,23 @@ const REPORT_CATEGORIES = [
       { id: "coach-course-load", name: "Coach Course Load", icon: FileText },
       { id: "coach-feedback-report", name: "Coach Feedback Report", icon: FileText },
       { id: "coach-productivity-metrics", name: "Coach Productivity Metrics", icon: TrendingUp },
-      { id: "coach-branch-distribution", name: "Coach Branch Distribution", icon: FileText }
+      { id: "coach-academy-distribution", name: "Coach Academy Distribution", icon: FileText }
     ]
   },
   {
     id: "branch",
-    name: "Branch Reports",
-    description: "Branch-wise analytics, performance, and operational reports",
+    name: "Academy Reports",
+    description: "Academy-wise analytics, performance, and operational reports",
     icon: TrendingUp,
     reports: [
-      { id: "branch-performance-overview", name: "Branch Performance Overview", icon: TrendingUp },
-      { id: "branch-enrollment-statistics", name: "Branch Enrollment Statistics", icon: FileText },
-      { id: "branch-revenue-analysis", name: "Branch Revenue Analysis", icon: TrendingUp },
-      { id: "branch-capacity-utilization", name: "Branch Capacity Utilization", icon: FileText },
-      { id: "branch-staff-allocation", name: "Branch Staff Allocation", icon: FileText },
-      { id: "branch-operational-hours", name: "Branch Operational Hours", icon: FileText },
-      { id: "branch-comparison-report", name: "Branch Comparison Report", icon: TrendingUp },
-      { id: "branch-growth-trends", name: "Branch Growth Trends", icon: TrendingUp }
+      { id: "academy-performance-overview", name: "Academy Performance Overview", icon: TrendingUp },
+      { id: "academy-enrollment-statistics", name: "Academy Enrollment Statistics", icon: FileText },
+      { id: "academy-revenue-analysis", name: "Academy Revenue Analysis", icon: TrendingUp },
+      { id: "academy-capacity-utilization", name: "Academy Capacity Utilization", icon: FileText },
+      { id: "academy-staff-allocation", name: "Academy Staff Allocation", icon: FileText },
+      { id: "academy-operational-hours", name: "Academy Operational Hours", icon: FileText },
+      { id: "academy-comparison-report", name: "Academy Comparison Report", icon: TrendingUp },
+      { id: "academy-growth-trends", name: "Academy Growth Trends", icon: TrendingUp }
     ]
   },
   {
@@ -139,7 +139,7 @@ export default function CourseReportPage() {
     active_only: true
   })
 
-  // Load filter options (courses scoped to selected branch when set)
+  // Load filter options (courses scoped to selected academy when set)
   const loadFilterOptions = useCallback(async (branchId?: string) => {
     const token = BranchManagerAuth.getToken() || TokenManager.getToken()
     if (!token) {
@@ -234,7 +234,7 @@ export default function CourseReportPage() {
     }
   }
 
-  // Handle filter changes — branch change reloads course options for that branch
+  // Handle filter changes — academy change reloads course options for that academy
   const handleFilterChange = (key: keyof FilterState, value: string | boolean) => {
     const processedValue = typeof value === "string" && value === "all" ? "" : value
     setFilters((prev) => {
@@ -298,7 +298,7 @@ export default function CourseReportPage() {
               <span>Filter</span>
             </Button>
             <Button
-              className="bg-yellow-400 hover:bg-yellow-500 text-black flex items-center space-x-2"
+              className=" flex items-center space-x-2"
               onClick={handleDownloadReport}
               disabled={exportLoading}
             >
@@ -321,9 +321,9 @@ export default function CourseReportPage() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                {/* Branch Dropdown — Rock SA lists RMA branches only */}
+                {/* Branch Dropdown — Rock SA lists RMAn academyes only */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Academy</label>
                   {basePath.startsWith("/branch-admin") ? (
                     <BranchSelectionField readOnly />
                   ) : (
@@ -332,10 +332,10 @@ export default function CourseReportPage() {
                       onValueChange={(value) => handleFilterChange('branch_id', value)}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select Branch" />
+                        <SelectValue placeholder="Select Academy" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Branches</SelectItem>
+                        <SelectItem value="all">All Academies</SelectItem>
                         {filterOptions?.filters.branches.map((branch) => (
                           <SelectItem key={branch.id} value={branch.id}>
                             {branch.name}
@@ -346,7 +346,7 @@ export default function CourseReportPage() {
                   )}
                 </div>
 
-                {/* Course Dropdown — options follow selected branch allocation */}
+                {/* Course Dropdown — options follow selected academy allocation */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Course</label>
                   <Select

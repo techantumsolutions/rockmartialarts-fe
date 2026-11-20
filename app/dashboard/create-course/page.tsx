@@ -25,6 +25,15 @@ export default function CreateCoursePage() {
   const { toast } = useToast()
   const { user } = useAuth()
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+  useEffect(() => {
+    if (!showSuccessPopup) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [showSuccessPopup])
+
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // State
@@ -68,7 +77,7 @@ export default function CreateCoursePage() {
       try {
         setIsLoadingCategories(true)
         const token = TokenManager.getToken()
-        const response = await fetch(getBackendApiUrl('categories?active_only=true&limit=200'), {
+        const response = await fetch(getBackendApiUrl('categories?active_only=true&include_subcategories=true&include_rock_master=true&limit=200'), {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -207,7 +216,7 @@ export default function CreateCoursePage() {
     }
   }, [formData.courseTitle])
 
-  // Fetch branches on mount
+  // Fetch academies on mount
   useEffect(() => {
     const fetchBranches = async () => {
       setLoadingBranches(true)
@@ -222,7 +231,7 @@ export default function CreateCoursePage() {
 
         if (res.ok) {
           const data = await res.json()
-          console.log("Branches API response:", data)
+          console.log("Academies API response:", data)
           
           // Handle different response structures
           let branchList = []
@@ -234,13 +243,13 @@ export default function CreateCoursePage() {
             branchList = data.data
           }
           
-          // Filter only active branches
+          // Filter only active academies
           const activeBranches = branchList.filter(branch => branch.is_active !== false)
-          console.log("Active branches:", activeBranches)
+          console.log("Active academies:", activeBranches)
           setBranches(activeBranches)
         }
       } catch (err) {
-        console.error("Failed to fetch branches:", err)
+        console.error("Failed to fetch academies:", err)
       } finally {
         setLoadingBranches(false)
       }
@@ -749,7 +758,7 @@ export default function CreateCoursePage() {
                     <div className="flex space-x-4">
                       <Button 
                         type="submit" 
-                        className="bg-yellow-400 hover:bg-yellow-500 text-white px-8"
+                        className=" px-8"
                         disabled={isSubmitting}
                       >
                         {isSubmitting ? (
@@ -811,7 +820,7 @@ export default function CreateCoursePage() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="branchSpecificPricing">Branch-specific pricing</Label>
+                  <Label htmlFor="branchSpecificPricing">Academy-specific pricing</Label>
                   <Switch
                     id="branchSpecificPricing"
                     checked={formData.branchSpecificPricing}
@@ -823,7 +832,7 @@ export default function CreateCoursePage() {
                 {formData.branchSpecificPricing && (
                   <div className="space-y-4 border-t pt-4">
                     <div className="flex justify-between items-center">
-                      <Label className="text-md font-semibold">Branch-Specific Prices</Label>
+                      <Label className="text-md font-semibold">Academy-Specific Prices</Label>
                       <Button
                         type="button"
                         variant="outline"
@@ -857,7 +866,7 @@ export default function CreateCoursePage() {
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                           <div className="md:col-span-2">
-                            <Label>Branch</Label>
+                            <Label>Academy</Label>
                             <Select
                               value={branchPrice.branch_id ? String(branchPrice.branch_id) : ''}
                               onValueChange={(value) => {
@@ -867,7 +876,7 @@ export default function CreateCoursePage() {
                               }}
                             >
                               <SelectTrigger>
-                                <SelectValue placeholder="Select branch" />
+                                <SelectValue placeholder="Select academy" />
                               </SelectTrigger>
                               <SelectContent>
                                 {loadingBranches ? (
@@ -911,7 +920,7 @@ export default function CreateCoursePage() {
                     {branchPrices.length === 0 && (
                       <div className="text-center py-6 text-gray-500 border-2 border-dashed rounded-lg">
                         <p className="text-sm">No branch-specific prices added yet.</p>
-                        <p className="text-xs">Click "Add Branch Price" to set prices for specific branches.</p>
+                        <p className="text-xs">Click "Add Academy Price" to set prices for specific branches.</p>
                       </div>
                     )}
                   </div>
@@ -967,7 +976,7 @@ export default function CreateCoursePage() {
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Branch Specific Pricing:</span>
+                    <span className="text-gray-600">Academy Specific Pricing:</span>
                     <span className="font-medium">{formData.branchSpecificPricing ? 'Yes' : 'No'}</span>
                   </div>
                   <div className="flex justify-between text-sm">
@@ -982,8 +991,9 @@ export default function CreateCoursePage() {
       </main>
 
       {showSuccessPopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden p-4 sm:p-6">
+        <div className="absolute inset-0 bg-[#0f172a]/55 backdrop-blur-[2px]" aria-hidden />
+          <div className="relative z-[1] bg-white rounded-2xl border border-[#E8EAF0] shadow-[0_24px_80px_rgba(15,23,42,0.28)] p-8 max-w-md w-full mx-4">
             <div className="text-center">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -993,7 +1003,7 @@ export default function CreateCoursePage() {
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Course Created Successfully!</h3>
               <p className="text-gray-600 mb-6">Your course has been created and added to the system.</p>
               <div className="flex space-x-3">
-                <Button onClick={handleSuccessOk} className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black">
+                <Button onClick={handleSuccessOk} className="flex-1 ">
                   OK
                 </Button>
                 <Button onClick={handleSuccessOk} variant="outline" className="flex-1 bg-transparent">

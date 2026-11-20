@@ -27,7 +27,7 @@ export default function TableCard({ title, tabs, filters, children, pagination }
             {tabs.map((tab) => (
               <Button
                 key={tab.value}
-                className={`min-h-[44px] sm:min-h-[40px] ${tab.active ? "rounded-md px-4 bg-yellow-400 hover:bg-yellow-500 text-black" : "rounded-md px-4 bg-gray-100 text-gray-700"}`}
+                className={`min-h-[44px] sm:min-h-[40px] ${tab.active ? "rounded-md px-4 " : "rounded-md px-4 bg-gray-100 text-gray-700"}`}
                 onClick={tab.onClick}
               >
                 {tab.label}

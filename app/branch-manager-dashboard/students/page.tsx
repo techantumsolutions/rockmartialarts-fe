@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation"
 import Header from "@/components/layout/Header"
 import { getBackendApiUrl } from "@/lib/config"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { AppModal } from "@/components/ui/AppModal"
 
 interface Student {
   id: string
@@ -96,7 +97,7 @@ export default function BranchManagerStudentList() {
     try {
       console.log('💰 Fetching payment data for students:', studentIds.length)
 
-      // Fetch all payments for the branch manager (already filtered by managed branches)
+      // Fetch all payments for the academy manager (already filtered by managed academies)
       const paymentsResponse = await fetch(getBackendApiUrl('payments?limit=1000'), {
         headers: {
           'Content-Type': 'application/json',
@@ -165,7 +166,7 @@ export default function BranchManagerStudentList() {
     }
   }
 
-  // Load students data for branch manager from API
+  // Load students data for academy manager from API
   useEffect(() => {
     const loadStudentsData = async () => {
       try {
@@ -179,11 +180,11 @@ export default function BranchManagerStudentList() {
           throw new Error("Authentication required. Please login again.")
         }
 
-        console.log('Loading students for branch manager:', currentUser.full_name)
-        console.log('Branch manager branch assignment:', currentUser.branch_assignment)
+        console.log('Loading students for academy manager:', currentUser.full_name)
+        console.log('Academy manager academy assignment:', currentUser.branch_assignment)
 
-        // First, let's get the branches this manager manages to understand the filtering
-        console.log('🔍 DEBUGGING: Fetching branches first to understand filtering...')
+        // First, let's get the academyes this manager manages to understand the filtering
+        console.log('🔍 DEBUGGING: Fetching academies first to understand filtering...')
         const branchesResponse = await fetch(getBackendApiUrl('branches?limit=100'), {
           headers: {
             'Content-Type': 'application/json',
@@ -195,10 +196,10 @@ export default function BranchManagerStudentList() {
           const branchesData = await branchesResponse.json()
           const managedBranches = branchesData.branches || []
           const branchIds = managedBranches.map((branch: any) => branch.id)
-          console.log('🏢 Branches managed by this branch manager:', managedBranches.length)
-          console.log('🏢 Branch IDs:', branchIds)
+          console.log('🏢 Academies managed by this academy manager:', managedBranches.length)
+          console.log('🏢 Academy IDs:', branchIds)
           managedBranches.forEach((branch: any, index: number) => {
-            console.log(`   Branch ${index + 1}: ${branch.branch?.name || 'Unknown'} (ID: ${branch.id})`)
+            console.log(`   Academy ${index + 1}: ${branch.branch?.name || 'Unknown'} (ID: ${branch.id})`)
           })
         }
 
@@ -238,10 +239,10 @@ export default function BranchManagerStudentList() {
         allStudents.forEach((student: any, index: number) => {
           const enrollments = student.enrollments || []
           const branchIds = enrollments.map((e: any) => e.branch_id).filter(Boolean)
-          console.log(`   Student ${index + 1}: ${student.full_name || 'Unknown'} - Enrolled in branches: ${branchIds.join(', ') || 'None'}`)
+          console.log(`   Student ${index + 1}: ${student.full_name || 'Unknown'} - Enrolled in academies: ${branchIds.join(', ') || 'None'}`)
         })
 
-        // The backend should already filter students by managed branches, so we use all returned students
+        // The backend should already filter students by managed academies, so we use all returned students
         const branchStudents = allStudents
 
         // Transform the API data to match our Student interface
@@ -263,7 +264,7 @@ export default function BranchManagerStudentList() {
             course_name: enrollment.course_name || enrollment.course?.name || "Unknown Course",
             level: enrollment.course?.difficulty_level || "Beginner",
             duration: enrollment.course?.duration || "3 months",
-            branch_name: enrollment.branch_name || "Branch"
+            branch_name: enrollment.branch_name || "Academy"
           })) || [],
           address: student.address || {
             line1: "",
@@ -294,8 +295,8 @@ export default function BranchManagerStudentList() {
         }))
 
         if (studentsWithPayments.length === 0) {
-          console.log('No students found for branch manager')
-          setError("No students enrolled in your branches. Please contact your administrator if you expect to see students here.")
+          console.log('No students found for academy manager')
+          setError("No students enrolled in your academies. Please contact your administrator if you expect to see students here.")
         } else {
           console.log(`✅ Loaded ${studentsWithPayments.length} student(s) with payment data for ${currentUser.full_name}`)
         }
@@ -337,7 +338,7 @@ export default function BranchManagerStudentList() {
         return
       }
 
-      // Fetch fresh students data - backend handles filtering by managed branches
+      // Fetch fresh students data - backend handles filtering by managed academies
       console.log('🔄 Refreshing students data...')
       const studentsResponse = await fetch(getBackendApiUrl('users/students/details'), {
         headers: {
@@ -357,7 +358,7 @@ export default function BranchManagerStudentList() {
 
       const allStudents = studentsData.students || []
 
-      // The backend already filters students by managed branches, so we use all returned students
+      // The backend already filters students by managed academies, so we use all returned students
       const branchStudents = allStudents
 
       const transformedStudents: Student[] = branchStudents.map((student: any) => ({
@@ -378,7 +379,7 @@ export default function BranchManagerStudentList() {
           course_name: enrollment.course_name || enrollment.course?.name || "Unknown Course",
           level: enrollment.course?.difficulty_level || "Beginner",
           duration: enrollment.course?.duration || "3 months",
-          branch_name: enrollment.branch_name || "Branch"
+          branch_name: enrollment.branch_name || "Academy"
         })) || [],
         address: student.address || {
           line1: "",
@@ -593,7 +594,7 @@ export default function BranchManagerStudentList() {
                     <p className="text-yellow-700 mb-4">
                       {searchTerm
                         ? `No students match your search "${searchTerm}"`
-                        : "You don't have any students enrolled in your branches yet."
+                        : "You don't have any students enrolled in your academies yet."
                       }
                     </p>
                     {!searchTerm && (
@@ -762,31 +763,30 @@ export default function BranchManagerStudentList() {
             )}
           </div>
         </div>
-      {/* Delete Confirmation Modal */}
-      {showDeletePopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Confirm Delete</h3>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete this student? This action cannot be undone.
-            </p>
-            <div className="flex justify-end space-x-3">
-              <Button
-                variant="outline"
-                onClick={() => setShowDeletePopup(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={confirmDelete}
-              >
-                Delete
-              </Button>
-            </div>
+      <AppModal
+        open={showDeletePopup}
+        onClose={() => setShowDeletePopup(false)}
+        title="Confirm Delete"
+        size="sm"
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setShowDeletePopup(false)}
+              className="w-full border-[#D1D5DB] text-[#4F5077] sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete} className="w-full sm:w-auto">
+              Delete
+            </Button>
           </div>
-        </div>
-      )}
+        }
+      >
+        <p className="text-sm leading-relaxed text-[#6B7280]">
+          Are you sure you want to delete this student? This action cannot be undone.
+        </p>
+      </AppModal>
     </>
   )
 }

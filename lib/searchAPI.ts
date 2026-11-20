@@ -199,7 +199,7 @@ class SearchAPI extends BaseAPI {
   }
 
   /**
-   * Search specifically in branches
+   * Search specifically in academies
    */
   async searchBranches(
     query: string,
@@ -279,7 +279,7 @@ class SearchAPI extends BaseAPI {
         results.push({
           id: branch.id,
           type: 'branches',
-          title: branch.branch?.name || 'Branch',
+          title: branch.branch?.name || 'Academy',
           subtitle: branch.branch?.address?.city,
           description: `${branch.branch?.address?.street}, ${branch.branch?.address?.state}`,
           metadata: branch

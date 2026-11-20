@@ -36,6 +36,9 @@ export interface PaymentStats {
   period_payment_count?: number
   /** Distinct students with a paid payment in the selected range */
   students_with_payments_in_period?: number
+  failed_payments?: number
+  failed_count?: number
+  transaction_count?: number
   revenue_by_month?: Array<{
     month: string
     revenue: number
@@ -63,6 +66,9 @@ export interface PaymentFilters {
   partner_org_id?: string
   /** Rock SA: all | rock | partners */
   partner_scope?: string
+  /** student | partner — Finance Transactions tabs */
+  payer_category?: string
+  course_id?: string
 }
 
 class PaymentAPI extends BaseAPI {
@@ -81,7 +87,7 @@ class PaymentAPI extends BaseAPI {
   /**
    * Get payment statistics for dashboard
    */
-  async getPaymentStats(token?: string, params?: { start_date?: string; end_date?: string; period?: string; branch_id?: string; partner_org_id?: string; partner_scope?: string }): Promise<PaymentStats> {
+  async getPaymentStats(token?: string, params?: { start_date?: string; end_date?: string; period?: string; branch_id?: string; partner_org_id?: string; partner_scope?: string; payer_category?: string }): Promise<PaymentStats> {
     const authToken = token || TokenManager.getToken()
 
     const searchParams = new URLSearchParams()
@@ -91,6 +97,7 @@ class PaymentAPI extends BaseAPI {
     if (params?.branch_id) searchParams.append('branch_id', params.branch_id)
     if (params?.partner_org_id) searchParams.append('partner_org_id', params.partner_org_id)
     if (params?.partner_scope) searchParams.append('partner_scope', params.partner_scope)
+    if (params?.payer_category) searchParams.append('payer_category', params.payer_category)
 
     let endpoint = '/api/payments/stats'
     const qs = searchParams.toString()

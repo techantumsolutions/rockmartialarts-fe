@@ -347,7 +347,7 @@ export default function CoachDetailPage() {
             difficulty_level: course.difficulty_level || 'Beginner',
             enrolled_students: course.enrolled_students || 0,
             schedule: batches.length > 0 ? undefined : (course.schedule || 'Schedule TBD'),
-            branch_name: course.branch_assignments?.[0]?.branch_name || batches[0]?.branch_name || 'Unknown Branch',
+            branch_name: course.branch_assignments?.[0]?.branch_name || batches[0]?.branch_name || 'Unknown Academy',
             batches,
             status: 'active' as const
           }
@@ -549,7 +549,7 @@ export default function CoachDetailPage() {
                 {[
                   { label: "Phone", value: coach.contact_info.phone || "—", icon: Phone },
                   { label: "Email", value: coach.contact_info.email || "—", icon: Mail },
-                  { label: "Branch / Location", value: coachLocationLabel(coach), icon: Building2 },
+                  { label: "Academy / Location", value: coachLocationLabel(coach), icon: Building2 },
                   {
                     label: "Join Date",
                     value: formatDetailDate(coach.hire_date || coach.created_at),
@@ -659,7 +659,7 @@ export default function CoachDetailPage() {
                             <th className="px-5 py-3">Course</th>
                             <th className="px-5 py-3">Students</th>
                             <th className="px-5 py-3">Schedule</th>
-                            <th className="px-5 py-3">Branch</th>
+                            <th className="px-5 py-3">Academy</th>
                             <th className="px-5 py-3">Status</th>
                             <th className="px-5 py-3">Actions</th>
                           </tr>

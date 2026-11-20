@@ -11,11 +11,12 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Building, MapPin, Clock, Users, CreditCard, X, Plus, Trash2, Calendar, ImageIcon, Upload, Loader2 } from "lucide-react"
+import { ArrowLeft, Building, MapPin, Clock, Users, CreditCard, X, Plus, Trash2, Calendar, ImageIcon, Upload, Loader2, ShieldAlert } from "lucide-react"
 import { uploadFile } from "@/lib/upload"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import { useRouter, useParams } from "next/navigation"
 import { useDashboardBasePath, useDashboardRole } from "@/lib/useDashboardBasePath"
+import { usePartnerFeaturePermissions } from "@/hooks/usePartnerFeaturePermissions"
 import { partnerOrgAPI } from "@/lib/partnerOrgAPI"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
@@ -43,6 +44,9 @@ import {
   dashboardFormCardClass,
   primaryButtonClass,
 } from "@/components/dashboard/dashboardFormStyles"
+import { CourseAssignmentsScrollPanel } from "@/components/dashboard/StickyScrollSection"
+import { AdminStickyFormActions } from "@/components/dashboard/AdminStickyFormActions"
+import { AdmissionFeeSettingsFields } from "@/components/branch/AdmissionFeeSettingsFields"
 
 // Interfaces for form data
 interface Course {
@@ -121,7 +125,7 @@ interface CourseBatch {
   start_time: string
   end_time: string
   coach_id: string
-  /** Full day names, e.g. Monday — same as branch operational timings. */
+  /** Full day names, e.g. Monday — same as academy operational timings. */
   days: string[]
   batch_name?: string
   batch_fee?: string
@@ -185,6 +189,9 @@ interface FormData {
   assignments: Assignments
   bank_details: BankDetails
   admission_fee: number
+  /** fixed = one fee for all courses; per_course = admission_fee_by_course */
+  admission_fee_mode: "fixed" | "per_course"
+  admission_fee_by_course: Record<string, number>
   is_collaboration_partner?: boolean
   cover_image_url?: string
   description?: string
@@ -192,8 +199,24 @@ interface FormData {
   /** Optional WGS84 coordinates for visitor→branch distance */
   latitude?: number | null
   longitude?: number | null
+  /** Google Places rating shown on public academy cards */
+  rating?: number | null
+  review_count?: number | null
+  google_place_id?: string
   /** White-label partner org (1:1). Rock SA only. */
   partner_org_id?: string | null
+  /** Public website visibility (Super Admin). Missing/true = visible. */
+  is_public?: boolean
+  /** Per-academy branding overlay (falls back to partner org / RMAA). */
+  site_branding?: {
+    display_name?: string
+    logo_url?: string
+    cover_banner_url?: string
+    primary_color?: string
+    secondary_color?: string
+    tagline?: string
+    short_description?: string
+  } | null
 }
 
 export default function EditBranch() {
@@ -201,11 +224,25 @@ export default function EditBranch() {
   const params = useParams()
   const basePath = useDashboardBasePath()
   const dashboardRole = useDashboardRole()
+  const { coursePermissions } = usePartnerFeaturePermissions(dashboardRole)
+  const isPartner = dashboardRole === "partner_super_admin"
+  const canEditCourseAssignments = !isPartner || !!coursePermissions.can_edit_courses
   const canToggleCollaborationPartner = dashboardRole === "super_admin"
-  const branchId = params.id as string
+  const routeParam = decodeURIComponent((params.id as string) || "")
+  const [resolvedBranchId, setResolvedBranchId] = useState("")
+  const branchId = resolvedBranchId || routeParam
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+  useEffect(() => {
+    if (!showSuccessPopup) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [showSuccessPopup])
+
   const [isLoading, setIsLoading] = useState(true)
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
 
@@ -270,17 +307,45 @@ export default function EditBranch() {
       upi_id: ""
     },
     admission_fee: 0,
+    admission_fee_mode: "fixed",
+    admission_fee_by_course: {},
     is_collaboration_partner: false,
     cover_image_url: "",
     description: "",
     map_link: "",
     latitude: null,
     longitude: null,
+    rating: null,
+    review_count: null,
+    google_place_id: "",
     partner_org_id: null,
+    is_public: true,
+    site_branding: {
+      display_name: "",
+      logo_url: "",
+      cover_banner_url: "",
+      primary_color: "",
+      secondary_color: "",
+      tagline: "",
+      short_description: "",
+    },
   })
   const [uploadingCover, setUploadingCover] = useState(false)
-  const [partnerOrgs, setPartnerOrgs] = useState<{ id: string; name: string }[]>([])
+  const [brandingPermission, setBrandingPermission] = useState<{
+    can_edit: boolean
+    can_request: boolean
+    permission: string
+  } | null>(null)
+  const [requestingBranding, setRequestingBranding] = useState(false)
+  const [partnerOrgs, setPartnerOrgs] = useState<
+    { id: string; name: string; public_footer_enabled?: boolean }[]
+  >([])
+  const [publicFooterEnabled, setPublicFooterEnabled] = useState(false)
+  const [savingPublicFooter, setSavingPublicFooter] = useState(false)
   const canAssignPartner = dashboardRole === "super_admin"
+  const canEditPublicVisibility = dashboardRole === "super_admin"
+  const canEditPartnerFooter =
+    dashboardRole === "super_admin" && !!formData.partner_org_id
 
   useEffect(() => {
     if (!canAssignPartner) return
@@ -293,7 +358,11 @@ export default function EditBranch() {
         setPartnerOrgs(
           list
             .filter((p) => p?.id && p?.name)
-            .map((p) => ({ id: String(p.id), name: String(p.name) }))
+            .map((p) => ({
+              id: String(p.id),
+              name: String(p.name),
+              public_footer_enabled: !!p.public_footer_enabled,
+            }))
         )
       })
       .catch(() => {
@@ -304,7 +373,90 @@ export default function EditBranch() {
     }
   }, [canAssignPartner])
 
-  // Auto-generate branch code
+  // Keep footer toggle in sync with the linked partner org setting.
+  useEffect(() => {
+    const orgId = String(formData.partner_org_id || "").trim()
+    if (!orgId) {
+      setPublicFooterEnabled(false)
+      return
+    }
+    const match = partnerOrgs.find((p) => p.id === orgId)
+    if (match) {
+      setPublicFooterEnabled(!!match.public_footer_enabled)
+    }
+  }, [formData.partner_org_id, partnerOrgs])
+
+  useEffect(() => {
+    if (!isPartner || !branchId) {
+      setBrandingPermission(null)
+      return
+    }
+    let cancelled = false
+    partnerOrgAPI
+      .getMyBrandingEditPermission(branchId)
+      .then((perm) => {
+        if (cancelled) return
+        setBrandingPermission({
+          can_edit: !!perm.can_edit,
+          can_request: !!perm.can_request,
+          permission: String(perm.permission || "none"),
+        })
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setBrandingPermission({
+            can_edit: false,
+            can_request: true,
+            permission: "none",
+          })
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isPartner, branchId])
+
+  const partnerCanEditAcademy = !isPartner || !!brandingPermission?.can_edit
+
+  const requestAcademyEditAccess = async () => {
+    if (!branchId) return
+    try {
+      setRequestingBranding(true)
+      const result = await partnerOrgAPI.requestBrandingEditAccess(
+        "Request Edit Academy access",
+        branchId
+      )
+      if (result.permission) {
+        setBrandingPermission({
+          can_edit: !!result.permission.can_edit,
+          can_request: !!result.permission.can_request,
+          permission: String(result.permission.permission || "pending"),
+        })
+      } else {
+        setBrandingPermission((prev) =>
+          prev
+            ? { ...prev, can_request: false, permission: "pending" }
+            : { can_edit: false, can_request: false, permission: "pending" }
+        )
+      }
+      toast({
+        title: "Request submitted",
+        description:
+          result.message ||
+          "Your Edit Academy request was sent for Super Admin approval.",
+      })
+    } catch (e: unknown) {
+      toast({
+        title: "Request failed",
+        description: e instanceof Error ? e.message : "Could not submit request",
+        variant: "destructive",
+      })
+    } finally {
+      setRequestingBranding(false)
+    }
+  }
+
+  // Auto-generate academy code
   const generateBranchCode = () => {
     const branchName = formData.branch.name.trim()
     if (branchName.length >= 2) {
@@ -318,7 +470,7 @@ export default function EditBranch() {
     }
   }
 
-  // Auto-generate code when branch name changes
+  // Auto-generate code when academy name changes
   useEffect(() => {
     if (formData.branch.name && !formData.branch.code) {
       generateBranchCode()
@@ -404,7 +556,7 @@ export default function EditBranch() {
             const rows: AssignmentBatch[] = []
             for (const branch of branchList.branches || []) {
               if (!branch?.id || branch.id === branchId) continue
-              const branchName = branch.branch?.name || branch.name || "Branch"
+              const branchName = branch.branch?.name || branch.name || "Academy"
               for (const entry of branch.assignments?.course_schedule || []) {
                 if (entry?.is_available === false) continue
                 const batches = Array.isArray(entry?.batches) ? entry.batches : []
@@ -429,19 +581,19 @@ export default function EditBranch() {
         } else {
           toast({
             title: "Error",
-            description: "Failed to load branch managers.",
+            description: "Failed to load academy managers.",
             variant: "destructive",
           })
         }
       } catch (error) {
-        console.error('Error loading branch managers:', error)
+        console.error('Error loading academy managers:', error)
       } finally {
         setIsLoadingBranchManagers(false)
       }
     }
 
     const loadData = async () => {
-      // Fetch existing branch data first
+      // Fetch existing academy data first
       try {
         const token = TokenManager.getToken()
         if (!token) {
@@ -449,7 +601,7 @@ export default function EditBranch() {
         }
 
         const branchResponse = await fetch(
-          getBackendApiUrl(`branches/${branchId}`),
+          getBackendApiUrl(`branches/${encodeURIComponent(routeParam)}`),
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -458,11 +610,18 @@ export default function EditBranch() {
         )
 
         if (!branchResponse.ok) {
-          throw new Error("Failed to fetch branch data")
+          throw new Error("Failed to fetch academy data")
         }
 
         const branchData = await branchResponse.json()
-        
+        if (branchData.id) {
+          setResolvedBranchId(branchData.id)
+        }
+        const slug = String(branchData.slug || "").trim()
+        if (slug && routeParam !== slug) {
+          router.replace(`${basePath}/branches/edit/${encodeURIComponent(slug)}`)
+        }
+
         // Populate form with existing data
         setFormLocationId(branchData.location_id || "")
         setFormData({
@@ -497,6 +656,21 @@ export default function EditBranch() {
             upi_id: branchData.bank_details?.upi_id || ""
           },
           admission_fee: typeof branchData.admission_fee === "number" ? branchData.admission_fee : 0,
+          admission_fee_mode:
+            String(branchData.admission_fee_mode || "").toLowerCase() === "per_course"
+              ? "per_course"
+              : "fixed",
+          admission_fee_by_course:
+            branchData.admission_fee_by_course &&
+            typeof branchData.admission_fee_by_course === "object" &&
+            !Array.isArray(branchData.admission_fee_by_course)
+              ? Object.fromEntries(
+                  Object.entries(branchData.admission_fee_by_course).map(([k, v]) => [
+                    k,
+                    Number(v) || 0,
+                  ])
+                )
+              : {},
           is_collaboration_partner: !!(
             branchData.is_collaboration_partner ?? branchData.allows_collaboration
           ),
@@ -515,15 +689,38 @@ export default function EditBranch() {
               : branchData.longitude != null && branchData.longitude !== ""
                 ? Number(branchData.longitude)
                 : null,
+          rating:
+            typeof branchData.rating === "number"
+              ? branchData.rating
+              : branchData.rating != null && branchData.rating !== ""
+                ? Number(branchData.rating)
+                : null,
+          review_count:
+            typeof branchData.review_count === "number"
+              ? branchData.review_count
+              : branchData.review_count != null && branchData.review_count !== ""
+                ? Number(branchData.review_count)
+                : null,
+          google_place_id: branchData.google_place_id || "",
           partner_org_id: branchData.partner_org_id || null,
+          is_public: branchData.is_public !== false,
+          site_branding: {
+            display_name: branchData.site_branding?.display_name || "",
+            logo_url: branchData.site_branding?.logo_url || "",
+            cover_banner_url: branchData.site_branding?.cover_banner_url || "",
+            primary_color: branchData.site_branding?.primary_color || "",
+            secondary_color: branchData.site_branding?.secondary_color || "",
+            tagline: branchData.site_branding?.tagline || "",
+            short_description: branchData.site_branding?.short_description || "",
+          },
         })
 
         setIsLoading(false)
       } catch (error) {
-        console.error("Error loading branch data:", error)
+        console.error("Error loading academy data:", error)
         toast({
           title: "Error",
-          description: "Failed to load branch data",
+          description: "Failed to load academy data",
           variant: "destructive",
         })
         setIsLoading(false)
@@ -536,30 +733,48 @@ export default function EditBranch() {
       }
 
       let loadedCourses: Course[] = []
-      // Load courses via authenticated API so partner orgs only see their own courses
+      // Partners see own courses + Rock courses already on their assigned academy
       try {
         setIsLoadingCourses(true)
-        const coursesResponse = await fetch(
-          getBackendApiUrl('courses?active_only=true&limit=500'),
-          { headers: authHeaders }
-        )
+        const [coursesResponse, byBranchResponse] = await Promise.all([
+          fetch(getBackendApiUrl("courses?active_only=true&limit=500"), {
+            headers: authHeaders,
+          }),
+          branchId
+            ? fetch(getBackendApiUrl(`courses/by-branch/${encodeURIComponent(branchId)}`), {
+                headers: authHeaders,
+              })
+            : Promise.resolve(null),
+        ])
+        const byId = new Map<string, Course>()
         if (coursesResponse.ok) {
           const coursesData = await coursesResponse.json()
-          loadedCourses = coursesData.courses || []
-          setCourses(loadedCourses)
-          setFilteredCourses(loadedCourses)
+          for (const c of coursesData.courses || []) {
+            if (c?.id) byId.set(c.id, c)
+          }
         }
+        if (byBranchResponse && byBranchResponse.ok) {
+          const byBranchData = await byBranchResponse.json()
+          for (const c of byBranchData.courses || []) {
+            if (c?.id && !byId.has(c.id)) byId.set(c.id, c)
+          }
+        }
+        loadedCourses = Array.from(byId.values())
+        setCourses(loadedCourses)
+        setFilteredCourses(loadedCourses)
       } catch (error) {
         console.error('Error loading courses:', error)
       } finally {
         setIsLoadingCourses(false)
       }
 
-      // Categories are Rock masters; for assignments only show ones that have assignable courses
+      // Include Rock master categories so assigned Rock courses can be grouped/filtered
       try {
         setIsLoadingCategories(true)
         const categoriesResponse = await fetch(
-          getBackendApiUrl('categories?active_only=true&include_subcategories=true&limit=200'),
+          getBackendApiUrl(
+            "categories?active_only=true&include_subcategories=true&include_rock_master=true&limit=200"
+          ),
           { headers: authHeaders }
         )
         if (categoriesResponse.ok) {
@@ -619,7 +834,7 @@ export default function EditBranch() {
       .catch(() => {})
   }, [])
 
-  // Hydrate per-duration pricing from batch_fee / course branch fees once branch + catalog + durations load
+  // Hydrate per-duration pricing from batch_fee / course academy fees once academy + catalog + durations load
   useEffect(() => {
     if (
       masterDurations.length === 0 ||
@@ -903,8 +1118,8 @@ export default function EditBranch() {
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {}
 
-    if (!formData.branch.name) newErrors.branchName = "Branch name is required"
-    if (!formData.branch.code) newErrors.branchCode = "Branch code is required"
+    if (!formData.branch.name) newErrors.branchName = "Academy name is required"
+    if (!formData.branch.code) newErrors.branchCode = "Academy code is required"
     if (!formData.location_id) newErrors.location = "Location is required"
     if (!formData.manager_id) newErrors.manager = "Manager is required"
     if (!formData.branch.address.line1) newErrors.addressLine1 = "Address is required"
@@ -932,7 +1147,7 @@ export default function EditBranch() {
       startTime: batch.start_time,
       endTime: batch.end_time,
       batchName: batch.batch_name,
-      branchName: formData.branch.name || "This branch",
+      branchName: formData.branch.name || "This academy",
       branchId,
     }
     const others: AssignmentBatch[] = []
@@ -1062,6 +1277,15 @@ export default function EditBranch() {
       }
     }
 
+    if (isPartner && !partnerCanEditAcademy) {
+      toast({
+        title: "Edit Academy access required",
+        description: "Request Super Admin approval before editing this academy.",
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
@@ -1101,6 +1325,9 @@ export default function EditBranch() {
         },
         bank_details: formData.bank_details,
         admission_fee: formData.admission_fee,
+        admission_fee_mode: formData.admission_fee_mode || "fixed",
+        admission_fee_by_course:
+          formData.admission_fee_mode === "per_course" ? formData.admission_fee_by_course || {} : {},
         cover_image_url: formData.cover_image_url || "",
         description: formData.description || "",
         map_link: formData.map_link || "",
@@ -1112,14 +1339,29 @@ export default function EditBranch() {
           formData.longitude === null || formData.longitude === undefined || Number.isNaN(Number(formData.longitude))
             ? null
             : Number(formData.longitude),
-        partner_org_id: formData.partner_org_id || null,
+        rating:
+          formData.rating === null || formData.rating === undefined || Number.isNaN(Number(formData.rating))
+            ? null
+            : Number(formData.rating),
+        review_count:
+          formData.review_count === null ||
+          formData.review_count === undefined ||
+          Number.isNaN(Number(formData.review_count))
+            ? null
+            : Math.max(0, Math.floor(Number(formData.review_count))),
+        google_place_id: (formData.google_place_id || "").trim() || null,
+      }
+      // Rock SA only — partners must not send ownership / public / collab / branding overlay.
+      if (canAssignPartner) {
+        submitData.partner_org_id = formData.partner_org_id || null
+      }
+      if (canEditPublicVisibility) {
+        submitData.is_public = formData.is_public !== false
       }
       if (canToggleCollaborationPartner) {
         submitData.is_collaboration_partner = !!formData.is_collaboration_partner
         submitData.allows_collaboration = !!formData.is_collaboration_partner
       }
-      
-      console.log("Submitting branch data:", JSON.stringify(submitData, null, 2))
 
       const response = await fetch(
         getBackendApiUrl(`branches/${branchId}`), {
@@ -1133,7 +1375,7 @@ export default function EditBranch() {
 
       if (response.ok) {
         toast({
-          title: "Branch updated",
+          title: "Academy updated",
           description: "Changes saved, including course batches and schedules.",
         })
         setShowSuccessPopup(true)
@@ -1142,7 +1384,7 @@ export default function EditBranch() {
         }, 2000)
       } else {
         const errorData = await response.json()
-        console.error("Branch creation failed:", errorData)
+        console.error("Academy creation failed:", errorData)
         
         // Handle error message properly (could be string, object, or array)
         let errorMessage = "Failed to create branch."
@@ -1163,7 +1405,7 @@ export default function EditBranch() {
         })
       }
     } catch (error) {
-      console.error("Error creating branch:", error)
+      console.error("Error creating academy:", error)
       toast({
         title: "Error",
         description: "An unexpected error occurred.",
@@ -1193,17 +1435,65 @@ export default function EditBranch() {
     <div className="min-h-screen bg-[#F5F6FA]">
       <main className="w-full py-6 px-4 lg:px-8 xl:px-10">
         <DashboardFormPageHeader
-          title="Edit Branch"
-          subtitle="Update branch details, courses, and operations"
+          title="Edit Academy"
+          subtitle="Update academy details, courses, and operations"
           backLabel="Back"
           onBack={() => router.push(`${basePath}/branches`)}
         />
 
-        <div className="space-y-6">
+        <div className="admin-page-with-sticky-actions space-y-6">
+          {isPartner ? (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-2 text-sm text-amber-950">
+                <ShieldAlert className="h-4 w-4 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-medium">
+                    {partnerCanEditAcademy
+                      ? "Edit Academy access approved"
+                      : brandingPermission?.permission === "pending"
+                        ? "Edit Academy access pending Super Admin approval"
+                        : "Edit Academy access required"}
+                  </p>
+                  <p className="text-xs text-amber-900/80 mt-0.5">
+                    Organization logo, banner, story, and contact CMS are edited on{" "}
+                    <a
+                      href={`${basePath}/org-branding`}
+                      className="underline font-medium"
+                    >
+                      Organization Branding
+                    </a>
+                    . This page is for academy operations only.
+                  </p>
+                </div>
+              </div>
+              {!partnerCanEditAcademy ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0 border-amber-300 bg-white"
+                  disabled={
+                    requestingBranding || brandingPermission?.can_request === false
+                  }
+                  onClick={() => void requestAcademyEditAccess()}
+                >
+                  {requestingBranding ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  ) : (
+                    <ShieldAlert className="h-3.5 w-3.5 mr-1.5" />
+                  )}
+                  {brandingPermission?.permission === "pending"
+                    ? "Request pending"
+                    : "Request Edit Academy access"}
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+
           {/* Cover / About — hero image for branch detail card */}
           <Card className={dashboardFormCardClass}>
             <CardHeader className="pb-2">
-              <DashboardSectionHeading icon={ImageIcon} title="Branch Cover & About" tone="violet" />
+              <DashboardSectionHeading icon={ImageIcon} title="Academy Cover & About" tone="violet" />
             </CardHeader>
             <CardContent className={cardContentClass}>
               <div className="space-y-2">
@@ -1211,7 +1501,7 @@ export default function EditBranch() {
                 {formData.cover_image_url ? (
                   <img
                     src={resolvePublicAssetUrl(formData.cover_image_url)}
-                    alt="Branch cover"
+                    alt="Academy cover"
                     className="h-40 w-full rounded-xl border object-cover"
                   />
                 ) : (
@@ -1267,7 +1557,7 @@ export default function EditBranch() {
                   rows={3}
                   value={formData.description || ""}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="A short description shown on the branch detail page"
+                  placeholder="A short description shown on the academy detail page"
                 />
               </div>
               <div className="space-y-2">
@@ -1278,6 +1568,54 @@ export default function EditBranch() {
                   onChange={(e) => setFormData({ ...formData, map_link: e.target.value })}
                   placeholder="https://maps.google.com/..."
                 />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="branchRating">Google rating (optional)</Label>
+                  <Input
+                    id="branchRating"
+                    type="number"
+                    step="0.1"
+                    min={0}
+                    max={5}
+                    value={formData.rating ?? ""}
+                    onChange={(e) => {
+                      const raw = e.target.value
+                      setFormData({
+                        ...formData,
+                        rating: raw === "" ? null : Number(raw),
+                      })
+                    }}
+                    placeholder="e.g. 4.8"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="branchReviewCount">Google review count</Label>
+                  <Input
+                    id="branchReviewCount"
+                    type="number"
+                    step="1"
+                    min={0}
+                    value={formData.review_count ?? ""}
+                    onChange={(e) => {
+                      const raw = e.target.value
+                      setFormData({
+                        ...formData,
+                        review_count: raw === "" ? null : Number(raw),
+                      })
+                    }}
+                    placeholder="e.g. 57"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="branchGooglePlaceId">Google Place ID (optional)</Label>
+                  <Input
+                    id="branchGooglePlaceId"
+                    value={formData.google_place_id || ""}
+                    onChange={(e) => setFormData({ ...formData, google_place_id: e.target.value })}
+                    placeholder="places/..."
+                  />
+                </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -1324,15 +1662,15 @@ export default function EditBranch() {
             </CardContent>
           </Card>
 
-          {/* Branch Information — full width */}
+          {/* Academy Information — full width */}
           <Card className={dashboardFormCardClass}>
             <CardHeader className="pb-2">
-              <DashboardSectionHeading icon={Building} title="Branch Information" tone="rose" />
+              <DashboardSectionHeading icon={Building} title="Academy Information" tone="rose" />
             </CardHeader>
             <CardContent className={cardContentClass}>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="branchName">Branch Name *</Label>
+                  <Label htmlFor="branchName">Academy Name *</Label>
                   <Input
                     id="branchName"
                     value={formData.branch.name}
@@ -1340,13 +1678,13 @@ export default function EditBranch() {
                       ...formData,
                       branch: { ...formData.branch, name: e.target.value }
                     })}
-                    placeholder="Enter branch name"
+                    placeholder="Enter academy name"
                   />
                   {errors.branchName && <p className="text-xs text-red-500">{errors.branchName}</p>}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="branchCode">Branch Code *</Label>
+                  <Label htmlFor="branchCode">Academy Code *</Label>
                   <div className="flex gap-2">
                     <Input
                       id="branchCode"
@@ -1378,7 +1716,7 @@ export default function EditBranch() {
                     }
                   >
                     <SelectTrigger id="partnerOrgId">
-                      <SelectValue placeholder="No partner (Rock branch)" />
+                      <SelectValue placeholder="No partner (Rock academy)" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">No partner (Rock branch)</SelectItem>
@@ -1390,8 +1728,107 @@ export default function EditBranch() {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    Assign this branch to a white-label partner (1 partner ↔ 1 branch). Partner branding applies once linked.
+                    Assign this branch to a white-label partner, or choose No partner to make it Rock-owned again.
+                    Partner branding applies once linked.
                   </p>
+                </div>
+              ) : null}
+
+              {canEditPublicVisibility ? (
+                <div className="flex items-center justify-between rounded-md border border-gray-100 bg-gray-50 px-3 py-3 gap-3">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="isPublicAcademy" className="text-sm font-medium">
+                      Show on public website
+                    </Label>
+                    <p className="text-xs text-gray-500">
+                      When off, this academy stays active internally but is hidden from public listings.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs text-gray-500">
+                      {formData.is_public !== false ? "Yes" : "No"}
+                    </span>
+                    <Switch
+                      id="isPublicAcademy"
+                      checked={formData.is_public !== false}
+                      onCheckedChange={(checked) =>
+                        setFormData({
+                          ...formData,
+                          is_public: !!checked,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              ) : null}
+
+              {canEditPartnerFooter ? (
+                <div className="flex items-center justify-between rounded-md border border-gray-100 bg-gray-50 px-3 py-3 gap-3">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="publicFooterEnabled" className="text-sm font-medium">
+                      Show website footer
+                    </Label>
+                    <p className="text-xs text-gray-500">
+                      Enable or disable the public website footer on this partner academy&apos;s
+                      branch detail page. Saves immediately for the linked partner.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs text-gray-500">
+                      {savingPublicFooter ? "Saving…" : publicFooterEnabled ? "On" : "Off"}
+                    </span>
+                    <Switch
+                      id="publicFooterEnabled"
+                      checked={publicFooterEnabled}
+                      disabled={savingPublicFooter}
+                      onCheckedChange={(checked) => {
+                        void (async () => {
+                          const orgId = String(formData.partner_org_id || "").trim()
+                          if (!orgId) return
+                          setPublicFooterEnabled(checked)
+                          setSavingPublicFooter(true)
+                          try {
+                            const res = await partnerOrgAPI.patchPublicSiteSettings(orgId, {
+                              public_footer_enabled: checked,
+                            })
+                            const enabled = !!res.public_footer_enabled
+                            setPublicFooterEnabled(enabled)
+                            setPartnerOrgs((prev) =>
+                              prev.map((p) =>
+                                p.id === orgId ? { ...p, public_footer_enabled: enabled } : p
+                              )
+                            )
+                            toast({
+                              title: enabled ? "Footer enabled" : "Footer disabled",
+                              description:
+                                res.message ||
+                                "Public website footer setting updated for this partner.",
+                            })
+                          } catch (e: unknown) {
+                            setPublicFooterEnabled(!checked)
+                            toast({
+                              title: "Could not update footer",
+                              description:
+                                e instanceof Error ? e.message : "Please try again.",
+                              variant: "destructive",
+                            })
+                          } finally {
+                            setSavingPublicFooter(false)
+                          }
+                        })()
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : null}
+
+              {isPartner ? (
+                <div className="rounded-md border border-gray-100 bg-gray-50 px-3 py-3 text-xs text-gray-600">
+                  Logo, banner, colors, tagline, and story CMS are on{" "}
+                  <a href={`${basePath}/org-branding`} className="underline font-medium text-[#4F5077]">
+                    Organization Branding
+                  </a>
+                  .
                 </div>
               ) : null}
 
@@ -1525,7 +1962,7 @@ export default function EditBranch() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="manager">Branch Manager *</Label>
+                <Label htmlFor="manager">Academy Manager *</Label>
                 <Select
                   value={formData.manager_id}
                   onValueChange={(value) => setFormData({ ...formData, manager_id: value })}
@@ -1659,19 +2096,31 @@ export default function EditBranch() {
             </CardContent>
           </Card>
 
-          {/* Course Assignments — full width */}
-          <Card className={dashboardFormCardClass}>
-            <CardHeader className="pb-2">
-              <DashboardSectionHeading icon={Users} title="Course Assignments" tone="indigo" />
-            </CardHeader>
-            <CardContent className={cardContentClass}>
+          {/* Course Assignments — full viewport height, inner scroll then next section */}
+          <CourseAssignmentsScrollPanel
+            header={
+              <div className="px-6 pt-6 pb-2">
+                <DashboardSectionHeading icon={Users} title="Course Assignments" tone="indigo" />
+              </div>
+            }
+            bodyClassName={`${cardContentClass} space-y-4 p-6 pt-2`}
+          >
+              {isPartner && !canEditCourseAssignments ? (
+                <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  View only — ask Rock Super Admin to enable Course Editing for your partner to change assignments or batches.
+                </p>
+              ) : null}
+              <fieldset
+                disabled={!canEditCourseAssignments}
+                className={!canEditCourseAssignments ? "min-w-0 space-y-4 opacity-95" : "min-w-0 space-y-4 border-0 p-0"}
+              >
               {/* Category Selection */}
               <div className="space-y-2">
                 <Label>Select Category</Label>
                 <Select
                   value={selectedCategoryId}
                   onValueChange={handleCategoryChange}
-                  disabled={isLoadingCategories}
+                  disabled={isLoadingCategories || !canEditCourseAssignments}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={isLoadingCategories ? "Loading..." : "Select category"} />
@@ -1687,7 +2136,7 @@ export default function EditBranch() {
               </div>
 
               {/* Course List */}
-              <div className="space-y-2 max-h-96 overflow-y-auto">
+              <div className="space-y-2">
                 {filteredCourses.length > 0 ? (
                   filteredCourses.map((course) => {
                     const selectedCourse = formData.assignments.courses.find(c => c.course_id === course.id)
@@ -1699,6 +2148,7 @@ export default function EditBranch() {
                           <div className="flex items-center space-x-2">
                             <Checkbox
                               checked={isSelected}
+                              disabled={!canEditCourseAssignments}
                               onCheckedChange={() => handleCourseToggle(course.id)}
                             />
                             <div>
@@ -1710,6 +2160,7 @@ export default function EditBranch() {
                             <label className="flex items-center gap-1.5 text-xs text-gray-600 shrink-0">
                               <Checkbox
                                 checked={selectedCourse.is_available !== false}
+                                disabled={!canEditCourseAssignments}
                                 onCheckedChange={(checked) => {
                                   setFormData((prev) => ({
                                     ...prev,
@@ -1915,10 +2366,36 @@ export default function EditBranch() {
                                               value={feeValue}
                                               disabled={!isEnabled}
                                               onChange={(e) => {
-                                                updateBatchField("fee_per_duration", {
-                                                  ...(batch.fee_per_duration || {}),
-                                                  [dur.id]: e.target.value
+                                                const nextFee = e.target.value
+                                                const nextPtd = { ...(batch.pricing_type_per_duration || {}) }
+                                                if (
+                                                  nextFee.trim() &&
+                                                  nextPtd[dur.id] !== "flat" &&
+                                                  nextPtd[dur.id] !== "monthly"
+                                                ) {
+                                                  nextPtd[dur.id] = "monthly"
+                                                }
+                                                const newCourses = formData.assignments.courses.map((c: any) => {
+                                                  if (c.course_id !== course.id) return c
+                                                  return {
+                                                    ...c,
+                                                    batches: c.batches.map((b: any) => {
+                                                      if (b.id !== batch.id) return b
+                                                      return {
+                                                        ...b,
+                                                        fee_per_duration: {
+                                                          ...(b.fee_per_duration || {}),
+                                                          [dur.id]: nextFee,
+                                                        },
+                                                        pricing_type_per_duration: nextPtd,
+                                                      }
+                                                    }),
+                                                  }
                                                 })
+                                                setFormData((prev: any) => ({
+                                                  ...prev,
+                                                  assignments: { ...prev.assignments, courses: newCourses },
+                                                }))
                                               }}
                                               className="h-7 w-28 text-sm text-gray-900 bg-white border-gray-300"
                                             />
@@ -1958,6 +2435,29 @@ export default function EditBranch() {
                                             {feeValue && pricingType === "flat" && (
                                               <span className="text-xs text-green-600 whitespace-nowrap">Fixed price</span>
                                             )}
+                                            {!feeValue && isEnabled && (() => {
+                                              const monthlyBase = masterDurations
+                                                .map((d) => {
+                                                  const fee = parseFloat(
+                                                    String(
+                                                      lookupDurationMapValue(fpd, d, masterDurations) ?? ""
+                                                    )
+                                                  )
+                                                  const t =
+                                                    (lookupDurationMapValue(ptd, d, masterDurations) as string) ||
+                                                    "monthly"
+                                                  if (!(fee > 0) || t === "flat") return null
+                                                  return fee
+                                                })
+                                                .find((v) => v != null)
+                                              if (monthlyBase == null || !((dur.duration_months ?? 0) > 1)) return null
+                                              return (
+                                                <span className="text-xs text-blue-600 whitespace-nowrap">
+                                                  Est. ₹{(monthlyBase * (dur.duration_months ?? 1)).toLocaleString("en-IN")}{" "}
+                                                  (monthly × {dur.duration_months})
+                                                </span>
+                                              )
+                                            })()}
                                             {!isEnabled && (
                                               <span className="text-xs text-red-600 whitespace-nowrap">Disabled</span>
                                             )}
@@ -2003,8 +2503,8 @@ export default function EditBranch() {
                   </p>
                 )}
               </div>
-            </CardContent>
-          </Card>
+              </fieldset>
+          </CourseAssignmentsScrollPanel>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Operational Details — 50% on large screens */}
@@ -2172,26 +2672,37 @@ export default function EditBranch() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="admissionFee">Admission Fee (Branch Specific)</Label>
-                <Input
-                  id="admissionFee"
-                  type="number"
-                  min={0}
-                  value={formData.admission_fee}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      admission_fee: Number(e.target.value) || 0,
-                    })
+              <AdmissionFeeSettingsFields
+                mode={formData.admission_fee_mode || "fixed"}
+                fixedFee={formData.admission_fee}
+                feeByCourse={formData.admission_fee_by_course || {}}
+                courses={formData.assignments.courses.map((c) => {
+                  const match = courses.find((x) => x.id === c.course_id)
+                  return {
+                    id: c.course_id,
+                    title: match?.title || match?.code || "Course",
                   }
-                  placeholder="Enter admission fee for this branch"
-                />
-              </div>
+                })}
+                onModeChange={(mode) =>
+                  setFormData((prev) => ({ ...prev, admission_fee_mode: mode }))
+                }
+                onFixedFeeChange={(value) =>
+                  setFormData((prev) => ({ ...prev, admission_fee: value }))
+                }
+                onCourseFeeChange={(courseId, value) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    admission_fee_by_course: {
+                      ...(prev.admission_fee_by_course || {}),
+                      [courseId]: value,
+                    },
+                  }))
+                }
+              />
 
               <div className="pt-4 border-t">
                 <div className="text-sm text-gray-600 space-y-1">
-                  <p><span className="font-medium">Note:</span> Bank details are optional. Admission fee is used when calculating registration payments for this branch.</p>
+                  <p><span className="font-medium">Note:</span> Bank details are optional. Admission fee settings apply to Create Student and public registration payments for this academy.</p>
                 </div>
               </div>
             </CardContent>
@@ -2199,32 +2710,39 @@ export default function EditBranch() {
           </div>
         </div>
 
-        {/* Form Actions */}
-        <div className="mt-6 flex justify-end space-x-4">
+        <AdminStickyFormActions>
           <Button
+            type="button"
             variant="outline"
             onClick={() => router.push(`${basePath}/branches`)}
+            disabled={isSubmitting}
           >
             Cancel
           </Button>
           <Button
+            type="button"
             onClick={handleSubmit}
-            disabled={isSubmitting}
+            disabled={isSubmitting || !partnerCanEditAcademy}
             className={primaryButtonClass}
           >
-            {isSubmitting ? "Updating..." : "Update Branch"}
+            {isSubmitting
+              ? "Updating..."
+              : !partnerCanEditAcademy
+                ? "Edit access required"
+                : "Update Academy"}
           </Button>
-        </div>
+        </AdminStickyFormActions>
       </main>
 
       {/* Success Popup */}
       {showSuccessPopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-          <Card className="w-96">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden p-4 sm:p-6">
+        <div className="absolute inset-0 bg-[#0f172a]/55 backdrop-blur-[2px]" aria-hidden />
+          <Card className="relative z-[1] w-96 rounded-2xl border border-[#E8EAF0] shadow-[0_24px_80px_rgba(15,23,42,0.28)]">
             <CardContent className="pt-6">
               <div className="text-center space-y-4">
                 <div className="text-green-500 text-6xl">✓</div>
-                <h3 className="text-xl font-bold">Branch Updated Successfully!</h3>
+                <h3 className="text-xl font-bold">Academy Updated Successfully!</h3>
                 <p className="text-gray-500">Redirecting to branches list...</p>
               </div>
             </CardContent>

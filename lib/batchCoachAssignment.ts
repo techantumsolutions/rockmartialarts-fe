@@ -110,13 +110,13 @@ export function batchAssignmentError(
 
   if (availability) {
     if (availability.length === 0) {
-      return "Set this coach's availability before assigning a batch."
+      return `Add availability covering ${formatDays(days)}, ${formatRange(batch.startTime, batch.endTime)} before assigning this batch.`
     }
     const missing = days.filter(
       (day) => !availability.some((slot) => slotCovers(slot, day, start, end, batch.branchId))
     )
     if (missing.length > 0) {
-      return `This coach is not available ${formatDays(missing)}, ${formatRange(batch.startTime, batch.endTime)}.`
+      return `Not available ${formatDays(missing)}, ${formatRange(batch.startTime, batch.endTime)}. Adjust availability first.`
     }
   }
 
@@ -124,10 +124,10 @@ export function batchAssignmentError(
   if (!clash) return null
   const shared = clash.days.filter((day) => days.includes(dayKey(day)))
   const name = clash.batchName || "Batch"
-  return `This coach is already assigned ${formatDays(shared.length ? shared : clash.days)}, ${formatRange(clash.startTime, clash.endTime)} (${name}, ${clash.branchName}).`
+  return `Already assigned ${formatDays(shared.length ? shared : clash.days)}, ${formatRange(clash.startTime, clash.endTime)} (${name}, ${clash.branchName}). Cannot double-book.`
 }
 
-/** Fetches active batches across all branches (optionally excluding one branch). */
+/** Fetches active batches across all academies (optionally excluding one academy). */
 export async function fetchExternalBatches(
   token: string,
   excludeBranchId?: string
@@ -147,7 +147,7 @@ export async function fetchExternalBatches(
     const rows: AssignmentBatch[] = []
     for (const b of data.branches || []) {
       if (!b?.id || (excludeBranchId && String(b.id) === String(excludeBranchId))) continue
-      const branchName = b.branch?.name || b.name || "Branch"
+      const branchName = b.branch?.name || b.name || "Academy"
       const schedule = b.assignments?.course_schedule || []
       for (const entry of schedule) {
         if (entry?.is_available === false) continue
@@ -176,7 +176,7 @@ export async function fetchExternalBatches(
 }
 
 /**
- * Updates the branch's batches so that batches in `assignedBatchIds` have `coach_id = coachId`,
+ * Updates the academy's batches so that batches in `assignedBatchIds` have `coach_id = coachId`,
  * and batches previously assigned to this coach are cleared if unchecked.
  */
 export async function syncBranchBatchAssignments(
@@ -234,12 +234,12 @@ export async function syncBranchBatchAssignments(
 
     return putRes.ok
   } catch (err) {
-    console.error("Failed to sync branch batch assignments:", err)
+    console.error("Failed to sync academy batch assignments:", err)
     return false
   }
 }
 
-/** Removes coach_id from any batches in a branch (used when a coach leaves a branch). */
+/** Removes coach_id from any batches in an academy (used when a coach leaves an academy). */
 export async function cleanUpCoachBatchesInBranch(
   branchId: string,
   coachId: string,
@@ -294,7 +294,7 @@ export async function cleanUpCoachBatchesInBranch(
 
     return putRes.ok
   } catch (err) {
-    console.error("Failed to clean up coach batches in branch:", err)
+    console.error("Failed to clean up coach batches in academy:", err)
     return false
   }
 }

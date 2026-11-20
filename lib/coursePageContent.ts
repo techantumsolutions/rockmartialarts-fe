@@ -97,6 +97,8 @@ export type QualityItem = {
   title: string
   description?: string
   icon?: string
+  /** Optional photo — larger warrior tiles on the public course page */
+  image?: string
 }
 
 export type SportSpotlightContent = {
@@ -242,4 +244,56 @@ export function isSectionEnabled(
   key: CourseSectionKey
 ): boolean {
   return visibility?.[key] !== false
+}
+
+/** Sections that appear on the public course page for each layout variant. */
+export const COURSE_SECTIONS_BY_LAYOUT: Record<
+  CourseLayoutVariant,
+  { key: CourseSectionKey; label: string }[]
+> = {
+  standard: [
+    { key: "hero", label: "Hero Section" },
+    { key: "info_bar", label: "Info Bar (location / duration / price / timings)" },
+    { key: "about", label: "About Course" },
+    { key: "learn_cards", label: "What You'll Learn Cards" },
+    { key: "who_can_join", label: "Who Can Join" },
+    { key: "course_info_sections", label: "Course Info Blocks" },
+    { key: "course_content", label: "Syllabus / Equipment" },
+    { key: "benefits", label: "Benefits" },
+    { key: "why_rmaa", label: "Why Learn at RMAA" },
+    { key: "learning", label: "Learning Video" },
+    { key: "gallery", label: "Gallery" },
+    { key: "instructors", label: "Instructors" },
+    { key: "testimonials", label: "Testimonials" },
+    { key: "attachments", label: "Downloads / PDFs" },
+    { key: "final_cta", label: "Final Journey CTA" },
+  ],
+  goal_based: [
+    { key: "hero", label: "Hero Section" },
+    { key: "info_bar", label: "Info Bar (location / duration / price / timings)" },
+    { key: "about", label: "About Course" },
+    { key: "learn_cards", label: "What You'll Get Cards" },
+    { key: "who_can_join", label: "Who Can Join" },
+    { key: "training_programs", label: "Training Programs" },
+    { key: "benefits", label: "Benefits" },
+    { key: "learning", label: "Learning Video" },
+    { key: "gallery", label: "Gallery" },
+    { key: "instructors", label: "Instructors" },
+    { key: "testimonials", label: "Testimonials" },
+    { key: "final_cta", label: "Final Journey CTA" },
+  ],
+  heritage: [
+    { key: "hero", label: "Hero Section" },
+    { key: "info_bar", label: "Info Bar (location / duration / price / timings)" },
+    { key: "about", label: "About Course" },
+    { key: "lineage", label: "Lineage" },
+    { key: "philosophy", label: "Philosophy Pillars" },
+    { key: "qualities", label: "Warrior Qualities" },
+    { key: "learn_cards", label: "What You'll Learn Cards" },
+    { key: "who_can_join", label: "Who Can Join" },
+    { key: "gallery", label: "Gallery" },
+    { key: "instructors", label: "Instructors" },
+    { key: "testimonials", label: "Testimonials" },
+    { key: "final_cta", label: "Final Journey CTA" },
+  ],
 }

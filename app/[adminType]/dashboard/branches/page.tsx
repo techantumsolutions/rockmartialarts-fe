@@ -58,9 +58,11 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { useDashboardBasePath, useDashboardRole } from "@/lib/useDashboardBasePath"
+import { AppModal } from "@/components/ui/AppModal"
 
 interface Branch {
   id: string
+  slug?: string | null
   branch: {
     name: string
     code: string
@@ -79,6 +81,10 @@ interface Branch {
   is_active?: boolean
   allows_collaboration?: boolean
   is_collaboration_partner?: boolean
+  partner_org_id?: string | null
+  partner_org_name?: string | null
+  partner_org_slug?: string | null
+  is_partner_branch?: boolean
   operational_details: {
     courses_offered: string[]
     timings: Array<{
@@ -108,7 +114,7 @@ interface Branch {
   updated_at: string
 }
 
-export default function BranchesList() {
+export default function AcademiesList() {
   const router = useRouter()
   const pathname = usePathname()
   const basePath = useDashboardBasePath()
@@ -140,7 +146,7 @@ export default function BranchesList() {
   const [coachById, setCoachById] = useState<
     Record<string, { full_name: string; phone: string }>
   >({})
-  /** First coach phone per branch (for contact fallback) */
+  /** First coach phone per academy (for contact fallback) */
   const [coachPhoneByBranchId, setCoachPhoneByBranchId] = useState<Record<string, string>>({})
 
   // Modal states
@@ -149,10 +155,12 @@ export default function BranchesList() {
   const [assignmentLoading, setAssignmentLoading] = useState(false)
   const [assignmentError, setAssignmentError] = useState<string | null>(null)
   const [deactivateTarget, setDeactivateTarget] = useState<Branch | null>(null)
+  const [unassignTarget, setUnassignTarget] = useState<Branch | null>(null)
   const [statusUpdating, setStatusUpdating] = useState(false)
+  const [unassigning, setUnassigning] = useState(false)
   // Add state for pagination
 const [currentPage, setCurrentPage] = useState(1)
-const itemsPerPage = 10
+const itemsPerPage = 20
 
   // Mobile action-button scroll
   const actionScrollRef = useRef<HTMLDivElement>(null)
@@ -255,19 +263,19 @@ const itemsPerPage = 10
 
         if (!response.ok) {
           const errorData = await response.json()
-          throw new Error(errorData.detail || errorData.message || `Failed to fetch branches (${response.status})`)
+          throw new Error(errorData.detail || errorData.message || `Failed to fetch academies (${response.status})`)
         }
 
         const data = await response.json()
-        console.log("Branches fetched successfully:", data)
+        console.log("Academies fetched successfully:", data)
 
         // Handle different response formats
         const branchesData = data.branches || data || []
-        console.log("Processed branches data:", branchesData)
+        console.log("Processed academies data:", branchesData)
 
         // Log statistics for debugging
         branchesData.forEach((branch: Branch, index: number) => {
-          console.log(`Branch ${index + 1} (${branch.branch?.name}):`, {
+          console.log(`Academy ${index + 1} (${branch.branch?.name}):`, {
             id: branch.id,
             statistics: branch.statistics,
             manager_id: branch.manager_id,
@@ -280,13 +288,13 @@ const itemsPerPage = 10
         // If statistics are not included, try to fetch them separately
         const branchesWithoutStats = branchesData.filter((branch: Branch) => !branch.statistics)
         if (branchesWithoutStats.length > 0) {
-          console.log(`Fetching statistics for ${branchesWithoutStats.length} branches...`)
+          console.log(`Fetching statistics for ${branchesWithoutStats.length} academies...`)
           await fetchBranchStatistics(branchesWithoutStats, token)
         }
 
       } catch (error) {
-        console.error("Error fetching branches:", error)
-        setError(error instanceof Error ? error.message : 'Failed to fetch branches')
+        console.error("Error fetching academies:", error)
+        setError(error instanceof Error ? error.message : 'Failed to fetch academies')
       } finally {
         setLoading(false)
       }
@@ -295,7 +303,7 @@ const itemsPerPage = 10
     fetchBranches()
   }, [])
 
-  // Resolve branch manager names/phones + coach contact fallback for list display.
+  // Resolve academy manager names/phones + coach contact fallback for list display.
   useEffect(() => {
     const loadManagerAndCoachContacts = async () => {
       const token = TokenManager.getToken()
@@ -331,7 +339,7 @@ const itemsPerPage = 10
     loadManagerAndCoachContacts()
   }, [branches])
 
-  // Fetch statistics for branches that don't have them
+  // Fetch statistics for academies that don't have them
   const fetchBranchStatistics = async (branchesWithoutStats: Branch[], token: string) => {
     try {
       setLoadingStats(true)
@@ -354,14 +362,14 @@ const itemsPerPage = 10
             }
           }
         } catch (error) {
-          console.error(`Error fetching stats for branch ${branch.id}:`, error)
+          console.error(`Error fetching stats for academy ${branch.id}:`, error)
         }
         return null
       })
 
       const statsResults = await Promise.all(statsPromises)
 
-      // Update branches with fetched statistics
+      // Update academies with fetched statistics
       setBranches(prevBranches =>
         prevBranches.map(branch => {
           const statsResult = statsResults.find(result => result?.branchId === branch.id)
@@ -373,13 +381,13 @@ const itemsPerPage = 10
       )
 
     } catch (error) {
-      console.error("Error fetching branch statistics:", error)
+      console.error("Error fetching academy statistics:", error)
     } finally {
       setLoadingStats(false)
     }
   }
 
-  // Branch `manager_id` must be a branch_manager id (see branch_manager auth), not a coach document id.
+  // Academy `manager_id` must be an academy_manager id (see branch_manager auth), not a coach document id.
   const fetchBranchManagersForModal = async () => {
     try {
       setLoadingBranchManagers(true)
@@ -406,7 +414,7 @@ const itemsPerPage = 10
         if (!response.ok) {
           const errorData = await response.json()
           throw new Error(
-            errorData.detail || errorData.message || `Failed to fetch branch managers (${response.status})`
+            errorData.detail || errorData.message || `Failed to fetch academy managers (${response.status})`
           )
         }
 
@@ -418,8 +426,8 @@ const itemsPerPage = 10
 
       setBranchManagersForAssign(all)
     } catch (error) {
-      console.error("Error fetching branch managers:", error)
-      setAssignmentError(error instanceof Error ? error.message : "Failed to fetch branch managers")
+      console.error("Error fetching academy managers:", error)
+      setAssignmentError(error instanceof Error ? error.message : "Failed to fetch academy managers")
     } finally {
       setLoadingBranchManagers(false)
     }
@@ -427,7 +435,7 @@ const itemsPerPage = 10
 
   const handleAssign = async () => {
     if (!selectedBranch || !selectedManagerId) {
-      setAssignmentError("Please select both a branch and a branch manager")
+      setAssignmentError("Please select both an academy and an academy manager")
       return
     }
 
@@ -440,7 +448,7 @@ const itemsPerPage = 10
         throw new Error("Authentication token not found. Please login again.")
       }
 
-      // Update the branch with the new manager_id
+      // Update the academy with the new manager_id
       const response = await fetch(getBackendApiUrl(`branches/${selectedBranch}`), {
         method: 'PUT',
         headers: {
@@ -485,12 +493,15 @@ const itemsPerPage = 10
     }
   }
 
-  const handleViewClick = (branchId: string) => {
-    router.push(`${basePath}/branches/${branchId}`)
+  const branchPathKey = (branch: Branch) =>
+    encodeURIComponent((branch.slug || branch.id || "").trim() || branch.id)
+
+  const handleViewClick = (branch: Branch) => {
+    router.push(`${basePath}/branches/${branchPathKey(branch)}`)
   }
 
-  const handleEditClick = (branchId: string) => {
-    router.push(`${basePath}/branches/edit/${branchId}`)
+  const handleEditClick = (branch: Branch) => {
+    router.push(`${basePath}/branches/edit/${branchPathKey(branch)}`)
   }
 
   const handleOpenAssignModal = () => {
@@ -532,7 +543,7 @@ const itemsPerPage = 10
         )
       }
     } catch (error) {
-      console.error("Error updating branch status:", error)
+      console.error("Error updating academy status:", error)
     } finally {
       setStatusUpdating(false)
       setDeactivateTarget(null)
@@ -547,7 +558,48 @@ const itemsPerPage = 10
     setDeactivateTarget(branch)
   }
 
-  /** Branch phone first; if missing, first assigned coach phone for that branch. */
+  const isPartnerAssigned = (branch: Branch) =>
+    !!(branch.partner_org_id || branch.is_partner_branch)
+
+  const unassignPartnerFromBranch = async (branch: Branch) => {
+    try {
+      setUnassigning(true)
+      const token = TokenManager.getToken()
+      if (!token) return
+      const response = await fetch(getBackendApiUrl(`branches/${branch.id}`), {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ partner_org_id: null }),
+      })
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}))
+        throw new Error(err?.detail || "Failed to unassign partner")
+      }
+      setBranches((prev) =>
+        prev.map((b) =>
+          b.id === branch.id
+            ? {
+                ...b,
+                partner_org_id: null,
+                partner_org_name: null,
+                partner_org_slug: null,
+                is_partner_branch: false,
+              }
+            : b
+        )
+      )
+    } catch (error) {
+      console.error("Error unassigning partner:", error)
+    } finally {
+      setUnassigning(false)
+      setUnassignTarget(null)
+    }
+  }
+
+  /** Academy phone first; if missing, first assigned coach phone for that branch. */
   const getBranchContactDisplay = (branch: Branch) => {
     const branchPhone = branch.branch?.phone?.trim()
     if (branchPhone) return branchPhone
@@ -558,7 +610,11 @@ const itemsPerPage = 10
 
   const listBranches = useMemo(
     () =>
-      branches.filter((branch) => !branch.is_collaboration_partner && !branch.allows_collaboration),
+      branches.filter((branch) => {
+        // White-label partner academies always belong on Academies (not Collaboration Partners).
+        if (branch.partner_org_id || branch.is_partner_branch) return true
+        return !branch.is_collaboration_partner && !branch.allows_collaboration
+      }),
     [branches]
   )
 
@@ -608,6 +664,7 @@ const itemsPerPage = 10
           branch.branch?.address?.state?.toLowerCase().includes(searchLower) ||
           branch.branch?.email?.toLowerCase().includes(searchLower) ||
           branch.branch?.phone?.toLowerCase().includes(searchLower) ||
+          (branch.partner_org_name || "").toLowerCase().includes(searchLower) ||
           managerName.includes(searchLower)
         if (!matchesSearch) return false
       }
@@ -676,8 +733,8 @@ const itemsPerPage = 10
     <AdminPageShell className="overflow-x-hidden">
       <AdminPageHeader
         icon={Store}
-        title="Branches"
-        subtitle="Manage all training branches and their information"
+        title="Academies"
+        subtitle="Manage all training academies and their information"
         actions={
           !BranchManagerAuth.isAuthenticated() ? (
             <>
@@ -721,7 +778,7 @@ const itemsPerPage = 10
         <AdminKpiCard
           icon={Building2}
           tone="blue"
-          label="Total Branches"
+          label="Total Academies"
           value={loading ? "—" : kpiTotals.total}
         />
         <AdminKpiCard
@@ -748,7 +805,7 @@ const itemsPerPage = 10
         <div className="relative min-w-[200px] flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7A99]" />
           <Input
-            placeholder="Search branch by name, location or manager…"
+            placeholder="Search academy by name, location or manager…"
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value)
@@ -879,12 +936,12 @@ const itemsPerPage = 10
         <table className="w-full min-w-[900px] lg:min-w-0 lg:table-fixed admin-table-fit">
           <thead>
             <tr>
-              <th className="text-left lg:w-[12.5%]">Branch</th>
+              <th className="text-left lg:w-[12.5%]">Academy</th>
               <th className="text-left lg:w-[13.5%]">Location</th>
               <th className="text-center lg:w-[8.5%]">Active Students</th>
               <th className="text-center lg:w-[8.5%]">Courses</th>
               <th className="text-center lg:w-[8.5%]">Coaches</th>
-              <th className="text-left lg:w-[11%]">Branch Manager</th>
+              <th className="text-left lg:w-[11%]">Academy Manager</th>
               <th className="text-center lg:w-[10.5%]">Contact</th>
               <th className="text-center lg:w-[9%]">Status</th>
               <th className="text-right lg:w-[18%]">Actions</th>
@@ -906,7 +963,7 @@ const itemsPerPage = 10
               ) : filteredBranches.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-10 text-center text-[#6B7A99]">
-                    {searchTerm ? `No branches found matching "${searchTerm}"` : "No branches found"}
+                    {searchTerm ? `No academies found matching "${searchTerm}"` : "No academies found"}
                   </td>
                 </tr>
               ) : (
@@ -923,9 +980,28 @@ const itemsPerPage = 10
                         <div className="hidden xl:inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#F1EBFF] text-[#6D28D9]">
                           <Store className="h-4 w-4" />
                         </div>
-                        <span className="min-w-0 break-words text-xs xl:text-sm font-semibold leading-tight text-[#2F3158]">
-                          {branch.branch?.name || "N/A"}
-                        </span>
+                        <div className="min-w-0">
+                          <span className="block min-w-0 break-words text-xs xl:text-sm font-semibold leading-tight text-[#2F3158]">
+                            {branch.branch?.name || "N/A"}
+                          </span>
+                          {isPartnerAssigned(branch) ? (
+                            <span
+                              className="mt-0.5 inline-flex max-w-full items-center gap-1 rounded-md bg-[#FFF8E1] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#9A6B00]"
+                              title={
+                                branch.partner_org_name
+                                  ? `Partner: ${branch.partner_org_name}`
+                                  : "Partner academy"
+                              }
+                            >
+                              Partner
+                              {branch.partner_org_name ? (
+                                <span className="truncate font-medium normal-case tracking-normal text-[#7A5A10]">
+                                  · {branch.partner_org_name}
+                                </span>
+                              ) : null}
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
                     </td>
                     <td className="text-[11px] xl:text-xs leading-tight break-words text-[#6B7A99]">
@@ -987,15 +1063,26 @@ const itemsPerPage = 10
                         <button
                           type="button"
                           className="inline-flex h-6 w-6 xl:h-8 xl:w-8 shrink-0 items-center justify-center rounded-lg border border-[#E5E7EB] bg-white text-[#4F5077] hover:bg-gray-50 cursor-pointer"
-                          onClick={() => handleEditClick(branch.id)}
-                          title="Edit Branch"
+                          onClick={() => handleEditClick(branch)}
+                          title="Edit Academy"
                         >
                           <Edit className="h-3.5 w-3.5 xl:h-4 xl:w-4" />
                         </button>
+                        {canCreateBranch && isPartnerAssigned(branch) ? (
+                          <button
+                            type="button"
+                            className="inline-flex h-6 w-6 xl:h-8 xl:w-8 shrink-0 items-center justify-center rounded-lg border border-[#F5E6B8] bg-[#FFF9EB] text-[#9A6B00] hover:bg-[#FFF3D1] cursor-pointer"
+                            onClick={() => setUnassignTarget(branch)}
+                            title="Unassign partner (make Rock-owned)"
+                            disabled={unassigning}
+                          >
+                            <RotateCcw className="h-3.5 w-3.5 xl:h-4 xl:w-4" />
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           className="inline-flex h-6 w-6 xl:h-8 xl:w-8 shrink-0 items-center justify-center rounded-lg border border-[#E5E7EB] bg-white text-[#4F5077] hover:bg-gray-50 cursor-pointer"
-                          onClick={() => handleViewClick(branch.id)}
+                          onClick={() => handleViewClick(branch)}
                           title="View Details"
                         >
                           <Eye className="h-3.5 w-3.5 xl:h-4 xl:w-4" />
@@ -1003,7 +1090,7 @@ const itemsPerPage = 10
                         <button
                           type="button"
                           className="inline-flex h-6 w-6 xl:h-8 xl:w-8 shrink-0 items-center justify-center rounded-lg border border-[#E5E7EB] bg-white text-[#4F5077] hover:bg-gray-50 cursor-pointer"
-                          onClick={() => handleViewClick(branch.id)}
+                          onClick={() => handleViewClick(branch)}
                           title="More actions"
                         >
                           <MoreHorizontal className="h-3.5 w-3.5 xl:h-4 xl:w-4" />
@@ -1117,21 +1204,43 @@ const itemsPerPage = 10
           </table>
       </AdminTableShell>
 
-      {showAssignPopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-auto max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center p-6 border-b">
-              <h2 className="text-xl font-semibold text-gray-900">Assign Branch Manager</h2>
-              <button
-                onClick={() => setShowAssignPopup(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-                disabled={assignmentLoading}
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-6">
+      <AppModal
+        open={showAssignPopup}
+        onClose={() => {
+          if (assignmentLoading) return
+          setShowAssignPopup(false)
+        }}
+        title="Assign Academy Manager"
+        size="lg"
+        closeDisabled={assignmentLoading}
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              onClick={() => setShowAssignPopup(false)}
+              variant="outline"
+              disabled={assignmentLoading}
+              className="w-full border-[#D1D5DB] text-[#4F5077] sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAssign}
+              disabled={!selectedBranch || !selectedManagerId || assignmentLoading || loadingBranchManagers}
+              className="w-full bg-[#E1BB33] text-[#171A26] hover:bg-[#d4a82a] sm:w-auto"
+            >
+              {assignmentLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#171A26] mr-2" />
+                  Assigning...
+                </>
+              ) : (
+                "Assign Manager"
+              )}
+            </Button>
+          </div>
+        }
+      >
+            <div className="space-y-6">
               {/* Error Display */}
               {assignmentError && (
                 <div className="bg-red-50 border border-red-200 rounded-md p-4">
@@ -1146,16 +1255,16 @@ const itemsPerPage = 10
               {/* Branch Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Branch <span className="text-red-500">*</span>
+                  Select Academy <span className="text-red-500">*</span>
                 </label>
                 <Select value={selectedBranch} onValueChange={setSelectedBranch} disabled={assignmentLoading}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Choose a branch to assign manager to" />
+                    <SelectValue placeholder="Choose an academy to assign manager to" />
                   </SelectTrigger>
                   <SelectContent>
                     {listBranches.map((branch) => (
                       <SelectItem key={branch.id} value={branch.id}>
-                        {branch.branch?.name || 'Unknown Branch'} ({branch.id})
+                        {branch.branch?.name || 'Unknown Academy'} ({branch.id})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1174,7 +1283,7 @@ const itemsPerPage = 10
                 ) : (
                   <Select value={selectedManagerId} onValueChange={setSelectedManagerId} disabled={assignmentLoading}>
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Choose a branch manager to assign" />
+                      <SelectValue placeholder="Choose an academy manager to assign" />
                     </SelectTrigger>
                     <SelectContent>
                       {branchManagersForAssign.length > 0 ? (
@@ -1199,35 +1308,7 @@ const itemsPerPage = 10
                 )}
               </div>
             </div>
-
-            {/* Modal Footer */}
-            <div className="flex justify-end space-x-3 p-6 border-t bg-gray-50">
-              <Button
-                onClick={() => setShowAssignPopup(false)}
-                variant="outline"
-                disabled={assignmentLoading}
-                className="px-6"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleAssign}
-                className="bg-blue-500 hover: text-white px-6"
-                disabled={!selectedBranch || !selectedManagerId || assignmentLoading || loadingBranchManagers}
-              >
-                {assignmentLoading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Assigning...
-                  </>
-                ) : (
-                  'Assign Manager'
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      </AppModal>
 
       <AlertDialog
         open={!!deactivateTarget}
@@ -1243,7 +1324,7 @@ const itemsPerPage = 10
                 <p>
                   You are about to deactivate{" "}
                   <span className="font-medium text-foreground">
-                    {deactivateTarget?.branch?.name || "this branch"}
+                    {deactivateTarget?.branch?.name || "this academy"}
                   </span>
                   .
                 </p>
@@ -1254,7 +1335,7 @@ const itemsPerPage = 10
                     : ""}{" "}
                   will not be able to use this branch until it is reactivated.
                   {deactivateTarget?.manager_id
-                    ? " If they manage other active branches, they can switch to those."
+                    ? " If they manage other active academies, they can switch to those."
                     : ""}
                 </p>
               </div>
@@ -1271,6 +1352,46 @@ const itemsPerPage = 10
               }}
             >
               {statusUpdating ? "Deactivating…" : "Deactivate"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!unassignTarget}
+        onOpenChange={(open) => {
+          if (!open && !unassigning) setUnassignTarget(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unassign partner from this branch?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>
+                  <span className="font-medium text-foreground">
+                    {unassignTarget?.branch?.name || "This academy"}
+                  </span>{" "}
+                  will become Rock-owned again
+                  {unassignTarget?.partner_org_name
+                    ? ` (currently assigned to ${unassignTarget.partner_org_name})`
+                    : ""}
+                  .
+                </p>
+                <p>You can reassign it to a partner later from Edit Academy.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={unassigning}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={unassigning || !unassignTarget}
+              onClick={(e) => {
+                e.preventDefault()
+                if (unassignTarget) void unassignPartnerFromBranch(unassignTarget)
+              }}
+            >
+              {unassigning ? "Unassigning…" : "Unassign partner"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

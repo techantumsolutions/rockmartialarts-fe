@@ -1,6 +1,6 @@
 "use client"
 
-import { Loader2, MapPin, Navigation } from "lucide-react"
+import { Loader2, Navigation } from "lucide-react"
 import type { BranchDistanceResult } from "@/lib/branchDistance"
 
 type Props = {
@@ -53,87 +53,49 @@ type ControlsProps = {
   supported: boolean
   status: string
   loading: boolean
-  hasCoords: boolean
+  hasCoords?: boolean
   errorMessage?: string | null
-  onRequest: () => void
-  onRefresh: () => void
   className?: string
 }
 
-/** Location controls — distances auto-fetch by default; this is for retry/refresh only. */
+/**
+ * Quiet location status only — location is auto-fetched; no manual refresh button.
+ */
 export function BranchDistanceControls({
   supported,
   status,
   loading,
-  hasCoords,
   errorMessage,
-  onRequest,
-  onRefresh,
   className = "",
 }: ControlsProps) {
   if (!supported) {
     return (
-      <p className={`text-center text-xs text-[#AEB4C2] mb-6 ${className}`}>
+      <p className={`mb-6 text-center text-xs text-[#AEB4C2] ${className}`}>
         Distance from your location is not available in this browser.
       </p>
     )
   }
 
   const busy = loading || status === "prompting" || status === "idle"
-  const showRefresh = hasCoords && status === "granted"
-  const needsRetry =
+  const denied =
     status === "denied" ||
     status === "timeout" ||
     status === "unavailable" ||
     status === "error"
 
-  // While auto-fetching, keep the toolbar quiet — cards show their own loading state.
-  if (busy && !showRefresh && !needsRetry) {
+  if (busy) {
     return (
-      <p className={`text-center text-xs text-[#AEB4C2] mb-6 ${className}`} aria-live="polite">
+      <p className={`mb-6 text-center text-xs text-[#AEB4C2] ${className}`} aria-live="polite">
         Finding distances from your location…
       </p>
     )
   }
 
-  if (showRefresh && !needsRetry) {
+  if (denied && errorMessage) {
     return (
-      <div className={`flex flex-col items-center gap-2 mb-6 ${className}`}>
-        <button
-          type="button"
-          onClick={onRefresh}
-          disabled={busy}
-          className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#383D4D] bg-[#292E40] px-4 py-2 text-xs sm:text-sm font-semibold text-white transition-all duration-300 hover:border-[#FFB70F] hover:text-[#FFB70F] disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          {busy ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin text-[#FFB70F]" />
-          ) : (
-            <MapPin className="w-3.5 h-3.5 text-[#FFB70F]" />
-          )}
-          {busy ? "Updating…" : "Refresh My Location"}
-        </button>
-      </div>
+      <p className={`mb-6 text-center text-xs text-[#AEB4C2] ${className}`}>{errorMessage}</p>
     )
   }
 
-  return (
-    <div className={`flex flex-col items-center gap-2 mb-6 ${className}`}>
-      <button
-        type="button"
-        onClick={onRequest}
-        disabled={busy}
-        className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#383D4D] bg-[#292E40] px-4 py-2 text-xs sm:text-sm font-semibold text-white transition-all duration-300 hover:border-[#FFB70F] hover:text-[#FFB70F] disabled:opacity-60 disabled:cursor-not-allowed"
-      >
-        {busy ? (
-          <Loader2 className="w-3.5 h-3.5 animate-spin text-[#FFB70F]" />
-        ) : (
-          <MapPin className="w-3.5 h-3.5 text-[#FFB70F]" />
-        )}
-        {busy ? "Getting location…" : "Use My Location"}
-      </button>
-      {errorMessage ? (
-        <p className="text-xs text-[#AEB4C2] text-center max-w-md">{errorMessage}</p>
-      ) : null}
-    </div>
-  )
+  return null
 }

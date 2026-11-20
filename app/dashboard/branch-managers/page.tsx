@@ -16,6 +16,8 @@ import { SuperAdminAuth } from "@/lib/auth"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { useToast } from "@/hooks/use-toast"
 import { getBackendApiUrl } from "@/lib/config"
+import { SendCredentialsModal } from "@/components/ui/SendCredentialsModal"
+import { AppModal } from "@/components/ui/AppModal"
 
 interface BranchManager {
   id: string
@@ -66,21 +68,21 @@ export default function BranchManagersListPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 15
 
-  // Branch admin cannot access branch managers list — redirect to dashboard
+  // Academy admin cannot access academy managers list — redirect to dashboard
   useEffect(() => {
     if (BranchManagerAuth.isAuthenticated()) {
       router.replace("/dashboard")
     }
   }, [router])
 
-  // Fetch branch managers from API
+  // Fetch academy managers from API
 useEffect(() => {
   const fetchData = async () => {
     try {
       setLoading(true)
       setError(null)
 
-      console.log("🔄 Starting to fetch branch managers & branches...")
+      console.log("🔄 Starting to fetch academy managers & academies...")
       const backendBase = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_BACKEND_URL
       if (backendBase) {
         try {
@@ -107,7 +109,7 @@ useEffect(() => {
         return
       }
 
-      // 🔹 Step 3: Fetch all Branch Managers (active and inactive)
+      // 🔹 Step 3: Fetch all Academy Managers (active and inactive)
       const allManagers: BranchManager[] = []
       let skip = 0
       const pageSize = 100
@@ -131,7 +133,7 @@ useEffect(() => {
           throw new Error(
             errorData.detail ||
               errorData.message ||
-              `Failed to fetch branch managers (${managersResponse.status})`
+              `Failed to fetch academy managers (${managersResponse.status})`
           )
         }
 
@@ -144,11 +146,11 @@ useEffect(() => {
       }
 
       setBranchManagers(allManagers)
-      console.log("✅ Branch managers fetched:", allManagers)
+      console.log("✅ Academy managers fetched:", allManagers)
 
-      // 🔹 Step 4: Fetch Branches (Authenticated)
+      // 🔹 Step 4: Fetch Academies (Authenticated)
       const branchesUrl = getBackendApiUrl("branches?skip=0&limit=50")
-      console.log("📡 Fetching branches:", branchesUrl)
+      console.log("📡 Fetching academies:", branchesUrl)
 
       const branchesResponse = await fetch(branchesUrl, {
         method: "GET",
@@ -163,14 +165,14 @@ useEffect(() => {
         throw new Error(
           errorData.detail ||
             errorData.message ||
-            `Failed to fetch branches (${branchesResponse.status})`
+            `Failed to fetch academies (${branchesResponse.status})`
         )
       }
 
       const branchesData = await branchesResponse.json()
       const branchesList = branchesData.branches || []
       setBranches(branchesList)
-      console.log("✅ Branches fetched:", branchesList)
+      console.log("✅ Academies fetched:", branchesList)
     } catch (error) {
       console.error("❌ Error fetching data:", error)
       const errorMessage = error instanceof Error ? error.message : "Failed to fetch data"
@@ -200,7 +202,7 @@ useEffect(() => {
         setIsDeleting(true)
 
         // Enhanced authentication debugging
-        console.log("🔍 Starting delete operation for branch manager:", selectedManager)
+        console.log("🔍 Starting delete operation for academy manager:", selectedManager)
 
         const token = SuperAdminAuth.getToken()
         const user = SuperAdminAuth.getCurrentUser()
@@ -222,10 +224,10 @@ useEffect(() => {
           throw new Error("Authentication token has expired. Please login again.")
         }
 
-        // Check user role - only super admin can delete branch managers
+        // Check user role - only super admin can delete academy managers
         const allowedRoles = ['super_admin', 'superadmin']
         if (!user || !allowedRoles.includes(user.role)) {
-          throw new Error(`Insufficient permissions. Only Super Admin can delete branch managers. Current role: ${user?.role || 'none'}`)
+          throw new Error(`Insufficient permissions. Only Super Admin can delete academy managers. Current role: ${user?.role || 'none'}`)
         }
 
         console.log("🚀 Making DELETE request to:", getBackendApiUrl(`branch-managers/${selectedManager}`))
@@ -250,17 +252,17 @@ useEffect(() => {
 
           if (response.status === 403) {
             // Show the actual error message from the backend
-            throw new Error(errorData.detail || errorData.message || "Insufficient permissions to delete branch managers.")
+            throw new Error(errorData.detail || errorData.message || "Insufficient permissions to delete academy managers.")
           } else if (response.status === 404) {
-            throw new Error("Branch manager not found. It may have already been deleted.")
+            throw new Error("Academy manager not found. It may have already been deleted.")
           } else if (response.status === 401) {
             throw new Error("Authentication failed. Please login again.")
           } else {
-            throw new Error(errorData.detail || errorData.message || `Failed to delete branch manager (${response.status})`)
+            throw new Error(errorData.detail || errorData.message || `Failed to delete academy manager (${response.status})`)
           }
         }
 
-        console.log("✅ Branch manager deleted successfully")
+        console.log("✅ Academy manager deleted successfully")
 
         // Remove manager from local state
         setBranchManagers(branchManagers.filter(manager => manager.id !== selectedManager))
@@ -269,14 +271,14 @@ useEffect(() => {
 
         toast({
           title: "Success",
-          description: "Branch manager deleted successfully",
+          description: "Academy manager deleted successfully",
         })
 
       } catch (error) {
-        console.error("❌ Error deleting branch manager:", error)
+        console.error("❌ Error deleting academy manager:", error)
         toast({
           title: "Error",
-          description: error instanceof Error ? error.message : 'Failed to delete branch manager',
+          description: error instanceof Error ? error.message : 'Failed to delete academy manager',
           variant: "destructive",
         })
       } finally {
@@ -317,7 +319,7 @@ useEffect(() => {
 
       toast({
         title: "Success",
-        description: "Credentials sent successfully to branch manager's email",
+        description: "Credentials sent successfully to academy manager's email",
       })
 
       setShowSendCredentialsPopup(false)
@@ -368,7 +370,7 @@ useEffect(() => {
 
       toast({
         title: "Success",
-        description: `Branch manager ${!currentStatus ? 'activated' : 'deactivated'} successfully`,
+        description: `Academy manager ${!currentStatus ? 'activated' : 'deactivated'} successfully`,
       })
 
     } catch (error) {
@@ -413,7 +415,7 @@ const filteredManagers = branchManagers.filter((manager) => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader currentPage="Branch Managers" />
+        <DashboardHeader currentPage="Academy Managers" />
         <main className="w-full p-4 lg:px-8">
           <div className="mx-auto">
             <div className="animate-pulse space-y-6">
@@ -442,7 +444,7 @@ const filteredManagers = branchManagers.filter((manager) => {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader currentPage="Branch Managers" />
+        <DashboardHeader currentPage="Academy Managers" />
         <main className="w-full p-4 lg:px-8">
           <div className="mx-auto">
             <div className="bg-red-50 border border-red-200 rounded-lg p-6">
@@ -451,7 +453,7 @@ const filteredManagers = branchManagers.filter((manager) => {
                   <span className="text-red-600 font-bold">!</span>
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-red-800">Error Loading Branch Managers</h3>
+                  <h3 className="text-lg font-semibold text-red-800">Error Loading Academy Managers</h3>
                   <p className="text-red-600 mt-1">{error}</p>
                   <div className="flex gap-3 mt-4">
                     {error.includes('Authentication') ? (
@@ -481,18 +483,18 @@ const filteredManagers = branchManagers.filter((manager) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader currentPage="Branch Managers" />
+      <DashboardHeader currentPage="Academy Managers" />
       
       <main className="w-full p-4 lg:px-8">
         <div className="mx-auto">
           {/* Header */}
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-[#4F5077]">Branch Managers</h1>
+              <h1 className="text-2xl font-bold text-[#4F5077]">Academy Managers</h1>
             </div>
             <Button
               onClick={() => router.push("/dashboard/branch-managers/create")}
-              className="bg-yellow-400 hover:bg-yellow-500 text-white font-medium"
+              className=" font-medium"
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Branch Manager
@@ -525,10 +527,10 @@ const filteredManagers = branchManagers.filter((manager) => {
                   </Select>
                  <Select value={selectedBranch} onValueChange={(value) => setSelectedBranch(value)}>
                   <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Filter by branch" />
+                    <SelectValue placeholder="Filter by academy" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Branches</SelectItem>
+                    <SelectItem value="all">All Academies</SelectItem>
 
                     {loading ? (
                       <SelectItem value="loading" disabled>
@@ -570,7 +572,7 @@ const filteredManagers = branchManagers.filter((manager) => {
             </Card>
           )}
 
-          {/* Branch Managers List */}
+          {/* Academy Managers List */}
           <Card>
             <CardContent className="p-0">
               {currentManagers.length === 0 ? (
@@ -578,7 +580,7 @@ const filteredManagers = branchManagers.filter((manager) => {
                   <p className="text-gray-500 mb-4">No branch managers found</p>
                   <Button
                     onClick={() => router.push("/dashboard/branch-managers/create")}
-                    className="bg-yellow-400 hover:bg-yellow-500 text-black"
+                    className=""
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Add First Branch Manager
@@ -589,7 +591,7 @@ const filteredManagers = branchManagers.filter((manager) => {
                   {/* Table Header */}
                   <div className="grid grid-cols-12 gap-4 p-4 bg-gray-50 border-b font-medium text-sm text-gray-700">
                     <div className="col-span-3">Manager</div>
-                    <div className="col-span-2">Branch</div>
+                    <div className="col-span-2">Academy</div>
                     <div className="col-span-2">Contact</div>
                     <div className="col-span-2">Designation</div>
                     <div className="col-span-1">Status</div>
@@ -620,7 +622,7 @@ const filteredManagers = branchManagers.filter((manager) => {
                             <p className="font-medium text-gray-900">
                               {manager.branch_assignment?.branch_name || 'Unassigned'}
                             </p>
-                            <p className="text-sm text-gray-500">Branch Manager</p>
+                            <p className="text-sm text-gray-500">Academy Manager</p>
                           </div>
                         </div>
                         
@@ -633,7 +635,7 @@ const filteredManagers = branchManagers.filter((manager) => {
                         
                         <div className="col-span-2 flex items-center">
                           <p className="text-sm text-gray-900">
-                            {manager.professional_info?.designation || 'Branch Manager'}
+                            {manager.professional_info?.designation || 'Academy Manager'}
                           </p>
                         </div>
                         
@@ -650,7 +652,7 @@ const filteredManagers = branchManagers.filter((manager) => {
                             variant="ghost"
                             onClick={() => router.push(`/dashboard/branch-managers/${manager.id}`)}
                             className="p-1 h-8 w-8"
-                            title="View Branch Manager"
+                            title="View Academy Manager"
                           >
                             <Eye className="w-4 h-4 text-gray-600" />
                           </Button>
@@ -661,7 +663,7 @@ const filteredManagers = branchManagers.filter((manager) => {
                             variant="ghost"
                             onClick={() => router.push(`/dashboard/branch-managers/edit/${manager.id}`)}
                             className="p-1 h-8 w-8"
-                            title="Edit Branch Manager"
+                            title="Edit Academy Manager"
                           >
                             <Edit className="w-4 h-4 text-gray-600" />
                           </Button>
@@ -698,7 +700,7 @@ const filteredManagers = branchManagers.filter((manager) => {
                             variant="ghost"
                             onClick={() => handleDeleteClick(manager.id)}
                             className="p-1 h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                            title="Delete Branch Manager"
+                            title="Delete Academy Manager"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -748,82 +750,65 @@ const filteredManagers = branchManagers.filter((manager) => {
         </div>
       </main>
 
-      {/* Delete Confirmation Popup */}
-      {showDeletePopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Delete Branch Manager</h3>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete this branch manager? This action cannot be undone.
-            </p>
-            <div className="flex justify-end space-x-3">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowDeletePopup(false)
-                  setSelectedManager(null)
-                }}
-                disabled={isDeleting}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleDeleteConfirm}
-                disabled={isDeleting}
-              >
-                {isDeleting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Deleting...
-                  </>
-                ) : (
-                  'Delete'
-                )}
-              </Button>
-            </div>
+      <AppModal
+        open={showDeletePopup}
+        onClose={() => {
+          if (isDeleting) return
+          setShowDeletePopup(false)
+          setSelectedManager(null)
+        }}
+        title="Delete Academy Manager"
+        size="sm"
+        closeDisabled={isDeleting}
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDeletePopup(false)
+                setSelectedManager(null)
+              }}
+              disabled={isDeleting}
+              className="w-full border-[#D1D5DB] text-[#4F5077] sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+              className="w-full sm:w-auto"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </Button>
           </div>
-        </div>
-      )}
+        }
+      >
+        <p className="text-sm leading-relaxed text-[#6B7280]">
+          Are you sure you want to delete this branch manager? This action cannot be undone.
+        </p>
+      </AppModal>
 
-      {/* Send Credentials Popup */}
-      {showSendCredentialsPopup && selectedManagerForCredentials && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Send Login Credentials</h3>
-            <p className="text-gray-600 mb-6">
-              Send login credentials to <strong>{selectedManagerForCredentials.full_name}</strong> at{" "}
-              <strong>{selectedManagerForCredentials.contact_info?.email}</strong>?
-            </p>
-            <div className="flex justify-end space-x-3">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowSendCredentialsPopup(false)
-                  setSelectedManagerForCredentials(null)
-                }}
-                disabled={isSendingCredentials}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSendCredentialsConfirm}
-                disabled={isSendingCredentials}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                {isSendingCredentials ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Sending...
-                  </>
-                ) : (
-                  'Send Credentials'
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <SendCredentialsModal
+        open={Boolean(showSendCredentialsPopup && selectedManagerForCredentials)}
+        onClose={() => {
+          if (isSendingCredentials) return
+          setShowSendCredentialsPopup(false)
+          setSelectedManagerForCredentials(null)
+        }}
+        onConfirm={handleSendCredentialsConfirm}
+        name={selectedManagerForCredentials?.full_name || ""}
+        email={selectedManagerForCredentials?.contact_info?.email || ""}
+        roleLabel="Academy Manager"
+        sending={isSendingCredentials}
+      />
     </div>
   )
 }

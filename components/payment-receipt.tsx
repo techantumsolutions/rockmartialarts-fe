@@ -15,6 +15,8 @@ import {
   Receipt,
 } from "lucide-react"
 import { useRef, useState } from "react"
+import { usePlatformBranding } from "@/contexts/PlatformBrandingContext"
+import { formatAcademyPoweredBy } from "@/lib/portalIdentity"
 
 interface PaymentReceiptProps {
   paymentId: string
@@ -187,6 +189,7 @@ export function PaymentReceipt({
 }: PaymentReceiptProps) {
   const receiptRef = useRef<HTMLDivElement>(null)
   const [downloading, setDownloading] = useState(false)
+  const { logoUrl, platformName } = usePlatformBranding()
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-IN", {
@@ -344,7 +347,7 @@ export function PaymentReceipt({
         doc.text(`Phone: ${studentPhone}`, margin + 10, studentLineY)
         studentLineY += 12
       }
-      doc.text(`Branch: ${branchName}`, margin + 10, studentLineY)
+      doc.text(`Academy: ${branchName}`, margin + 10, studentLineY)
 
       // Card 2: Payment Details
       const card2X = margin + cardWidth + cardGap
@@ -416,7 +419,7 @@ export function PaymentReceipt({
 
       autoTable(doc, {
         startY: cardsY + cardHeight + 16,
-        head: [["#", "Description / Course", "Branch", "Payment Type", "Amount"]],
+        head: [["#", "Description / Course", "Academy", "Payment Type", "Amount"]],
         body: [
           [
             "1",
@@ -516,7 +519,7 @@ export function PaymentReceipt({
         noteY + 36
       )
       doc.text(
-        "• For any questions regarding your batch schedule or fee receipt, please contact your branch instructor.",
+        "• For any questions regarding your batch schedule or fee receipt, please contact your academy instructor.",
         margin + 10,
         noteY + 46
       )
@@ -643,21 +646,21 @@ export function PaymentReceipt({
             <div className="flex items-center gap-4">
               <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden border border-amber-200 bg-white shadow-sm shrink-0 flex items-center justify-center">
                 <img
-                  src="/logo.png"
-                  alt="Rock Martial Arts"
+                  src={logoUrl || "/logo.png"}
+                  alt={platformName}
                   className="w-full h-full object-cover"
                 />
               </div>
               <div>
                 <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                  ROCK MARTIAL ARTS ACADEMY
+                  {platformName.toUpperCase()}
                 </h2>
                 <div className="flex flex-wrap items-center gap-2 mt-1">
                   <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
                     Official Fee Payment Receipt
                   </span>
                   <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 font-semibold border border-amber-200/60 dark:border-amber-800/60">
-                    {branchName} Branch
+                    {formatAcademyPoweredBy(branchName)} Branch
                   </span>
                 </div>
               </div>
@@ -755,7 +758,7 @@ export function PaymentReceipt({
             <div className="bg-slate-900 text-white text-xs font-bold px-4 py-2.5 grid grid-cols-12 gap-2">
               <span className="col-span-1 text-center">#</span>
               <span className="col-span-6">Description / Course</span>
-              <span className="col-span-2">Branch</span>
+              <span className="col-span-2">Academy</span>
               <span className="col-span-3 text-right">Amount</span>
             </div>
             <div className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">

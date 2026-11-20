@@ -29,15 +29,19 @@ import CoachDashboardHeader from "@/components/coach-dashboard-header"
 import { checkCoachAuth } from "@/lib/coachAuth"
 import { fetchCoachAssignments } from "@/lib/coachStudentFilter"
 import PaymentSelectionSection from "@/components/registration/PaymentSelectionSection"
+import { CreateStudentPaymentActions } from "@/components/registration/CreateStudentPaymentActions"
 import {
+  fetchRegistrationDurations,
   fetchRegistrationPricing,
   createRegistrationOrder,
   submitRegistrationPayment,
   checkStudentAvailability,
+  filterEnrollableCourses,
   RegistrationBatch,
   RegistrationPricing,
 } from "@/lib/studentRegistrationPayment"
 import { openRazorpayCheckout } from "@/lib/razorpay"
+import { AdminStickyFormActions } from "@/components/dashboard/AdminStickyFormActions"
 
 interface Course {
   id: string
@@ -117,12 +121,9 @@ export default function CreateStudent() {
   const [pricing, setPricing] = useState<RegistrationPricing | null>(null)
   const [isLoadingPricing, setIsLoadingPricing] = useState(false)
 
-  // Durations
-  const [durations, setDurations] = useState<{ id: string; name: string }[]>([
-    { id: "1-month", name: "1 Month" },
-    { id: "6-months", name: "6 Months" },
-    { id: "12-months", name: "12 Months" },
-  ])
+  // Durations (loaded from academy course + batch tenure setup)
+  const [durations, setDurations] = useState<{ id: string; name: string }[]>([])
+  const [isLoadingDurations, setIsLoadingDurations] = useState(false)
 
   // Form state
   const [formData, setFormData] = useState<FormData>({
@@ -161,6 +162,15 @@ export default function CreateStudent() {
   const [errors, setErrors] = useState<FormErrors>({})
   const [selectedDate, setSelectedDate] = useState<Date>()
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+  useEffect(() => {
+    if (!showSuccessPopup) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [showSuccessPopup])
+
 
   // Coach authentication check
   useEffect(() => {
@@ -189,7 +199,7 @@ export default function CreateStudent() {
     checkAuth()
   }, [router])
 
-  // Load coach assignments & branch
+  // Load coach assignments & academy
   useEffect(() => {
     if (isAuthLoading) return
 
@@ -204,55 +214,25 @@ export default function CreateStudent() {
           const assignedList = assignments.courses || []
           setCoachAssignedCourses(assignedList)
 
-          const mappedCourses: Course[] = assignedList.map((c: any) => ({
-            id: c.course_id || c.id,
-            title: c.name || "Assigned Course",
-            code: c.course_id || "",
-            description: "",
-            difficulty_level: "All Levels",
-            category_id: c.category_id || "",
-            pricing: { amount: 0, currency: "INR" },
-            batches: c.batches || [],
-          }))
-          setCourses(mappedCourses)
-
-          // Fetch active durations from backend
-          try {
-            const durRes = await fetch(getBackendApiUrl("durations/public/all"))
-            if (durRes.ok) {
-              const durData = await durRes.json()
-              const durList = Array.isArray(durData.durations) ? durData.durations : []
-              if (durList.length > 0) {
-                const mapped = durList.map((d: any) => ({
-                  id: d.id,
-                  name: d.name || d.code || `${d.duration_months} Months`,
-                }))
-                setDurations(mapped)
-                setFormData((prev) => {
-                  const exists = mapped.some((m: any) => m.id === prev.duration)
-                  return exists ? prev : { ...prev, duration: mapped[0].id }
-                })
-              }
-            }
-          } catch (durErr) {
-            console.error("Error loading durations in coach create-student:", durErr)
-          }
-
-          // Prepopulate coach's branch
+          // Prepopulate coach's academy
           const bId = coach.branch_id || assignments.branch_id
+          let enrollableIds: Set<string> | null = null
           if (bId) {
             setFormData((prev) => ({
               ...prev,
               branch: bId,
               assignedCoach: coach.id,
             }))
-            // Fetch branch name
+            // Fetch academy name + enrollable courses (batches + fees)
             try {
-              const bRes = await fetch(getBackendApiUrl(`branches/public/${encodeURIComponent(bId)}`))
+              const [bRes, cRes] = await Promise.all([
+                fetch(getBackendApiUrl(`branches/public/${encodeURIComponent(bId)}`)),
+                fetch(getBackendApiUrl(`courses/public/by-branch/${encodeURIComponent(bId)}`)),
+              ])
               if (bRes.ok) {
                 const bData = await bRes.json()
                 const bObj = bData.branch || bData
-                setCoachBranchName(bObj.name || "Assigned Branch")
+                setCoachBranchName(bObj.name || "Assigned Academy")
                 if (
                   coach?.partner_org_id ||
                   bObj?.partner_org_id ||
@@ -264,14 +244,37 @@ export default function CreateStudent() {
                 }
                 setFormData((prev) => ({
                   ...prev,
-                  location: bObj.location_id || bObj.location || "Branch Location",
+                  location: bObj.location_id || bObj.location || "Academy Location",
                 }))
               }
+              if (cRes.ok) {
+                const cData = await cRes.json()
+                enrollableIds = new Set(
+                  filterEnrollableCourses(Array.isArray(cData.courses) ? cData.courses : []).map(
+                    (c: any) => String(c.id)
+                  )
+                )
+              }
             } catch (err) {
-              console.error("Error fetching branch details:", err)
-              setCoachBranchName("Assigned Branch")
+              console.error("Error fetching academy details:", err)
+              setCoachBranchName("Assigned Academy")
             }
           }
+
+          const mappedCourses: Course[] = assignedList
+            .map((c: any) => ({
+              id: c.course_id || c.id,
+              title: c.name || "Assigned Course",
+              code: c.course_id || "",
+              description: "",
+              difficulty_level: "All Levels",
+              category_id: c.category_id || "",
+              pricing: { amount: 0, currency: "INR" },
+              batches: c.batches || [],
+            }))
+            .filter((c) => Array.isArray(c.batches) && c.batches.length > 0)
+            .filter((c) => (enrollableIds ? enrollableIds.has(String(c.id)) : true))
+          setCourses(mappedCourses)
         }
       } catch (error) {
         console.error("Error loading coach assignments:", error)
@@ -288,7 +291,7 @@ export default function CreateStudent() {
     loadCoachData()
   }, [isAuthLoading, coachData, coachToken, toast])
 
-  // When course changes, update available batches and load pricing
+  // When course changes, update available batches
   useEffect(() => {
     if (!formData.course) {
       setAvailableBatches([])
@@ -314,31 +317,81 @@ export default function CreateStudent() {
     if (matchedCourse?.category_id) {
       setFormData((prev) => ({ ...prev, category: matchedCourse.category_id }))
     }
+  }, [formData.course, formData.slot, coachAssignedCourses])
 
-    // Load pricing dynamically based on course, branch, duration and batch
+  // Durations follow the selected academy course + batch
+  useEffect(() => {
+    const branchId = formData.branch || coachData?.branch_id
+    if (!formData.course || !branchId) {
+      setDurations([])
+      return
+    }
+
+    let isMounted = true
+    const loadDurations = async () => {
+      setIsLoadingDurations(true)
+      try {
+        const list = await fetchRegistrationDurations(
+          formData.course,
+          branchId,
+          formData.slot || undefined
+        )
+        if (!isMounted) return
+        const mapped = list.map((d) => ({
+          id: d.id,
+          name: d.name || d.code || "Duration",
+        }))
+        setDurations(mapped)
+        setFormData((prev) => {
+          const stillValid = mapped.some((m) => m.id === prev.duration)
+          if (stillValid) return prev
+          return { ...prev, duration: mapped[0]?.id || "" }
+        })
+      } catch (err) {
+        console.error("Error loading durations in coach create-student:", err)
+        if (isMounted) setDurations([])
+      } finally {
+        if (isMounted) setIsLoadingDurations(false)
+      }
+    }
+
+    void loadDurations()
+    return () => {
+      isMounted = false
+    }
+  }, [formData.course, formData.branch, formData.slot, coachData?.branch_id])
+
+  // Load pricing dynamically based on course, academy, duration and batch
+  useEffect(() => {
+    const branchId = formData.branch || coachData?.branch_id
+    if (!branchId || !formData.course || !formData.duration) {
+      setPricing(null)
+      return
+    }
+
+    let isMounted = true
     const loadPricing = async () => {
-      const branchId = formData.branch || coachData?.branch_id
-      const dur = formData.duration || (durations.length > 0 ? durations[0].id : "1-month")
-      if (!branchId || !formData.course || !dur) return
-
       setIsLoadingPricing(true)
       try {
         const p = await fetchRegistrationPricing(
           formData.course,
           branchId,
-          dur,
+          formData.duration,
           formData.slot || undefined
         )
-        setPricing(p)
+        if (isMounted) setPricing(p)
       } catch (e) {
         console.error("Error loading pricing for coach registration:", e)
       } finally {
-        setIsLoadingPricing(false)
+        if (isMounted) setIsLoadingPricing(false)
       }
     }
 
-    loadPricing()
-  }, [formData.course, formData.branch, formData.duration, formData.slot, coachAssignedCourses, coachData])
+    void loadPricing()
+    return () => {
+      isMounted = false
+    }
+  }, [formData.course, formData.branch, formData.duration, formData.slot, coachData?.branch_id])
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -453,13 +506,34 @@ export default function CreateStudent() {
     return true
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!validateForm()) {
-      return
+  const beforePaymentConfirm = (method: "razorpay" | "physical_cash") => {
+    if (!validateForm()) return false
+    if (!formData.course || !formData.branch) {
+      toast({
+        title: "Course & academy required",
+        description: "Select academy, course, batch, and duration before payment.",
+        variant: "destructive",
+      })
+      return false
     }
+    if (method === "physical_cash") {
+      const cashNum = Number(cashAmount)
+      if (!cashAmount.trim() || !Number.isFinite(cashNum) || cashNum <= 0) {
+        setErrors({ submit: "Cash Payment Amount is required and must be a positive amount." })
+        setPaymentMethod("physical_cash")
+        toast({
+          title: "Cash amount required",
+          description: "Enter the cash amount received before recording payment.",
+          variant: "destructive",
+        })
+        return false
+      }
+    }
+    setPaymentMethod(method)
+    return true
+  }
 
+  const executeRegistrationPayment = async (method: "razorpay" | "physical_cash") => {
     setIsSubmitting(true)
 
     // Pre-payment database verification: Ensure email and phone do not already exist
@@ -519,7 +593,7 @@ export default function CreateStudent() {
         },
       }
 
-      if (paymentMethod === "razorpay") {
+      if (method === "razorpay") {
         const order = await createRegistrationOrder({
           course_id: formData.course,
           branch_id: formData.branch,
@@ -569,25 +643,24 @@ export default function CreateStudent() {
           },
         })
         return
-      } else {
-        // Physical hand cash flow
-        const cashNum = Number(cashAmount)
-        if (!cashAmount.trim() || !Number.isFinite(cashNum) || cashNum <= 0) {
-          setErrors({ submit: "Cash Payment Amount is required and must be a positive amount." })
-          setIsSubmitting(false)
-          return
-        }
-        await submitRegistrationPayment(
-          {
-            ...studentPayload,
-            payment_method: "physical_cash",
-            cash_notes: cashNotes || undefined,
-            cash_amount: cashNum,
-          },
-          token
-        )
-        setShowSuccessPopup(true)
       }
+
+      const cashNum = Number(cashAmount)
+      if (!cashAmount.trim() || !Number.isFinite(cashNum) || cashNum <= 0) {
+        setErrors({ submit: "Cash Payment Amount is required and must be a positive amount." })
+        setIsSubmitting(false)
+        return
+      }
+      await submitRegistrationPayment(
+        {
+          ...studentPayload,
+          payment_method: "physical_cash",
+          cash_notes: cashNotes || undefined,
+          cash_amount: cashNum,
+        },
+        token
+      )
+      setShowSuccessPopup(true)
     } catch (error: any) {
       console.error("Error creating student:", error)
       setErrors({ submit: error.message || "Failed to create student. Please try again." })
@@ -597,10 +670,14 @@ export default function CreateStudent() {
         variant: "destructive",
       })
     } finally {
-      if (paymentMethod !== "razorpay") {
+      if (method !== "razorpay") {
         setIsSubmitting(false)
       }
     }
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
   }
 
   const handleSuccessOk = () => {
@@ -643,13 +720,18 @@ export default function CreateStudent() {
 
         {/* Loading State */}
         {isLoading ? (
-          <div className="bg-white rounded-2xl shadow-sm border p-12 text-center">
+          <div className="relative z-[1] bg-white rounded-2xl border border-[#E8EAF0] shadow-[0_24px_80px_rgba(15,23,42,0.28)] shadow-sm border p-12 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto"></div>
             <p className="mt-4 text-gray-600">Loading your assigned courses and branch...</p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-            <form onSubmit={handleSubmit} noValidate className="p-6 sm:p-8 space-y-8">
+          <div className="relative z-[1] bg-white rounded-2xl border border-[#E8EAF0] shadow-[0_24px_80px_rgba(15,23,42,0.28)] shadow-sm border border-gray-200 overflow-hidden">
+            <form
+              id="coach-create-student-form"
+              onSubmit={handleSubmit}
+              noValidate
+              className="admin-page-with-sticky-actions p-6 sm:p-8 space-y-8"
+            >
               {errors.submit && (
                 <div className="bg-red-50 border border-red-200 rounded-xl p-4">
                   <p className="text-red-600 font-medium">{errors.submit}</p>
@@ -666,7 +748,7 @@ export default function CreateStudent() {
                         Assigned Coach Branch (Locked)
                       </p>
                       <p className="text-base font-bold text-gray-900">
-                        {coachBranchName || "Your Branch"}
+                        {coachBranchName || "Your Academy"}
                       </p>
                     </div>
                   </div>
@@ -1018,16 +1100,32 @@ export default function CreateStudent() {
                       <Select
                         value={formData.duration}
                         onValueChange={(value) => handleInputChange("duration", value)}
+                        disabled={isLoadingDurations || durations.length === 0}
                       >
                         <SelectTrigger className="!w-full !h-14 !pl-4 !pr-4 !py-4 !text-base !bg-gray-50 !border-gray-200 !rounded-xl !min-h-14">
-                          <SelectValue placeholder="Select Duration" className="text-gray-500" />
+                          <SelectValue
+                            placeholder={
+                              isLoadingDurations
+                                ? "Loading durations…"
+                                : durations.length === 0
+                                  ? "No durations for this batch"
+                                  : "Select Duration"
+                            }
+                            className="text-gray-500"
+                          />
                         </SelectTrigger>
                         <SelectContent className="rounded-xl border border-gray-200 bg-white shadow-lg max-h-60">
-                          {durations.map((duration) => (
-                            <SelectItem key={duration.id} value={duration.id}>
-                              {duration.name}
-                            </SelectItem>
-                          ))}
+                          {durations.length > 0 ? (
+                            durations.map((duration) => (
+                              <SelectItem key={duration.id} value={duration.id}>
+                                {duration.name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <div className="p-3 text-sm text-gray-500">
+                              Configure duration pricing under Academy → Course Assignments
+                            </div>
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
@@ -1049,41 +1147,42 @@ export default function CreateStudent() {
                 )}
               </div>
 
-              {/* Form Actions */}
-              <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => router.push("/coach-dashboard/students")}
-                  className="flex-1 sm:flex-none px-8 py-3 text-base font-medium border-gray-300 hover:bg-gray-50"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-1 sm:flex-none px-8 py-3 text-base font-medium bg-yellow-400 hover:bg-yellow-500 text-gray-900"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-900 mr-2"></div>
-                      Processing...
-                    </>
-                  ) : paymentMethod === "razorpay" ? (
-                    "Proceed to Razorpay Payment"
-                  ) : (
-                    "Record Cash & Create Student"
-                  )}
-                </Button>
-              </div>
             </form>
+
+            <AdminStickyFormActions>
+              <CreateStudentPaymentActions
+                isSubmitting={isSubmitting}
+                disabled={isLoadingPricing || !formData.course || !formData.branch}
+                paymentMethod={paymentMethod}
+                onCancel={() => router.push("/coach-dashboard/students")}
+                primaryButtonClassName="px-8 py-3 text-base font-medium bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded-xl"
+                cancelButtonClassName="px-8 py-3 text-base font-medium border-gray-300 rounded-xl"
+                summary={{
+                  studentName: `${formData.firstName} ${formData.lastName}`.trim(),
+                  academyName: coachData?.branch_name || "Academy",
+                  courseName: courses.find((c) => c.id === formData.course)?.title || "Selected course",
+                  batchName:
+                    availableBatches.find((b: any) => b.id === formData.slot || b.batch_id === formData.slot)
+                      ?.batch_name || "—",
+                  durationName:
+                    durations.find((d) => d.id === formData.duration)?.name || formData.duration || "—",
+                  courseFee: pricing?.course_fee,
+                  admissionFee: pricing?.admission_fee,
+                  quotedTotal: pricing?.total_amount,
+                  cashAmount,
+                }}
+                onBeforeConfirm={beforePaymentConfirm}
+                onConfirmPayment={(method) => void executeRegistrationPayment(method)}
+              />
+            </AdminStickyFormActions>
           </div>
         )}
 
         {/* Success Popup */}
         {showSuccessPopup && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-            <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden p-4 sm:p-6">
+        <div className="absolute inset-0 bg-[#0f172a]/55 backdrop-blur-[2px]" aria-hidden />
+            <div className="relative z-[1] bg-white rounded-2xl border border-[#E8EAF0] shadow-[0_24px_80px_rgba(15,23,42,0.28)] p-8 max-w-md w-full mx-4 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
               <div className="text-center">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <CheckCircle2 className="w-10 h-10 text-green-600" />

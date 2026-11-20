@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useRouter, usePathname } from "next/navigation"
 import { useCMS } from "@/contexts/CMSContext"
+import { usePlatformBranding } from "@/contexts/PlatformBrandingContext"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import { useState, useEffect, useMemo, useRef } from "react"
 import NotificationDropdown from "@/components/notification-dropdown"
@@ -22,6 +23,7 @@ import {
   filterNavItemsByPermission,
   getMainNavItems,
   getOverflowNavItems,
+  getPortalIdentityLabel,
   getRoleLabel,
   getBasePath,
   isPartnerBranchManagerNav,
@@ -56,6 +58,7 @@ export default function Navbar({ role, variant = "topnav" }: NavbarProps) {
   const { branches: assignedBranches, active: activeBranch, setActive: setActiveBranch } = useActiveBranch()
 
   const { cms } = useCMS()
+  const { logoUrl, platformShortName } = usePlatformBranding()
   const basePath = getBasePath(role)
   const NAV_VISIBLE_LIMIT = 7
   const [partnerBranchManager, setPartnerBranchManager] = useState(false)
@@ -108,6 +111,7 @@ export default function Navbar({ role, variant = "topnav" }: NavbarProps) {
     return [...extras, ...fromOverflow]
   }, [primaryNavItems, overflowNavItems])
   const roleLabel = getRoleLabel(role)
+  const portalLabel = getPortalIdentityLabel(role)
 
   useEffect(() => {
     const readProfileData = () => {
@@ -217,8 +221,8 @@ export default function Navbar({ role, variant = "topnav" }: NavbarProps) {
             {!useSidebarShell && (
               <div className="flex-shrink-0">
                 <img
-                  src={resolvePublicAssetUrl(cms?.branding?.navbar_logo) || "/logo.png"}
-                  alt="Logo"
+                  src={logoUrl || resolvePublicAssetUrl(cms?.branding?.navbar_logo) || "/logo.png"}
+                  alt={platformShortName}
                   className="h-8 w-auto sm:h-9 xl:h-10 max-w-[95px] object-contain"
                 />
               </div>
@@ -457,6 +461,12 @@ export default function Navbar({ role, variant = "topnav" }: NavbarProps) {
               </DropdownMenuTrigger>
               <DropdownMenuPortal>
                 <DropdownMenuContent align="end" className="w-56 z-[1000] bg-white/95 backdrop-blur-md border border-gray-200/50 shadow-xl rounded-lg p-2" sideOffset={8}>
+                  <div className="px-3 py-2 border-b border-gray-100 mb-1">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[#8A6200]">
+                      {portalLabel}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">{userName || roleLabel}</p>
+                  </div>
                   <DropdownMenuItem onClick={() => router.push(profilePath)} className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200 flex items-center gap-2">
                     <User className="w-4 h-4" />
                     Profile
@@ -467,7 +477,7 @@ export default function Navbar({ role, variant = "topnav" }: NavbarProps) {
                       Add another student
                     </DropdownMenuItem>
                   )}
-                  {(role === "super_admin" || role === "partner_super_admin" || role === "student") && (
+                  {(role === "super_admin" || role === "student") && (
                     <DropdownMenuItem onClick={() => router.push(settingsPath)} className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200 flex items-center gap-2">
                       <Settings className="w-4 h-4" />
                       Settings

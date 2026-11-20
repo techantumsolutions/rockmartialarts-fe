@@ -284,10 +284,10 @@ export default function CoachReportPage() {
                 disabled={filtersLoading}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select Branch" />
+                  <SelectValue placeholder="Select Academy" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Branches</SelectItem>
+                  <SelectItem value="all">All Academies</SelectItem>
                   {filterOptions?.filters.branches.map((branch) => (
                     <SelectItem key={branch.id} value={branch.id}>
                       {branch.name}
@@ -446,7 +446,7 @@ export default function CoachReportPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Branches</p>
+                  <p className="text-sm font-medium text-gray-600">Academies</p>
                   <p className="text-2xl font-bold text-orange-600">
                     {new Set(coachs.filter(m => m.branch).map(m => m.branch!.id)).size}
                   </p>
@@ -499,7 +499,7 @@ export default function CoachReportPage() {
                     <tr className="border-b border-gray-200">
                       <th className="text-left py-3 px-4 font-medium text-gray-900">Coach</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900">Contact</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Branch</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900">Academy</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900">Courses</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900">Expertise</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900">Experience</th>

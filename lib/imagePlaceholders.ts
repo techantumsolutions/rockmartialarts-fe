@@ -48,7 +48,7 @@ export const MOCK_WARRIOR_TESTIMONIALS = [
     student_name: "Rohan Mehta",
     student_photo: "/assets/img/glry_img4.jpg",
     testimonial_text:
-      "The discipline I learned here shows up everywhere — school, work, and life. Classes are intense but fun, and the branch always feels like a second family. Highly recommend for kids and adults.",
+      "The discipline I learned here shows up everywhere — school, work, and life. Classes are intense but fun, and the academy always feels like a second family. Highly recommend for kids and adults.",
     rating: 5,
     role: "Shaolin Kung Fu · Parent of student",
     achievement: "Black belt journey",

@@ -308,7 +308,7 @@ export default function ForgotPasswordPage() {
                 loading={loading || sendBusy}
                 loadingText="Sending…"
                 disabled={!canSubmitMobile}
-                className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-4 h-14 rounded-xl"
+                className="w-full  font-bold py-4 h-14 rounded-xl"
               >
                 Send OTP
               </Button>
@@ -343,7 +343,7 @@ export default function ForgotPasswordPage() {
                 type="button"
                 disabled={loading || otp.join("").length < OTP_DIGITS}
                 onClick={() => void verifyOtp()}
-                className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold h-14 rounded-xl"
+                className="w-full  font-bold h-14 rounded-xl"
               >
                 {loading ? "Verifying…" : "Verify OTP"}
               </Button>
@@ -400,7 +400,7 @@ export default function ForgotPasswordPage() {
                   password.length < PASSWORD_MIN ||
                   password !== confirmPassword
                 }
-                className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold h-14 rounded-xl"
+                className="w-full  font-bold h-14 rounded-xl"
               >
                 Save new password
               </Button>

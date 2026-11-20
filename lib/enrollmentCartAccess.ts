@@ -13,8 +13,8 @@ export type EnrollmentCartAccess =
 const STAFF_ROLE_LABELS: Record<string, string> = {
   superadmin: "super admin",
   super_admin: "super admin",
-  branch_manager: "branch manager",
-  branch_admin: "branch manager",
+  branch_manager: "academy manager",
+  branch_admin: "academy manager",
   coach: "coach",
   coach_admin: "coach",
 }
@@ -28,7 +28,7 @@ function normalizeRole(role: unknown): string {
 function staffLabelForRole(role: string): string {
   if (STAFF_ROLE_LABELS[role]) return STAFF_ROLE_LABELS[role]
   if (role.includes("super")) return "super admin"
-  if (role.includes("branch") || role.includes("manager")) return "branch manager"
+  if (role.includes("branch") || role.includes("manager")) return "academy manager"
   if (role.includes("coach")) return "coach"
   return "staff"
 }
@@ -60,7 +60,7 @@ export function getEnrollmentCartAccess(): EnrollmentCartAccess {
 
   try {
     if (BranchManagerAuth.isAuthenticated() || jwtRole === "branch_manager" || jwtRole === "branch_admin") {
-      return { allowed: false, kind: "staff", roleLabel: "branch manager" }
+      return { allowed: false, kind: "staff", roleLabel: "academy manager" }
     }
   } catch {
     /* ignore */

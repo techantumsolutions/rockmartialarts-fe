@@ -87,7 +87,7 @@ export default function BiometricMappingPage() {
           .filter((b) => b?.id)
           .map((b) => ({
             id: b.id,
-            name: b.branch?.name || b.name || "Branch",
+            name: b.branch?.name || b.name || "Academy",
             code: b.branch?.code || b.code,
           }))
       )
@@ -104,7 +104,7 @@ export default function BiometricMappingPage() {
     }
     try {
       const bm = BranchManagerAuth.getCurrentUser()
-      // Branch admin: devices for their branch. Super admin: all branches.
+      // Academy admin: devices for their branch. Super admin: all academies.
       const branchId = isBranchAdmin
         ? getActiveBranchId() || bm?.branch_id || undefined
         : undefined
@@ -291,18 +291,18 @@ export default function BiometricMappingPage() {
             </div>
             {isBranchAdmin ? (
               <div>
-                <Label className="mb-1 block">Branch</Label>
+                <Label className="mb-1 block">Academy</Label>
                 <BranchSelectionField readOnly />
               </div>
             ) : (
               <div>
-                <Label className="mb-1 block">Branch</Label>
+                <Label className="mb-1 block">Academy</Label>
                 <Select value={branchFilter} onValueChange={setBranchFilter}>
                   <SelectTrigger>
-                    <SelectValue placeholder="All branches" />
+                    <SelectValue placeholder="All academies" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Branches</SelectItem>
+                    <SelectItem value="all">All Academies</SelectItem>
                     {branches.map((b) => (
                       <SelectItem key={b.id} value={b.id}>
                         {b.name}
@@ -353,7 +353,7 @@ export default function BiometricMappingPage() {
                   <thead>
                     <tr className="border-b bg-slate-50 text-left text-slate-700">
                       <th className="py-3 px-3 font-medium">Student</th>
-                      <th className="py-3 px-3 font-medium hidden md:table-cell">Branch</th>
+                      <th className="py-3 px-3 font-medium hidden md:table-cell">Academy</th>
                       <th className="py-3 px-3 font-medium">Biometric ID</th>
                       <th className="py-3 px-3 font-medium">Status</th>
                       <th className="py-3 px-3 font-medium text-right">Actions</th>

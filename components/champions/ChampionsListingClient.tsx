@@ -34,7 +34,7 @@ export default function ChampionsListingClient() {
         className="relative py-20 md:py-28 bg-cover bg-center"
         style={{ backgroundImage: "url(/assets/img/banner.jpg)" }}
       >
-        <div className="absolute inset-0 bg-black/60" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#171A26]/50 via-[#171A26]/15 to-black/10" />
         <div className="container relative z-10 mx-auto px-4 max-w-7xl">
           <div className="max-w-2xl">
             <p className="text-[#FFB70F] text-sm font-semibold uppercase tracking-wider mb-2">

@@ -19,7 +19,7 @@ import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
 import { extractUploadUrl, uploadFile } from "@/lib/upload"
 import { saveCoachProfilePhoto } from "@/lib/coachProfilePhoto"
-import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
+import { cn } from "@/lib/utils"
 import { isBranchManager } from "@/lib/branchManagerAuth"
 import { WEEKDAY_CHECKLIST_ORDER } from "@/lib/formatWeekdayRanges"
 import { coachAvailabilityAPI } from "@/lib/coachAvailabilityAPI"
@@ -62,7 +62,10 @@ import {
   cardContentClass,
   dashboardFormCardClass,
   primaryButtonClass,
+  outlineButtonClass,
 } from "@/components/dashboard/dashboardFormStyles"
+import { AdminImageUpload } from "@/components/ui/AdminImageUpload"
+import { AdminStickyFormActions } from "@/components/dashboard/AdminStickyFormActions"
 
 // Interface definitions for API data
 interface Branch {
@@ -151,6 +154,15 @@ export default function EditCoachPage() {
   const coachId = params.id as string
   const { toast } = useToast()
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+  useEffect(() => {
+    if (!showSuccessPopup) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [showSuccessPopup])
+
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSendingEmail, setIsSendingEmail] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -197,7 +209,7 @@ export default function EditCoachPage() {
   const [externalBatches, setExternalBatches] = useState<AssignmentBatch[]>([])
   const [assignedBatchIds, setAssignedBatchIds] = useState<string[]>([])
   const initialBranchBatchesLoadedRef = useRef<boolean>(false)
-  /** Pending branch id while Super Admin confirms reassignment (FE-only). */
+  /** Pending academy id while Super Admin confirms reassignment (FE-only). */
   const [pendingBranchId, setPendingBranchId] = useState<string | null>(null)
 
   const [formData, setFormData] = useState({
@@ -224,8 +236,6 @@ export default function EditCoachPage() {
     category: "",
     subCategory: "",
     certificates: [] as Array<{ title: string, file: File | null, preview: string }>,
-    category: "",
-    subCategory: "",
     certificationFiles: [] as File[],
 
     // Assignment Details
@@ -272,10 +282,8 @@ export default function EditCoachPage() {
   const [experienceRanges, setExperienceRanges] = useState<string[]>([])
   const [relations, setRelations] = useState<string[]>([])
   const [isLoadingCategories, setIsLoadingCategories] = useState(false)
-  const [isUploadingProfileImage, setIsUploadingProfileImage] = useState(false)
   const [photoCacheKey, setPhotoCacheKey] = useState(0)
   const profileImageUrlRef = useRef("")
-  const profilePhotoInputRef = useRef<HTMLInputElement>(null)
 
   const patchFormData = useCallback((patch: Partial<typeof formData>) => {
     setFormData((prev) => ({ ...prev, ...patch }))
@@ -284,13 +292,13 @@ export default function EditCoachPage() {
   const getBranchLabel = useCallback(
     (branchId: string) => {
       const match = branches.find((b) => b.id === branchId)
-      if (!match) return "the selected branch"
+      if (!match) return "the selected academy"
       return `${match.branch.name} (${match.branch.code})`
     },
     [branches]
   )
 
-  /** Confirm before changing an already-assigned coach to another branch (UI only). */
+  /** Confirm before changing an already-assigned coach to another academy (UI only). */
   const handleBranchSelect = (value: string) => {
     if (isBranchAdmin) return
     if (formData.branch && value !== formData.branch) {
@@ -304,7 +312,7 @@ export default function EditCoachPage() {
     if (!pendingBranchId) return
     const nextBranchId = pendingBranchId
     setPendingBranchId(null)
-    // Clear course/batch picks so admin re-assigns for the new branch schedule.
+    // Clear course/batch picks so admin re-assigns for the new academy schedule.
     setAssignedBatchIds([])
     patchFormData({ branch: nextBranchId, courses: [] })
   }
@@ -811,31 +819,31 @@ export default function EditCoachPage() {
 
         if (response.ok) {
           const data = await response.json()
-          console.log('✅ Real backend branches data:', data)
+          console.log('✅ Real backend academies data:', data)
 
-          // Set branches data
+          // Set academies data
           setBranches(data.branches || [])
         } else {
-          console.error('Failed to load branches:', response.status, response.statusText)
+          console.error('Failed to load academyes:', response.status, response.statusText)
           if (response.status === 401) {
             toast({
               title: "Authentication Error",
-              description: "Please login again to access branch data.",
+              description: "Please login again to access academy data.",
               variant: "destructive",
             })
           } else {
             toast({
               title: "Error",
-              description: "Failed to load branches. Please try again.",
+              description: "Failed to load academyes. Please try again.",
               variant: "destructive",
             })
           }
         }
       } catch (error) {
-        console.error('Error loading branches:', error)
+        console.error('Error loading academies:', error)
         toast({
           title: "Error",
-          description: "Failed to load branches. Please check your connection.",
+          description: "Failed to load academyes. Please check your connection.",
           variant: "destructive",
         })
       } finally {
@@ -895,7 +903,7 @@ export default function EditCoachPage() {
     loadData()
   }, [toast])
 
-  // Load courses and batches allocated to the selected branch
+  // Load courses and batches allocated to the selected academy
   useEffect(() => {
     if (!formData.branch) {
       setBranchCourseAssignments([])
@@ -911,7 +919,7 @@ export default function EditCoachPage() {
         const res = await fetch(getBackendApiUrl(`branches/${formData.branch}`), {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         })
-        if (!res.ok) throw new Error("Failed to fetch branch")
+        if (!res.ok) throw new Error("Failed to fetch academy")
         const data = await res.json()
         if (cancelled) return
         setSelectedBranchData(data)
@@ -919,14 +927,14 @@ export default function EditCoachPage() {
         const availableCourses = normalized.filter((c) => c.is_available !== false)
         setBranchCourseAssignments(availableCourses)
 
-        // Filter courses that are valid for this branch
+        // Filter courses that are valid for this academy
         const validCourseIds = new Set(availableCourses.map((c) => c.course_id))
         setFormData((prev) => ({
           ...prev,
           courses: prev.courses.filter((id) => validCourseIds.has(id)),
         }))
 
-        // Pre-select batches assigned to this coach on initial branch load
+        // Pre-select batches assigned to this coach on initial academy load
         if (!initialBranchBatchesLoadedRef.current) {
           initialBranchBatchesLoadedRef.current = true
           const initialBatches: string[] = []
@@ -945,7 +953,7 @@ export default function EditCoachPage() {
           setAssignedBatchIds((prev) => prev.filter((id) => validBatchIds.has(id)))
         }
       } catch (err) {
-        console.error("Failed to load branch course schedule:", err)
+        console.error("Failed to load academy course schedule:", err)
         if (!cancelled) setBranchCourseAssignments([])
       } finally {
         if (!cancelled) setIsLoadingBranchSchedule(false)
@@ -964,7 +972,7 @@ export default function EditCoachPage() {
   ): string | null => {
     if (!formData.branch) return null
     const branchName =
-      selectedBranchData?.branch?.name || selectedBranchData?.name || "This branch"
+      selectedBranchData?.branch?.name || selectedBranchData?.name || "This academy"
     const currentBatch: AssignmentBatch = {
       id: batch.id,
       coachId: coachId,
@@ -1013,25 +1021,28 @@ export default function EditCoachPage() {
     const isCurrentlyAssigned = assignedBatchIds.includes(batchId)
     if (isCurrentlyAssigned) {
       setAssignedBatchIds((prev) => prev.filter((id) => id !== batchId))
-    } else {
-      const course = branchCourseAssignments.find((c) => c.course_id === courseId)
-      const batch = course?.batches.find((b) => b.id === batchId)
-      if (batch && course) {
-        const err = getBatchError(batch, course)
-        if (err) {
-          toast({
-            title: "Trainer schedule warning",
-            description: err,
-            variant: "destructive",
-          })
-        }
-      }
-      setAssignedBatchIds((prev) => [...prev, batchId])
-      setFormData((prev) => ({
-        ...prev,
-        courses: prev.courses.includes(courseId) ? prev.courses : [...prev.courses, courseId],
-      }))
+      return
     }
+
+    const course = branchCourseAssignments.find((c) => c.course_id === courseId)
+    const batch = course?.batches.find((b) => b.id === batchId)
+    if (batch && course) {
+      const err = getBatchError(batch, course)
+      if (err) {
+        toast({
+          title: "Cannot assign batch",
+          description: err,
+          variant: "destructive",
+        })
+        return
+      }
+    }
+
+    setAssignedBatchIds((prev) => [...prev, batchId])
+    setFormData((prev) => ({
+      ...prev,
+      courses: prev.courses.includes(courseId) ? prev.courses : [...prev.courses, courseId],
+    }))
   }
 
   const handleCourseToggle = (courseId: string) => {
@@ -1098,68 +1109,46 @@ export default function EditCoachPage() {
     }
   }
 
-  const validateProfileImage = (file: File): string | null => {
-    const okTypes = ["image/jpeg", "image/png", "image/webp"]
-    const extOk = /\.(jpe?g|png|webp)$/i.test(file.name)
-    if (!okTypes.includes(file.type) && !extOk) {
-      return "Please use JPG, PNG, or WEBP"
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      return "Image must be 2MB or smaller"
-    }
-    return null
-  }
-
-  const handleProfileImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const err = validateProfileImage(file)
-    if (err) {
-      toast({ title: "Invalid image", description: err, variant: "destructive" })
-      e.target.value = ""
-      return
-    }
-
-    const preview = URL.createObjectURL(file)
+  const handleCoachProfilePhotoChange = async (url: string) => {
+    if (!url) return
     if (formData.profileImagePreview) URL.revokeObjectURL(formData.profileImagePreview)
-
-    setFormData((prev) => ({
-      ...prev,
-      profileImageFile: file,
-      profileImagePreview: preview,
-    }))
-
-    setIsUploadingProfileImage(true)
+    profileImageUrlRef.current = url
+    patchFormData({
+      profileImageUrl: url,
+      profileImageFile: null,
+      profileImagePreview: "",
+    })
+    setPhotoCacheKey((k) => k + 1)
     try {
-      const uploaded = await uploadFile(file)
-      const url = extractUploadUrl(uploaded as unknown as Record<string, unknown>)
-      if (!url) {
-        throw new Error("Upload did not return a URL")
-      }
-      setFormData((prev) => ({
-        ...prev,
-        profileImageUrl: url,
-        profileImageFile: null,
-      }))
-      profileImageUrlRef.current = url
-      setPhotoCacheKey((k) => k + 1)
       await saveCoachProfilePhoto(coachId, url)
       toast({ title: "Photo saved", description: "Profile photo updated successfully." })
     } catch (error) {
-      if (preview) URL.revokeObjectURL(preview)
-      setFormData((prev) => ({
-        ...prev,
-        profileImageFile: null,
-        profileImagePreview: "",
-      }))
       toast({
-        title: "Upload failed",
-        description: error instanceof Error ? error.message : "Could not upload profile photo",
+        title: "Could not save photo",
+        description: error instanceof Error ? error.message : "Please try again",
         variant: "destructive",
       })
-    } finally {
-      setIsUploadingProfileImage(false)
-      e.target.value = ""
+    }
+  }
+
+  const handleCoachProfilePhotoClear = async () => {
+    if (formData.profileImagePreview) URL.revokeObjectURL(formData.profileImagePreview)
+    profileImageUrlRef.current = ""
+    patchFormData({
+      profileImageFile: null,
+      profileImagePreview: "",
+      profileImageUrl: "",
+    })
+    setPhotoCacheKey((k) => k + 1)
+    try {
+      await saveCoachProfilePhoto(coachId, null)
+      toast({ title: "Photo removed", description: "Profile photo cleared." })
+    } catch (error) {
+      toast({
+        title: "Could not remove photo",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+      })
     }
   }
 
@@ -1372,9 +1361,9 @@ export default function EditCoachPage() {
 
       console.log("Updating coach with data:", coachPayload)
 
-      // Log branch and course assignments for debugging
+      // Log academy and course assignments for debugging
       if (formData.branch || formData.courses.length > 0) {
-        console.log("Branch and course assignments:", {
+        console.log("Academy and course assignments:", {
           selectedBranch: formData.branch,
           selectedCourses: formData.courses,
           assignmentDetails: coachData.assignment_details
@@ -1446,21 +1435,21 @@ export default function EditCoachPage() {
         })
       }
 
-      // If coach moved to a different branch, clean up old branch batches
+      // If coach moved to a different academy, clean up old academy batches
       if (initialBranchId && initialBranchId !== formData.branch) {
         try {
           await cleanUpCoachBatchesInBranch(initialBranchId, coachId, token)
         } catch (cleanErr) {
-          console.error("Failed to clean up old branch batches:", cleanErr)
+          console.error("Failed to clean up old academy batches:", cleanErr)
         }
       }
 
-      // Sync batch assignments to the current selected branch
+      // Sync batch assignments to the current selected academy
       if (formData.branch) {
         try {
           await syncBranchBatchAssignments(formData.branch, coachId, assignedBatchIds, token)
         } catch (syncErr) {
-          console.error("Failed to sync branch batch assignments:", syncErr)
+          console.error("Failed to sync academy batch assignments:", syncErr)
         }
       }
 
@@ -1521,14 +1510,19 @@ export default function EditCoachPage() {
           onBack={() => router.push(`${basePath}/coaches`)}
         />
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form id="coach-edit-form" onSubmit={handleSubmit} className="admin-page-with-sticky-actions space-y-6">
           {/* Personal Information */}
           <Card className={dashboardFormCardClass}>
             <CardHeader className="pb-2">
-              <DashboardSectionHeading icon={User} title="Personal Information" tone="violet" />
+              <DashboardSectionHeading
+                icon={User}
+                title="Personal Information"
+                subtitle="Basic identity and contact details."
+                tone="violet"
+              />
             </CardHeader>
             <CardContent className={cardContentClass}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">First Name *</Label>
                   <Input
@@ -1552,18 +1546,19 @@ export default function EditCoachPage() {
                   />
                   {errors.lastName && <p className="text-red-500 text-sm">{errors.lastName}</p>}
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email *</Label>
                   <Input
                     id="email"
                     type="email"
                     value={formData.email}
-                    onChange={(e) => patchFormData({ email: e.target.value })}
+                    readOnly
                     placeholder="Enter email address"
-                    className={errors.email ? "border-red-500" : ""}
+                    className={cn(
+                      "cursor-not-allowed bg-[#F4F6FA] text-[#6B7A99]",
+                      errors.email ? "border-red-500" : ""
+                    )}
                   />
                   {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
                 </div>
@@ -1594,9 +1589,7 @@ export default function EditCoachPage() {
                   />
                   {errors.phone && <p className="text-red-500 text-sm">{errors.phone}</p>}
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="gender">Gender *</Label>
                   <Select
@@ -1645,20 +1638,18 @@ export default function EditCoachPage() {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="address">Address</Label>
-                <Textarea
-                  id="address"
-                  value={formData.address}
-                  onChange={(e) => patchFormData({ address: e.target.value })}
-                  placeholder="Enter complete address"
-                  rows={2}
-                />
-              </div>
+                <div className="space-y-2 md:col-span-2 xl:col-span-3">
+                  <Label htmlFor="address">Address</Label>
+                  <Textarea
+                    id="address"
+                    value={formData.address}
+                    onChange={(e) => patchFormData({ address: e.target.value })}
+                    placeholder="Enter complete address"
+                    rows={2}
+                  />
+                </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="area">Area/Locality</Label>
                   <Input
@@ -1677,9 +1668,6 @@ export default function EditCoachPage() {
                     placeholder="Enter city"
                   />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="state">State</Label>
                   <Input
@@ -1689,7 +1677,6 @@ export default function EditCoachPage() {
                     placeholder="State"
                   />
                 </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="zipCode">ZIP Code</Label>
                   <Input
@@ -1705,80 +1692,23 @@ export default function EditCoachPage() {
 
           <Card className={dashboardFormCardClass}>
             <CardHeader className="pb-2">
-              <DashboardSectionHeading icon={User} title="Profile photo & website" tone="sky" />
+              <DashboardSectionHeading
+                icon={User}
+                title="Profile photo & website"
+                subtitle="Public photo and homepage visibility."
+                tone="sky"
+              />
             </CardHeader>
             <CardContent className={cardContentClass}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label>Coach photo (JPG, PNG or WEBP, max 2MB)</Label>
-                  <input
-                    ref={profilePhotoInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-                    onChange={handleProfileImageChange}
-                    disabled={isUploadingProfileImage}
-                    className="hidden"
-                  />
-                  <div className="flex flex-wrap items-center gap-3">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={isUploadingProfileImage}
-                      onClick={() => profilePhotoInputRef.current?.click()}
-                    >
-                      {isUploadingProfileImage ? "Uploading…" : "Choose photo"}
-                    </Button>
-                    {(formData.profileImagePreview || formData.profileImageUrl) && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="text-red-600"
-                        disabled={isUploadingProfileImage}
-                        onClick={async () => {
-                          if (formData.profileImagePreview) URL.revokeObjectURL(formData.profileImagePreview)
-                          profileImageUrlRef.current = ""
-                          patchFormData({
-                            profileImageFile: null,
-                            profileImagePreview: "",
-                            profileImageUrl: "",
-                          })
-                          setPhotoCacheKey((k) => k + 1)
-                          if (profilePhotoInputRef.current) profilePhotoInputRef.current.value = ""
-                          try {
-                            setIsUploadingProfileImage(true)
-                            await saveCoachProfilePhoto(coachId, null)
-                            toast({ title: "Photo removed", description: "Profile photo cleared." })
-                          } catch (error) {
-                            toast({
-                              title: "Could not remove photo",
-                              description: error instanceof Error ? error.message : "Please try again",
-                              variant: "destructive",
-                            })
-                          } finally {
-                            setIsUploadingProfileImage(false)
-                          }
-                        }}
-                      >
-                        Remove photo
-                      </Button>
-                    )}
-                  </div>
-                  {(formData.profileImagePreview || formData.profileImageUrl) ? (
-                    <img
-                      key={formData.profileImagePreview || `${formData.profileImageUrl}-${photoCacheKey}`}
-                      src={
-                        formData.profileImagePreview ||
-                        `${resolvePublicAssetUrl(formData.profileImageUrl)}?v=${photoCacheKey}`
-                      }
-                      alt="Coach preview"
-                      className="mt-2 w-32 h-32 rounded-full object-cover border border-gray-200 bg-gray-100"
-                    />
-                  ) : (
-                    <div className="mt-2 w-32 h-32 rounded-full border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center text-xs text-gray-400 text-center px-2">
-                      No photo selected
-                    </div>
-                  )}
-                </div>
+                <AdminImageUpload
+                  key={`coach-photo-${photoCacheKey}`}
+                  label="Coach photo"
+                  shape="circle"
+                  value={formData.profileImageUrl}
+                  onChange={(url) => void handleCoachProfilePhotoChange(url)}
+                  onClear={() => void handleCoachProfilePhotoClear()}
+                />
                 <div className="space-y-2">
                   <Label htmlFor="aboutShort">Short bio (homepage)</Label>
                   <Textarea
@@ -1837,7 +1767,12 @@ export default function EditCoachPage() {
           {/* Professional Information */}
           <Card className={dashboardFormCardClass}>
             <CardHeader className="pb-2">
-              <DashboardSectionHeading icon={Award} title="Professional Information" tone="amber" />
+              <DashboardSectionHeading
+                icon={Award}
+                title="Professional Information"
+                subtitle="Role, experience, and credentials."
+                tone="amber"
+              />
             </CardHeader>
             <CardContent className={cardContentClass}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2056,342 +1991,15 @@ export default function EditCoachPage() {
             </CardContent>
           </Card>
 
-          {/* Assignment Details */}
-          <Card className={dashboardFormCardClass}>
-            <CardHeader className="pb-2">
-              <DashboardSectionHeading icon={Building2} title="Assignment Details" tone="indigo" />
-            </CardHeader>
-            <CardContent className={cardContentClass}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="branch">Assign to Branch</Label>
-                  {isBranchAdmin ? (
-                    <BranchSelectionField readOnly />
-                  ) : isLoadingBranches ? (
-                    <div className="flex items-center justify-center py-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600"></div>
-                      <span className="ml-2 text-sm text-gray-600">Loading branches...</span>
-                    </div>
-                  ) : (
-                    <Select
-                      key={formData.branch || "no-branch"}
-                      value={formData.branch}
-                      onValueChange={handleBranchSelect}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select branch" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {branches.length === 0 ? (
-                          <div className="p-4 text-center text-gray-500">
-                            <p>No branches available</p>
-                          </div>
-                        ) : (
-                          branches.map((branch) => (
-                            <SelectItem key={branch.id} value={branch.id}>
-                              {branch.branch.name} ({branch.branch.code})
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="joinDate">Joining Date</Label>
-                  <Input
-                    id="joinDate"
-                    type="date"
-                    value={formData.joinDate}
-                    onChange={(e) => patchFormData({ joinDate: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium text-gray-700">Assign Courses & Batches</Label>
-                  {formData.courses.length > 0 && (
-                    <span className="text-xs text-gray-500 font-normal">
-                      {formData.courses.length} course{formData.courses.length > 1 ? "s" : ""} selected
-                      {assignedBatchIds.length > 0 && ` (${assignedBatchIds.length} batch${assignedBatchIds.length > 1 ? "es" : ""})`}
-                    </span>
-                  )}
-                </div>
-
-                {!formData.branch ? (
-                  <div className="border border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50/50">
-                    <Building2 className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                    <p className="text-sm font-medium text-gray-700">Select a branch to view allocated courses</p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Only courses and batches allocated to the selected branch can be assigned to the coach.
-                    </p>
-                  </div>
-                ) : isLoadingBranchSchedule ? (
-                  <div className="flex items-center justify-center py-6 text-sm text-gray-500 border rounded-lg bg-gray-50/50">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-yellow-600 mr-2"></div>
-                    Loading branch courses and batches...
-                  </div>
-                ) : branchCourseAssignments.length === 0 ? (
-                  <div className="border border-dashed border-amber-200 rounded-lg p-6 text-center bg-amber-50/40">
-                    <AlertCircle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
-                    <p className="text-sm font-medium text-amber-900">No courses allocated to this branch</p>
-                    <p className="text-xs text-amber-700 mt-1">
-                      This branch does not have any active course allocations. You can allocate courses in Branch Management.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {branchCourseAssignments.map((courseAssignment) => {
-                      const course = courses.find((c) => c.id === courseAssignment.course_id)
-                      const isCourseSelected = formData.courses.includes(courseAssignment.course_id)
-                      const courseBatches = courseAssignment.batches || []
-                      const selectedBatchesCount = courseBatches.filter((b) =>
-                        assignedBatchIds.includes(b.id)
-                      ).length
-
-                      return (
-                        <div
-                          key={courseAssignment.course_id}
-                          className={`border rounded-lg transition-colors overflow-hidden ${isCourseSelected ? "border-blue-300 bg-blue-50/20" : "border-gray-200 bg-white"
-                            }`}
-                        >
-                          {/* Course Header */}
-                          <div className="p-3.5 flex items-center justify-between gap-3 bg-white">
-                            <div className="flex items-center space-x-3 flex-1 min-w-0">
-                              <Checkbox
-                                id={`course-${courseAssignment.course_id}`}
-                                checked={isCourseSelected}
-                                onCheckedChange={() => handleCourseToggle(courseAssignment.course_id)}
-                              />
-                              <Label
-                                htmlFor={`course-${courseAssignment.course_id}`}
-                                className="cursor-pointer flex-1 min-w-0"
-                              >
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className="font-semibold text-gray-900 text-sm truncate">
-                                    {course?.title || courseAssignment.course_id}
-                                  </span>
-                                  {course?.code && (
-                                    <Badge variant="outline" className="text-[11px] font-mono py-0 px-1.5 h-5">
-                                      {course.code}
-                                    </Badge>
-                                  )}
-                                  {course?.difficulty_level && (
-                                    <Badge variant="secondary" className="text-[11px] py-0 px-1.5 h-5 bg-gray-100 text-gray-700">
-                                      {course.difficulty_level}
-                                    </Badge>
-                                  )}
-                                </div>
-                              </Label>
-                            </div>
-
-                            {courseBatches.length > 0 && (
-                              <Badge
-                                variant={selectedBatchesCount > 0 ? "default" : "outline"}
-                                className={`text-xs shrink-0 ${selectedBatchesCount > 0
-                                    ? "bg-blue-600 hover:bg-blue-600 text-white"
-                                    : "text-gray-500 border-gray-300"
-                                  }`}
-                              >
-                                {selectedBatchesCount > 0
-                                  ? `${selectedBatchesCount} of ${courseBatches.length} batch${courseBatches.length > 1 ? "es" : ""}`
-                                  : `${courseBatches.length} batch${courseBatches.length > 1 ? "es" : ""}`}
-                              </Badge>
-                            )}
-                          </div>
-
-                          {/* Batches List */}
-                          {courseBatches.length > 0 ? (
-                            <div className="border-t border-gray-100 bg-gray-50/60 p-3 space-y-2">
-                              <div className="text-[11px] font-medium uppercase tracking-wider text-gray-500 px-1">
-                                Batches for this branch
-                              </div>
-                              {courseBatches.map((batch) => {
-                                const isBatchAssigned = assignedBatchIds.includes(batch.id)
-                                const batchError = getBatchError(batch, courseAssignment)
-
-                                return (
-                                  <div
-                                    key={batch.id}
-                                    className={`p-2.5 rounded-md border transition-all ${isBatchAssigned
-                                        ? batchError
-                                          ? "bg-red-50/70 border-red-300"
-                                          : "bg-white border-blue-200 shadow-xs"
-                                        : "bg-white border-gray-200 hover:border-gray-300"
-                                      }`}
-                                  >
-                                    <div className="flex items-start justify-between gap-3">
-                                      <div className="flex items-start space-x-2.5 flex-1 min-w-0">
-                                        <Checkbox
-                                          id={`batch-${batch.id}`}
-                                          checked={isBatchAssigned}
-                                          onCheckedChange={() =>
-                                            handleBatchToggle(batch.id, courseAssignment.course_id)
-                                          }
-                                          className="mt-0.5"
-                                        />
-                                        <div className="flex-1 min-w-0">
-                                          <Label
-                                            htmlFor={`batch-${batch.id}`}
-                                            className="cursor-pointer font-medium text-xs text-gray-800 block truncate"
-                                          >
-                                            {batch.batch_name || "Batch"}
-                                          </Label>
-
-                                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                                            {batch.days && batch.days.length > 0 && (
-                                              <span className="inline-flex items-center text-[11px] text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded font-medium">
-                                                {formatDays(batch.days)}
-                                              </span>
-                                            )}
-                                            {batch.start_time && batch.end_time && (
-                                              <span className="inline-flex items-center gap-1 text-[11px] text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded font-medium">
-                                                <Clock className="w-3 h-3 text-gray-500" />
-                                                {formatRange(batch.start_time, batch.end_time)}
-                                              </span>
-                                            )}
-                                          </div>
-                                        </div>
-                                      </div>
-
-                                      {/* Batch Assignment Status */}
-                                      <div className="shrink-0 flex items-center">
-                                        {isBatchAssigned ? (
-                                          <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 text-[11px] font-medium border border-emerald-200">
-                                            Selected for Coach
-                                          </Badge>
-                                        ) : batch.coach_id && String(batch.coach_id).trim() === String(coachId).trim() ? (
-                                          <Badge className="bg-blue-100 text-blue-800 text-[11px] font-medium border border-blue-200">
-                                            Previously Assigned
-                                          </Badge>
-                                        ) : batch.coach_id ? (
-                                          <Badge variant="outline" className="text-[11px] text-gray-500 border-gray-200">
-                                            Assigned to other
-                                          </Badge>
-                                        ) : (
-                                          <Badge variant="outline" className="text-[11px] text-gray-400 border-dashed border-gray-200">
-                                            Unassigned
-                                          </Badge>
-                                        )}
-                                      </div>
-                                    </div>
-
-                                    {/* Conflict / Availability Warning */}
-                                    {batchError && (
-                                      <div
-                                        className={`mt-2 flex items-start gap-1.5 text-xs rounded p-2 ${isBatchAssigned
-                                            ? "bg-red-50 text-red-700 border border-red-200 font-medium"
-                                            : "bg-amber-50 text-amber-800 border border-amber-200"
-                                          }`}
-                                      >
-                                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-current" />
-                                        <span>{batchError}</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          ) : (
-                            <div className="border-t border-gray-100 bg-gray-50/40 p-2.5 px-4 text-xs text-gray-500 italic">
-                              No specific batches created for this course in this branch.
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-
-                {/* Badges for selected courses */}
-                {formData.courses.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-gray-100">
-                    {formData.courses.map((courseId) => {
-                      const course = courses.find((c) => c.id === courseId)
-                      return (
-                        <Badge key={courseId} variant="secondary" className="bg-blue-100 text-blue-800">
-                          {course?.title || courseId}
-                          <button
-                            type="button"
-                            onClick={() => handleCourseToggle(courseId)}
-                            className="ml-2 hover:text-red-600"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </Badge>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="salary">Salary (Optional)</Label>
-                <Input
-                  id="salary"
-                  value={formData.salary}
-                  onChange={(e) => patchFormData({ salary: e.target.value })}
-                  placeholder="Monthly salary"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Emergency Contact */}
-          <Card className={dashboardFormCardClass}>
-            <CardHeader className="pb-2">
-              <DashboardSectionHeading icon={Phone} title="Emergency Contact" tone="rose" />
-            </CardHeader>
-            <CardContent className={cardContentClass}>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="emergencyContactName">Contact Name</Label>
-                  <Input
-                    id="emergencyContactName"
-                    value={formData.emergencyContactName}
-                    onChange={(e) => patchFormData({ emergencyContactName: e.target.value })}
-                    placeholder="Emergency contact name"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="emergencyContactPhone">Contact Phone</Label>
-                  <Input
-                    id="emergencyContactPhone"
-                    value={formData.emergencyContactPhone}
-                    onChange={(e) => patchFormData({ emergencyContactPhone: e.target.value })}
-                    placeholder="Emergency contact phone"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="emergencyContactRelation">Relation</Label>
-                  <Select
-                    value={formData.emergencyContactRelation}
-                    onValueChange={(value) => patchFormData({ emergencyContactRelation: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select relation" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {relations.map((relation) => (
-                        <SelectItem key={relation.toLowerCase()} value={relation.toLowerCase()}>
-                          {relation}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Availability */}
           <Card className={dashboardFormCardClass}>
             <CardHeader className="pb-2">
-              <DashboardSectionHeading icon={Clock} title="Availability" tone="blue" />
+              <DashboardSectionHeading
+                icon={Clock}
+                title="Availability"
+                subtitle="Weekly availability slots."
+                tone="blue"
+              />
             </CardHeader>
             <CardContent className={`${cardContentClass} space-y-3`}>
               <p className="text-sm">Days and times this coach can be assigned to a batch.</p>
@@ -2533,10 +2141,341 @@ export default function EditCoachPage() {
             </CardContent>
           </Card>
 
+          {/* Assignment Details */}
+          <Card className={dashboardFormCardClass}>
+            <CardHeader className="pb-2">
+              <DashboardSectionHeading
+                icon={Building2}
+                title="Assignment Details"
+                subtitle="Academy, classes, and batches."
+                tone="indigo"
+              />
+            </CardHeader>
+            <CardContent className={cardContentClass}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="branch">Assign to Academy</Label>
+                  {isBranchAdmin ? (
+                    <BranchSelectionField readOnly />
+                  ) : isLoadingBranches ? (
+                    <div className="flex items-center justify-center py-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600"></div>
+                      <span className="ml-2 text-sm text-gray-600">Loading branches...</span>
+                    </div>
+                  ) : (
+                    <Select
+                      key={formData.branch || "no-academy"}
+                      value={formData.branch}
+                      onValueChange={handleBranchSelect}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select academy" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {branches.length === 0 ? (
+                          <div className="p-4 text-center text-gray-500">
+                            <p>No branches available</p>
+                          </div>
+                        ) : (
+                          branches.map((branch) => (
+                            <SelectItem key={branch.id} value={branch.id}>
+                              {branch.branch.name} ({branch.branch.code})
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="joinDate">Joining Date</Label>
+                  <Input
+                    id="joinDate"
+                    type="date"
+                    value={formData.joinDate}
+                    onChange={(e) => patchFormData({ joinDate: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium text-gray-700">Assign Courses & Batches</Label>
+                  {formData.courses.length > 0 && (
+                    <span className="text-xs text-gray-500 font-normal">
+                      {formData.courses.length} course{formData.courses.length > 1 ? "s" : ""} selected
+                      {assignedBatchIds.length > 0 && ` (${assignedBatchIds.length} batch${assignedBatchIds.length > 1 ? "es" : ""})`}
+                    </span>
+                  )}
+                </div>
+
+                {!formData.branch ? (
+                  <div className="border border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50/50">
+                    <Building2 className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-gray-700">Select an branch to view allocated courses</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Only courses and batches allocated to the selected branch can be assigned to the coach.
+                    </p>
+                  </div>
+                ) : isLoadingBranchSchedule ? (
+                  <div className="flex items-center justify-center py-6 text-sm text-gray-500 border rounded-lg bg-gray-50/50">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-yellow-600 mr-2"></div>
+                    Loading branch courses and batches...
+                  </div>
+                ) : branchCourseAssignments.length === 0 ? (
+                  <div className="border border-dashed border-amber-200 rounded-lg p-6 text-center bg-amber-50/40">
+                    <AlertCircle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-amber-900">No courses allocated to this branch</p>
+                    <p className="text-xs text-amber-700 mt-1">
+                      This branch does not have any active course allocations. You can allocate courses in Branch Management.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                    {branchCourseAssignments.map((courseAssignment) => {
+                      const course = courses.find((c) => c.id === courseAssignment.course_id)
+                      const isCourseSelected = formData.courses.includes(courseAssignment.course_id)
+                      const courseBatches = courseAssignment.batches || []
+                      const selectedBatchesCount = courseBatches.filter((b) =>
+                        assignedBatchIds.includes(b.id)
+                      ).length
+
+                      return (
+                        <div
+                          key={courseAssignment.course_id}
+                          className={`rounded-xl border p-3 shadow-sm transition-colors ${
+                            isCourseSelected
+                              ? "border-[#E1BB33]/70 bg-[#FFFBEB]/40"
+                              : "border-[#E8EAF0] bg-white"
+                          }`}
+                        >
+                          <div
+                            className="flex items-start gap-2 mb-2 cursor-pointer"
+                            onClick={() => handleCourseToggle(courseAssignment.course_id)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault()
+                                handleCourseToggle(courseAssignment.course_id)
+                              }
+                            }}
+                            role="button"
+                            tabIndex={0}
+                          >
+                            <Checkbox
+                              id={`course-${courseAssignment.course_id}`}
+                              checked={isCourseSelected}
+                              onCheckedChange={() => handleCourseToggle(courseAssignment.course_id)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="mt-0.5"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-sm text-gray-900 truncate">
+                                {course?.title || courseAssignment.course_id}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                {course?.code && (
+                                  <Badge variant="outline" className="text-[10px] font-mono py-0 px-1 h-4">
+                                    {course.code}
+                                  </Badge>
+                                )}
+                                {courseBatches.length > 0 && (
+                                  <span className="text-[10px] font-medium text-gray-500 bg-gray-100 rounded-full px-1.5 py-0.5">
+                                    {selectedBatchesCount}/{courseBatches.length} batch{courseBatches.length > 1 ? "es" : ""}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {courseBatches.length > 0 ? (
+                            <div className="space-y-2 border-t border-[#E8EAF0]/80 pt-2 mt-1">
+                              {courseBatches.map((batch) => {
+                                const isBatchAssigned = assignedBatchIds.includes(batch.id)
+                                const batchError = getBatchError(batch, courseAssignment)
+                                const assignBlocked = Boolean(batchError) && !isBatchAssigned
+                                const assignedToOther = Boolean(batch.coach_id) &&
+                                  String(batch.coach_id).trim() !== String(coachId).trim()
+                                const statusLabel = isBatchAssigned
+                                  ? "Assigned"
+                                  : assignedToOther
+                                    ? "Assigned to other"
+                                    : "Unassigned"
+
+                                return (
+                                  <div
+                                    key={batch.id}
+                                    className="rounded-lg border border-[#E8EAF0] bg-white/80 p-2 space-y-1.5"
+                                  >
+                                    <div className="flex items-start justify-between gap-1">
+                                      <p className="text-xs font-medium text-gray-800 truncate flex-1">
+                                        {batch.batch_name || "Batch"}
+                                      </p>
+                                      <span
+                                        className={`text-[10px] shrink-0 font-medium ${
+                                          isBatchAssigned
+                                            ? "text-emerald-700"
+                                            : assignedToOther
+                                              ? "text-gray-500"
+                                              : "text-gray-400"
+                                        }`}
+                                      >
+                                        {statusLabel}
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1">
+                                      {batch.days && batch.days.length > 0 && (
+                                        <span className="text-[10px] text-gray-600 bg-gray-100 px-1 py-0.5 rounded">
+                                          {formatDays(batch.days)}
+                                        </span>
+                                      )}
+                                      {batch.start_time && batch.end_time && (
+                                        <span className="text-[10px] text-gray-600 bg-gray-100 px-1 py-0.5 rounded inline-flex items-center gap-0.5">
+                                          <Clock className="w-2.5 h-2.5" />
+                                          {formatRange(batch.start_time, batch.end_time)}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-2 pt-0.5">
+                                      <Checkbox
+                                        id={`batch-${batch.id}`}
+                                        checked={isBatchAssigned}
+                                        disabled={assignBlocked}
+                                        onCheckedChange={() =>
+                                          handleBatchToggle(batch.id, courseAssignment.course_id)
+                                        }
+                                        className="scale-90"
+                                      />
+                                      <Label
+                                        htmlFor={`batch-${batch.id}`}
+                                        className={`text-[10px] cursor-pointer ${assignBlocked ? "text-gray-400 cursor-not-allowed" : "text-[#9A7B1A]"}`}
+                                      >
+                                        {isBatchAssigned ? "Unassign" : "Assign"}
+                                      </Label>
+                                    </div>
+                                    {assignBlocked && batchError && (
+                                      <p className="text-[10px] leading-snug text-amber-800 line-clamp-3" title={batchError}>
+                                        {batchError}
+                                      </p>
+                                    )}
+                                    {batchError && isBatchAssigned && (
+                                      <p className="text-[10px] leading-snug text-red-700 line-clamp-3" title={batchError}>
+                                        {batchError}
+                                      </p>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          ) : (
+                            <p className="text-[11px] text-gray-500 italic border-t border-[#E8EAF0]/80 pt-2 mt-1">
+                              No batches for this course in this branch.
+                            </p>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Badges for selected courses */}
+                {formData.courses.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-gray-100">
+                    {formData.courses.map((courseId) => {
+                      const course = courses.find((c) => c.id === courseId)
+                      return (
+                        <Badge key={courseId} variant="secondary" className="bg-blue-100 text-blue-800">
+                          {course?.title || courseId}
+                          <button
+                            type="button"
+                            onClick={() => handleCourseToggle(courseId)}
+                            className="ml-2 hover:text-red-600"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </Badge>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="salary">Salary (Optional)</Label>
+                <Input
+                  id="salary"
+                  value={formData.salary}
+                  onChange={(e) => patchFormData({ salary: e.target.value })}
+                  placeholder="Monthly salary"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Emergency Contact */}
+          <Card className={dashboardFormCardClass}>
+            <CardHeader className="pb-2">
+              <DashboardSectionHeading
+                icon={Phone}
+                title="Emergency Contact"
+                subtitle="Emergency contact details."
+                tone="rose"
+              />
+            </CardHeader>
+            <CardContent className={cardContentClass}>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="emergencyContactName">Contact Name</Label>
+                  <Input
+                    id="emergencyContactName"
+                    value={formData.emergencyContactName}
+                    onChange={(e) => patchFormData({ emergencyContactName: e.target.value })}
+                    placeholder="Emergency contact name"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="emergencyContactPhone">Contact Phone</Label>
+                  <Input
+                    id="emergencyContactPhone"
+                    value={formData.emergencyContactPhone}
+                    onChange={(e) => patchFormData({ emergencyContactPhone: e.target.value })}
+                    placeholder="Emergency contact phone"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="emergencyContactRelation">Relation</Label>
+                  <Select
+                    value={formData.emergencyContactRelation}
+                    onValueChange={(value) => patchFormData({ emergencyContactRelation: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select relation" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {relations.map((relation) => (
+                        <SelectItem key={relation.toLowerCase()} value={relation.toLowerCase()}>
+                          {relation}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+
           {/* Additional Information */}
           <Card className={dashboardFormCardClass}>
             <CardHeader className="pb-2">
-              <DashboardSectionHeading icon={Award} title="Additional Information" tone="emerald" />
+              <DashboardSectionHeading
+                icon={Award}
+                title="Additional Information"
+                subtitle="Achievements and notes."
+                tone="emerald"
+              />
             </CardHeader>
             <CardContent className={cardContentClass}>
               <div className="space-y-2">
@@ -2563,45 +2502,48 @@ export default function EditCoachPage() {
             </CardContent>
           </Card>
 
-          {/* Form Actions */}
-          <div className="flex justify-end space-x-4 py-6">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => router.push(`${basePath}/coaches`)}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              className={primaryButtonClass}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
-                  <span>Saving...</span>
-                </div>
-              ) : (
-                "Save Changes"
-              )}
-            </Button>
-          </div>
         </form>
+
+        <AdminStickyFormActions>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push(`${basePath}/coaches`)}
+            disabled={isSubmitting}
+            className={outlineButtonClass}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="coach-edit-form"
+            className={primaryButtonClass}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+                <span>Saving...</span>
+              </div>
+            ) : (
+              "Save Changes"
+            )}
+          </Button>
+        </AdminStickyFormActions>
       </main>
 
       {/* Success Popup */}
       {showSuccessPopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4 text-center">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden p-4 sm:p-6">
+        <div className="absolute inset-0 bg-[#0f172a]/55 backdrop-blur-[2px]" aria-hidden />
+          <div className="relative z-[1] bg-white rounded-2xl border border-[#E8EAF0] shadow-[0_24px_80px_rgba(15,23,42,0.28)] p-8 max-w-md w-full mx-4 text-center">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Coach Updated Successfully!</h3>
-            <p className="text-gray-600 mb-6">The new coach has been added to your academy.</p>
+            <p className="text-gray-600 mb-6">The new coach has been added to your branch.</p>
 
             <div className="space-y-3">
               <Button
@@ -2687,7 +2629,7 @@ export default function EditCoachPage() {
                 </span>
                 . Do you want to reassign them to{" "}
                 <span className="font-semibold text-slate-900">
-                  {pendingBranchId ? getBranchLabel(pendingBranchId) : "another branch"}
+                  {pendingBranchId ? getBranchLabel(pendingBranchId) : "another academy"}
                 </span>
                 ?
               </p>

@@ -7,10 +7,13 @@ import {
   MOCK_SHOWCASE_ACHIEVEMENTS,
   MOCK_WARRIOR_TESTIMONIALS,
 } from "@/lib/imagePlaceholders"
+import { PUBLIC_SECTION_FALLBACKS, resolveCmsText } from "@/lib/cmsContentFallback"
 import HomePageView from "@/components/website/HomePageView"
 
 export const metadata = {
-  title: "Rock Martial Arts Academy | Fitness & Dance",
+  title: {
+    absolute: "Rock Martial Arts Academy | Fitness & Dance",
+  },
   description: "Strengthen, discipline, and empower with martial arts. Shaolin Kung Fu, Taekwondo, Kick Boxing, Kuchipudi and more.",
 }
 
@@ -210,12 +213,15 @@ async function getShowcaseTestimonialsFromApi(): Promise<
     student_photo?: string
     testimonial_text?: string
     rating?: number
+    academy_name?: string | null
+    branch_name?: string | null
   }[]
 > {
   try {
     const siteOrigin =
       process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "")
-    const qs = `is_global=true&limit=6`
+    // All academy testimonials for the public homepage (not global-only).
+    const qs = `limit=12`
     if (siteOrigin) {
       const res = await fetch(`${siteOrigin.replace(/\/$/, "")}/api/backend/testimonials?${qs}`, {
         cache: "no-store",
@@ -438,12 +444,6 @@ export default async function HomePage() {
             (rawCategoryImg && (resolvePublicAssetUrl(rawCategoryImg) || rawCategoryImg)) ||
             (courseImg && (resolvePublicAssetUrl(courseImg) || courseImg)) ||
             "/assets/img/courses/choose_img1.png"
-          const derivedSlug = String(cat.name || "")
-            .trim()
-            .toLowerCase()
-            .replace(/\s+/g, "-")
-            .replace(/_/g, "-")
-            .replace(/[^a-z0-9-]/g, "")
           return {
             id: cat.id,
             name: cat.name || cat.code || "Category",
@@ -451,7 +451,8 @@ export default async function HomePage() {
             href: toCategoryHref({
               id: cat.id,
               name: cat.name,
-              slug: cat.slug || derivedSlug || cat.id,
+              code: cat.code,
+              slug: cat.slug,
             }),
           }
         })
@@ -480,16 +481,18 @@ export default async function HomePage() {
     }
   })
 
+  const { getBranchDisplayLabels } = await import("@/lib/branchDisplay")
   const branchCards = apiBranches
     .filter((b: any) => b && b.is_active !== false)
     .map((b: any, idx: number) => {
-      const name = String(b.branch?.name || b.name || b.code || "Branch")
+      const labels = getBranchDisplayLabels(b)
+      const placeName = labels.placeName
       const addr = b.branch?.address || b.address || {}
       const location = [addr.city, addr.state].filter(Boolean).join(", ")
-      const area = [addr.area, addr.city].filter(Boolean).join(", ") || location
+      const area = labels.locationName || [addr.area, addr.city].filter(Boolean).join(", ") || location
       const address = [addr.line1, addr.area, addr.city, addr.state, addr.pincode].filter(Boolean).join(", ")
       const phone = String(b.branch?.phone || b.phone || "").trim()
-      const slug = String(b.slug || branchNameToSlug(name)).trim()
+      const slug = String(b.slug || branchNameToSlug(placeName)).trim()
       const offered = Array.isArray(b.operational_details?.courses_offered)
         ? b.operational_details.courses_offered.map((x: any) => String(x || "").trim()).filter(Boolean)
         : []
@@ -498,8 +501,12 @@ export default async function HomePage() {
         (coverRaw && (resolvePublicAssetUrl(coverRaw) || coverRaw)) ||
         `/assets/img/glry_img${(idx % 9) + 1}.jpg`
       return {
-        id: String(b.id || slug || name),
-        name,
+        id: String(b.id || slug || placeName),
+        name: labels.brandName,
+        brandName: labels.brandName,
+        poweredByLine: labels.poweredByLine,
+        locationName: labels.locationName,
+        logoUrl: labels.logoUrl || null,
         location,
         area,
         address,
@@ -513,9 +520,17 @@ export default async function HomePage() {
     })
 
   /* Hero content from CMS — no hardcoded title/CTA fallbacks; show only when set in admin */
-  const heroTitle = (homepage.hero_title || "").trim()
+  const heroTitle = resolveCmsText(
+    (homepage.hero_title || "").trim(),
+    "",
+    PUBLIC_SECTION_FALLBACKS.heroTitle
+  )
   const heroSubtitle = (homepage.hero_subtitle || "").trim()
-  const heroDescription = (homepage.hero_description || "").trim()
+  const heroDescription = resolveCmsText(
+    (homepage.hero_description || "").trim(),
+    "",
+    PUBLIC_SECTION_FALLBACKS.heroDescription
+  )
   const heroVideo = homepage.hero_video || "/assets/img/slider.mp4"
   const heroImage = homepage.hero_image || ""
   const heroPrimaryCtaText = (homepage.hero_primary_cta_text || "").trim()
@@ -528,7 +543,7 @@ export default async function HomePage() {
   const aboutSubtitle = homepageAbout.subtitle?.trim() || homepage.about_subtitle || ""
   const aboutContentHtml = homepageAbout.content?.trim() || ""
   const aboutImage = homepageAbout.image?.trim() || ""
-  const coursesTitle = homepage.courses_title || "Our Classes"
+  const coursesTitle = homepage.courses_title || "Our Training Program"
   const coursesSubtitle = homepage.courses_subtitle || "Choose"
   const mediaSectionTitle = (homepage.media_section_title || "").trim()
   const mediaSectionSubtitle = (homepage.media_section_subtitle || "").trim()

@@ -36,7 +36,7 @@ export default function CoachAvailabilityPage() {
       <main className="px-4 lg:px-8 py-6 max-w-5xl mx-auto">
         <CoachAvailabilityEditor
           title="My availability"
-          subtitle="Set your weekly hours and the branches where you can serve."
+          subtitle="Set your weekly hours and the academyes where you can serve."
         />
       </main>
     </div>

@@ -42,7 +42,7 @@ export default function BranchManagerForgotPasswordPage() {
         toast({
           title: "Reset Link Sent",
           description:
-            "If a branch manager account exists with this email, you'll receive reset instructions.",
+            "If an academy manager account exists with this email, you'll receive reset instructions.",
         })
       } else {
         const errorData = await response.json().catch(() => ({}))
@@ -66,7 +66,7 @@ export default function BranchManagerForgotPasswordPage() {
         <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md text-center space-y-4">
           <h2 className="text-2xl font-bold text-gray-900">Check Your Email</h2>
           <p className="text-gray-600">
-            If a branch manager account exists with <strong>{email}</strong>, you&apos;ll receive
+            If an branch manager account exists with <strong>{email}</strong>, you&apos;ll receive
             password reset instructions shortly.
           </p>
           <Link href="/branch-manager/login">
@@ -83,7 +83,7 @@ export default function BranchManagerForgotPasswordPage() {
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-amber-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Reset Branch Manager Password</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Reset Academy Manager Password</h1>
           <p className="text-gray-600">Enter your email to receive reset instructions</p>
         </div>
         <form onSubmit={handleResetRequest} className="space-y-6">

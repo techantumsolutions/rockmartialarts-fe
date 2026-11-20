@@ -222,7 +222,7 @@ function OtpVerificationInner() {
             <Button
               type="submit"
               disabled={busy || !phone}
-              className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-3 rounded-lg text-lg"
+              className="w-full  font-bold py-3 rounded-lg text-lg"
             >
               {busy ? "Verifying…" : "Verify & continue"}
             </Button>

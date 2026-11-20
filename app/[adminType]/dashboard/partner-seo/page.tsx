@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Loader2, Save, Search, Upload, Trash2 } from "lucide-react"
+import { Loader2, Save, Search } from "lucide-react"
 import { getBackendApiUrl } from "@/lib/config"
 import { TokenManager } from "@/lib/tokenManager"
-import { uploadFile } from "@/lib/upload"
+import { AdminImageUpload } from "@/components/ui/AdminImageUpload"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { useToast } from "@/hooks/use-toast"
 import { PartnerCmsScopeBanner } from "@/components/partner/PartnerCmsScopeBanner"
@@ -33,12 +33,6 @@ function str(v: unknown): string {
   return v == null ? "" : String(v)
 }
 
-function resolveMediaUrl(path: string): string {
-  if (!path) return ""
-  if (path.startsWith("http://") || path.startsWith("https://")) return path
-  return path.startsWith("/") ? path : `/${path}`
-}
-
 export default function PartnerSeoPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -52,7 +46,6 @@ export default function PartnerSeoPage() {
   const [loadingList, setLoadingList] = useState(true)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [uploading, setUploading] = useState(false)
 
   const [metaTitle, setMetaTitle] = useState("")
   const [metaDescription, setMetaDescription] = useState("")
@@ -79,7 +72,7 @@ export default function PartnerSeoPage() {
         getBackendApiUrl("collaboration-partners/partner-branches?limit=200"),
         { headers: authHeaders() }
       )
-      if (!res.ok) throw new Error("Failed to load partner branches")
+      if (!res.ok) throw new Error("Failed to load partner academies")
       const data = await res.json()
       setPartners(data.partners || [])
     } catch (e: any) {
@@ -105,7 +98,7 @@ export default function PartnerSeoPage() {
         if (res.status === 403) {
           toast({
             title: "Not a collaboration partner",
-            description: "Enable Is Collaboration Partner on the branch first.",
+            description: "Enable Is Collaboration Partner on the academy first.",
             variant: "destructive",
           })
           setBranchId("")
@@ -153,25 +146,6 @@ export default function PartnerSeoPage() {
     if (id) params.set("branchId", id)
     else params.delete("branchId")
     router.replace(`${basePath}/partner-seo?${params.toString()}`)
-  }
-
-  async function handleOgUpload(file: File) {
-    try {
-      setUploading(true)
-      const result = await uploadFile(file)
-      const url = result.file_url
-      if (!url) throw new Error("Upload returned no URL")
-      setOgImage(url)
-      toast({ title: "Uploaded", description: "OG image ready to save." })
-    } catch (e: any) {
-      toast({
-        title: "Upload failed",
-        description: e?.message || "Could not upload image",
-        variant: "destructive",
-      })
-    } finally {
-      setUploading(false)
-    }
   }
 
   async function handleSave() {
@@ -261,12 +235,12 @@ export default function PartnerSeoPage() {
           ) : partners.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No collaboration partners yet. Enable{" "}
-              <strong>Is Collaboration Partner</strong> on a branch first.
+              <strong>Is Collaboration Partner</strong> on an branch first.
             </p>
           ) : (
             <Select value={branchId || undefined} onValueChange={onSelectBranch}>
               <SelectTrigger className="max-w-xl">
-                <SelectValue placeholder="Choose a partner branch" />
+                <SelectValue placeholder="Choose a partner academy" />
               </SelectTrigger>
               <SelectContent>
                 {partners.map((p) => (
@@ -372,60 +346,15 @@ export default function PartnerSeoPage() {
               <CardTitle className="text-base">Open Graph image</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="og_image">OG Image URL</Label>
-                <Input
-                  id="og_image"
-                  value={ogImage}
-                  placeholder="/uploads/images/…"
-                  onChange={(e) => setOgImage(e.target.value)}
-                />
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <label className="inline-flex items-center gap-2 cursor-pointer rounded-md border px-3 py-2 text-sm hover:bg-muted">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    disabled={uploading}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0]
-                      if (f) handleOgUpload(f)
-                      e.target.value = ""
-                    }}
-                  />
-                  {uploading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Upload className="h-4 w-4" />
-                  )}
-                  Upload image
-                </label>
-                {ogImage ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setOgImage("")}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Clear
-                  </Button>
-                ) : null}
-              </div>
-              {ogImage ? (
-                <div className="rounded-md border overflow-hidden bg-muted/30 max-w-md">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={resolveMediaUrl(ogImage)}
-                    alt="OG preview"
-                    className="w-full h-40 object-cover"
-                  />
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Recommended ~1200×630. Used when the partner page is shared.
-                </p>
-              )}
+              <AdminImageUpload
+                label="OG image"
+                shape="wide"
+                branchId={branchId || null}
+                value={ogImage}
+                onChange={(url) => setOgImage(url)}
+                onClear={() => setOgImage("")}
+                helperText="Recommended ~1200×630. Used when the partner page is shared."
+              />
 
               {(metaTitle || metaDescription) && (
                 <div className="rounded-md border p-3 space-y-1 bg-white">

@@ -127,7 +127,7 @@ export default function PartnerTestimonialsPage() {
         getBackendApiUrl("collaboration-partners/partner-branches?limit=200"),
         { headers: authHeaders() }
       )
-      if (!res.ok) throw new Error("Failed to load partner branches")
+      if (!res.ok) throw new Error("Failed to load partner academies")
       const data = await res.json()
       setPartners(data.partners || [])
     } catch (e: any) {
@@ -159,7 +159,7 @@ export default function PartnerTestimonialsPage() {
         if (res.status === 403) {
           toast({
             title: "Not a collaboration partner",
-            description: "Enable Is Collaboration Partner on the branch first.",
+            description: "Enable Is Collaboration Partner on the academy first.",
             variant: "destructive",
           })
           setBranchId("")
@@ -284,7 +284,7 @@ export default function PartnerTestimonialsPage() {
       if (res.status === 403) {
         toast({
           title: "Partner features disabled",
-          description: "This branch is not marked as a collaboration partner.",
+          description: "This academy is not marked as a collaboration partner.",
           variant: "destructive",
         })
         return
@@ -298,8 +298,8 @@ export default function PartnerTestimonialsPage() {
       toast({
         title: "Saved",
         description: editingId
-          ? "Testimonial updated for this partner branch only."
-          : "Testimonial created for this partner branch only.",
+          ? "Testimonial updated for this partner academy only."
+          : "Testimonial created for this partner academy only.",
       })
       setDialogOpen(false)
       await loadRows(branchId)
@@ -416,7 +416,7 @@ export default function PartnerTestimonialsPage() {
                   size="sm"
                   onClick={() => router.push(`${basePath}/branches`)}
                 >
-                  Go to Branches
+                  Go to Academies
                 </Button>
               </div>
             </div>
@@ -426,12 +426,12 @@ export default function PartnerTestimonialsPage() {
                 <Label>Select partner branch</Label>
                 <Select value={branchId || undefined} onValueChange={setBranchId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Choose a partner branch" />
+                    <SelectValue placeholder="Choose a partner academy" />
                   </SelectTrigger>
                   <SelectContent>
                     {partners.map((p) => (
                       <SelectItem key={p.branch_id} value={p.branch_id}>
-                        {p.branch_name || "Branch"}
+                        {p.branch_name || "Academy"}
                         {p.branch_code ? ` (${p.branch_code})` : ""}
                         {typeof p.testimonials_count === "number"
                           ? ` — ${p.testimonials_count} published`

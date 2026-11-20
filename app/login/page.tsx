@@ -150,7 +150,7 @@ function LoginFormContent() {
 
       // Store authentication data using unified token manager
       const { TokenManager } = await import("@/lib/tokenManager");
-      const userData = TokenManager.storeAuthData({
+      TokenManager.storeAuthData({
         access_token: data.access_token,
         token_type: data.token_type,
         expires_in: data.expires_in,
@@ -159,6 +159,12 @@ function LoginFormContent() {
         account_id: data.account_id,
         active_student_id: data.active_student_id || data.user?.id,
       });
+
+      const {
+        markStudentPromoPendingAfterLogin,
+        withStudentPromoLoginQuery,
+      } = await import("@/lib/studentPromoLoginFlag");
+      markStudentPromoPendingAfterLogin();
 
       console.log("Student login successful:", {
         user_id: data.user.id,
@@ -170,7 +176,7 @@ function LoginFormContent() {
         expires_in: data.expires_in
       });
       
-      router.push(safeStudentReturnUrl(returnUrl))
+      router.push(withStudentPromoLoginQuery(safeStudentReturnUrl(returnUrl)))
     } catch (err) {
       console.error("Student login error:", err);
       const msg = err instanceof Error ? err.message : String(err);

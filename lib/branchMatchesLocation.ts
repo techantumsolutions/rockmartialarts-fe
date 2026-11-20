@@ -1,4 +1,4 @@
-/** Match a branch to a city UUID or legacy city-name location_id. */
+/** Match an academy to a city UUID or legacy city-name location_id. */
 
 export function branchMatchesLocation(
   branch: {

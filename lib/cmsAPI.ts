@@ -38,9 +38,20 @@ export interface FooterContent {
 }
 
 export interface BrandingSettings {
+  platform_name?: string
+  platform_short_name?: string
+  legal_name?: string
+  primary_color?: string
+  secondary_color?: string
+  accent_color?: string
+  dark_color?: string
+  support_email?: string
+  support_phone?: string
+  website_url?: string
   navbar_logo?: string
   footer_logo?: string
   favicon?: string
+  site_loader_image?: string
 }
 
 export interface CMSContentResponse {

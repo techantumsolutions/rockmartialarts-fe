@@ -9,6 +9,11 @@ export type AcademyEventRegistration = {
   event_type?: string | null
   event_start_at?: string | null
   event_venue?: string | null
+  batch_id?: string | null
+  batch_label?: string | null
+  batch_date?: string | null
+  batch_start_time?: string | null
+  batch_end_time?: string | null
   branch_id?: string | null
   participant_name: string
   participant_phone: string
@@ -33,6 +38,7 @@ export type AcademyEventRegistrationCreatePayload = {
   participant_email?: string
   participant_age?: number
   notes?: string
+  batch_id?: string
   source?: string
 }
 

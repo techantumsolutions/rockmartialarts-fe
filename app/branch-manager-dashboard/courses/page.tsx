@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation"
 import Header from "@/components/layout/Header"
 import { getBackendApiUrl } from "@/lib/config"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { AppModal } from "@/components/ui/AppModal"
 
 interface Course {
   id: string
@@ -52,7 +53,7 @@ export default function BranchManagerCoursesList() {
     }
   }, [router])
 
-  // Load courses data for branch manager from API
+  // Load courses data for academy manager from API
   useEffect(() => {
     const loadCoursesData = async () => {
       try {
@@ -66,11 +67,11 @@ export default function BranchManagerCoursesList() {
           throw new Error("Authentication required. Please login again.")
         }
 
-        console.log('Loading courses for branch manager:', currentUser.full_name)
-        console.log('Branch manager branch assignment:', currentUser.branch_assignment)
+        console.log('Loading courses for academy manager:', currentUser.full_name)
+        console.log('Academy manager academy assignment:', currentUser.branch_assignment)
 
-        // First, let's get the branches this manager manages to understand the filtering
-        console.log('🔍 DEBUGGING: Fetching branches first to understand filtering...')
+        // First, let's get the academyes this manager manages to understand the filtering
+        console.log('🔍 DEBUGGING: Fetching academies first to understand filtering...')
         const branchesResponse = await fetch(getBackendApiUrl('branches?limit=100'), {
           headers: {
             'Content-Type': 'application/json',
@@ -82,14 +83,14 @@ export default function BranchManagerCoursesList() {
           const branchesData = await branchesResponse.json()
           const managedBranches = branchesData.branches || []
           const branchIds = managedBranches.map((branch: any) => branch.id)
-          console.log('🏢 Branches managed by this branch manager:', managedBranches.length)
-          console.log('🏢 Branch IDs:', branchIds)
+          console.log('🏢 Academies managed by this academy manager:', managedBranches.length)
+          console.log('🏢 Academy IDs:', branchIds)
           managedBranches.forEach((branch: any, index: number) => {
-            console.log(`   Branch ${index + 1}: ${branch.branch?.name || 'Unknown'} (ID: ${branch.id})`)
+            console.log(`   Academy ${index + 1}: ${branch.branch?.name || 'Unknown'} (ID: ${branch.id})`)
           })
         }
 
-        // Call real backend API to get courses (backend handles filtering by managed branches)
+        // Call real backend API to get courses (backend handles filtering by managed academies)
         console.log('📚 Now fetching courses...')
         const coursesResponse = await fetch(getBackendApiUrl('courses?limit=100'), {
           headers: {
@@ -120,12 +121,12 @@ export default function BranchManagerCoursesList() {
 
         const branchCourses = coursesData.courses || []
 
-        // Debug: Show course data and branch assignments
+        // Debug: Show course data and academy assignments
         console.log('📚 Processing courses:', branchCourses.length)
         branchCourses.forEach((course: any, index: number) => {
           const branchAssignments = course.branch_assignments || []
           const branchIds = branchAssignments.map((ba: any) => ba.branch_id).filter(Boolean)
-          console.log(`   Course ${index + 1}: ${course.name || course.title || 'Unknown'} - Assigned to branches: ${branchIds.join(', ') || 'None'}`)
+          console.log(`   Course ${index + 1}: ${course.name || course.title || 'Unknown'} - Assigned to academies: ${branchIds.join(', ') || 'None'}`)
         })
 
         // Transform the API data to match our Course interface
@@ -154,8 +155,8 @@ export default function BranchManagerCoursesList() {
         console.log('Final courses count:', transformedCourses.length)
 
         if (transformedCourses.length === 0) {
-          console.log('No courses found for branch manager')
-          setError("No courses available at your branches. Please contact your administrator if you expect to see courses here.")
+          console.log('No courses found for academy manager')
+          setError("No courses available at your academies. Please contact your administrator if you expect to see courses here.")
         } else {
           console.log(`✅ Loaded ${transformedCourses.length} course(s) for ${currentUser.full_name}`)
         }
@@ -195,7 +196,7 @@ export default function BranchManagerCoursesList() {
         return
       }
 
-      // Fetch fresh courses data - backend handles filtering by managed branches
+      // Fetch fresh courses data - backend handles filtering by managed academies
       console.log('🔄 Refreshing courses data...')
       const coursesResponse = await fetch(getBackendApiUrl('courses?limit=100'), {
         headers: {
@@ -382,7 +383,7 @@ export default function BranchManagerCoursesList() {
                     <p className="text-yellow-700 mb-4">
                       {searchTerm
                         ? `No courses match your search "${searchTerm}"`
-                        : "You don't have any courses available at your branches yet."
+                        : "You don't have any courses available at your academies yet."
                       }
                     </p>
                     {!searchTerm && (
@@ -531,31 +532,30 @@ export default function BranchManagerCoursesList() {
             )}
           </div>
         </div>
-      {/* Delete Confirmation Modal */}
-      {showDeletePopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Confirm Delete</h3>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete this course? This action cannot be undone.
-            </p>
-            <div className="flex justify-end space-x-3">
-              <Button
-                variant="outline"
-                onClick={() => setShowDeletePopup(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={confirmDelete}
-              >
-                Delete
-              </Button>
-            </div>
+      <AppModal
+        open={showDeletePopup}
+        onClose={() => setShowDeletePopup(false)}
+        title="Confirm Delete"
+        size="sm"
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setShowDeletePopup(false)}
+              className="w-full border-[#D1D5DB] text-[#4F5077] sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete} className="w-full sm:w-auto">
+              Delete
+            </Button>
           </div>
-        </div>
-      )}
+        }
+      >
+        <p className="text-sm leading-relaxed text-[#6B7280]">
+          Are you sure you want to delete this course? This action cannot be undone.
+        </p>
+      </AppModal>
     </>
   )
 }

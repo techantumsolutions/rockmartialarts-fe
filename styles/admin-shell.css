@@ -20,24 +20,27 @@ body:has([data-admin-shell]) {
   /* Core tokens */
   --admin-bg: #f7f8fc;
   --admin-surface: #ffffff;
-  --admin-title: #4f5077;
-  --admin-title-alt: #2f3153;
+  --admin-title: var(--brand-secondary, #4f5077);
+  --admin-title-alt: var(--brand-secondary, #2f3153);
   --admin-muted: #6b7a99;
   --admin-muted-soft: #9593a8;
   --admin-border: #e5e7eb;
   --admin-border-soft: rgba(229, 231, 235, 0.8);
-  --admin-primary: #e1bb33;
-  --admin-primary-hover: #d4ae2a;
+  --admin-primary: var(--brand-primary, #e1bb33);
+  --admin-primary-hover: var(--brand-gold-hover, #d4ae2a);
   --admin-primary-fg: #3d3e5c;
-  --admin-focus: rgba(225, 187, 51, 0.35);
+  --admin-focus: color-mix(in srgb, var(--brand-primary, #e1bb33) 35%, transparent);
   --admin-radius-field: 0.75rem;
   --admin-radius-card: 1rem;
   --admin-radius-btn: 0.75rem;
-  --admin-field-h: 2.75rem;
+  /* Global form field height — matches Edit Student soft controls */
+  --admin-field-h: 3.5rem;
+  --admin-field-bg: #f8fafc;
+  --admin-field-bg-disabled: #f1f5f9;
   --admin-content-max: none;
   --admin-content-pad: 15px;
   --admin-content-pad-lg: 20px;
-  --admin-gap: 1.25rem;
+  --admin-gap: 1rem;
   --admin-shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.04);
   --admin-shadow-card: 0 1px 3px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04);
 
@@ -55,12 +58,12 @@ body:has([data-admin-shell]) {
   --admin-tone-teal: #e6faf7;
   --admin-tone-teal-fg: #0d9488;
 
-  /* Remap shadcn primary inside admin → brand yellow */
-  --primary: #e1bb33;
+  /* Remap shadcn primary inside admin → platform brand */
+  --primary: var(--brand-primary, #e1bb33);
   --primary-foreground: #3d3e5c;
-  --ring: rgba(225, 187, 51, 0.45);
-  --brand-gold: #e1bb33;
-  --brand-dark: #4f5077;
+  --ring: color-mix(in srgb, var(--brand-primary, #e1bb33) 45%, transparent);
+  --brand-gold: var(--brand-primary, #e1bb33);
+  --brand-dark: var(--brand-secondary, #4f5077);
   --brand-muted: #9593a8;
   --brand-muted-alt: #6b7a99;
 
@@ -215,26 +218,129 @@ body:has([data-admin-shell]) {
   color: var(--admin-muted);
 }
 
-/* ─── Form controls ─── */
+/* ─── Form controls (global — every admin role/page) ─── */
 [data-admin-shell] input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not([type="range"]):not([type="color"]),
 [data-admin-shell] textarea,
 [data-admin-shell] select,
+[data-admin-shell] [data-slot="input"],
+[data-admin-shell] [data-slot="textarea"],
 [data-admin-shell] [data-slot="select-trigger"],
 [data-admin-shell] [data-radix-select-trigger],
 [data-admin-shell] button[role="combobox"] {
-  min-height: var(--admin-field-h);
+  height: var(--admin-field-h) !important;
+  min-height: var(--admin-field-h) !important;
+  width: 100%;
   border-radius: var(--admin-radius-field) !important;
-  border-color: var(--admin-border) !important;
-  background-color: var(--admin-surface) !important;
-  color: var(--admin-title);
-  font-size: 0.875rem;
-  box-shadow: var(--admin-shadow-sm);
+  border: 1px solid var(--admin-border) !important;
+  background-color: var(--admin-field-bg) !important;
+  color: var(--admin-title-alt) !important;
+  font-size: 0.9375rem !important;
+  line-height: 1.4;
+  box-shadow: none !important;
+  /* Do NOT force horizontal padding — icon fields need pl-10/pl-12 */
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
 }
 
-[data-admin-shell] textarea {
-  min-height: 5.5rem;
-  padding-top: 0.75rem;
-  padding-bottom: 0.75rem;
+[data-admin-shell] [data-slot="input"]:not([class*="pl-"]),
+[data-admin-shell] input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not([type="range"]):not([type="color"]):not([class*="pl-"]),
+[data-admin-shell] [data-slot="select-trigger"]:not([class*="pl-"]),
+[data-admin-shell] [data-radix-select-trigger]:not([class*="pl-"]),
+[data-admin-shell] button[role="combobox"]:not([class*="pl-"]) {
+  padding-left: 1rem !important;
+  padding-right: 1rem !important;
+}
+
+/* Leading icon fields — clear text past the icon (no overlap) */
+[data-admin-shell] .relative:has(> svg.absolute.left-3) > [data-slot="input"],
+[data-admin-shell] .relative:has(> svg.absolute.left-3) > input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+[data-admin-shell] .relative:has(> .absolute.left-3) > [data-slot="input"],
+[data-admin-shell] .relative:has(> .absolute.left-3) > input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+[data-admin-shell] .relative:has(> .absolute.left-3) > [data-slot="select-trigger"],
+[data-admin-shell] [data-slot="input"].pl-10,
+[data-admin-shell] input.pl-10,
+[data-admin-shell] [data-slot="select-trigger"].pl-10 {
+  padding-left: 2.75rem !important;
+}
+
+[data-admin-shell] .relative:has(> svg.absolute.left-4) > [data-slot="input"],
+[data-admin-shell] .relative:has(> svg.absolute.left-4) > input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+[data-admin-shell] .relative:has(> svg.absolute.left-4) > button,
+[data-admin-shell] .relative:has(> .absolute.left-4) > [data-slot="input"],
+[data-admin-shell] .relative:has(> .absolute.left-4) > input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+[data-admin-shell] .relative:has(> .absolute.left-4) > [data-slot="select-trigger"],
+[data-admin-shell] .relative:has(> .absolute.left-4) > button,
+[data-admin-shell] [data-slot="input"].pl-12,
+[data-admin-shell] input.pl-12,
+[data-admin-shell] button.pl-12,
+[data-admin-shell] [data-slot="select-trigger"].pl-12,
+[data-admin-shell] [data-slot="select-trigger"][class*="pl-12"] {
+  padding-left: 3.25rem !important;
+}
+
+/* Trailing password / clear icons */
+[data-admin-shell] .relative:has(> button.absolute.right-1) > [data-slot="input"],
+[data-admin-shell] [data-slot="input"].pr-11,
+[data-admin-shell] input.pr-11 {
+  padding-right: 2.75rem !important;
+}
+
+[data-admin-shell] textarea,
+[data-admin-shell] [data-slot="textarea"] {
+  height: auto !important;
+  min-height: 6.5rem !important;
+  padding: 0.875rem 1rem !important;
+  resize: vertical;
+}
+
+[data-admin-shell] [data-slot="select-trigger"],
+[data-admin-shell] [data-radix-select-trigger],
+[data-admin-shell] button[role="combobox"] {
+  display: inline-flex !important;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Flex toolbar rows (non-grid): keep selects side-by-side */
+[data-admin-shell] form.admin-filter-form > *,
+[data-admin-shell] form.flex > *:not(.flex-1):not([class*="flex-1"]),
+[data-admin-shell] form.flex [data-slot="select-trigger"],
+[data-admin-shell] form.flex [data-radix-select-trigger],
+[data-admin-shell] form.flex button[role="combobox"],
+[data-admin-shell] .flex.flex-wrap > [data-slot="select-trigger"],
+[data-admin-shell] .flex.flex-wrap [data-slot="select-trigger"],
+[data-admin-shell] .flex.flex-wrap [data-radix-select-trigger],
+[data-admin-shell] .flex.flex-wrap button[role="combobox"] {
+  width: auto !important;
+  min-width: 9.5rem;
+  max-width: 100%;
+  flex: 0 1 auto;
+}
+
+[data-admin-shell] form.flex .relative.flex-1,
+[data-admin-shell] form.flex .flex-1,
+[data-admin-shell] .flex.flex-wrap .relative.flex-1,
+[data-admin-shell] .flex.flex-wrap .flex-1 {
+  flex: 1 1 12rem !important;
+  min-width: 12rem;
+  width: auto !important;
+}
+
+[data-admin-shell] form.flex .relative.flex-1 > [data-slot="input"],
+[data-admin-shell] form.flex .flex-1 > [data-slot="input"],
+[data-admin-shell] .flex.flex-wrap .relative.flex-1 > [data-slot="input"] {
+  width: 100% !important;
+}
+
+[data-admin-shell] input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):disabled,
+[data-admin-shell] input:not([type="checkbox"]):not([type="radio"]):not([type="file"])[readonly],
+[data-admin-shell] textarea:disabled,
+[data-admin-shell] [data-slot="select-trigger"]:disabled {
+  background-color: var(--admin-field-bg-disabled) !important;
+  color: var(--admin-muted) !important;
+  cursor: not-allowed;
+  opacity: 1;
 }
 
 [data-admin-shell] input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
@@ -242,19 +348,46 @@ body:has([data-admin-shell]) {
 [data-admin-shell] textarea:focus,
 [data-admin-shell] textarea:focus-visible,
 [data-admin-shell] select:focus,
+[data-admin-shell] [data-slot="input"]:focus-visible,
+[data-admin-shell] [data-slot="textarea"]:focus-visible,
 [data-admin-shell] [data-slot="select-trigger"]:focus,
 [data-admin-shell] [data-slot="select-trigger"]:focus-visible,
 [data-admin-shell] button[role="combobox"]:focus {
   border-color: var(--admin-primary) !important;
   outline: none;
   box-shadow: 0 0 0 3px var(--admin-focus) !important;
+  background-color: #ffffff !important;
 }
 
 [data-admin-shell] label,
 [data-admin-shell] [data-slot="label"] {
-  color: var(--admin-muted);
-  font-size: 0.875rem;
-  font-weight: 500;
+  color: var(--admin-title) !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  margin-bottom: 0.5rem;
+}
+
+/* Form action buttons — match field height; compact table icons keep their own size */
+[data-admin-shell] button[data-slot="button"][data-variant="outline"]:not([data-size="icon"]):not([data-size="sm"]),
+[data-admin-shell] [data-slot="button"][data-variant="outline"]:not([data-size="icon"]):not([data-size="sm"]) {
+  height: var(--admin-field-h);
+  min-height: var(--admin-field-h);
+  border-radius: var(--admin-radius-btn) !important;
+  border-color: var(--admin-border) !important;
+  background-color: #ffffff !important;
+  color: var(--admin-title) !important;
+  font-weight: 600;
+  box-shadow: none !important;
+}
+
+[data-admin-shell] button[data-slot="button"][data-variant="default"]:not([data-size="icon"]):not([data-size="sm"]),
+[data-admin-shell] [data-slot="button"][data-variant="default"]:not([data-size="icon"]):not([data-size="sm"]) {
+  height: var(--admin-field-h);
+  min-height: var(--admin-field-h);
+  border-radius: var(--admin-radius-btn) !important;
+  background-color: var(--admin-primary) !important;
+  color: var(--admin-primary-fg) !important;
+  font-weight: 600;
 }
 
 [data-admin-shell] label .text-red-500,
@@ -276,19 +409,42 @@ body:has([data-admin-shell]) {
 }
 
 [data-admin-shell] [data-slot="card-header"] {
-  padding: 1.25rem 1.25rem 0.75rem;
+  padding: 15px 15px 8px !important;
 }
 
 [data-admin-shell] [data-slot="card-content"] {
-  padding: 1.25rem;
+  padding: 15px !important;
 }
 
+[data-admin-shell] .admin-card,
 [data-admin-shell] .admin-section {
   border-radius: var(--admin-radius-card);
   border: 1px solid var(--admin-border-soft);
   background: var(--admin-surface);
   box-shadow: var(--admin-shadow-card);
-  padding: 1.25rem;
+  padding: 15px !important;
+}
+
+/* Cap padded card interiors at 15px (override common Tailwind p-4/p-5/p-6/p-8) */
+[data-admin-shell] .admin-card.p-4,
+[data-admin-shell] .admin-card.p-5,
+[data-admin-shell] .admin-card.p-6,
+[data-admin-shell] .admin-card.p-8,
+[data-admin-shell] [data-slot="card"].p-4,
+[data-admin-shell] [data-slot="card"].p-5,
+[data-admin-shell] [data-slot="card"].p-6,
+[data-admin-shell] [data-slot="card"].p-8,
+[data-admin-shell] .rounded-xl.border.bg-white.p-4,
+[data-admin-shell] .rounded-xl.border.bg-white.p-5,
+[data-admin-shell] .rounded-xl.border.bg-white.p-6,
+[data-admin-shell] .rounded-2xl.border.bg-white.p-4,
+[data-admin-shell] .rounded-2xl.border.bg-white.p-5,
+[data-admin-shell] .rounded-2xl.border.bg-white.p-6 {
+  padding: 15px !important;
+}
+
+[data-admin-shell] [data-slot="card-header"] + [data-slot="card-content"] {
+  padding-top: 8px !important;
 }
 
 [data-admin-shell] .admin-kpi-grid {
@@ -343,15 +499,63 @@ body:has([data-admin-shell]) {
 }
 
 [data-admin-shell] .admin-filter-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 0.75rem;
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  align-items: end;
+  gap: 0.5rem 0.75rem;
   border-radius: var(--admin-radius-card);
   border: 1px solid var(--admin-border-soft);
   background: var(--admin-surface);
   box-shadow: var(--admin-shadow-sm);
-  padding: 1rem;
+  padding: 0.75rem;
+}
+
+[data-admin-shell] .admin-filter-bar > *,
+[data-admin-shell] .admin-filter-bar > form > * {
+  min-width: 0;
+  width: 100%;
+}
+
+/* Let <form> children participate in the parent grid row */
+[data-admin-shell] .admin-filter-bar > form {
+  display: contents;
+}
+
+[data-admin-shell] .admin-filter-bar .admin-filter-span-2 {
+  grid-column: span 2;
+}
+
+@media (min-width: 640px) {
+  [data-admin-shell] .admin-filter-bar .admin-filter-span-2 {
+    grid-column: span 2;
+  }
+}
+
+[data-admin-shell] .admin-filter-bar [data-slot="select-trigger"],
+[data-admin-shell] .admin-filter-bar [data-slot="input"],
+[data-admin-shell] .admin-filter-bar input:not([type="checkbox"]):not([type="radio"]) {
+  width: 100% !important;
+}
+
+[data-admin-shell] .admin-filter-bar .admin-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+[data-admin-shell] .admin-filter-bar--flat {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  padding: 0;
+}
+
+@media (min-width: 1024px) {
+  [data-admin-shell] .admin-filter-bar {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
 }
 
 /* ─── Tables ─── */
@@ -947,4 +1151,281 @@ body:has([data-admin-shell]) {
 }
 [data-admin-shell] .admin-quick-action:hover {
   background: #f8f9fc;
+}
+
+/* ─── Sticky form action bar (portaled to body; viewport-fixed) ─── */
+[data-admin-shell] .admin-page-with-sticky-actions {
+  padding-bottom: 6rem;
+}
+
+body.admin-has-sticky-form-actions [data-admin-shell] .admin-content-frame {
+  padding-bottom: 5.5rem;
+}
+
+.admin-sticky-form-actions {
+  position: fixed !important;
+  bottom: 0 !important;
+  left: var(--admin-sidebar-w, 0px);
+  right: 0;
+  z-index: 90;
+  border-top: 1px solid #e8eaf0;
+  background: #ffffff;
+  box-shadow: 0 -4px 24px rgba(15, 23, 42, 0.08);
+  padding: 0.75rem 1rem;
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-width: 1023px) {
+  .admin-sticky-form-actions {
+    left: 0 !important;
+  }
+}
+
+.admin-sticky-form-actions__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: none;
+  margin: 0 auto;
+  padding-left: max(0px, calc(var(--admin-content-pad, 1rem) - 0.25rem));
+  padding-right: max(0px, calc(var(--admin-content-pad, 1rem) - 0.25rem));
+}
+
+/* Status (or other controls) on the left of the sticky bar */
+.admin-sticky-form-actions__inner > .mr-auto {
+  margin-right: auto !important;
+}
+
+/* Bright text on dark surfaces (global) */
+[data-admin-shell] .bg-\[\#171A26\],
+[data-admin-shell] .bg-\[\#0f172a\],
+[data-admin-shell] .bg-\[\#1e293b\],
+[data-admin-shell] .bg-slate-900,
+[data-admin-shell] .bg-gray-900,
+[data-admin-shell] .bg-\[\#2F3153\],
+[data-admin-shell] [class*="bg-[#171A26]"],
+[data-admin-shell] .admin-dark-surface {
+  color: #ffffff !important;
+}
+
+[data-admin-shell] .bg-\[\#171A26\] :is(h1, h2, h3, h4, p, span, div, label, a, li, dt, dd),
+[data-admin-shell] .bg-slate-900 :is(h1, h2, h3, h4, p, span, div, label, a),
+[data-admin-shell] .bg-\[\#2F3153\] :is(h1, h2, h3, h4, p, span, div, label, a),
+[data-admin-shell] .admin-dark-surface :is(h1, h2, h3, h4, p, span, div, label, a) {
+  color: #ffffff !important;
+}
+
+[data-admin-shell] .bg-\[\#171A26\] .text-slate-300,
+[data-admin-shell] .bg-\[\#171A26\] .text-slate-400,
+[data-admin-shell] .bg-\[\#171A26\] .text-slate-500,
+[data-admin-shell] .bg-\[\#171A26\] .text-gray-400,
+[data-admin-shell] .bg-\[\#171A26\] .text-gray-500,
+[data-admin-shell] .admin-dark-surface .text-muted,
+[data-admin-shell] .admin-dark-surface .text-slate-300 {
+  color: #e2e8f0 !important;
+}
+
+/* Status pills on dark banners: keep light chip with dark readable text */
+[data-admin-shell] .bg-\[\#171A26\] .admin-status-on-dark,
+[data-admin-shell] .admin-dark-surface .admin-status-on-dark {
+  background: #ecfdf5 !important;
+  color: #047857 !important;
+}
+
+/* Overdue / warning pills: dark text on light amber for contrast */
+[data-admin-shell] .admin-status-overdue,
+[data-admin-shell] [data-status="overdue"],
+[data-admin-shell] .badge-overdue {
+  background: #fff7ed !important;
+  color: #9a3412 !important;
+  border: 1px solid #fdba74 !important;
+}
+
+/* ─── Dark surfaces: high-contrast foreground (admin only) ─── */
+[data-admin-shell] :is(
+    .bg-\[\#171A26\],
+    .bg-\[\#2F3153\],
+    .bg-\[\#4F5077\],
+    .bg-\[\#0f172a\],
+    .bg-\[\#1e293b\],
+    .bg-slate-900,
+    .bg-gray-900,
+    .bg-gray-900\/40,
+    .bg-gray-900\/50,
+    .bg-gray-900\/60,
+    .bg-gray-900\/70,
+    .bg-slate-900\/40,
+    .bg-slate-900\/50,
+    .bg-slate-900\/60
+  ):not(.admin-surface-light):not([data-admin-keep-light-text]) {
+  --admin-on-dark: #ffffff;
+  --admin-on-dark-muted: #cbd5e1;
+  color: var(--admin-on-dark);
+}
+
+[data-admin-shell] :is(
+    .bg-\[\#171A26\],
+    .bg-\[\#2F3153\],
+    .bg-\[\#4F5077\],
+    .bg-\[\#0f172a\],
+    .bg-\[\#1e293b\],
+    .bg-slate-900,
+    .bg-gray-900,
+    .bg-gray-900\/40,
+    .bg-gray-900\/50,
+    .bg-gray-900\/60,
+    .bg-gray-900\/70,
+    .bg-slate-900\/40,
+    .bg-slate-900\/50,
+    .bg-slate-900\/60
+  ):not(.admin-surface-light):not([data-admin-keep-light-text])
+  :is(h1, h2, h3, h4, h5, h6) {
+  color: var(--admin-on-dark) !important;
+}
+
+[data-admin-shell] :is(
+    .bg-\[\#171A26\],
+    .bg-\[\#2F3153\],
+    .bg-\[\#4F5077\],
+    .bg-\[\#0f172a\],
+    .bg-\[\#1e293b\],
+    .bg-slate-900,
+    .bg-gray-900,
+    .bg-gray-900\/40,
+    .bg-gray-900\/50,
+    .bg-gray-900\/60,
+    .bg-gray-900\/70,
+    .bg-slate-900\/40,
+    .bg-slate-900\/50,
+    .bg-slate-900\/60
+  ):not(.admin-surface-light):not([data-admin-keep-light-text])
+  :is(p, li, dt, dd, small, label, th, td) {
+  color: inherit;
+}
+
+[data-admin-shell] :is(
+    .bg-\[\#171A26\],
+    .bg-\[\#2F3153\],
+    .bg-\[\#4F5077\],
+    .bg-\[\#0f172a\],
+    .bg-\[\#1e293b\],
+    .bg-slate-900,
+    .bg-gray-900,
+    .bg-gray-900\/40,
+    .bg-gray-900\/50,
+    .bg-gray-900\/60,
+    .bg-gray-900\/70,
+    .bg-slate-900\/40,
+    .bg-slate-900\/50,
+    .bg-slate-900\/60
+  ):not(.admin-surface-light):not([data-admin-keep-light-text])
+  :is(
+    .text-muted-foreground,
+    .text-gray-500,
+    .text-gray-600,
+    .text-gray-700,
+    .text-slate-500,
+    .text-slate-600,
+    .text-slate-700,
+    .text-\[\#6B7A99\],
+    .text-\[\#4F5077\],
+    .text-\[\#171A26\],
+    .text-\[\#2F3153\],
+    .text-\[\#6B7280\]
+  ) {
+  color: var(--admin-on-dark-muted) !important;
+}
+
+[data-admin-shell] thead tr:is(.bg-\[\#4F5077\], .bg-\[\#2F3153\], .bg-\[\#171A26\], .bg-slate-900, .bg-gray-900) th {
+  color: #ffffff !important;
+  background-color: transparent !important;
+}
+
+[data-admin-shell] thead tr.bg-\[\#4F5077\] th {
+  background-color: #4f5077 !important;
+}
+
+/* Status pills on dark banners — light chip or bright outline, never dark-on-dark */
+[data-admin-shell] :is(
+    .bg-\[\#171A26\],
+    .bg-\[\#2F3153\],
+    .bg-\[\#4F5077\],
+    .bg-\[\#0f172a\],
+    .bg-\[\#1e293b\],
+    .bg-slate-900,
+    .bg-gray-900
+  )
+  :is(
+    .admin-status-active,
+    .admin-status-approved,
+    .admin-status-paid,
+    .admin-status-pending,
+    .admin-status-draft,
+    .admin-status-inactive,
+    .admin-status-rejected,
+    .admin-status-cancelled,
+    .admin-status-pill-on-dark,
+    [class*="rounded-full"][class*="bg-emerald-"],
+    [class*="rounded-full"][class*="bg-green-"],
+    [class*="rounded-full"][class*="bg-amber-"],
+    [class*="rounded-full"][class*="bg-orange-"],
+    [class*="rounded-full"][class*="bg-rose-"],
+    [class*="rounded-full"][class*="bg-red-"],
+    [class*="rounded-full"][class*="bg-slate-"],
+    [class*="rounded-full"][class*="bg-yellow-"]
+  ) {
+  color: inherit;
+}
+
+[data-admin-shell] :is(.bg-\[\#171A26\], .bg-\[\#2F3153\], .bg-\[\#4F5077\], .bg-slate-900, .bg-gray-900)
+  .admin-status-pill-on-dark {
+  backdrop-filter: blur(4px);
+}
+
+[data-admin-shell] :is(.bg-\[\#171A26\], .bg-\[\#2F3153\], .bg-\[\#4F5077\], .bg-slate-900, .bg-gray-900)
+  .admin-status-pill-on-dark--paid {
+  border: 1px solid rgba(110, 231, 183, 0.55);
+  background: rgba(255, 255, 255, 0.96);
+  color: #047857 !important;
+}
+
+[data-admin-shell] :is(.bg-\[\#171A26\], .bg-\[\#2F3153\], .bg-\[\#4F5077\], .bg-slate-900, .bg-gray-900)
+  .admin-status-pill-on-dark--pending {
+  border: 1px solid rgba(251, 191, 36, 0.55);
+  background: rgba(255, 255, 255, 0.96);
+  color: #92400e !important;
+}
+
+/* Pastel overdue / amber badges — always dark text on light fill */
+[data-admin-shell] :is(
+    .bg-orange-100,
+    .bg-orange-50,
+    .bg-amber-100,
+    .bg-amber-50,
+    [class*="bg-orange-100"],
+    [class*="bg-orange-50"],
+    [class*="bg-amber-100"],
+    [class*="bg-amber-50"]
+  ):not([class*="text-orange-8"]):not([class*="text-orange-9"]):not([class*="text-amber-8"]):not([class*="text-amber-9"]) {
+  color: #9a3412 !important;
+}
+
+[data-admin-shell] .bg-orange-100.text-orange-900,
+[data-admin-shell] .bg-orange-50.text-orange-800,
+[data-admin-shell] .bg-amber-100.text-amber-900,
+[data-admin-shell] .bg-amber-50.text-amber-800,
+[data-admin-shell] [class*="bg-orange-100"][class*="text-orange-9"],
+[data-admin-shell] [class*="bg-amber-100"][class*="text-amber-9"] {
+  color: #7c2d12 !important;
+}
+
+/* Mid orange/amber solids with white text → darker fill for WCAG */
+[data-admin-shell] :is(.bg-orange-500, .bg-orange-600, .bg-amber-500, .bg-amber-600).text-white,
+[data-admin-shell] :is([class*="bg-orange-500"], [class*="bg-orange-600"], [class*="bg-amber-500"], [class*="bg-amber-600"])[class*="text-white"] {
+  background-color: #c2410c !important;
+  color: #ffffff !important;
+  border-color: transparent;
 }

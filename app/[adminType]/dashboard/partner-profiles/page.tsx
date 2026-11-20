@@ -35,12 +35,14 @@ import {
   AdminPageShell,
   AdminStatusPill,
   AdminTableShell,
+  adminFilterSearchClass,
 } from "@/components/dashboard/AdminPageShell"
 import {
   PartnerProfileAdminControls,
   formatPartnerValidityRange,
 } from "@/components/dashboard/PartnerProfileAdminControls"
 import { cn } from "@/lib/utils"
+import { ADMIN_LIST_PAGE_SIZE } from "@/lib/adminListConfig"
 
 type StatusFilter = "all" | "active" | "invited" | "disabled"
 
@@ -55,6 +57,7 @@ export default function PartnerProfilesPage() {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
 
   const load = useCallback(async () => {
     if (!TokenManager.isAuthenticated()) {
@@ -106,6 +109,17 @@ export default function PartnerProfilesPage() {
       return hay.includes(q)
     })
   }, [partners, search, statusFilter])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ADMIN_LIST_PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const pageStart = (safePage - 1) * ADMIN_LIST_PAGE_SIZE
+  const pageRows = filtered.slice(pageStart, pageStart + ADMIN_LIST_PAGE_SIZE)
+  const rangeFrom = filtered.length === 0 ? 0 : pageStart + 1
+  const rangeTo = Math.min(pageStart + ADMIN_LIST_PAGE_SIZE, filtered.length)
+
+  useEffect(() => {
+    setPage(1)
+  }, [search, statusFilter])
 
   function patchPartner(next: PartnerOrg) {
     setPartners((prev) => prev.map((row) => (row.id === next.id ? { ...row, ...next } : row)))
@@ -214,25 +228,28 @@ export default function PartnerProfilesPage() {
       </AdminKpiGrid>
 
       <AdminCard padding={false}>
-        <div className="flex flex-col gap-3 border-b border-[#E2E8F0] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="border-b border-[#E2E8F0] px-4 py-3 sm:px-5">
           <h2 className="text-[15px] font-semibold text-[#171A26]">
             Partners ({filtered.length})
           </h2>
-          <AdminFilterBar className="w-full sm:w-auto sm:justify-end">
-            <div className="relative min-w-[220px] flex-1 sm:max-w-xs">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#64748B]" />
+        </div>
+
+        <div className="space-y-3 px-4 pb-3 pt-3 sm:px-5">
+          <AdminFilterBar flat>
+            <div className={adminFilterSearchClass}>
+              <Search className="pointer-events-none absolute left-3 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 text-[#64748B]" />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search by partner name, email or mobile..."
-                className="h-10 pl-9"
+                className="pl-9"
               />
             </div>
             <Select
               value={statusFilter}
               onValueChange={(v) => setStatusFilter(v as StatusFilter)}
             >
-              <SelectTrigger className="h-10 w-[150px]">
+              <SelectTrigger>
                 <SelectValue placeholder="All Statuses" />
               </SelectTrigger>
               <SelectContent>
@@ -245,7 +262,7 @@ export default function PartnerProfilesPage() {
           </AdminFilterBar>
         </div>
 
-        <div className="p-2.5 sm:p-3 xl:p-5">
+        <div className="p-2.5 sm:p-3 xl:px-5 xl:pb-5">
           {loading ? (
             <div className="flex items-center justify-center gap-2 py-12 text-sm text-[#64748B]">
               <Loader2 className="h-4 w-4 animate-spin" /> Loading partners…
@@ -275,9 +292,37 @@ export default function PartnerProfilesPage() {
             <AdminTableShell
               className="admin-table-fit-wrap"
               footer={
-                <span>
-                  Showing {filtered.length} of {partners.length} partners
-                </span>
+                <>
+                  <span>
+                    Showing {rangeFrom}–{rangeTo} of {filtered.length}
+                    {filtered.length !== partners.length ? ` (${partners.length} total)` : ""}
+                  </span>
+                  {totalPages > 1 ? (
+                    <nav className="admin-pagination flex flex-wrap items-center gap-2" aria-label="Pagination">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={safePage <= 1}
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      >
+                        Previous
+                      </Button>
+                      <span className="text-xs text-[#64748B]">
+                        Page {safePage} of {totalPages}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={safePage >= totalPages}
+                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      >
+                        Next
+                      </Button>
+                    </nav>
+                  ) : null}
+                </>
               }
             >
               <table className="w-full min-w-[820px] lg:min-w-0 lg:table-fixed admin-table-fit">
@@ -295,7 +340,7 @@ export default function PartnerProfilesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((p) => {
+                  {pageRows.map((p) => {
                     const enabled = p.is_active !== false && p.status !== "disabled"
                     const loginPath = p.login_path || (p.slug ? `/partners/${p.slug}/login` : "")
                     const isOpen = expandedId === p.id

@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { format } from "date-fns"
 import {
   ArrowLeft,
-  CalendarIcon,
   Download,
   Search,
   Filter,
@@ -19,9 +18,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { Badge } from "@/components/ui/badge"
+import {
+  AdminCard,
+  AdminFilterBar,
+  adminFilterSearchClass,
+  adminPrimaryBtnClass,
+} from "@/components/dashboard/AdminPageShell"
 import { toast } from "sonner"
 import { getBackendApiUrl } from "@/lib/config"
 import { TokenManager } from "@/lib/tokenManager"
@@ -119,8 +122,6 @@ export default function AttendanceReportsPage() {
 
   const [students, setStudents] = useState<StudentOption[]>([])
   const [branches, setBranches] = useState<BranchOption[]>([])
-  const [startOpen, setStartOpen] = useState(false)
-  const [endOpen, setEndOpen] = useState(false)
 
   const getToken = () => TokenManager.getToken() || BranchManagerAuth.getToken()
 
@@ -150,7 +151,7 @@ export default function AttendanceReportsPage() {
       if (branchesRes.ok) {
         const data = await branchesRes.json()
         let raw = data.branches || data || []
-        // Rock SA/BM only: hide partner / collaboration branches from the filter.
+        // Rock SA/BM only: hide partner / collaboration academies from the filter.
         if (!isPartnerAdmin) {
           raw = raw.filter(
             (b: any) =>
@@ -286,8 +287,8 @@ export default function AttendanceReportsPage() {
   }
 
   return (
-    <main className="w-full p-4 lg:px-8 mx-auto max-w-6xl space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <main data-admin-shell className="w-full p-4 lg:px-8 mx-auto max-w-none space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <Button
             variant="ghost"
@@ -317,7 +318,7 @@ export default function AttendanceReportsPage() {
             CSV
           </Button>
           <Button
-            className="text-white"
+            className={adminPrimaryBtnClass}
             onClick={() => downloadExport("excel")}
             disabled={exporting || loading}
           >
@@ -354,164 +355,122 @@ export default function AttendanceReportsPage() {
         </div>
       ) : null}
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Filter className="h-4 w-4" />
-            Filters
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Record type</label>
-              <Select
-                value={selectedRecordType}
-                onValueChange={(v) =>
-                  setSelectedRecordType(v as "all" | "student" | "coach")
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All records" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All (students & coaches)</SelectItem>
-                  <SelectItem value="student">Students only</SelectItem>
-                  <SelectItem value="coach">Coaches only</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Start date</label>
-              <Popover open={startOpen} onOpenChange={setStartOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start font-normal">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(startDate, "PPP")}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
-                    mode="single"
-                    selected={startDate}
-                    onSelect={(d) => {
-                      if (d) setStartDate(d)
-                      setStartOpen(false)
-                    }}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">End date</label>
-              <Popover open={endOpen} onOpenChange={setEndOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start font-normal">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(endDate, "PPP")}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
-                    mode="single"
-                    selected={endDate}
-                    onSelect={(d) => {
-                      if (d) setEndDate(d)
-                      setEndOpen(false)
-                    }}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Student</label>
-              <Select
-                value={selectedStudent}
-                onValueChange={setSelectedStudent}
-                disabled={selectedRecordType === "coach"}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All students" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All students</SelectItem>
-                  {students.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {studentLabel(s)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Branch</label>
-              <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All branches" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All branches</SelectItem>
-                  {branches.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      {b.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Status</label>
-              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All statuses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value="present">Present</SelectItem>
-                  <SelectItem value="absent">Absent</SelectItem>
-                  <SelectItem value="late">Late</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Method</label>
-              <Select value={selectedMethod} onValueChange={setSelectedMethod}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All methods" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All methods</SelectItem>
-                  <SelectItem value="biometric">Biometric</SelectItem>
-                  <SelectItem value="manual">Manual</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      <AdminCard className="py-3">
+        <div className="mb-2 flex items-center gap-2 px-1">
+          <Filter className="h-4 w-4 text-[#6B7280]" />
+          <h2 className="text-sm font-semibold text-[#2F3153]">Filters</h2>
+        </div>
+        <AdminFilterBar flat className="!p-0">
+          <Select
+            value={selectedRecordType}
+            onValueChange={(v) => setSelectedRecordType(v as "all" | "student" | "coach")}
+          >
+            <SelectTrigger className="h-10 w-full bg-white">
+              <SelectValue placeholder="Record type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All records</SelectItem>
+              <SelectItem value="student">Students only</SelectItem>
+              <SelectItem value="coach">Coaches only</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input
+            type="date"
+            aria-label="Start date"
+            value={format(startDate, "yyyy-MM-dd")}
+            onChange={(e) => {
+              const next = new Date(e.target.value)
+              if (!Number.isNaN(next.getTime())) setStartDate(next)
+            }}
+            className="h-10 bg-white"
+          />
+          <Input
+            type="date"
+            aria-label="End date"
+            value={format(endDate, "yyyy-MM-dd")}
+            onChange={(e) => {
+              const next = new Date(e.target.value)
+              if (!Number.isNaN(next.getTime())) setEndDate(next)
+            }}
+            className="h-10 bg-white"
+          />
+          <Select
+            value={selectedStudent}
+            onValueChange={setSelectedStudent}
+            disabled={selectedRecordType === "coach"}
+          >
+            <SelectTrigger className="h-10 w-full bg-white">
+              <SelectValue placeholder="Student" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All students</SelectItem>
+              {students.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {studentLabel(s)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+            <SelectTrigger className="h-10 w-full bg-white">
+              <SelectValue placeholder="Academy" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All branches</SelectItem>
+              {branches.map((b) => (
+                <SelectItem key={b.id} value={b.id}>
+                  {b.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+            <SelectTrigger className="h-10 w-full bg-white">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="present">Present</SelectItem>
+              <SelectItem value="absent">Absent</SelectItem>
+              <SelectItem value="late">Late</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={selectedMethod} onValueChange={setSelectedMethod}>
+            <SelectTrigger className="h-10 w-full bg-white">
+              <SelectValue placeholder="Method" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All methods</SelectItem>
+              <SelectItem value="biometric">Biometric</SelectItem>
+              <SelectItem value="manual">Manual</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className={adminFilterSearchClass}>
+            <Search className="pointer-events-none absolute left-3 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 text-[#6B7280]" />
+            <Input
+              className="h-10 pl-10 bg-white"
+              placeholder="Search name, course, or academy…"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
-          <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input
-                className="pl-9"
-                placeholder="Search name, course, or branch…"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
+          <div className="admin-filter-actions">
             <Button
-              className="text-white"
+              type="button"
+              className={adminPrimaryBtnClass}
               onClick={fetchReports}
               disabled={loading}
             >
               {loading ? (
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                <Filter className="h-4 w-4 mr-1" />
+                <Filter className="mr-2 h-4 w-4" />
               )}
-              Apply filters
+              Apply
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </AdminFilterBar>
+      </AdminCard>
 
       <Card>
         <CardHeader className="pb-2">
@@ -542,7 +501,7 @@ export default function AttendanceReportsPage() {
                     <th className="py-2 pr-3 font-medium">Date</th>
                     <th className="py-2 pr-3 font-medium">Name</th>
                     <th className="py-2 pr-3 font-medium">Course</th>
-                    <th className="py-2 pr-3 font-medium">Branch</th>
+                    <th className="py-2 pr-3 font-medium">Academy</th>
                     <th className="py-2 pr-3 font-medium">Status</th>
                     <th className="py-2 pr-3 font-medium">Check-in</th>
                     <th className="py-2 pr-3 font-medium">Check-out</th>

@@ -18,7 +18,11 @@ import { useRouter, useParams } from "next/navigation"
 import Header from "@/components/layout/Header"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { getActiveBranchId } from "@/lib/activeBranch"
+import { AppModal } from "@/components/ui/AppModal"
 import BranchSelectionField from "@/components/layout/BranchSelectionField"
+import { StudentPhotoUploader } from "@/components/students/StudentPhotoUploader"
+import { TokenManager } from "@/lib/tokenManager"
+import { AdminStickyFormActions } from "@/components/dashboard/AdminStickyFormActions"
 
 interface Branch {
   id: string
@@ -77,9 +81,13 @@ export default function BranchManagerEditStudent() {
 
   // Form state
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+
   const [errors, setErrors] = useState<FormErrors>({})
   const [selectedDate, setSelectedDate] = useState<Date>()
   const [joiningDate, setJoiningDate] = useState<Date>()
+
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState("")
+  const getEditAuthToken = () => BranchManagerAuth.getToken() || TokenManager.getToken()
 
   const [formData, setFormData] = useState({
     // Personal Information
@@ -134,7 +142,7 @@ export default function BranchManagerEditStudent() {
     { id: "lifetime", name: "Lifetime" }
   ]
 
-  // Fetch student, branches and courses data
+  // Fetch student, academies and courses data
   useEffect(() => {
     const fetchData = async () => {
       if (!studentId) return
@@ -185,11 +193,8 @@ export default function BranchManagerEditStudent() {
             }
           })(),
 
-          // Load branches - will be loaded dynamically when location is selected
-          (async () => {
-            setIsLoadingBranches(false)
-            return []
-          })(),
+          // Branches load when location is selected (see location effect)
+          Promise.resolve([]),
 
           // Load courses
           (async () => {
@@ -288,12 +293,18 @@ export default function BranchManagerEditStudent() {
 
         console.log("Student data:", studentData)
         console.log("Available locations:", locationsData)
-        console.log("Available branches:", branchesData)
+        console.log("Available academies:", branchesData)
         console.log("Available categories:", categoriesData)
         console.log("Available courses:", coursesData)
         console.log("Mapped form data:", mappedFormData)
 
         setFormData(mappedFormData)
+        setProfilePhotoUrl(
+          studentData.profile_image ||
+            studentData.profile_photo ||
+            studentData.photo ||
+            ""
+        )
 
         if (studentData.date_of_birth) {
           setSelectedDate(new Date(studentData.date_of_birth))
@@ -323,7 +334,7 @@ export default function BranchManagerEditStudent() {
     }
   }, [formData.category, courses])
 
-  // Load branches when location changes
+  // Load academies when location changes
   useEffect(() => {
     const loadBranchesForLocation = async () => {
       if (!formData.location) {
@@ -338,11 +349,11 @@ export default function BranchManagerEditStudent() {
           const data = await response.json()
           setBranches(data.branches || [])
         } else {
-          console.error('Failed to load branches for location:', response.statusText)
+          console.error('Failed to load academyes for location:', response.statusText)
           setBranches([])
         }
       } catch (error) {
-        console.error('Error loading branches for location:', error)
+        console.error('Error loading academies for location:', error)
         setBranches([])
       }
     }
@@ -350,11 +361,11 @@ export default function BranchManagerEditStudent() {
     loadBranchesForLocation()
   }, [formData.location])
 
-  // Clear branch selection when location changes
+  // Clear academy selection when location changes
   useEffect(() => {
     if (headerBranchId) return
     if (formData.branch && formData.location) {
-      // Check if current branch is still valid for the selected location
+      // Check if current academy is still valid for the selected location
       const branchExists = branches.find(branch => branch.id === formData.branch)
       if (!branchExists) {
         setFormData(prev => ({ ...prev, branch: "" }))
@@ -370,7 +381,7 @@ export default function BranchManagerEditStudent() {
     if (!formData.gender) newErrors.gender = "Gender is required"
     if (!formData.dob) newErrors.dob = "Date of birth is required"
     if (!formData.location) newErrors.location = "Location is required"
-    if (!headerBranchId && !formData.branch) newErrors.branch = "Branch is required"
+    if (!headerBranchId && !formData.branch) newErrors.branch = "Academy is required"
     if (!formData.course) newErrors.course = "Course is required"
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Please enter a valid email address"
@@ -496,7 +507,7 @@ export default function BranchManagerEditStudent() {
               <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Student</h2>
               <p className="text-gray-600 mb-4">{errors.submit}</p>
               <div className="space-x-4">
-                <Button onClick={() => window.location.reload()} className="bg-yellow-400 hover:bg-yellow-500 text-black">
+                <Button onClick={() => window.location.reload()} className="">
                   Try Again
                 </Button>
                 <Button onClick={() => router.push("/branch-manager-dashboard/students")} variant="outline">
@@ -530,13 +541,17 @@ export default function BranchManagerEditStudent() {
         </div>
 
         {isLoading ? (
-          <div className="bg-white rounded-2xl shadow-sm border p-8 text-center">
+          <div className="relative z-[1] bg-white rounded-2xl border border-[#E8EAF0] shadow-[0_24px_80px_rgba(15,23,42,0.28)] shadow-sm border p-8 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto"></div>
             <p className="mt-4 text-gray-600">Loading student data...</p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-            <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-8">
+          <div className="relative z-[1] bg-white rounded-2xl border border-[#E8EAF0] shadow-[0_24px_80px_rgba(15,23,42,0.28)] shadow-sm border border-gray-200 overflow-hidden">
+            <form
+              id="bm-student-edit-form"
+              onSubmit={handleSubmit}
+              className="admin-page-with-sticky-actions p-6 sm:p-8 space-y-8"
+            >
               {errors.submit && (
                 <div className="bg-red-50 border border-red-200 rounded-xl p-4">
                   <p className="text-red-600 font-medium">{errors.submit}</p>
@@ -546,6 +561,16 @@ export default function BranchManagerEditStudent() {
               <div className="space-y-8">
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-[#4D5077] border-b border-gray-200 pb-2">Personal Information</h3>
+                  <StudentPhotoUploader
+                    studentId={studentId}
+                    getToken={getEditAuthToken}
+                    photoUrl={profilePhotoUrl}
+                    onUploaded={(result) => {
+                      setProfilePhotoUrl(
+                        `${result.profile_image}?v=${Date.now()}`
+                      )
+                    }}
+                  />
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 text-[#7F8592]">
 
                     <div>
@@ -786,7 +811,7 @@ export default function BranchManagerEditStudent() {
                     </div>
 
                     <div>
-                      <Label className="block text-sm font-medium mb-2">Branch <span className="text-red-500">*</span></Label>
+                      <Label className="block text-sm font-medium mb-2">Academy <span className="text-red-500">*</span></Label>
                       <BranchSelectionField
                         id="branch"
                         branchName={selectedManagerBranch?.name}
@@ -801,62 +826,70 @@ export default function BranchManagerEditStudent() {
                 </div>
               </div>
 
-              <div className="pt-6 border-t border-gray-200">
-                <div className="flex flex-col sm:flex-row gap-4 justify-center sm:justify-start">
-                  <Button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full sm:w-auto h-12 bg-yellow-400 hover:bg-yellow-500 text-white font-semibold px-8 rounded-xl"
-                  >
-                    {isSubmitting ? (
-                      <div className="flex items-center">
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-black mr-3"></div>
-                        Updating Student...
-                      </div>
-                    ) : (
-                      "Save Changes"
-                    )}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => router.push("/branch-manager-dashboard/students")}
-                    disabled={isSubmitting}
-                    className="w-full sm:w-auto h-12 px-8 rounded-xl font-medium border-gray-300"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
             </form>
+
+            <AdminStickyFormActions>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.push("/branch-manager-dashboard/students")}
+                disabled={isSubmitting}
+                className="h-12 px-8 rounded-xl font-medium border-gray-300"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                form="bm-student-edit-form"
+                disabled={isSubmitting}
+                className="h-12 font-semibold px-8 rounded-xl"
+              >
+                {isSubmitting ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-black mr-3"></div>
+                    Updating Student...
+                  </div>
+                ) : (
+                  "Save Changes"
+                )}
+              </Button>
+            </AdminStickyFormActions>
           </div>
         )}
       </main>
 
-      {showSuccessPopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Student Updated!</h3>
-              <p className="text-gray-600 mb-8 text-lg">The student details have been successfully updated.</p>
-              <Button
-                onClick={() => {
-                  setShowSuccessPopup(false)
-                  router.push("/branch-manager-dashboard/students")
-                }}
-                className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-3 rounded-xl"
-              >
-                OK
-              </Button>
-            </div>
+      <AppModal
+        open={showSuccessPopup}
+        onClose={() => {
+          setShowSuccessPopup(false)
+          router.push("/branch-manager-dashboard/students")
+        }}
+        title="Student Updated!"
+        size="sm"
+        centered
+        header={
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+            <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+            </svg>
           </div>
-        </div>
-      )}
+        }
+        footer={
+          <Button
+            onClick={() => {
+              setShowSuccessPopup(false)
+              router.push("/branch-manager-dashboard/students")
+            }}
+            className="w-full bg-[#E1BB33] text-[#171A26] hover:bg-[#d4a82a] sm:w-auto sm:ml-auto"
+          >
+            OK
+          </Button>
+        }
+      >
+        <p className="text-center text-sm leading-relaxed text-[#6B7280]">
+          The student details have been successfully updated.
+        </p>
+      </AppModal>
     </div>
   )
 }

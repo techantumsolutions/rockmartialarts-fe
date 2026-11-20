@@ -316,7 +316,7 @@ export default function CoachAttendancePage() {
 
       const branchId = authResult.coach?.branch_id
       if (!branchId) {
-        setError("Coach is not assigned to any branch")
+        setError("Coach is not assigned to any academy")
         return
       }
 
@@ -398,15 +398,15 @@ export default function CoachAttendancePage() {
       const coachId = coach?.id || coach?._id
       const branchId = coach?.branch_id
       if (!coachId || !branchId) {
-        console.error("❌ No coach or branch ID found for coach")
-        setError("Coach information or branch is missing")
+        console.error("❌ No coach or academy ID found for coach")
+        setError("Coach information or academy is missing")
         setLoading(false)
         return
       }
 
-      console.log("🏢 Fetching coach assignments and branch attendance for:", branchId)
+      console.log("🏢 Fetching coach assignments and academy attendance for:", branchId)
 
-      // 1. Fetch coach assignments (courses and batches assigned to this coach in their branch)
+      // 1. Fetch coach assignments (courses and batches assigned to this coach in their academy)
       const assignments = await fetchCoachAssignments(token, coach)
       setCoachAssignments(assignments)
       console.log("📋 Coach assignments loaded for attendance:", assignments)
@@ -431,7 +431,7 @@ export default function CoachAttendancePage() {
       const rawStudents = attendanceData.students || []
       console.log("✅ ATTENDANCE PAGE: Raw students received from API:", rawStudents.length)
 
-      // 2. Filter students strictly by coach assignments (branch, assigned courses, and assigned batches)
+      // 2. Filter students strictly by coach assignments (academy, assigned courses, and assigned batches)
       const assignedStudents = filterStudentsForCoach(rawStudents, assignments)
       console.log(`✅ ATTENDANCE PAGE: Filtered to ${assignedStudents.length} assigned students`)
 
@@ -1241,8 +1241,8 @@ export default function CoachAttendancePage() {
                           : selectedCourse !== "all" || selectedBatch !== "all"
                           ? "No students found for the selected course or batch."
                           : coachAssignments && coachAssignments.courses.length === 0
-                          ? "You do not have any courses assigned in this branch yet. Please contact your administrator."
-                          : `No students found enrolled in your assigned courses and batches in this branch for ${format(selectedDate, "PPP")}.`}
+                          ? "You do not have any courses assigned in this academy yet. Please contact your administrator."
+                          : `No students found enrolled in your assigned courses and batches in this academy for ${format(selectedDate, "PPP")}.`}
                       </p>
                     </div>
                   ) : (
@@ -1369,7 +1369,7 @@ export default function CoachAttendancePage() {
                       </h3>
                       <p className="mt-1 text-sm text-gray-500 max-w-md mx-auto">
                         {coachAssignments && coachAssignments.courses.length === 0
-                          ? "You do not have any courses assigned in this branch yet. Please contact your administrator."
+                          ? "You do not have any courses assigned in this academy yet. Please contact your administrator."
                           : "No attendance records found for the selected date range. Try adjusting the dates or check if attendance was recorded during this period."}
                       </p>
                     </div>

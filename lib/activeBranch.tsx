@@ -123,9 +123,9 @@ function installActiveBranchFetch() {
           .then((text) => {
             if (
               text.includes("BRANCH_INACTIVE") ||
-              text.toLowerCase().includes("branch account is disabled")
+              text.toLowerCase().includes("academy account is disabled")
             ) {
-              window.dispatchEvent(new CustomEvent("bm-branch-inactive"))
+              window.dispatchEvent(new CustomEvent("bm-academy-inactive"))
             }
           })
           .catch(() => {})

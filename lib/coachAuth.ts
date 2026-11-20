@@ -99,19 +99,21 @@ export function checkCoachAuth(): CoachAuthResult {
       }
     }
 
-    // Validate that JWT token has required coach fields
+    // Validate that JWT token is a coach token.
+    // Never clear session for other roles (super_admin / branch_manager / student) —
+    // shared localStorage keys are used across dashboards.
     if (isValidJWT && tokenPayload) {
-      if (!tokenPayload.sub || !tokenPayload.role || tokenPayload.role !== 'coach') {
-        console.warn("⚠️ JWT token missing required coach fields:", {
+      const role = String(tokenPayload.role || "").toLowerCase().replace(/-/g, "_")
+      if (!tokenPayload.sub || role !== "coach") {
+        console.warn("⚠️ JWT token is not a coach session:", {
           hasSub: !!tokenPayload.sub,
-          role: tokenPayload.role
+          role: tokenPayload.role,
         })
-        clearCoachSession()
         return {
           isAuthenticated: false,
           coach: null,
           token: null,
-          error: 'Invalid coach token - missing required fields'
+          error: "Not a coach session",
         }
       }
     }

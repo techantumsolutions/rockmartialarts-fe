@@ -14,19 +14,27 @@ export function PartnerOrgSiteChrome({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (!slug) return
     let cancelled = false
-    fetch(
-      `/api/backend/partner-organizations/public/${encodeURIComponent(slug)}/landing`,
-      { cache: "no-store", headers: { Accept: "application/json" } }
-    )
-      .then(async (res) => (res.ok ? res.json() : null))
-      .then((payload) => {
-        if (!cancelled) setData(payload)
-      })
-      .catch(() => {
-        if (!cancelled) setData(null)
-      })
+    const load = () => {
+      fetch(
+        `/api/backend/partner-organizations/public/${encodeURIComponent(slug)}/landing`,
+        { cache: "no-store", headers: { Accept: "application/json" } }
+      )
+        .then(async (res) => (res.ok ? res.json() : null))
+        .then((payload) => {
+          if (!cancelled) setData(payload)
+        })
+        .catch(() => {
+          if (!cancelled) setData(null)
+        })
+    }
+    load()
+    const onFocus = () => load()
+    window.addEventListener("focus", onFocus)
+    document.addEventListener("visibilitychange", onFocus)
     return () => {
       cancelled = true
+      window.removeEventListener("focus", onFocus)
+      document.removeEventListener("visibilitychange", onFocus)
     }
   }, [slug])
 

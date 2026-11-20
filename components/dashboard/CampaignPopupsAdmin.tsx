@@ -221,7 +221,7 @@ export function CampaignPopupsAdmin() {
               an admin delay. Only enabled popups within their start–end dates are shown.
             </p>
           </div>
-          <Button type="button" onClick={openCreate} className="bg-yellow-400 hover:bg-yellow-500 text-white shrink-0">
+          <Button type="button" onClick={openCreate} className=" shrink-0">
             <Plus className="w-4 h-4 mr-1" />
             Create popup
           </Button>
@@ -373,7 +373,7 @@ export function CampaignPopupsAdmin() {
               <Input
                 value={form.location || ""}
                 onChange={(e) => patchForm({ location: e.target.value })}
-                placeholder="Branch / venue"
+                placeholder="Academy / venue"
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -436,7 +436,7 @@ export function CampaignPopupsAdmin() {
               type="button"
               onClick={() => void handleSave()}
               disabled={saving}
-              className="bg-yellow-400 hover:bg-yellow-500 text-white"
+              className=""
             >
               {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
               {editingId ? "Save changes" : "Create"}

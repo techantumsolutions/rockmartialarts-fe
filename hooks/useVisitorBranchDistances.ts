@@ -13,10 +13,14 @@ import {
 
 type Options = {
   branchIds: string[]
-  /** Auto-request location once when branches are ready (default true) */
+  /** Auto-request location when branches are ready (default true) */
   autoRequest?: boolean
 }
 
+/**
+ * Auto-fetches the visitor's latest location and branch distances.
+ * Re-reads location on mount and whenever the tab becomes visible again.
+ */
 export function useVisitorBranchDistances({ branchIds, autoRequest = true }: Options) {
   const [status, setStatus] = useState<GeoPermissionState>("idle")
   const [loading, setLoading] = useState(false)
@@ -26,7 +30,7 @@ export function useVisitorBranchDistances({ branchIds, autoRequest = true }: Opt
   const [nearestBranchId, setNearestBranchId] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const abortRef = useRef(0)
-  const autoStarted = useRef(false)
+  const inFlightRef = useRef(false)
 
   const ids = useMemo(
     () => Array.from(new Set(branchIds.filter(Boolean))),
@@ -46,10 +50,10 @@ export function useVisitorBranchDistances({ branchIds, autoRequest = true }: Opt
         if (token !== abortRef.current) return
         setById(distanceMapFromResponse(data))
         setNearestBranchId(data.nearest_branch_id || null)
+        setErrorMessage(null)
       } catch {
         if (token !== abortRef.current) return
-        /* keep previous labels; surface soft error */
-        setErrorMessage("Could not calculate distances. Try again.")
+        setErrorMessage("Could not calculate distances right now.")
       } finally {
         if (token === abortRef.current) setLoading(false)
       }
@@ -65,6 +69,8 @@ export function useVisitorBranchDistances({ branchIds, autoRequest = true }: Opt
       setErrorMessage("Location is not supported in this browser.")
       return
     }
+    if (inFlightRef.current) return
+    inFlightRef.current = true
     setLocating(true)
     setErrorMessage(null)
     setStatus("prompting")
@@ -76,10 +82,10 @@ export function useVisitorBranchDistances({ branchIds, autoRequest = true }: Opt
       const code = err instanceof Error ? err.message : "error"
       if (code === "denied") {
         setStatus("denied")
-        setErrorMessage("Location permission denied. You can still browse branches.")
+        setErrorMessage("Location permission denied. You can still browse academies.")
       } else if (code === "timeout") {
         setStatus("timeout")
-        setErrorMessage("Location request timed out. Try again.")
+        setErrorMessage("Location request timed out.")
       } else if (code === "unsupported") {
         setStatus("unsupported")
         setErrorMessage("Location is not supported in this browser.")
@@ -88,18 +94,33 @@ export function useVisitorBranchDistances({ branchIds, autoRequest = true }: Opt
         setErrorMessage("Location unavailable right now.")
       } else {
         setStatus("error")
-        setErrorMessage("Could not get your location. Try again.")
+        setErrorMessage("Could not get your location.")
       }
     } finally {
+      inFlightRef.current = false
       setLocating(false)
     }
   }, [])
 
+  // Auto-fetch latest location when branches are ready + whenever tab is focused again
   useEffect(() => {
-    if (!autoRequest || autoStarted.current) return
+    if (!autoRequest) return
     if (!idsKey) return
-    autoStarted.current = true
+
     void requestLocation()
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        void requestLocation()
+      }
+    }
+    document.addEventListener("visibilitychange", onVisible)
+    window.addEventListener("focus", onVisible)
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible)
+      window.removeEventListener("focus", onVisible)
+    }
   }, [autoRequest, idsKey, requestLocation])
 
   return {

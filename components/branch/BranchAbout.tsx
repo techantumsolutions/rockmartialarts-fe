@@ -8,7 +8,7 @@ interface BranchAboutProps {
 }
 
 /**
- * About the branch: description (if any), two-column layout with image.
+ * About the academy: description (if any), two-column layout with image.
  */
 export function BranchAbout({ branch, aboutImageUrl }: BranchAboutProps) {
   const name = getBranchName(branch)
@@ -28,7 +28,7 @@ export function BranchAbout({ branch, aboutImageUrl }: BranchAboutProps) {
             data-aos-offset="120"
           >
             <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">
-              About this branch
+              About this academy
             </p>
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
               {name}

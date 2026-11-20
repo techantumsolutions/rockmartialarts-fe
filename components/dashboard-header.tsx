@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ChevronDown, MoreVertical, Menu, Settings, User, LogOut, Building2 } from "lucide-react"
+import { ChevronDown, MoreVertical, Menu, Settings, User, LogOut } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuPortal } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { useRouter, usePathname } from "next/navigation"
@@ -11,6 +11,8 @@ import NotificationDropdown from "@/components/notification-dropdown"
 import { useDashboardBasePath, useDashboardRole } from "@/lib/useDashboardBasePath"
 import { getRoleLabel } from "@/lib/dashboard-config"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { usePlatformBranding } from "@/contexts/PlatformBrandingContext"
+import { getAcademyPoweredByLine } from "@/lib/portalIdentity"
 
 interface DashboardHeaderProps {
   currentPage?: string;
@@ -22,6 +24,7 @@ export default function DashboardHeader({ currentPage = "Dashboard" }: Dashboard
   const basePath = useDashboardBasePath();
   const role = useDashboardRole();
   const roleLabel = getRoleLabel(role);
+  const { logoUrl, platformShortName } = usePlatformBranding();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [profileImage, setProfileImage] = useState<string>("");
   const [branchName, setBranchName] = useState<string | null>(null);
@@ -47,7 +50,7 @@ export default function DashboardHeader({ currentPage = "Dashboard" }: Dashboard
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
-  // Branch name for branch admin (client-only)
+  // Academy name for academy admin (client-only)
   useEffect(() => {
     if (isBranchAdmin && typeof window !== "undefined") {
       const user = BranchManagerAuth.getCurrentUser();
@@ -78,12 +81,23 @@ export default function DashboardHeader({ currentPage = "Dashboard" }: Dashboard
         <div className="flex justify-between items-center h-auto gap-4">
           <div className="flex items-center space-x-2 flex-shrink-0">
             <div className="flex-shrink-0">
-              <img src="/logo.png" alt="Logo" data-placeholder="/placeholder.jpg" className="xl:w-[95px] w-[80px] h-auto" />
+              <img src={logoUrl || "/logo.png"} alt={platformShortName} data-placeholder="/placeholder.jpg" className="xl:w-[95px] w-[80px] h-auto" />
             </div>
             {isBranchAdmin && branchName && (
-              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200/80 text-amber-800">
-                <Building2 className="w-4 h-4 flex-shrink-0" />
-                <span className="text-sm font-medium truncate max-w-[180px]">{branchName}</span>
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200/80 text-amber-800">
+                <img
+                  src={logoUrl || "/logo.png"}
+                  alt=""
+                  className="h-7 w-7 rounded object-contain bg-white ring-1 ring-amber-200/80 flex-shrink-0"
+                />
+                <div className="min-w-0">
+                  <span className="block text-sm font-medium truncate max-w-[200px]">{branchName}</span>
+                  {getAcademyPoweredByLine() ? (
+                    <span className="block text-[10px] leading-tight text-amber-700/80 normal-case truncate">
+                      {getAcademyPoweredByLine()}
+                    </span>
+                  ) : null}
+                </div>
               </div>
             )}
 
@@ -97,12 +111,23 @@ export default function DashboardHeader({ currentPage = "Dashboard" }: Dashboard
                 <div className="flex flex-col h-full">
                   <div className="p-4 border-b border-gray-200/60">
                     <div className="flex items-center space-x-3">
-                      <img src="/logo.png" alt="Logo" data-placeholder="/placeholder.jpg" className="w-8 h-8" />
+                      <img src={logoUrl || "/logo.png"} alt={platformShortName} data-placeholder="/placeholder.jpg" className="w-8 h-8" />
                     </div>
                     {isBranchAdmin && branchName && (
                       <div className="flex items-center gap-2 mt-3 px-2 py-2 rounded-lg bg-amber-50 border border-amber-200/80 text-amber-800">
-                        <Building2 className="w-4 h-4 flex-shrink-0" />
-                        <span className="text-sm font-medium truncate">{branchName}</span>
+                        <img
+                          src={logoUrl || "/logo.png"}
+                          alt=""
+                          className="h-7 w-7 rounded object-contain bg-white ring-1 ring-amber-200/80 flex-shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <span className="block text-sm font-medium truncate">{branchName}</span>
+                          {getAcademyPoweredByLine() ? (
+                            <span className="block text-[10px] leading-tight text-amber-700/80 normal-case truncate">
+                              {getAcademyPoweredByLine()}
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -110,7 +135,7 @@ export default function DashboardHeader({ currentPage = "Dashboard" }: Dashboard
                     <div className="space-y-3">
                       <button onClick={() => handleMobileNavigation(basePath)} className={`w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100/80 text-sm font-medium transition-all duration-200 ${isActivePath(basePath) && pathname === basePath ? "bg-gradient-to-r from-yellow-50 to-yellow-100/50 text-[#E1BB33] border-l-3 border-[#E1BB33] shadow-sm" : "text-gray-700 hover:text-gray-900"}`}>Dashboard</button>
                       {!basePath.includes("branch-admin") && (
-                      <button onClick={() => handleMobileNavigation(`${basePath}/branches`)} className={`w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100/80 text-sm font-medium transition-all duration-200 ${isActivePath(`${basePath}/branches`) ? "bg-gradient-to-r from-yellow-50 to-yellow-100/50 text-[#E1BB33] border-l-3 border-[#E1BB33] shadow-sm" : "text-gray-700 hover:text-gray-900"}`}>Branches</button>
+                      <button onClick={() => handleMobileNavigation(`${basePath}/branches`)} className={`w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100/80 text-sm font-medium transition-all duration-200 ${isActivePath(`${basePath}/branches`) ? "bg-gradient-to-r from-yellow-50 to-yellow-100/50 text-[#E1BB33] border-l-3 border-[#E1BB33] shadow-sm" : "text-gray-700 hover:text-gray-900"}`}>Academies</button>
                       )}
                       <button onClick={() => handleMobileNavigation(`${basePath}/coaches`)} className={`w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100/80 text-sm font-medium transition-all duration-200 ${isActivePath(`${basePath}/coaches`) ? "bg-gradient-to-r from-yellow-50 to-yellow-100/50 text-[#E1BB33] border-l-3 border-[#E1BB33] shadow-sm" : "text-gray-700 hover:text-gray-900"}`}>Coachs</button>
                       <button onClick={() => handleMobileNavigation(`${basePath}/students`)} className={`w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100/80 text-sm font-medium transition-all duration-200 ${isActivePath(`${basePath}/students`) ? "bg-gradient-to-r from-yellow-50 to-yellow-100/50 text-[#E1BB33] border-l-3 border-[#E1BB33] shadow-sm" : "text-gray-700 hover:text-gray-900"}`}>Students</button>
@@ -137,7 +162,7 @@ export default function DashboardHeader({ currentPage = "Dashboard" }: Dashboard
             <nav className="hidden lg:flex items-center space-x-2 xl:space-x-3 2xl:space-x-4">
               <button onClick={() => router.push(basePath)} className={`pb-2 px-1 text-sm font-semibold whitespace-nowrap cursor-pointer transition-all duration-300 hover:scale-105 ${pathname === basePath ? "text-[#E1BB33]" : "text-gray-600 hover:text-gray-900"}`}>Dashboard</button>
               {!basePath.includes("branch-admin") && (
-              <button onClick={() => router.push(`${basePath}/branches`)} className={`pb-2 px-1 text-sm font-semibold whitespace-nowrap cursor-pointer transition-all duration-300 hover:scale-105 ${isActivePath(`${basePath}/branches`) ? "text-[#E1BB33]" : "text-gray-600 hover:text-gray-900"}`}>Branches</button>
+              <button onClick={() => router.push(`${basePath}/branches`)} className={`pb-2 px-1 text-sm font-semibold whitespace-nowrap cursor-pointer transition-all duration-300 hover:scale-105 ${isActivePath(`${basePath}/branches`) ? "text-[#E1BB33]" : "text-gray-600 hover:text-gray-900"}`}>Academies</button>
               )}
               <button onClick={() => router.push(`${basePath}/coaches`)} className={`pb-2 px-1 text-sm font-semibold whitespace-nowrap cursor-pointer transition-all duration-300 hover:scale-105 ${isActivePath(`${basePath}/coaches`) ? "text-[#E1BB33]" : "text-gray-600 hover:text-gray-900"}`}>Coachs</button>
               <button onClick={() => router.push(`${basePath}/students`)} className={`pb-2 px-1 text-sm font-semibold whitespace-nowrap cursor-pointer transition-all duration-300 hover:scale-105 ${isActivePath(`${basePath}/students`) ? "text-[#E1BB33]" : "text-gray-600 hover:text-gray-900"}`}>Students</button>

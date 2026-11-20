@@ -500,7 +500,7 @@ function ChatContent() {
           <div className="space-y-1">
             <h3 className="text-lg font-bold text-foreground">No Active Coach Chats Yet</h3>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Live chat unlocks automatically as soon as an academy coach is assigned to your training request.
+              Live chat unlocks automatically as soon as an branch coach is assigned to your training request.
             </p>
           </div>
           <div className="pt-2 flex justify-center gap-2">

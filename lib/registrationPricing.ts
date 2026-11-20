@@ -1,5 +1,5 @@
 /**
- * Derive display / estimate amounts from branch course payload
+ * Derive display / estimate amounts from academy course payload
  * (GET /api/courses/public/by-branch/:id shape).
  */
 

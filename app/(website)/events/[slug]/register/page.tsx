@@ -8,7 +8,16 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   academyEventAPI,
+  batchesFromLegacyEvent,
+  formatAcademyEventBatchWhen,
   formatEventFee,
   type AcademyEvent,
   type AcademyEventRegistrationField,
@@ -102,6 +111,7 @@ export default function EventRegisterPage() {
     null
   )
   const [pending, setPending] = useState<AcademyEventRegistration | null>(null)
+  const [batchId, setBatchId] = useState("")
 
   const fields: AcademyEventRegistrationField[] = useMemo(() => {
     const raw = event?.registration_fields
@@ -146,6 +156,21 @@ export default function EventRegisterPage() {
       },
     ]
   }, [event])
+
+  const timeSlots = useMemo(() => {
+    if (!event) return []
+    return event.batches?.length ? event.batches : batchesFromLegacyEvent(event)
+  }, [event])
+
+  const mustPickBatch = timeSlots.length > 1
+
+  useEffect(() => {
+    if (timeSlots.length === 1) {
+      setBatchId(timeSlots[0].id)
+    } else if (timeSlots.length === 0) {
+      setBatchId("")
+    }
+  }, [timeSlots])
 
   useEffect(() => {
     if (!slug) return
@@ -277,6 +302,11 @@ export default function EventRegisterPage() {
     setTouched(allTouched)
     setFieldErrors(errors)
 
+    if (mustPickBatch && !batchId.trim()) {
+      setError("Please select a time slot for this event.")
+      return
+    }
+
     if (Object.keys(errors).length > 0) {
       const firstError = Object.values(errors)[0]
       setError(firstError || "Please fill in the required fields correctly.")
@@ -295,6 +325,7 @@ export default function EventRegisterPage() {
         participant_email: form.participant_email.trim() || undefined,
         participant_age: age && !Number.isNaN(age) ? age : undefined,
         notes: form.notes.trim() || undefined,
+        batch_id: batchId.trim() || undefined,
         source: "website",
       })
       if (result.payment_required) {
@@ -316,8 +347,8 @@ export default function EventRegisterPage() {
 
   if (confirmed) {
     return (
-      <main className="min-h-screen">
-        <section className="py-16 md:py-24">
+      <main className="min-h-screen pt-24 md:pt-28">
+        <section className="py-10 md:py-16">
           <div className="container mx-auto px-4 max-w-xl">
             <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center space-y-4">
               <CheckCircle2 className="w-14 h-14 text-[#FFB70F] mx-auto" />
@@ -367,12 +398,12 @@ export default function EventRegisterPage() {
   }
 
   return (
-    <main className="min-h-screen">
+    <main className="min-h-screen pt-24 md:pt-28">
       <section className="py-10 md:py-16">
         <div className="container mx-auto px-4 max-w-xl space-y-6">
           <Link
             href={event?.slug ? `/events/${event.slug}` : "/events"}
-            className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-[#FFB70F]"
+            className="relative z-10 inline-flex items-center gap-2 rounded-lg px-1 py-2 text-sm text-gray-300 hover:text-[#FFB70F]"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to event
@@ -433,6 +464,32 @@ export default function EventRegisterPage() {
                 </div>
               ) : null}
               <form onSubmit={onSubmit} noValidate className="space-y-5">
+                {mustPickBatch ? (
+                  <div className="space-y-2">
+                    <Label className="block text-sm font-semibold text-gray-200 tracking-wide">
+                      Time slot
+                      <span className="text-[#FFB70F] ml-1 font-bold" title="Required">
+                        *
+                      </span>
+                    </Label>
+                    <Select value={batchId || undefined} onValueChange={setBatchId}>
+                      <SelectTrigger className="h-12 rounded-xl bg-gray-950/70 border-gray-700/80 text-white">
+                        <SelectValue placeholder="Choose a date and time" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {timeSlots.map((batch) => (
+                          <SelectItem key={batch.id} value={batch.id}>
+                            {formatAcademyEventBatchWhen(batch)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : timeSlots.length === 1 ? (
+                  <p className="text-sm text-gray-400 rounded-lg border border-gray-800 bg-gray-950/40 px-3 py-2">
+                    Schedule: {formatAcademyEventBatchWhen(timeSlots[0])}
+                  </p>
+                ) : null}
                 {fields.map((f) => {
                   const value = (form as Record<string, string>)[f.key] || ""
                   const hasErr = !!(touched[f.key] && fieldErrors[f.key])

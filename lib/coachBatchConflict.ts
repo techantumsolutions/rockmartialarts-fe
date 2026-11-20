@@ -200,7 +200,7 @@ export async function fetchCoachAssignedBatches(
           id: String(b.id || b.batch_id || `${c.id || 'c'}_batch_${index}`).trim(),
           batch_name: String(b.batch_name || b.name || `Batch ${index + 1}`).trim(),
           course_name: courseName,
-          branch_name: String(b.branch_name || c.branch_assignments?.[0]?.branch_name || "Assigned Branch").trim(),
+          branch_name: String(b.branch_name || c.branch_assignments?.[0]?.branch_name || "Assigned Academy").trim(),
           days: batchDays,
           start_time: startTime,
           end_time: endTime,

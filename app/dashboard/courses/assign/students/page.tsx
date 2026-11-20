@@ -86,7 +86,7 @@ export default function CourseAssignmentPage() {
           return
         }
 
-        // Fetch students, courses, and branches in parallel
+        // Fetch students, courses, and academies in parallel
         const [studentsRes, coursesRes, branchesRes] = await Promise.all([
           fetch('/api/backend/users/students/details', {
             headers: { 'Authorization': `Bearer ${token}` }
@@ -312,13 +312,13 @@ export default function CourseAssignmentPage() {
 
                 {/* Branch Selection */}
                 <div className="space-y-2">
-                  <Label htmlFor="branch">Branch *</Label>
+                  <Label htmlFor="branch">Academy *</Label>
                   <Select
                     value={formData.branch_id}
                     onValueChange={(value) => setFormData({ ...formData, branch_id: value })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a branch" />
+                      <SelectValue placeholder="Select an academy" />
                     </SelectTrigger>
                     <SelectContent>
                       {branches.map((branch) => (

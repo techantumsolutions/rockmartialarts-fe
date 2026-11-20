@@ -1,7 +1,6 @@
 import { getBackendApiUrl } from "./config"
 import { TokenManager } from "./tokenManager"
 import { BranchManagerAuth } from "./branchManagerAuth"
-import { checkCoachAuth } from "./coachAuth"
 
 export type AssessmentPeriodStatus = "draft" | "open" | "closed"
 
@@ -42,12 +41,14 @@ export interface AssessmentRow {
 }
 
 function authHeaders(): HeadersInit {
-  const coachAuth = checkCoachAuth()
+  // Prefer BM / SA tokens. Do NOT call checkCoachAuth() here — it clears
+  // non-coach sessions (super_admin / branch_manager) and forces logout.
   const token =
     BranchManagerAuth.getToken() ||
     TokenManager.getToken() ||
-    coachAuth.token ||
-    (typeof window !== "undefined" ? localStorage.getItem("access_token") : null)
+    (typeof window !== "undefined"
+      ? localStorage.getItem("access_token") || localStorage.getItem("token")
+      : null)
   return {
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",

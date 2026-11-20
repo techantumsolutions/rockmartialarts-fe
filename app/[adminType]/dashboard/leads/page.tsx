@@ -39,6 +39,12 @@ import LeadCoachSessionBookingSection from "@/components/leads/LeadCoachSessionB
 import { assignmentStatusLabel } from "@/lib/leadCoachAssignmentAPI"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { TokenManager } from "@/lib/tokenManager"
+import { ADMIN_LIST_PAGE_SIZE } from "@/lib/adminListConfig"
+import {
+  AdminFilterBar,
+  AdminPageShell,
+  adminFilterSearchClass,
+} from "@/components/dashboard/AdminPageShell"
 
 const STATUS_BADGE: Record<LeadStatus, string> = {
   new: "bg-gray-100 text-gray-800 border-gray-200",
@@ -151,7 +157,7 @@ export default function LeadsPage() {
   const [fuStatus, setFuStatus] = useState<string>("")
   const [fuNext, setFuNext] = useState("")
 
-  const limit = 25
+  const limit = ADMIN_LIST_PAGE_SIZE
 
   const loadSummary = useCallback(async () => {
     if (!hasAuth()) return
@@ -366,8 +372,8 @@ export default function LeadsPage() {
   }
 
   return (
-    <div className="w-full min-w-0">
-      <div className="space-y-6">
+    <AdminPageShell className="min-w-0">
+      <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-[#4F5077]">Lead management</h1>
@@ -408,23 +414,24 @@ export default function LeadsPage() {
           </Card>
         </div>
 
-        <Card className="gap-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-2xl">Leads</CardTitle>
+        <Card className="gap-0">
+          <CardHeader className="pb-2 pt-4 px-4 sm:px-5">
+            <CardTitle className="text-lg font-semibold">Leads</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3 px-4 pb-4 pt-0 sm:px-5">
+            <AdminFilterBar flat>
             <form
-              className="flex flex-col sm:flex-row gap-2 flex-wrap"
+              className="contents"
               onSubmit={(e) => {
                 e.preventDefault()
                 setSkip(0)
                 setSearch(searchInput)
               }}
             >
-              <div className="relative flex-1 min-w-[180px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <div className={adminFilterSearchClass}>
+                <Search className="pointer-events-none absolute left-3 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 text-gray-400" />
                 <Input
-                  placeholder="Search name, phone, branch, source…"
+                  placeholder="Search name, phone, academy, source…"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   className="pl-9"
@@ -524,10 +531,14 @@ export default function LeadsPage() {
                   <SelectItem value="declined">Declined</SelectItem>
                 </SelectContent>
               </Select>
-              <Button type="submit" className="bg-yellow-400 hover:bg-yellow-500 text-white">
+              <Button
+                type="submit"
+                className="bg-[#E1BB33] font-semibold text-[#3d3e5c] hover:bg-[#d4ae2a]"
+              >
                 Search
               </Button>
             </form>
+            </AdminFilterBar>
 
             {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -554,7 +565,7 @@ export default function LeadsPage() {
                       <th className="px-2 py-2 font-semibold">Name</th>
                       <th className="px-2 py-2 font-semibold">Phone</th>
                       <th className="px-2 py-2 font-semibold">Source</th>
-                      <th className="px-2 py-2 font-semibold">Branch</th>
+                      <th className="px-2 py-2 font-semibold">Academy</th>
                       <th className="px-2 py-2 font-semibold">Status</th>
                       <th className="px-2 py-2 font-semibold">Priority</th>
                       <th className="px-2 py-2 font-semibold">Coach</th>
@@ -756,7 +767,7 @@ export default function LeadsPage() {
                   <p className="font-medium">{sourceLabel(activeLead)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Branch</p>
+                  <p className="text-xs text-gray-500">Academy</p>
                   <p className="font-medium">{activeLead.branch_name || "—"}</p>
                 </div>
                 {activeLead.message ? (
@@ -858,7 +869,7 @@ export default function LeadsPage() {
                 </div>
                 <Button
                   type="button"
-                  className="w-full bg-yellow-400 hover:bg-yellow-500 text-white"
+                  className="w-full "
                   disabled={logging}
                   onClick={() => void submitFollowUp()}
                 >
@@ -908,6 +919,6 @@ export default function LeadsPage() {
           ) : null}
         </SheetContent>
       </Sheet>
-    </div>
+    </AdminPageShell>
   )
 }

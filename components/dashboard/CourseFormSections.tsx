@@ -29,8 +29,10 @@ import {
   Paperclip,
 } from "lucide-react"
 import { uploadFile } from "@/lib/upload"
+import { AdminImageUpload } from "@/components/ui/AdminImageUpload"
 import { useToast } from "@/hooks/use-toast"
 import {
+  COURSE_SECTIONS_BY_LAYOUT,
   LAYOUT_VARIANT_OPTIONS,
   type CourseLayoutVariant,
   type CourseSectionKey,
@@ -149,6 +151,12 @@ export default function CourseFormSections({ value, onChange }: Props) {
   const setEnabled = (key: CourseSectionKey, on: boolean) =>
     set("section_visibility", { ...(visibility || {}), [key]: on })
 
+  const layoutVariant = (pc.layout_variant || "standard") as CourseLayoutVariant
+  const layoutSections =
+    COURSE_SECTIONS_BY_LAYOUT[layoutVariant] || COURSE_SECTIONS_BY_LAYOUT.standard
+  const layoutSectionKeys = new Set(layoutSections.map((s) => s.key))
+  const showSection = (key: CourseSectionKey) => layoutSectionKeys.has(key)
+
   const VisibilityBadge = ({ on }: { on: boolean }) => (
     <span
       className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
@@ -158,6 +166,14 @@ export default function CourseFormSections({ value, onChange }: Props) {
       {on ? "Visible" : "Hidden"}
     </span>
   )
+
+  const SectionEditor = ({
+    sectionKey,
+    children,
+  }: {
+    sectionKey: CourseSectionKey
+    children: React.ReactNode
+  }) => (showSection(sectionKey) ? <>{children}</> : null)
 
   return (
     <div className="space-y-5">
@@ -197,33 +213,11 @@ export default function CourseFormSections({ value, onChange }: Props) {
           <h4 className="text-sm font-semibold text-[#2F3153]">Section Visibility</h4>
         </div>
         <p className="mb-3 text-xs text-gray-500">
-          Toggle sections on the public course detail page. Disabled sections stay hidden even if they have content.
+          Only sections used by the selected layout appear here — matching the public course page.
+          Disabled sections stay hidden even if they have content.
         </p>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {([
-            ["hero", "Hero Section"],
-            ["info_bar", "Info Bar"],
-            ["about", "About Course"],
-            ["cta", "CTA Banner"],
-            ["learn_cards", "What You'll Learn Cards"],
-            ["who_can_join", "Who Can Join"],
-            ["training_programs", "Training Programs"],
-            ["course_info_sections", "Course Info Blocks"],
-            ["course_content", "Syllabus / Equipment"],
-            ["benefits", "Benefits"],
-            ["why_rmaa", "Why Learn at RMAA"],
-            ["learning", "Learning Video"],
-            ["lineage", "Lineage (Heritage)"],
-            ["philosophy", "Philosophy Pillars"],
-            ["qualities", "Warrior Qualities"],
-            ["sport_spotlight", "Sport Spotlight"],
-            ["style_cards", "Style Cards"],
-            ["gallery", "Gallery"],
-            ["instructors", "Instructors"],
-            ["testimonials", "Testimonials"],
-            ["attachments", "Downloads / PDFs"],
-            ["final_cta", "Final Journey CTA"],
-          ] as const).map(([key, label]) => (
+          {layoutSections.map(({ key, label }) => (
             <div
               key={key}
               className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-2.5 shadow-sm"
@@ -242,6 +236,7 @@ export default function CourseFormSections({ value, onChange }: Props) {
 
     <Accordion type="multiple" className="w-full space-y-2" defaultValue={["hero"]}>
       {/* ---- 1. Hero Section ---- */}
+      <SectionEditor sectionKey="hero">
       <AccordionItem value="hero" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
         <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
           <span className="flex items-center gap-2">
@@ -298,13 +293,22 @@ export default function CourseFormSections({ value, onChange }: Props) {
                     set("hero_section", { ...hero, feature_icons: n })
                   }}
                 />
-                <div className="flex gap-2">
-                  <Input
+                <div className="flex gap-2 items-start">
+                  <AdminImageUpload
+                    label=""
+                    shape="square"
+                    className="min-w-0 flex-1 space-y-1"
+                    previewClassName="h-16 w-16"
+                    helperText=""
                     value={f.image || ""}
-                    placeholder="Image URL"
-                    onChange={(e) => {
+                    onChange={(url) => {
                       const n = [...heroFeatures]
-                      n[i] = { ...f, image: e.target.value }
+                      n[i] = { ...f, image: url }
+                      set("hero_section", { ...hero, feature_icons: n })
+                    }}
+                    onClear={() => {
+                      const n = [...heroFeatures]
+                      n[i] = { ...f, image: "" }
                       set("hero_section", { ...hero, feature_icons: n })
                     }}
                   />
@@ -395,8 +399,10 @@ export default function CourseFormSections({ value, onChange }: Props) {
           </div>
         </AccordionContent>
       </AccordionItem>
+      </SectionEditor>
 
       {/* ---- 3. About Section ---- */}
+      <SectionEditor sectionKey="about">
       <AccordionItem value="about" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
         <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
           <span className="flex items-center gap-2">
@@ -442,8 +448,10 @@ export default function CourseFormSections({ value, onChange }: Props) {
           </div>
         </AccordionContent>
       </AccordionItem>
+      </SectionEditor>
 
       {/* ---- 3a. Course Info Sections (60-40 / 40-60 alternating) ---- */}
+      <SectionEditor sectionKey="course_info_sections">
       <AccordionItem value="courseInfoSections" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
         <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
           <span className="flex items-center gap-2">
@@ -497,8 +505,10 @@ export default function CourseFormSections({ value, onChange }: Props) {
           </Button>
         </AccordionContent>
       </AccordionItem>
+      </SectionEditor>
 
       {/* ---- 4. Benefits ---- */}
+      <SectionEditor sectionKey="benefits">
       <AccordionItem value="benefits" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
         <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
           <span className="flex items-center gap-2">
@@ -533,8 +543,10 @@ export default function CourseFormSections({ value, onChange }: Props) {
           </Button>
         </AccordionContent>
       </AccordionItem>
+      </SectionEditor>
 
       {/* ---- 5. Learning Section ---- */}
+      <SectionEditor sectionKey="learning">
       <AccordionItem value="learning" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
         <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
           <span className="flex items-center gap-2">
@@ -558,8 +570,10 @@ export default function CourseFormSections({ value, onChange }: Props) {
           <FileUpload accept="image/*" label="Video Thumbnail" currentUrl={learning.thumbnail} onUploaded={(url) => set("learning_section", { ...learning, thumbnail: url })} />
         </AccordionContent>
       </AccordionItem>
+      </SectionEditor>
 
       {/* ---- 6. Gallery ---- */}
+      <SectionEditor sectionKey="gallery">
       <AccordionItem value="gallery" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
         <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
           <span className="flex items-center gap-2">
@@ -581,8 +595,10 @@ export default function CourseFormSections({ value, onChange }: Props) {
           <FileUpload accept="image/*" label="Add Gallery Image" currentUrl="" onUploaded={(url) => { if (url) set("gallery_images", [...gallery, url]) }} />
         </AccordionContent>
       </AccordionItem>
+      </SectionEditor>
 
       {/* ---- 7. Instructors ---- */}
+      <SectionEditor sectionKey="instructors">
       <AccordionItem value="instructors" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
         <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
           <span className="flex items-center gap-2">
@@ -618,8 +634,10 @@ export default function CourseFormSections({ value, onChange }: Props) {
           </Button>
         </AccordionContent>
       </AccordionItem>
+      </SectionEditor>
 
       {/* ---- 8. Testimonials ---- */}
+      <SectionEditor sectionKey="testimonials">
       <AccordionItem value="testimonials" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
         <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
           <span className="flex items-center gap-2">
@@ -655,8 +673,10 @@ export default function CourseFormSections({ value, onChange }: Props) {
           </Button>
         </AccordionContent>
       </AccordionItem>
+      </SectionEditor>
 
       {/* ---- 9. PDF Attachments ---- */}
+      <SectionEditor sectionKey="attachments">
       <AccordionItem value="attachments" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
         <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
           <span className="flex items-center gap-2">
@@ -682,8 +702,10 @@ export default function CourseFormSections({ value, onChange }: Props) {
           </Button>
         </AccordionContent>
       </AccordionItem>
+      </SectionEditor>
 
       {/* ---- Learn cards ---- */}
+      <SectionEditor sectionKey="learn_cards">
       <AccordionItem value="learnCards" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
         <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
           <span className="flex items-center gap-2">
@@ -692,20 +714,23 @@ export default function CourseFormSections({ value, onChange }: Props) {
           </span>
         </AccordionTrigger>
         <AccordionContent className="space-y-3 pb-4">
+          <p className="text-xs text-muted-foreground">
+            Each card needs an image, title, and description. On the public page the description appears on hover (overlay). Add more than 6 cards to enable the carousel arrows.
+          </p>
           {learnCards.map((card, i) => (
             <div key={i} className="relative space-y-2 rounded-lg border p-3">
               <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1 text-red-500" onClick={() => set("learn_cards", learnCards.filter((_, idx) => idx !== i))}>
                 <X className="h-4 w-4" />
               </Button>
               <Input value={card.title} placeholder="Title" onChange={(e) => { const n = [...learnCards]; n[i] = { ...card, title: e.target.value }; set("learn_cards", n) }} />
-              <Input value={card.subtitle || ""} placeholder="Subtitle" onChange={(e) => { const n = [...learnCards]; n[i] = { ...card, subtitle: e.target.value }; set("learn_cards", n) }} />
-              <Textarea value={card.description || ""} rows={2} placeholder="Description" onChange={(e) => { const n = [...learnCards]; n[i] = { ...card, description: e.target.value }; set("learn_cards", n) }} />
-              <Input value={card.icon || ""} placeholder="Icon / emoji" onChange={(e) => { const n = [...learnCards]; n[i] = { ...card, icon: e.target.value }; set("learn_cards", n) }} />
-              <FileUpload accept="image/*" label="Card image" currentUrl={card.image} onUploaded={(url) => { const n = [...learnCards]; n[i] = { ...card, image: url }; set("learn_cards", n) }} />
+              <Textarea value={card.description || ""} rows={3} placeholder="Description (shown on hover overlay)" onChange={(e) => { const n = [...learnCards]; n[i] = { ...card, description: e.target.value }; set("learn_cards", n) }} />
+              <Input value={card.subtitle || ""} placeholder="Subtitle (optional fallback if description empty)" onChange={(e) => { const n = [...learnCards]; n[i] = { ...card, subtitle: e.target.value }; set("learn_cards", n) }} />
+              <Input value={card.icon || ""} placeholder="Icon / emoji (used when no image)" onChange={(e) => { const n = [...learnCards]; n[i] = { ...card, icon: e.target.value }; set("learn_cards", n) }} />
+              <FileUpload accept="image/*" label="Card image (required for image cards)" currentUrl={card.image} onUploaded={(url) => { const n = [...learnCards]; n[i] = { ...card, image: url }; set("learn_cards", n) }} />
               <Textarea
                 value={(card.bullet_points || []).join("\n")}
                 rows={3}
-                placeholder="Bullet points (one per line)"
+                placeholder="Bullet points (one per line, optional)"
                 onChange={(e) => {
                   const n = [...learnCards]
                   n[i] = {
@@ -722,8 +747,10 @@ export default function CourseFormSections({ value, onChange }: Props) {
           </Button>
         </AccordionContent>
       </AccordionItem>
+      </SectionEditor>
 
       {/* ---- Who can join ---- */}
+      <SectionEditor sectionKey="who_can_join">
       <AccordionItem value="whoCanJoin" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
         <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
           <span className="flex items-center gap-2">
@@ -751,8 +778,10 @@ export default function CourseFormSections({ value, onChange }: Props) {
           />
         </AccordionContent>
       </AccordionItem>
+      </SectionEditor>
 
       {/* ---- Training programs ---- */}
+      <SectionEditor sectionKey="training_programs">
       <AccordionItem value="trainingPrograms" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
         <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
           <span className="flex items-center gap-2">
@@ -793,8 +822,10 @@ export default function CourseFormSections({ value, onChange }: Props) {
           </Button>
         </AccordionContent>
       </AccordionItem>
+      </SectionEditor>
 
       {/* ---- Why RMAA ---- */}
+      <SectionEditor sectionKey="why_rmaa">
       <AccordionItem value="whyRmaa" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
         <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
           <span className="flex items-center gap-2">
@@ -818,8 +849,10 @@ export default function CourseFormSections({ value, onChange }: Props) {
           />
         </AccordionContent>
       </AccordionItem>
+      </SectionEditor>
 
       {/* ---- Heritage / optional ---- */}
+      <SectionEditor sectionKey="lineage">
       <AccordionItem value="lineage" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
         <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
           <span className="flex items-center gap-2">
@@ -835,7 +868,9 @@ export default function CourseFormSections({ value, onChange }: Props) {
           <FileUpload accept="image/*" label="Lineage image" currentUrl={lineage.image} onUploaded={(url) => set("lineage", { ...lineage, image: url })} />
         </AccordionContent>
       </AccordionItem>
+      </SectionEditor>
 
+      <SectionEditor sectionKey="philosophy">
       <AccordionItem value="philosophy" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
         <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
           <span className="flex items-center gap-2">
@@ -855,7 +890,9 @@ export default function CourseFormSections({ value, onChange }: Props) {
           <Button type="button" variant="outline" className="w-full border-dashed" onClick={() => set("philosophy_pillars", [...philosophy, { title: "" }])}><Plus className="mr-2 h-4 w-4" /> Add pillar</Button>
         </AccordionContent>
       </AccordionItem>
+      </SectionEditor>
 
+      <SectionEditor sectionKey="qualities">
       <AccordionItem value="qualities" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
         <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
           <span className="flex items-center gap-2">
@@ -864,20 +901,26 @@ export default function CourseFormSections({ value, onChange }: Props) {
           </span>
         </AccordionTrigger>
         <AccordionContent className="space-y-3 pb-4">
+          <p className="text-xs text-muted-foreground">
+            Fully customizable &quot;Develop The Complete Warrior&quot; items. Prefer a large photo per quality; icon is used only when no image is set.
+          </p>
           {qualities.map((q, i) => (
-            <div key={i} className="grid grid-cols-1 gap-2 rounded-lg border p-2 md:grid-cols-3">
-              <Input value={q.title} placeholder="Title" onChange={(e) => { const n = [...qualities]; n[i] = { ...q, title: e.target.value }; set("qualities", n) }} />
-              <Input value={q.description || ""} placeholder="Tagline" onChange={(e) => { const n = [...qualities]; n[i] = { ...q, description: e.target.value }; set("qualities", n) }} />
-              <div className="flex gap-2">
-                <Input value={q.icon || ""} placeholder="Icon" onChange={(e) => { const n = [...qualities]; n[i] = { ...q, icon: e.target.value }; set("qualities", n) }} />
-                <Button type="button" variant="ghost" size="sm" className="text-red-500" onClick={() => set("qualities", qualities.filter((_, idx) => idx !== i))}><X className="h-4 w-4" /></Button>
-              </div>
+            <div key={i} className="relative space-y-2 rounded-lg border p-3">
+              <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1 text-red-500" onClick={() => set("qualities", qualities.filter((_, idx) => idx !== i))}>
+                <X className="h-4 w-4" />
+              </Button>
+              <Input value={q.title} placeholder="Title (e.g. Strength)" onChange={(e) => { const n = [...qualities]; n[i] = { ...q, title: e.target.value }; set("qualities", n) }} />
+              <Textarea value={q.description || ""} rows={2} placeholder="Description" onChange={(e) => { const n = [...qualities]; n[i] = { ...q, description: e.target.value }; set("qualities", n) }} />
+              <Input value={q.icon || ""} placeholder="Fallback icon / emoji (optional)" onChange={(e) => { const n = [...qualities]; n[i] = { ...q, icon: e.target.value }; set("qualities", n) }} />
+              <FileUpload accept="image/*" label="Quality image (recommended — shown larger on course page)" currentUrl={q.image} onUploaded={(url) => { const n = [...qualities]; n[i] = { ...q, image: url }; set("qualities", n) }} />
             </div>
           ))}
           <Button type="button" variant="outline" className="w-full border-dashed" onClick={() => set("qualities", [...qualities, { title: "" }])}><Plus className="mr-2 h-4 w-4" /> Add quality</Button>
         </AccordionContent>
       </AccordionItem>
+      </SectionEditor>
 
+      <SectionEditor sectionKey="sport_spotlight">
       <AccordionItem value="sportSpotlight" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
         <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
           <span className="flex items-center gap-2">
@@ -891,7 +934,9 @@ export default function CourseFormSections({ value, onChange }: Props) {
           <FileUpload accept="image/*" label="Image" currentUrl={sportSpotlight.image} onUploaded={(url) => set("sport_spotlight", { ...sportSpotlight, image: url })} />
         </AccordionContent>
       </AccordionItem>
+      </SectionEditor>
 
+      <SectionEditor sectionKey="style_cards">
       <AccordionItem value="styleCards" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
         <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
           <span className="flex items-center gap-2">
@@ -911,7 +956,9 @@ export default function CourseFormSections({ value, onChange }: Props) {
           <Button type="button" variant="outline" className="w-full border-dashed" onClick={() => set("style_cards", [...styleCards, { title: "" }])}><Plus className="mr-2 h-4 w-4" /> Add style card</Button>
         </AccordionContent>
       </AccordionItem>
+      </SectionEditor>
 
+      <SectionEditor sectionKey="final_cta">
       <AccordionItem value="finalCta" className="rounded-xl border border-gray-200 bg-white px-4 shadow-sm">
         <AccordionTrigger className="text-[#4F5077] font-semibold hover:no-underline">
           <span className="flex items-center gap-2">
@@ -939,6 +986,7 @@ export default function CourseFormSections({ value, onChange }: Props) {
           </div>
         </AccordionContent>
       </AccordionItem>
+      </SectionEditor>
     </Accordion>
     </div>
   )

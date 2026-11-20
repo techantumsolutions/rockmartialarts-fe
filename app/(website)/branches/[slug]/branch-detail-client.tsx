@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, type CSSProperties } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { Loader2, ArrowLeft } from "lucide-react"
@@ -15,7 +15,23 @@ import {
   BranchAchievements,
 } from "@/components/branch"
 import type { BranchData } from "@/components/branch"
+import { AboutFounderSection } from "@/components/website/AboutFounderSection"
+import {
+  OurMembersSection,
+  type MemberCardData,
+} from "@/components/website/OurMembersSection"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
+import { useBranchPublicBrand } from "@/contexts/BranchPublicBrandContext"
+import {
+  clearPartnerPublicChrome,
+  setPartnerPublicChrome,
+} from "@/lib/partnerPublicChrome"
+import {
+  BRANCH_MEMBER_PLACEHOLDERS,
+  PUBLIC_SECTION_FALLBACKS,
+  VERIFIED_ORG_FOUNDER,
+} from "@/lib/cmsContentFallback"
+import { DEFAULT_IMAGE_PLACEHOLDER } from "@/components/ui/safe-image"
 
 type BranchTestimonial = {
   student_name?: string
@@ -74,6 +90,14 @@ export default function BranchDetailPage() {
   >([])
   const [testimonialsTitle, setTestimonialsTitle] = useState<string>("Rock Warriors")
   const [testimonialsSubtitle, setTestimonialsSubtitle] = useState<string>("Success stories")
+  const [founderAbout, setFounderAbout] = useState<{
+    title?: string
+    subtitle?: string
+    content?: string
+    image?: string
+  }>({})
+  const [members, setMembers] = useState<MemberCardData[]>([])
+  const { setOverride, clearOverride } = useBranchPublicBrand()
 
   useEffect(() => {
     AOS.init({
@@ -83,6 +107,69 @@ export default function BranchDetailPage() {
       offset: 120,
     })
   }, [])
+
+  // Partner branding on public academy page only while partner_org_id is set.
+  // Unassign → clear override so Rock CMS / academy own branding returns.
+  useEffect(() => {
+    const partnerOrgId = String(
+      (branch as BranchData & { partner_org_id?: string | null })?.partner_org_id || ""
+    ).trim()
+    const branding = branch?.site_branding
+    const footerEnabled = !!(
+      branch as BranchData & { public_footer_enabled?: boolean | null }
+    )?.public_footer_enabled
+    const hasPartnerBrand = !!(
+      partnerOrgId &&
+      branding &&
+      (branding.logo_url ||
+        branding.cover_banner_url ||
+        branding.about_content ||
+        branding.short_description ||
+        branding.tagline ||
+        branding.footer?.logo_url)
+    )
+    if (!partnerOrgId) {
+      clearOverride()
+      clearPartnerPublicChrome()
+      return
+    }
+    setPartnerPublicChrome({ partnerOrgId, footerEnabled })
+    // Always set partner chrome when partner-owned so footer enable/disable applies.
+    setOverride({
+      partnerOrgId,
+      orgName:
+        branding?.org_name ||
+        branding?.display_name ||
+        (branch as BranchData & { partner_org_name?: string })?.partner_org_name ||
+        null,
+      logoUrl: hasPartnerBrand ? branding?.logo_url || null : null,
+      logoAlt: hasPartnerBrand
+        ? branding?.logo_alt || branding?.org_name || null
+        : null,
+      footerLogoUrl: hasPartnerBrand
+        ? branding?.footer?.logo_url || branding?.logo_url || null
+        : null,
+      footerDescription: hasPartnerBrand
+        ? branding?.footer?.description ||
+          branding?.short_description ||
+          branding?.tagline ||
+          null
+        : null,
+      phone: hasPartnerBrand ? branding?.contact?.phone || null : null,
+      email: hasPartnerBrand ? branding?.contact?.email || null : null,
+      address: hasPartnerBrand ? branding?.contact?.address || null : null,
+      primaryColor: hasPartnerBrand ? branding?.primary_color || null : null,
+      secondaryColor: hasPartnerBrand ? branding?.secondary_color || null : null,
+      footerEnabled,
+    })
+  }, [branch, setOverride, clearOverride])
+
+  useEffect(() => {
+    return () => {
+      clearOverride()
+      clearPartnerPublicChrome()
+    }
+  }, [clearOverride])
 
   useEffect(() => {
     if (!slug) return
@@ -96,18 +183,18 @@ export default function BranchDetailPage() {
     })
       .then((res) => {
         if (res.status === 404) return null
-        if (!res.ok) throw new Error("Failed to load branch")
+        if (!res.ok) throw new Error("Failed to load academy")
         return res.json()
       })
       .then((data) => {
         if (!cancelled) {
           setBranch(data ?? null)
-          if (!data) setError("Branch not found")
+          if (!data) setError("Academy not found")
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setError("Failed to load branch")
+          setError("Failed to load academy")
           setBranch(null)
         }
       })
@@ -233,16 +320,77 @@ export default function BranchDetailPage() {
     }
   }, [branch])
 
+  // Org founder / about content from homepage CMS (same source as former Discover section)
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/backend/homepage/public", {
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+    })
+      .then((res) => (res.ok ? res.json() : Promise.resolve({})))
+      .then((data) => {
+        if (cancelled) return
+        const about = data?.about || {}
+        setFounderAbout({
+          title: typeof about.title === "string" ? about.title : "",
+          subtitle: typeof about.subtitle === "string" ? about.subtitle : "",
+          content: typeof about.content === "string" ? about.content : "",
+          image: typeof about.image === "string" ? about.image : "",
+        })
+      })
+      .catch(() => {
+        if (!cancelled) setFounderAbout({})
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Only coaches assigned to this academy. Never fall back to Home org coaches.
+  useEffect(() => {
+    if (!branch?.id) {
+      setMembers([])
+      return
+    }
+    let cancelled = false
+    const mapCoaches = (list: any[]): MemberCardData[] =>
+      (Array.isArray(list) ? list : []).map((c: any) => ({
+        name: c.full_name || "Coach",
+        role: c.designation || "",
+        img: resolvePublicAssetUrl(c.profile_image_url) || DEFAULT_IMAGE_PLACEHOLDER,
+        about: (c.about_short || "").trim(),
+        rating: typeof c.rating === "number" ? c.rating : null,
+      }))
+
+    const load = async () => {
+      try {
+        const branchRes = await fetch(
+          `/api/backend/coaches/public/homepage?limit=8&branch_id=${encodeURIComponent(branch.id)}`,
+          { cache: "no-store", headers: { "Content-Type": "application/json" } }
+        )
+        const branchData = branchRes.ok ? await branchRes.json().catch(() => ({})) : {}
+        const list = mapCoaches(branchData.coaches || [])
+        if (!cancelled) setMembers(list)
+      } catch {
+        if (!cancelled) setMembers([])
+      }
+    }
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [branch?.id])
+
   useEffect(() => {
     AOS.refresh()
-  }, [branch, branchTestimonials, partnerTeam])
+  }, [branch, branchTestimonials, partnerTeam, members, founderAbout])
 
   if (loading) {
     return (
       <main className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4 text-gray-400">
           <Loader2 className="w-12 h-12 animate-spin text-[#FFB70F]" />
-          <p>Loading branch...</p>
+          <p>Loading academy...</p>
         </div>
       </main>
     )
@@ -252,50 +400,70 @@ export default function BranchDetailPage() {
     return (
       <main className="min-h-screen flex items-center justify-center px-4">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-4">Branch not found</h1>
-          <p className="text-gray-400 mb-6">{error || "This branch may no longer exist."}</p>
+          <h1 className="text-2xl font-bold text-white mb-4">Academy not found</h1>
+          <p className="text-gray-400 mb-6">{error || "This academy may no longer exist."}</p>
           <Link
             href="/branches"
             className="inline-flex items-center gap-2 text-[#FFB70F] hover:text-white font-medium"
           >
             <ArrowLeft className="w-4 h-4" />
-            Return to branches page
+            Return to academies page
           </Link>
         </div>
       </main>
     )
   }
 
-  const branding = branch.site_branding
-  const coverImage =
-    resolvePublicAssetUrl(branding?.cover_banner_url || "") ||
-    resolvePublicAssetUrl(branch.cover_image_url || "") ||
-    branch.gallery_images?.[0] ||
-    null
+  const partnerOrgId = String(
+    (branch as BranchData & { partner_org_id?: string | null }).partner_org_id || ""
+  ).trim()
+  const branding = partnerOrgId ? branch.site_branding : undefined
+  const usePartnerBrand = !!(
+    partnerOrgId &&
+    branding &&
+    (branding.logo_url ||
+      branding.cover_banner_url ||
+      branding.about_content ||
+      branding.short_description ||
+      branding.tagline)
+  )
 
-  // Prefer branch/org contact when this branch has its own branding.
-  const contactBranch: BranchData = branding?.contact
-    ? {
-        ...branch,
-        branch: {
-          ...(branch.branch || {}),
-          phone: branding.contact.phone || branch.branch?.phone,
-          email: branding.contact.email || branch.branch?.email,
-          address: branding.contact.address
-            ? {
-                ...(branch.branch?.address || {}),
-                line1: branding.contact.address,
-              }
-            : branch.branch?.address,
-        },
-      }
-    : branch
+  // Partner assigned → partner banner/content; otherwise branch/CMS own assets.
+  const coverImage = usePartnerBrand
+    ? resolvePublicAssetUrl(branding?.cover_banner_url || "") ||
+      resolvePublicAssetUrl(branch.cover_image_url || "") ||
+      branch.gallery_images?.[0] ||
+      null
+    : resolvePublicAssetUrl(branch.cover_image_url || "") ||
+      branch.gallery_images?.[0] ||
+      null
 
-  const aboutHtml =
-    (branding?.about_content || branding?.our_story || branding?.short_description || "").trim()
-  const aboutTagline = (branding?.tagline || branding?.why_choose_us || "").trim()
+  const contactBranch: BranchData =
+    usePartnerBrand && branding?.contact
+      ? {
+          ...branch,
+          branch: {
+            ...(branch.branch || {}),
+            phone: branding.contact.phone || branch.branch?.phone,
+            email: branding.contact.email || branch.branch?.email,
+            address: branding.contact.address
+              ? {
+                  ...(branch.branch?.address || {}),
+                  line1: branding.contact.address,
+                }
+              : branch.branch?.address,
+          },
+        }
+      : branch
+
+  const aboutHtml = usePartnerBrand
+    ? (branding?.about_content || branding?.our_story || branding?.short_description || "").trim()
+    : String(branch.description || "").trim()
+  const aboutTagline = usePartnerBrand
+    ? (branding?.tagline || branding?.why_choose_us || "").trim()
+    : ""
   const ownFacilities =
-    Array.isArray(branding?.facilities) && branding!.facilities!.length > 0
+    usePartnerBrand && Array.isArray(branding?.facilities) && branding!.facilities!.length > 0
       ? branding!.facilities!
       : null
   const displayBranch: BranchData =
@@ -303,17 +471,45 @@ export default function BranchDetailPage() {
       ? { ...contactBranch, facilities: ownFacilities }
       : contactBranch
 
+  const primaryColor =
+    (usePartnerBrand && (branding?.primary_color || "").trim()) || "#FFB70F"
+  const secondaryColor =
+    (usePartnerBrand && (branding?.secondary_color || "").trim()) || "#171A26"
+  const brandStyle = {
+    ["--academy-primary" as string]: primaryColor,
+    ["--academy-secondary" as string]: secondaryColor,
+  } as CSSProperties
+
   return (
-    <main className="min-h-screen">
-      <BranchHero branch={displayBranch} coverImageUrl={coverImage} />
+    <main className="min-h-screen" style={brandStyle}>
+      <BranchHero
+        branch={displayBranch}
+        coverImageUrl={coverImage}
+        logoUrl={usePartnerBrand ? branding?.logo_url : null}
+        logoAlt={usePartnerBrand ? branding?.logo_alt || branding?.org_name : null}
+        orgName={usePartnerBrand ? branding?.org_name || branding?.display_name || branch.partner_org_name : null}
+      />
       {aboutHtml || aboutTagline ? (
         <section className="py-8 md:py-10 relative z-10">
           <div className="site-content px-0 sm:px-1 max-w-3xl mx-auto text-center">
-            <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
+            <div
+              className="w-16 h-1 mx-auto mb-4"
+              style={{ backgroundColor: "var(--academy-primary, #FFB70F)" }}
+            />
             {aboutTagline ? (
-              <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">{aboutTagline}</p>
+              <p
+                className="uppercase tracking-widest text-sm mb-2"
+                style={{ color: "var(--academy-primary, #FFB70F)" }}
+              >
+                {aboutTagline}
+              </p>
             ) : null}
-            <h2 className="text-3xl md:text-4xl font-bold text-[#FFB70F] mb-4">About</h2>
+            <h2
+              className="text-3xl md:text-4xl font-bold mb-4"
+              style={{ color: "var(--academy-primary, #FFB70F)" }}
+            >
+              About
+            </h2>
             {aboutHtml ? (
               <div
                 className="text-gray-300 text-sm md:text-base leading-relaxed whitespace-pre-line"
@@ -325,6 +521,28 @@ export default function BranchDetailPage() {
         </section>
       ) : null}
       <BranchCourses branch={displayBranch} />
+      <AboutFounderSection
+        eyebrow={PUBLIC_SECTION_FALLBACKS.founderEyebrow}
+        title={
+          founderAbout.title?.trim() || PUBLIC_SECTION_FALLBACKS.founderTitle
+        }
+        subtitle={founderAbout.subtitle?.trim() || undefined}
+        contentHtml={founderAbout.content || ""}
+        imageUrl={founderAbout.image || ""}
+        founderName={VERIFIED_ORG_FOUNDER.name}
+        founderTitle={VERIFIED_ORG_FOUNDER.title}
+      />
+      <OurMembersSection
+        members={
+          members.length > 0
+            ? members
+            : BRANCH_MEMBER_PLACEHOLDERS.map((p) => ({ ...p }))
+        }
+        eyebrow={PUBLIC_SECTION_FALLBACKS.membersEyebrow}
+        title={PUBLIC_SECTION_FALLBACKS.membersTitle}
+        emptyMessage={PUBLIC_SECTION_FALLBACKS.membersEmpty}
+        lazy={false}
+      />
       <section className="py-8 md:py-10 relative z-10">
         <div className="site-content px-0 sm:px-1">
           <div className="text-center mb-12" data-aos="fade-up">

@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(data)
 
   } catch (error) {
-    console.error('Error fetching branch manager profile:', error)
+    console.error('Error fetching academy manager profile:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -81,7 +81,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(result)
 
   } catch (error) {
-    console.error('Error updating branch manager profile:', error)
+    console.error('Error updating academy manager profile:', error)
 
     if (error instanceof SyntaxError) {
       return NextResponse.json(

@@ -21,6 +21,12 @@ import {
 } from "@/lib/callbackAPI"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { TokenManager } from "@/lib/tokenManager"
+import { ADMIN_LIST_PAGE_SIZE } from "@/lib/adminListConfig"
+import {
+  AdminFilterBar,
+  AdminPageShell,
+  adminFilterSearchClass,
+} from "@/components/dashboard/AdminPageShell"
 
 const STATUS_BADGE: Record<string, string> = {
   new: "bg-gray-100 text-gray-800 border-gray-200",
@@ -55,7 +61,7 @@ export default function CallbacksAdminPage() {
     highlighted: 0,
     open: 0,
   })
-  const limit = 25
+  const limit = ADMIN_LIST_PAGE_SIZE
 
   const hasAuth = () => !!(BranchManagerAuth.getToken() || TokenManager.getToken())
 
@@ -219,8 +225,8 @@ export default function CallbacksAdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 lg:px-8">
-      <div className="w-full max-w-none space-y-6">
+    <AdminPageShell className="min-w-0">
+      <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Callback requests</h1>
@@ -255,26 +261,27 @@ export default function CallbacksAdminPage() {
           </Card>
         </div>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center gap-2">
+        <Card className="gap-0">
+          <CardHeader className="pb-2 pt-4 px-4 sm:px-5">
+            <CardTitle className="text-lg flex items-center gap-2 font-semibold">
               <Phone className="w-5 h-5 text-gray-600" />
               Callbacks
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3 px-4 pb-4 pt-0 sm:px-5">
+            <AdminFilterBar flat>
             <form
-              className="flex flex-col sm:flex-row gap-2 flex-wrap"
+              className="contents"
               onSubmit={(e) => {
                 e.preventDefault()
                 setSkip(0)
                 setSearch(searchInput)
               }}
             >
-              <div className="relative flex-1 min-w-[180px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <div className={adminFilterSearchClass}>
+                <Search className="absolute left-3 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 text-gray-400" />
                 <Input
-                  placeholder="Search name, phone, branch…"
+                  placeholder="Search name, phone, academy…"
                   value={searchInput}
                   onChange={(e) => {
                     setSearchInput(e.target.value)
@@ -337,6 +344,7 @@ export default function CallbacksAdminPage() {
                 Highlighted only
               </Button>
             </form>
+            </AdminFilterBar>
 
             {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -351,7 +359,7 @@ export default function CallbacksAdminPage() {
                     <tr>
                       <th className="px-3 py-2 font-semibold">Contact</th>
                       <th className="px-3 py-2 font-semibold">Preferred</th>
-                      <th className="px-3 py-2 font-semibold">Branch</th>
+                      <th className="px-3 py-2 font-semibold">Academy</th>
                       <th className="px-3 py-2 font-semibold">Priority</th>
                       <th className="px-3 py-2 font-semibold">Status</th>
                       <th className="px-3 py-2 font-semibold">Highlight</th>
@@ -499,6 +507,6 @@ export default function CallbacksAdminPage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </AdminPageShell>
   )
 }

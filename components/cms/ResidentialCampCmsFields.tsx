@@ -1656,7 +1656,7 @@ export function ResidentialCampCmsFields({
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Academy name (tickets / internal)</Label>
+            <Label>Branch name (tickets / internal)</Label>
             <Input
               value={v.footer.academy_name}
               onChange={(e) => patch({ footer: { ...v.footer, academy_name: e.target.value } })}

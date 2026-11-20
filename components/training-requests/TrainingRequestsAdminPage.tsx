@@ -402,7 +402,7 @@ export default function TrainingRequestsAdminPage() {
                   className="pl-9"
                 />
               </div>
-              <Button type="submit" className="bg-yellow-400 hover:bg-yellow-500 text-white">
+              <Button type="submit" className="">
                 Search
               </Button>
             </form>
@@ -474,7 +474,7 @@ export default function TrainingRequestsAdminPage() {
                     }}
                   >
                     <SelectTrigger className="h-10 bg-white">
-                      <SelectValue placeholder="All branches" />
+                      <SelectValue placeholder="All academies" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All branches</SelectItem>
@@ -522,7 +522,7 @@ export default function TrainingRequestsAdminPage() {
                       <th className="px-3 py-2 font-semibold">Contact</th>
                       <th className="px-3 py-2 font-semibold">Subject</th>
                       <th className="px-3 py-2 font-semibold">City</th>
-                      <th className="px-3 py-2 font-semibold">Branch</th>
+                      <th className="px-3 py-2 font-semibold">Academy</th>
                       <th className="px-3 py-2 font-semibold">Status</th>
                       <th className="px-3 py-2 font-semibold">Payment</th>
                       <th className="px-3 py-2 font-semibold">Coach</th>
@@ -828,7 +828,7 @@ export default function TrainingRequestsAdminPage() {
                       <Button
                         type="button"
                         disabled={savingStatus || !nextStatus}
-                        className="bg-yellow-400 hover:bg-yellow-500 text-white"
+                        className=""
                         onClick={onUpdateStatus}
                       >
                         {savingStatus ? "Saving…" : "Update status"}
@@ -944,7 +944,7 @@ export default function TrainingRequestsAdminPage() {
                       <Button
                         type="button"
                         disabled={savingCoach || coachIds.length === 0}
-                        className="bg-yellow-400 hover:bg-yellow-500 text-white"
+                        className=""
                         onClick={onAssignCoach}
                       >
                         {savingCoach

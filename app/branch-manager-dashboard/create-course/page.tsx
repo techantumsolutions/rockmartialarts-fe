@@ -13,12 +13,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import Header from "@/components/layout/Header"
+import { AdminImageUpload } from "@/components/ui/AdminImageUpload"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { AdminStickyFormActions } from "@/components/dashboard/AdminStickyFormActions"
 
 export default function CreateCoursePage() {
   const router = useRouter()
   const { toast } = useToast()
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+  useEffect(() => {
+    if (!showSuccessPopup) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [showSuccessPopup])
+
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Categories state
@@ -122,14 +133,14 @@ export default function CreateCoursePage() {
         return
       }
 
-      // Get branch manager authentication
+      // Get academy manager authentication
       const branchManager = BranchManagerAuth.getCurrentUser()
       const token = BranchManagerAuth.getToken()
 
       if (!token || !branchManager) {
         toast({
           title: "Authentication Error",
-          description: "Please login again as branch manager.",
+          description: "Please login again as academy manager.",
           variant: "destructive"
         })
         router.push('/branch-manager/login')
@@ -240,7 +251,7 @@ export default function CreateCoursePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6 text-[#7D8592]">
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form id="bm-create-course-form" onSubmit={handleSubmit} className="admin-page-with-sticky-actions space-y-6">
                   {/* Basic Information */}
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -448,19 +459,17 @@ export default function CreateCoursePage() {
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold text-[#4F5077]">Media & Resources</h3>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="imageUrl">Course Image URL</Label>
-                        <Input
-                          id="imageUrl"
-                          value={formData.imageUrl}
-                          onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                          placeholder="https://example.com/course-image.jpg"
-                        />
-                      </div>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <AdminImageUpload
+                        label="Course image"
+                        shape="wide"
+                        value={formData.imageUrl}
+                        onChange={(url) => setFormData({ ...formData, imageUrl: url })}
+                        onClear={() => setFormData({ ...formData, imageUrl: "" })}
+                      />
 
                       <div className="space-y-2">
-                        <Label htmlFor="videoUrl">Promo Video URL</Label>
+                        <Label htmlFor="videoUrl">Promo video URL</Label>
                         <Input
                           id="videoUrl"
                           value={formData.videoUrl}
@@ -469,46 +478,40 @@ export default function CreateCoursePage() {
                         />
                       </div>
 
-                      <div className="space-y-2 md:col-span-2">
-                        <Label htmlFor="videoPosterUrl">Video Poster / Fallback Image URL</Label>
-                        <Input
-                          id="videoPosterUrl"
+                      <div className="md:col-span-2">
+                        <AdminImageUpload
+                          label="Video poster / fallback image"
+                          shape="wide"
                           value={formData.videoPosterUrl}
-                          onChange={(e) => setFormData({ ...formData, videoPosterUrl: e.target.value })}
-                          placeholder="Poster image URL"
+                          onChange={(url) => setFormData({ ...formData, videoPosterUrl: url })}
+                          onClear={() => setFormData({ ...formData, videoPosterUrl: "" })}
                         />
                       </div>
                     </div>
                   </div>
 
-                  {/* Submit Button */}
-                  <div className="pt-6 border-t">
-                    <div className="flex space-x-4">
-                      <Button 
-                        type="submit" 
-                        className="bg-yellow-400 hover:bg-yellow-500 text-white px-8"
-                        disabled={isSubmitting}
-                      >
-                        {isSubmitting ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Creating Course...
-                          </>
-                        ) : (
-                          'Create Course'
-                        )}
-                      </Button>
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        onClick={() => router.push("/branch-manager-dashboard/courses")}
-                        disabled={isSubmitting}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
                 </form>
+
+                <AdminStickyFormActions>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => router.push("/branch-manager-dashboard/courses")}
+                    disabled={isSubmitting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" form="bm-create-course-form" className="px-8" disabled={isSubmitting}>
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Creating Course...
+                      </>
+                    ) : (
+                      "Create Course"
+                    )}
+                  </Button>
+                </AdminStickyFormActions>
               </CardContent>
             </Card>
           </div>
@@ -550,7 +553,7 @@ export default function CreateCoursePage() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="branchSpecificPricing">Branch Specific Pricing</Label>
+                  <Label htmlFor="branchSpecificPricing">Academy Specific Pricing</Label>
                   <Switch
                     id="branchSpecificPricing"
                     checked={formData.branchSpecificPricing}
@@ -617,8 +620,9 @@ export default function CreateCoursePage() {
 
       {/* Success Popup */}
       {showSuccessPopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden p-4 sm:p-6">
+        <div className="absolute inset-0 bg-[#0f172a]/55 backdrop-blur-[2px]" aria-hidden />
+          <div className="relative z-[1] bg-white rounded-2xl border border-[#E8EAF0] shadow-[0_24px_80px_rgba(15,23,42,0.28)] p-8 max-w-md w-full mx-4">
             <div className="text-center">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -628,7 +632,7 @@ export default function CreateCoursePage() {
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Course Created Successfully!</h3>
               <p className="text-gray-600 mb-6">Your course has been created and added to the system.</p>
               <div className="flex space-x-3">
-                <Button onClick={handleSuccessOk} className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black">
+                <Button onClick={handleSuccessOk} className="flex-1 ">
                   OK
                 </Button>
                 <Button onClick={handleSuccessOk} variant="outline" className="flex-1 bg-transparent">

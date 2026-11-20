@@ -18,7 +18,7 @@ const COLUMNS = [
   "Designation",
   "Email",
   "Phone",
-  "Branch",
+  "Academy",
   "Courses",
   "Expertise",
   "Experience",

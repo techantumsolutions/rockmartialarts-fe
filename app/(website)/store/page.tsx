@@ -168,7 +168,7 @@ export default function StorePage() {
           alt="Store"
           className="absolute inset-0 w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-black/50" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#171A26]/50 via-[#171A26]/15 to-black/10" />
         <div className="site-content relative z-10 px-0 sm:px-1">
           <div className="max-w-xl">
             <h1 className="text-4xl md:text-5xl font-bold text-white uppercase mb-2">Store</h1>

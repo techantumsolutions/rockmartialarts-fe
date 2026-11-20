@@ -182,7 +182,7 @@ class NotificationTemplateAPI {
     channel?: string
   }) {
     const res = await fetch(
-      getBackendApiUrl("notification-templates/clone-to-branch"),
+      getBackendApiUrl("notification-templates/clone-to-academy"),
       {
         method: "POST",
         headers: authHeaders(true),

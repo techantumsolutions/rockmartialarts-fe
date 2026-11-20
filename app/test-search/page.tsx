@@ -99,7 +99,7 @@ export default function TestSearchPage() {
                                 {category === 'users' && (item.full_name || item.email)}
                                 {category === 'coaches' && item.full_name}
                                 {category === 'courses' && item.name}
-                                {category === 'branches' && (item.branch?.name || 'Branch')}
+                                {category === 'branches' && (item.branch?.name || 'Academy')}
                               </div>
                               <div className="text-sm text-gray-600">
                                 {category === 'users' && `${item.email} - ${item.role}`}

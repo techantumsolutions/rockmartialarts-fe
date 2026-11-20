@@ -36,7 +36,7 @@ export async function GET(_request: NextRequest) {
       branches: Array.isArray(branches) ? branches : [],
     })
   } catch (err) {
-    console.error("[branches/public] fetch failed:", err)
+    console.error("[academies/public] fetch failed:", err)
     return NextResponse.json({ branches: [] }, { status: 200 })
   }
 }

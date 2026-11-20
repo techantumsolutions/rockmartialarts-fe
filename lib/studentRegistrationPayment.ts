@@ -12,6 +12,18 @@ export interface RegistrationBatch {
   max_students?: number | null
   enrolled_students?: number | null
   is_full?: boolean
+  fee_per_duration?: Record<string, number | string>
+  enabled_per_duration?: Record<string, boolean>
+  pricing_type_per_duration?: Record<string, string>
+}
+
+export interface RegistrationDurationOption {
+  id: string
+  name: string
+  code?: string
+  duration_months?: number
+  calculated_price?: number | null
+  is_enabled?: boolean
 }
 
 export interface RegistrationPricing {
@@ -108,8 +120,15 @@ export async function fetchBranchCourseBatches(
     }
 
     return rawBatches.map((b: any, index: number) => {
-      const bid = b.batch_id || b.batchId || b.id || b._id || `batch-${index + 1}`
-      const bname = b.batch_name || b.batchName || b.name || b.title || `Batch ${index + 1}`
+      const bid =
+        b.batch_ref ||
+        b.batchRef ||
+        b.batch_id ||
+        b.batchId ||
+        b.id ||
+        b._id ||
+        `batch-${index + 1}`
+      const bname = b.batch_name || b.batchName || b.name || b.title || b.label || `Batch ${index + 1}`
       const rawMax = b.max_students ?? b.maxStudents
       const rawEnrolled = b.enrolled_students ?? b.enrolledStudents
       const maxStudents = rawMax != null && String(rawMax).trim() !== "" ? parseInt(String(rawMax), 10) : null
@@ -126,10 +145,95 @@ export async function fetchBranchCourseBatches(
         max_students: maxStudents,
         enrolled_students: enrolledStudents,
         is_full: !!isFull,
+        fee_per_duration:
+          b.fee_per_duration && typeof b.fee_per_duration === "object" ? b.fee_per_duration : undefined,
+        enabled_per_duration:
+          b.enabled_per_duration && typeof b.enabled_per_duration === "object"
+            ? b.enabled_per_duration
+            : undefined,
+        pricing_type_per_duration:
+          b.pricing_type_per_duration && typeof b.pricing_type_per_duration === "object"
+            ? b.pricing_type_per_duration
+            : undefined,
       }
     })
   } catch (err) {
-    console.error("Failed to fetch branch course batches:", err)
+    console.error("Failed to fetch academy course batches:", err)
+    return []
+  }
+}
+
+function positiveFee(value: unknown): boolean {
+  if (value == null || value === "") return false
+  const n = typeof value === "number" ? value : Number(value)
+  return Number.isFinite(n) && n > 0
+}
+
+function batchHasFeeDetails(batch: any): boolean {
+  if (!batch || typeof batch !== "object") return false
+  const fpd = batch.fee_per_duration
+  const enabled = batch.enabled_per_duration
+  if (fpd && typeof fpd === "object") {
+    for (const [key, raw] of Object.entries(fpd)) {
+      if (!positiveFee(raw)) continue
+      if (enabled && typeof enabled === "object" && key in enabled && !Boolean((enabled as any)[key])) {
+        continue
+      }
+      return true
+    }
+  }
+  return positiveFee(batch.batch_fee)
+}
+
+/**
+ * Keep courses that have at least one batch with fee details and at least one tenure option.
+ * Used by registration and create/add-student course dropdowns.
+ */
+export function filterEnrollableCourses<T extends Record<string, any>>(courses: T[]): T[] {
+  if (!Array.isArray(courses)) return []
+  return courses.filter((course) => {
+    const batches = Array.isArray(course.branch_batches)
+      ? course.branch_batches
+      : Array.isArray(course.batches)
+        ? course.batches
+        : []
+    const enrollableBatches = batches.filter(batchHasFeeDetails)
+    if (enrollableBatches.length === 0) return false
+    const durations = Array.isArray(course.available_durations) ? course.available_durations : null
+    // If durations are present on the payload, require at least one; otherwise allow and let tenure APIs resolve.
+    if (durations && durations.length === 0) return false
+    return true
+  })
+}
+
+/**
+ * Durations offered for a course at an academy (optionally for a specific batch).
+ * Uses Academy → Course Assignments tenure setup when branch/batch are provided.
+ */
+export async function fetchRegistrationDurations(
+  courseId: string,
+  branchId?: string,
+  batchRef?: string
+): Promise<RegistrationDurationOption[]> {
+  if (!courseId) return []
+  try {
+    const params = new URLSearchParams()
+    params.set("active_only", "true")
+    params.set("include_pricing", "true")
+    if (branchId) params.set("branch_id", branchId)
+    if (batchRef) params.set("batch_ref", batchRef)
+    const res = await fetch(
+      getBackendApiUrl(
+        `durations/public/by-course/${encodeURIComponent(courseId)}?${params.toString()}`
+      ),
+      { cache: "no-store" }
+    )
+    if (!res.ok) return []
+    const data = await res.json()
+    const list = (data.durations || []) as RegistrationDurationOption[]
+    return list.filter((d) => d?.id && d.is_enabled !== false)
+  } catch (err) {
+    console.error("Failed to fetch course durations:", err)
     return []
   }
 }

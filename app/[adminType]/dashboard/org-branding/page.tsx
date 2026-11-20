@@ -1,7 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { ImageIcon, Loader2, Save, Trash2, Upload, ShieldAlert } from "lucide-react"
 import {
   partnerOrgAPI,
@@ -40,9 +40,16 @@ function listToLines(list: unknown): string {
 
 export default function PartnerOrgBrandingPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const role = useDashboardRole()
   const basePath = useDashboardBasePath()
   const { toast } = useToast()
+  const adminPartnerOrgId = useMemo(
+    () => (searchParams.get("partnerOrgId") || "").trim(),
+    [searchParams]
+  )
+  const isRockSaEditing =
+    role === "super_admin" && !!adminPartnerOrgId
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -95,6 +102,58 @@ export default function PartnerOrgBrandingPage() {
     whatsapp: "",
   })
 
+  const applyBrandingPayload = useCallback((data: Record<string, any>) => {
+    setHasBranding(!!data.has_branding)
+    if (data.edit_permission) setEditPermission(data.edit_permission)
+    if (data.org_snapshot) {
+      setOrgName(str(data.org_snapshot?.name))
+      setOrgSlug(str(data.org_snapshot?.slug))
+    }
+    if (Array.isArray(data.branches)) setBranches(data.branches)
+    if (Array.isArray(data.achievements)) setAchievements(data.achievements)
+    const media = data.media || {}
+    setLogoUrl(str(media.logo_url))
+    setLogoAlt(str(media.logo_alt))
+    setBannerUrl(str(media.cover_banner_url))
+    setBannerAlt(str(media.cover_banner_alt))
+    const content = data.content || {}
+    setTagline(str(content.tagline))
+    setShortDescription(str(content.short_description))
+    setAboutContent(str(content.about_content))
+    setVision(str(content.vision))
+    setMission(str(content.mission))
+    setOurStory(str(content.our_story))
+    setWhyChooseUs(str(content.why_choose_us))
+    setWhyPointsText(listToLines(content.why_choose_us_points))
+    const fac = data.facilities || {}
+    setFacilitiesText(listToLines(fac.facilities))
+    setParkingInfo(str(fac.parking_info))
+    setHighlightsText(listToLines(fac.location_highlights))
+    setMapEmbedUrl(str(fac.map_embed_url))
+    const s = data.social_links || {}
+    setSocial({
+      website: str(s.website),
+      facebook: str(s.facebook),
+      instagram: str(s.instagram),
+      youtube: str(s.youtube),
+      linkedin: str(s.linkedin),
+      twitter: str(s.twitter),
+      whatsapp: str(s.whatsapp),
+    })
+    const cp = data.contact_page || {}
+    setContactHeadline(str(cp.headline))
+    setContactIntro(str(cp.intro))
+    setContactAddress(str(cp.address) || str(data.org_snapshot?.address))
+    setContactPhone(str(cp.phone) || str(data.org_snapshot?.phone))
+    setContactEmail(str(cp.email) || str(data.org_snapshot?.email))
+    setContactMapUrl(str(cp.map_embed_url))
+    const ft = data.footer || {}
+    // Prefer explicit footer logo; fall back to navbar logo so both stay in sync.
+    setFooterLogoUrl(str(ft.logo_url) || str(media.logo_url))
+    setFooterLogoAlt(str(ft.logo_alt) || str(media.logo_alt))
+    setFooterDescription(str(ft.description))
+  }, [])
+
   const loadBranding = useCallback(async () => {
     const token = TokenManager.getToken()
     if (!token) {
@@ -103,72 +162,43 @@ export default function PartnerOrgBrandingPage() {
     }
     try {
       setLoading(true)
-      const data = await partnerOrgAPI.getMyBranding()
-      setHasBranding(!!data.has_branding)
-      setEditPermission(data.edit_permission || null)
-      setOrgName(str(data.org_snapshot?.name))
-      setOrgSlug(str(data.org_snapshot?.slug))
-      setBranches(Array.isArray(data.branches) ? data.branches : [])
-      setAchievements(Array.isArray(data.achievements) ? data.achievements : [])
-      const media = data.media || {}
-      setLogoUrl(str(media.logo_url))
-      setLogoAlt(str(media.logo_alt))
-      setBannerUrl(str(media.cover_banner_url))
-      setBannerAlt(str(media.cover_banner_alt))
-      const content = data.content || {}
-      setTagline(str(content.tagline))
-      setShortDescription(str(content.short_description))
-      setAboutContent(str(content.about_content))
-      setVision(str(content.vision))
-      setMission(str(content.mission))
-      setOurStory(str(content.our_story))
-      setWhyChooseUs(str(content.why_choose_us))
-      setWhyPointsText(listToLines(content.why_choose_us_points))
-      const fac = data.facilities || {}
-      setFacilitiesText(listToLines(fac.facilities))
-      setParkingInfo(str(fac.parking_info))
-      setHighlightsText(listToLines(fac.location_highlights))
-      setMapEmbedUrl(str(fac.map_embed_url))
-      const s = data.social_links || {}
-      setSocial({
-        website: str(s.website),
-        facebook: str(s.facebook),
-        instagram: str(s.instagram),
-        youtube: str(s.youtube),
-        linkedin: str(s.linkedin),
-        twitter: str(s.twitter),
-        whatsapp: str(s.whatsapp),
-      })
-      const cp = data.contact_page || {}
-      setContactHeadline(str(cp.headline))
-      setContactIntro(str(cp.intro))
-      setContactAddress(str(cp.address) || str(data.org_snapshot?.address))
-      setContactPhone(str(cp.phone) || str(data.org_snapshot?.phone))
-      setContactEmail(str(cp.email) || str(data.org_snapshot?.email))
-      setContactMapUrl(str(cp.map_embed_url))
-      const ft = data.footer || {}
-      setFooterLogoUrl(str(ft.logo_url))
-      setFooterLogoAlt(str(ft.logo_alt))
-      setFooterDescription(str(ft.description))
+      const data = isRockSaEditing
+        ? await partnerOrgAPI.getAdminBranding(adminPartnerOrgId)
+        : await partnerOrgAPI.getMyBranding()
+      applyBrandingPayload(data as Record<string, any>)
+      if (isRockSaEditing) {
+        setEditPermission({
+          partner_org_id: adminPartnerOrgId,
+          permission: "approved",
+          can_edit: true,
+          can_request: false,
+        })
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Could not load branding"
       toast({ title: "Error", description: msg, variant: "destructive" })
     } finally {
       setLoading(false)
     }
-  }, [router, toast])
+  }, [router, toast, applyBrandingPayload, isRockSaEditing, adminPartnerOrgId])
 
   useEffect(() => {
-    if (role !== "partner_super_admin") {
-      router.replace("/super-admin/dashboard")
+    if (role === "partner_super_admin") {
+      loadBranding()
       return
     }
-    loadBranding()
-  }, [role, router, loadBranding])
+    if (isRockSaEditing) {
+      loadBranding()
+      return
+    }
+    router.replace(`${basePath || "/super-admin/dashboard"}`)
+  }, [role, router, loadBranding, isRockSaEditing, basePath])
 
-  const canEdit = !!editPermission?.can_edit
-  const canRequest = !!editPermission?.can_request
-  const permissionLabel = editPermission?.permission || "none"
+  const canEdit = isRockSaEditing || !!editPermission?.can_edit
+  const canRequest = !isRockSaEditing && !!editPermission?.can_request
+  const permissionLabel = isRockSaEditing
+    ? "super_admin"
+    : editPermission?.permission || "none"
 
   async function handleRequestEditAccess() {
     try {
@@ -240,7 +270,9 @@ export default function PartnerOrgBrandingPage() {
     }
     try {
       setSaving(true)
-      const data = await partnerOrgAPI.upsertMyBranding({
+      const effectiveFooterLogo = footerLogoUrl || logoUrl || null
+      const effectiveFooterAlt = footerLogoAlt || logoAlt || null
+      const payload = {
         media: {
           logo_url: logoUrl || null,
           logo_alt: logoAlt || null,
@@ -281,15 +313,33 @@ export default function PartnerOrgBrandingPage() {
           map_embed_url: contactMapUrl || null,
         },
         footer: {
-          logo_url: footerLogoUrl || null,
-          logo_alt: footerLogoAlt || null,
-          description: footerDescription || null,
+          logo_url: effectiveFooterLogo,
+          logo_alt: effectiveFooterAlt,
+          description: footerDescription || shortDescription || tagline || null,
         },
-      })
-      setHasBranding(true)
+      }
+      const data = isRockSaEditing
+        ? await partnerOrgAPI.upsertAdminBranding(adminPartnerOrgId, payload)
+        : await partnerOrgAPI.upsertMyBranding(payload)
+      if (data.branding) {
+        applyBrandingPayload({
+          ...data.branding,
+          has_branding: true,
+          edit_permission: editPermission,
+          branches,
+          achievements,
+        })
+      } else {
+        setHasBranding(true)
+        await loadBranding()
+      }
       toast({
         title: "Saved",
-        description: data.message || "Your organization branding was saved.",
+        description:
+          data.message ||
+          (isRockSaEditing
+            ? "Partner Page CMS was saved."
+            : "Your organization branding was saved."),
       })
     } catch (e: unknown) {
       toast({
@@ -302,7 +352,7 @@ export default function PartnerOrgBrandingPage() {
     }
   }
 
-  if (role !== "partner_super_admin") {
+  if (role !== "partner_super_admin" && !isRockSaEditing) {
     return null
   }
 
@@ -315,10 +365,12 @@ export default function PartnerOrgBrandingPage() {
           </div>
           <div>
             <h1 className="text-xl font-semibold text-[#1a2332]">
-              Organization Branding
+              {isRockSaEditing ? "Partner Page CMS" : "Organization Branding"}
             </h1>
             <p className="text-sm text-gray-500 mt-0.5">
-              Logo, banner, story, and contact content for your public landing page
+              {isRockSaEditing
+                ? "Edit public Page CMS content for this partner"
+                : "Logo, banner, story, and contact content for your public landing page"}
               {orgName ? (
                 <>
                   {" "}
@@ -326,16 +378,18 @@ export default function PartnerOrgBrandingPage() {
                 </>
               ) : null}
               {hasBranding ? "" : " (first save publishes branding)"}
-              {orgSlug ? (
+              {branches[0]?.slug || branches[0]?.id || orgSlug ? (
                 <>
-                  . Public URL:{" "}
+                  . Public branch:{" "}
                   <a
                     className="text-amber-800 underline"
-                    href={`/partner-orgs/${encodeURIComponent(orgSlug)}`}
+                    href={`/branches/${encodeURIComponent(
+                      String(branches[0]?.slug || branches[0]?.id || "")
+                    )}`}
                     target="_blank"
                     rel="noreferrer"
                   >
-                    /partner-orgs/{orgSlug}
+                    /branches/{branches[0]?.slug || branches[0]?.id || "…"}
                   </a>
                 </>
               ) : null}
@@ -409,7 +463,7 @@ export default function PartnerOrgBrandingPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Navbar logo & cover banner</CardTitle>
               <p className="text-sm text-gray-500">
-                Navbar logo appears on your partner site header (Courses / Branches / Contact).
+                Navbar logo appears on your partner site header (Courses / Academies / Contact).
               </p>
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -646,7 +700,7 @@ export default function PartnerOrgBrandingPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Footer</CardTitle>
               <p className="text-sm text-gray-500">
-                Quick links default to Courses, Branches, Contact. Contact details and socials
+                Quick links default to Courses, Academies, Contact. Contact details and socials
                 come from the Contact page and Social links sections.
               </p>
             </CardHeader>
@@ -784,7 +838,7 @@ export default function PartnerOrgBrandingPage() {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div>
                   <CardTitle className="text-base">
-                    Branches, courses & student achievements
+                    Academies, courses & student achievements
                   </CardTitle>
                   <p className="text-sm text-gray-500 mt-1">
                     Same sections as your public landing — only your organization&apos;s data.

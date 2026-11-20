@@ -1,33 +1,28 @@
 ---
-description: Skillora Alpha admin content UI standards — use global shell, do not restyle page-by-page
-globs: app/**/dashboard/**/*.{tsx,ts},components/dashboard/**/*.{tsx,ts},components/coaches/**/*.{tsx,ts},styles/admin-shell.css
+description: Global RMAA admin UI/UX standards for forms, lists, and image uploads
+globs: app/**/dashboard/**/*.{tsx,ts},components/dashboard/**/*.{tsx,ts},components/events/**/*.{tsx,ts},components/online-learning/**/*.{tsx,ts},components/ui/AdminImageUpload.tsx
 alwaysApply: false
 ---
 
-# Admin UI standards (content only)
+# Admin UI standards (RMAA)
 
-Ignore top nav / side nav when matching mockups. Style **main content** only.
+## Shared chrome
+- Prefer `AdminPageShell`, `AdminPageHeader`, `AdminFilterBar`, `AdminTableShell`, `AdminDetailLayout`, `AdminBreadcrumb` from `@/components/dashboard/AdminPageShell`.
+- Form pages: `DashboardFormPageHeader`, `DashboardSectionHeading`, `dashboardFormCardClass`, `cardContentClass`, `primaryButtonClass` from `@/components/dashboard/dashboardFormStyles`.
+- Primary CTA: gold `#E1BB33` / `adminPrimaryBtnClass` / `primaryButtonClass`. Text: `#2F3153` / `#4F5077` / `#6B7280`.
+- Cards: white, `rounded-2xl`, border `#E8EAF0` / gray-200, soft shadow. Section headings use icon tile + title + optional subtitle.
 
-## Source of truth
+## Form controls (mandatory — no page-specific field chrome)
+- Use shared primitives only: `@/components/ui/input`, `textarea`, `select`, `button`, `label`, `password-input`.
+- Canonical look: **h-14**, **rounded-xl**, soft fill **`#F8FAFC`**, border **`#E5E7EB`**, gold focus ring, labels `#4F5077`.
+- Do **not** invent alternate heights (`h-10`/`h-11`), white-only fills, or `rounded-lg` field styles on admin forms.
+- Select triggers must be `w-full`. Admin shell CSS under `[data-admin-shell]` enforces the same tokens.
 
-- Global CSS: `styles/admin-shell.css` under `[data-admin-shell]`
-- Shared chrome: `components/dashboard/AdminPageShell.tsx`
-- Form utilities: `components/dashboard/dashboardFormStyles.tsx`
-- Layout padding: `DashboardLayout` → `.admin-content-frame` (15px / 20px lg, full width)
+## Images
+- **Upload only** in admin. Never offer a free-text Image/Thumbnail/Cover/OG/Poster URL field for images.
+- Use `AdminImageUpload` from `@/components/ui/AdminImageUpload` (or existing role-specific uploaders that call `uploadFile` / student photo API).
+- Non-image URLs (maps, YouTube, social links) may remain text inputs.
 
-## Do
-
-- Prefer CSS tokens / utility classes from admin-shell over one-off page styles
-- Use `AdminPageHeader`, `AdminCard`, `AdminKpiGrid` / `AdminKpiCard`, `AdminFilterBar`, `AdminTableShell`, `AdminStatusPill`, `AdminDetailLayout` for new or heavily edited screens
-- Primary actions: yellow `#E1BB33` (`btn-admin-primary` / `Button` default / `primaryButtonClass`)
-- Outline secondary: white + gray border (`btn-admin-outline` / `outlineButtonClass`)
-- Titles `#4F5077`, muted `#6B7A99`, cards white rounded-2xl, fields rounded-xl
-- Keep Coaches (in-house, `registration_source=admin`) separate from Online Coaches (`self`)
-
-## Don't
-
-- Don't restyle every page individually for the same look — extend `admin-shell.css` instead
-- Don't add max-width content wrappers (`max-w-7xl`, `max-w-6xl`, `mx-auto`) — content is full width under `.admin-content-frame`
-- Don't add extra page-level `p-4` / `lg:px-8` — frame already pads 15–20px
-- Don't mix Online Coach CTAs (Approvals / Availability / Subscriptions) into in-house Coaches pages
-- Don't change public/marketing pages (outside `[data-admin-shell]`)
+## Consistency
+- Do not invent page-specific visual languages. Reuse the same header, section cards, inputs (`rounded-xl`), and gold buttons across super-admin, academy-admin, partner-admin, and branch-manager dashboards.
+- List / add-edit / view modules should follow the Events admin pattern when redesigning catalogue-style modules.

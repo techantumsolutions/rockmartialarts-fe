@@ -75,7 +75,7 @@ interface RegistrationData {
   duration_name: string
   duration_months: number
   
-  // Branch Information (IDs)
+  // Academy Information (IDs)
   location_id: string
   branch_id: string
   

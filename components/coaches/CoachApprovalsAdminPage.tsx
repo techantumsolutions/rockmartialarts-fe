@@ -28,6 +28,7 @@ import {
   AdminCard,
   AdminTableShell,
   AdminStatusPill,
+  adminFilterSearchClass,
 } from "@/components/dashboard/AdminPageShell"
 import {
   Select,
@@ -57,6 +58,7 @@ import {
   type ApprovalSummary,
   type CoachApprovalRow,
 } from "@/lib/coachApprovalAPI"
+import { ADMIN_LIST_PAGE_SIZE } from "@/lib/adminListConfig"
 
 const STATUS_BADGE: Record<string, string> = {
   pending: "bg-amber-50 text-amber-900 border-amber-200",
@@ -104,7 +106,7 @@ export default function CoachApprovalsAdminPage() {
   const [activeFilter, setActiveFilter] = useState("all")
   const [sourceFilter, setSourceFilter] = useState("self")
   const [summary, setSummary] = useState<ApprovalSummary | null>(null)
-  const limit = 25
+  const limit = ADMIN_LIST_PAGE_SIZE
 
   // Detailed Coach Modal State
   const [detail, setDetail] = useState<CoachApprovalRow | null>(null)
@@ -352,20 +354,20 @@ export default function CoachApprovalsAdminPage() {
 
       <AdminFilterBar>
         <form
-          className="flex w-full flex-col flex-wrap gap-2 lg:flex-row lg:items-center"
+          className="contents"
           onSubmit={(e) => {
             e.preventDefault()
             setSkip(0)
             setSearch(searchInput)
           }}
         >
-          <div className="relative min-w-0 flex-1 lg:min-w-[240px]">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <div className={adminFilterSearchClass}>
+            <Search className="absolute left-3 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 text-gray-400" />
             <Input
               placeholder="Search by name, email, phone…"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              className="h-11 pl-10"
+              className="pl-10"
             />
           </div>
           <Select
@@ -687,7 +689,7 @@ export default function CoachApprovalsAdminPage() {
                         </div>
                       </div>
 
-                      {/* Address & Assigned Branches */}
+                      {/* Address & Assigned Academyes */}
                       <div>
                         <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
                           Address & Service Locations
@@ -707,7 +709,7 @@ export default function CoachApprovalsAdminPage() {
                             </p>
                           </div>
                           <div>
-                            <span className="text-[#6B7A99] text-xs">Selected Branches (Service Locations)</span>
+                            <span className="text-[#6B7A99] text-xs">Selected Academies (Service Locations)</span>
                             <p className="font-medium text-gray-900 mt-0.5">
                               {(detail.service_location_names || []).join(", ") ||
                                 (detail.service_location_ids || []).join(", ") ||
@@ -925,7 +927,7 @@ export default function CoachApprovalsAdminPage() {
               </Label>
               <Textarea
                 id="rejection-reason"
-                placeholder="e.g. Incomplete martial arts certifications, location outside serviceable branches, etc."
+                placeholder="e.g. Incomplete martial arts certifications, location outside serviceable academies, etc."
                 rows={4}
                 value={rejectionReason}
                 onChange={(e) => {

@@ -82,8 +82,8 @@ type BranchAccessState = "loading" | "ok" | "none" | "switch"
 
 /**
  * Resolves dashboard role from the URL path (adminType: super-admin | branch-admin).
- * Validates that the logged-in user matches the path: branch admin must stay on branch-admin, super admin on super-admin.
- * Never treat token presence as super-admin (branch manager also has a token).
+ * Validates that the logged-in user matches the path: academy admin must stay on branch-admin, super admin on super-admin.
+ * Never treat token presence as super-admin (academy manager also has a token).
  */
 export default function PathBasedDashboardResolver({
   adminType,
@@ -239,7 +239,7 @@ export default function PathBasedDashboardResolver({
         return
       }
 
-      // super-admin path: only allow if actually superadmin; if branch manager landed here, send to branch-admin
+      // super-admin path: only allow if actually superadmin; if academy manager landed here, send to branch-admin
       if (isBranchManager) {
         router.replace("/branch-admin/dashboard")
         return
@@ -259,7 +259,7 @@ export default function PathBasedDashboardResolver({
     }
   }, [adminType, pathname, router, applyBranchRoster])
 
-  // Re-check live active branches when BM returns to the tab (mid-session deactivation).
+  // Re-check live active academies when BM returns to the tab (mid-session deactivation).
   useEffect(() => {
     if (role !== "branch_admin") return
     const onFocus = () => {
@@ -269,13 +269,13 @@ export default function PathBasedDashboardResolver({
       void refreshBranchRoster()
     }
     window.addEventListener("focus", onFocus)
-    window.addEventListener("bm-branch-inactive", onInactive as EventListener)
+    window.addEventListener("bm-academy-inactive", onInactive as EventListener)
     const interval = window.setInterval(() => {
       void refreshBranchRoster()
     }, 60000)
     return () => {
       window.removeEventListener("focus", onFocus)
-      window.removeEventListener("bm-branch-inactive", onInactive as EventListener)
+      window.removeEventListener("bm-academy-inactive", onInactive as EventListener)
       window.clearInterval(interval)
     }
   }, [role, refreshBranchRoster])
@@ -328,7 +328,7 @@ export default function PathBasedDashboardResolver({
           <p className="text-sm text-gray-600">
             {inactiveBranchName
               ? `Branch “${inactiveBranchName}” has been deactivated.`
-              : "Your assigned branch has been deactivated."}{" "}
+              : "Your assigned academy has been deactivated."}{" "}
             You no longer have access to the branch manager dashboard. Please contact your
             administrator.
           </p>
@@ -348,7 +348,7 @@ export default function PathBasedDashboardResolver({
           <p className="text-sm text-gray-600">
             {inactiveBranchName
               ? `Branch “${inactiveBranchName}” has been deactivated.`
-              : "Your selected branch has been deactivated."}{" "}
+              : "Your selected academy has been deactivated."}{" "}
             Switch to another active branch to continue.
           </p>
           <div className="space-y-2 text-left">

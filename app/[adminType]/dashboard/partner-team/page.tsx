@@ -122,7 +122,7 @@ export default function PartnerTeamPage() {
         getBackendApiUrl("collaboration-partners/partner-branches?limit=200"),
         { headers: authHeaders() }
       )
-      if (!res.ok) throw new Error("Failed to load partner branches")
+      if (!res.ok) throw new Error("Failed to load partner academies")
       const data = await res.json()
       setPartners(data.partners || [])
     } catch (e: any) {
@@ -149,7 +149,7 @@ export default function PartnerTeamPage() {
         if (res.status === 403) {
           toast({
             title: "Not a collaboration partner",
-            description: "Enable Is Collaboration Partner on the branch first.",
+            description: "Enable Is Collaboration Partner on the academy first.",
             variant: "destructive",
           })
           setBranchId("")
@@ -273,7 +273,7 @@ export default function PartnerTeamPage() {
       if (res.status === 403) {
         toast({
           title: "Partner features disabled",
-          description: "This branch is not marked as a collaboration partner.",
+          description: "This academy is not marked as a collaboration partner.",
           variant: "destructive",
         })
         return
@@ -287,8 +287,8 @@ export default function PartnerTeamPage() {
       toast({
         title: "Saved",
         description: editingId
-          ? "Team member updated for this partner branch only."
-          : "Team member added for this partner branch only.",
+          ? "Team member updated for this partner academy only."
+          : "Team member added for this partner academy only.",
       })
       setDialogOpen(false)
       await loadMembers(branchId)
@@ -375,7 +375,7 @@ export default function PartnerTeamPage() {
                   size="sm"
                   onClick={() => router.push(`${basePath}/branches`)}
                 >
-                  Go to Branches
+                  Go to Academies
                 </Button>
               </div>
             </div>
@@ -385,12 +385,12 @@ export default function PartnerTeamPage() {
                 <Label>Select partner branch</Label>
                 <Select value={branchId || undefined} onValueChange={setBranchId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Choose a partner branch" />
+                    <SelectValue placeholder="Choose a partner academy" />
                   </SelectTrigger>
                   <SelectContent>
                     {partners.map((p) => (
                       <SelectItem key={p.branch_id} value={p.branch_id}>
-                        {p.branch_name || "Branch"}
+                        {p.branch_name || "Academy"}
                         {p.branch_code ? ` (${p.branch_code})` : ""}
                         {typeof p.team_count === "number"
                           ? ` — ${p.team_count} member${p.team_count === 1 ? "" : "s"}`
@@ -591,7 +591,7 @@ export default function PartnerTeamPage() {
                   onChange={(e) =>
                     setForm({ ...form, designation: e.target.value })
                   }
-                  placeholder="e.g. Branch Manager"
+                  placeholder="e.g. Academy Manager"
                 />
               </div>
               <div className="space-y-2">

@@ -33,6 +33,7 @@ import {
   outlineButtonClass,
   primaryButtonClass,
 } from "@/components/dashboard/dashboardFormStyles"
+import { AdminStickyFormActions } from "@/components/dashboard/AdminStickyFormActions"
 
 type PaymentMethod = "online" | "offline"
 
@@ -218,7 +219,11 @@ export default function CreatePartnerPage() {
       />
 
       <AdminCard className="p-0 sm:p-0">
-        <form onSubmit={handleSubmit} className="px-5 py-2 sm:px-8 sm:py-4">
+        <form
+          id="partner-profile-create-form"
+          onSubmit={handleSubmit}
+          className="admin-page-with-sticky-actions px-5 py-2 sm:px-8 sm:py-4"
+        >
           <FormSection
             icon={Building2}
             title="Partner Information"
@@ -408,30 +413,36 @@ export default function CreatePartnerPage() {
             </div>
           </FormSection>
 
-          <div className="flex flex-col-reverse gap-2 border-t border-gray-100 py-6 sm:flex-row sm:justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={saving}
-              className={outlineButtonClass}
-              onClick={() => router.push(`${basePath}/partner-profiles`)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={saving} className={primaryButtonClass}>
-              {saving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Please wait…
-                </>
-              ) : paymentMethod === "online" ? (
-                "Pay & Create Partner"
-              ) : (
-                "Create Partner"
-              )}
-            </Button>
-          </div>
         </form>
+
+        <AdminStickyFormActions>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={saving}
+            className={outlineButtonClass}
+            onClick={() => router.push(`${basePath}/partner-profiles`)}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="partner-profile-create-form"
+            disabled={saving}
+            className={primaryButtonClass}
+          >
+            {saving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Please wait…
+              </>
+            ) : paymentMethod === "online" ? (
+              "Pay & Create Partner"
+            ) : (
+              "Create Partner"
+            )}
+          </Button>
+        </AdminStickyFormActions>
       </AdminCard>
     </AdminPageShell>
   )

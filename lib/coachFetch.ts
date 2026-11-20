@@ -56,7 +56,7 @@ export async function fetchAllCoaches(
   return all
 }
 
-/** Fetch all branch managers with pagination (includes inactive by default). */
+/** Fetch all academy managers with pagination (includes inactive by default). */
 export async function fetchAllBranchManagers(
   token: string,
   options?: { activeOnly?: boolean }

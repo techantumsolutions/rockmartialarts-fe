@@ -123,6 +123,11 @@ export interface BranchData {
   partner_org_id?: string | null
   partner_org_slug?: string | null
   partner_org_name?: string | null
+  /** Super Admin: show Rock website footer on this partner academy. */
+  public_footer_enabled?: boolean | null
+  page_cms_enabled?: boolean | null
+  /** Public brand label: partner name or "Rock Martial Arts". */
+  brand_name?: string | null
   has_own_branding?: boolean
   allows_collaboration?: boolean
   is_collaboration_partner?: boolean
@@ -130,8 +135,11 @@ export interface BranchData {
   site_branding?: {
     org_name?: string | null
     org_slug?: string | null
+    display_name?: string | null
     logo_url?: string | null
     cover_banner_url?: string | null
+    primary_color?: string | null
+    secondary_color?: string | null
     tagline?: string | null
     short_description?: string | null
     about_content?: string | null
@@ -153,13 +161,15 @@ export interface BranchData {
     }
     footer?: {
       logo_url?: string | null
+      logo_alt?: string | null
       description?: string | null
     }
+    logo_alt?: string | null
   } | null
 }
 
 export function getBranchName(b: BranchData): string {
-  return b.branch?.name || b.branch?.code || "Branch"
+  return b.branch?.name || b.branch?.code || "Academy"
 }
 
 export function getBranchEmail(b: BranchData): string | undefined {

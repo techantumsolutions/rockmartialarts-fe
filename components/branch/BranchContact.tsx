@@ -26,7 +26,7 @@ export function BranchContact({ branch }: BranchContactProps) {
     >
       <div className="container mx-auto px-4 max-w-4xl text-center">
         <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-          Visit this branch
+          Visit this academy
         </h2>
         <p className="text-gray-400 mb-10 max-w-xl mx-auto">
           Ready to start your martial arts journey? Drop by {name} or get in touch.
@@ -70,7 +70,7 @@ export function BranchContact({ branch }: BranchContactProps) {
             href="/branches"
             className="inline-block rounded-lg border-2 border-white px-8 py-4 text-lg font-semibold text-white hover:bg-white hover:text-black transition-colors duration-300"
           >
-            All branches
+            All academies
           </Link>
         </div>
       </div>

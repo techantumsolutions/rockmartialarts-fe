@@ -294,7 +294,7 @@ class BranchIntegrationTester {
     const updatedData = updatedResult.data
 
     if (updatedData.branch.name !== "Consistency Test Branch") {
-      this.logResult('Data Consistency', false, 'Branch name not updated correctly')
+      this.logResult('Data Consistency', false, 'Academy name not updated correctly')
       return false
     }
 

@@ -1,9 +1,8 @@
-import { PartnerOrgSiteChrome } from "@/components/partner-org/PartnerOrgSiteChrome"
+import type { ReactNode } from "react"
 
-export default function PartnerOrgSiteLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  return <PartnerOrgSiteChrome>{children}</PartnerOrgSiteChrome>
+/**
+ * Partner org mini-site chrome removed — pages under this tree redirect to /branches.
+ */
+export default function PartnerOrgSlugLayout({ children }: { children: ReactNode }) {
+  return <>{children}</>
 }

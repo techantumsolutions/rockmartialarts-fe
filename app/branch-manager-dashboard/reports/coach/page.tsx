@@ -55,11 +55,11 @@ export default function BranchManagerCoachReportPage() {
     has_more: false
   })
   
-  // Get current branch manager data for filtering
+  // Get current academy manager data for filtering
   const currentBranchManager = BranchManagerAuth.getCurrentUser()
   const branchManagerBranchId = currentBranchManager?.branch_id
 
-  // Filter states - automatically set branch_id to current branch manager's branch
+  // Filter states - automatically set branch_id to current academy manager's academy
   const [filters, setFilters] = useState<FilterState>({
     branch_id: branchManagerBranchId || "",
     course_id: "",
@@ -79,7 +79,7 @@ export default function BranchManagerCoachReportPage() {
     setFilters(prev => ({ ...prev, search: debouncedSearchTerm }))
   }, [debouncedSearchTerm])
 
-  // Update branch_id filter when branch manager data is available
+  // Update branch_id filter when academy manager data is available
   useEffect(() => {
     if (branchManagerBranchId) {
       setFilters(prev => ({ ...prev, branch_id: branchManagerBranchId }))
@@ -159,7 +159,7 @@ export default function BranchManagerCoachReportPage() {
 
   // Handle filter changes
   const handleFilterChange = (key: keyof FilterState, value: string | boolean) => {
-    // Prevent changing branch_id for branch managers
+    // Prevent changing branch_id for academy managers
     if (key === 'branch_id' && branchManagerBranchId) {
       return
     }
@@ -182,7 +182,7 @@ export default function BranchManagerCoachReportPage() {
     }
   }
 
-  // Clear all filters (except branch_id for branch managers)
+  // Clear all filters (except branch_id for academy managers)
   const clearFilters = () => {
     setFilters({
       branch_id: branchManagerBranchId || "",
@@ -284,7 +284,7 @@ export default function BranchManagerCoachReportPage() {
               </div>
             </div>
             <div className="flex flex-wrap justify-between">
-              {/* Branch Filter - Disabled for branch managers */}
+              {/* Branch Filter - Disabled for academy managers */}
               <BranchSelectionField readOnly />
 
               {/* Course Filter */}
@@ -432,7 +432,7 @@ export default function BranchManagerCoachReportPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Your Branch</p>
+                  <p className="text-sm font-medium text-gray-600">Your Academy</p>
                   <p className="text-2xl font-bold text-orange-600">
                     {currentBranchManager?.branch_name || "N/A"}
                   </p>
@@ -485,7 +485,7 @@ export default function BranchManagerCoachReportPage() {
                     <tr className="border-b border-gray-200">
                       <th className="text-left py-3 px-4 font-medium text-gray-900">Coach</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900">Contact</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Branch</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900">Academy</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900">Courses</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900">Expertise</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900">Experience</th>

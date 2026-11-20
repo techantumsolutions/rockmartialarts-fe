@@ -18,6 +18,7 @@ import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { getActiveBranchId } from "@/lib/activeBranch"
 import BranchSelectionField from "@/components/layout/BranchSelectionField"
 import { useToast } from "@/hooks/use-toast"
+import { AdminStickyFormActions } from "@/components/dashboard/AdminStickyFormActions"
 
 export default function BranchManagerEditCoachPage() {
   const router = useRouter()
@@ -32,6 +33,15 @@ export default function BranchManagerEditCoachPage() {
   const { toast } = useToast()
 
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+  useEffect(() => {
+    if (!showSuccessPopup) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [showSuccessPopup])
+
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSendingEmail, setIsSendingEmail] = useState(false)
@@ -98,10 +108,10 @@ export default function BranchManagerEditCoachPage() {
     )
   }, [headerBranchId])
 
-  // Debug effect to log branch selection state
+  // Debug effect to log academy selection state
   useEffect(() => {
     if (!isLoading && !isLoadingBranches) {
-      console.log("Branch selection debug:", {
+      console.log("Academy selection debug:", {
         formDataBranch: formData.branch,
         availableBranches: branches.map(b => ({ id: b.id, name: b.name })),
         branchMatch: branches.find(b => b.id === formData.branch)
@@ -346,16 +356,16 @@ export default function BranchManagerEditCoachPage() {
             setBranches([])
             toast({
               title: "Error",
-              description: "Failed to load branches.",
+              description: "Failed to load academyes.",
               variant: "destructive",
             })
           }
         } catch (branchErr) {
-          console.error("Error fetching branches:", branchErr)
+          console.error("Error fetching academies:", branchErr)
           setBranches([])
           toast({
             title: "Error",
-            description: "Failed to load branches.",
+            description: "Failed to load academyes.",
             variant: "destructive",
           })
         } finally {
@@ -563,7 +573,7 @@ export default function BranchManagerEditCoachPage() {
       }
 
       console.log("Updating coach with data:", coachData)
-      console.log("Branch and course assignments:", {
+      console.log("Academy and course assignments:", {
         selectedBranchId: formData.branch,
         selectedCourses: formData.courses,
         availableBranches: branches.map(b => ({ id: b.id, name: b.name })),
@@ -671,7 +681,7 @@ export default function BranchManagerEditCoachPage() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form id="bm-coach-edit-form" onSubmit={handleSubmit} className="admin-page-with-sticky-actions space-y-6">
           {/* Personal Information */}
           <Card>
             <CardHeader>
@@ -973,7 +983,7 @@ export default function BranchManagerEditCoachPage() {
             <CardContent className="space-y-4 text-[#7D8592]">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="branch">Assign to Branch</Label>
+                  <Label htmlFor="branch">Assign to Academy</Label>
                   <BranchSelectionField
                     id="branch"
                     branchName={branches.find((branch) => branch.id === headerBranchId)?.name}
@@ -1138,55 +1148,53 @@ export default function BranchManagerEditCoachPage() {
             </CardContent>
           </Card>
 
-          {/* Form Actions */}
-          <div className="flex justify-between items-center py-6">
-            <Button
-              type="button"
-              onClick={sendCredentialsEmail}
-              disabled={isSendingEmail || isSubmitting}
-              className="text-white"
-            >
-              {isSendingEmail ? (
-                <div className="flex items-center space-x-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Sending Email...</span>
-                </div>
-              ) : (
-                "Send Credentials via Email"
-              )}
-            </Button>
-
-            <div className="flex space-x-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.push("/branch-manager-dashboard/coaches")}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                className="bg-yellow-400 hover:bg-yellow-500 text-white"
-                disabled={isSubmitting || isLoading}
-              >
-                {isSubmitting ? (
-                  <div className="flex items-center space-x-2">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Updating Coach...</span>
-                  </div>
-                ) : (
-                  "Update Coach"
-                )}
-              </Button>
-            </div>
-          </div>
+          <Button
+            type="button"
+            onClick={sendCredentialsEmail}
+            disabled={isSendingEmail || isSubmitting}
+            className="text-white"
+          >
+            {isSendingEmail ? (
+              <div className="flex items-center space-x-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Sending Email...</span>
+              </div>
+            ) : (
+              "Send Credentials via Email"
+            )}
+          </Button>
         </form>
+
+        <AdminStickyFormActions>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push("/branch-manager-dashboard/coaches")}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="bm-coach-edit-form"
+            disabled={isSubmitting || isLoading}
+          >
+            {isSubmitting ? (
+              <div className="flex items-center space-x-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Updating Coach...</span>
+              </div>
+            ) : (
+              "Update Coach"
+            )}
+          </Button>
+        </AdminStickyFormActions>
 
         {/* Success Popup */}
         {showSuccessPopup && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden p-4 sm:p-6">
+        <div className="absolute inset-0 bg-[#0f172a]/55 backdrop-blur-[2px]" aria-hidden />
+            <div className="relative z-[1] bg-white rounded-2xl border border-[#E8EAF0] shadow-[0_24px_80px_rgba(15,23,42,0.28)] p-6 w-full max-w-md">
               <div className="text-center">
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

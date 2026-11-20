@@ -5,18 +5,19 @@ import useEmblaCarousel from "embla-carousel-react"
 import type { CampTrainingCard } from "@/lib/residentialCamp"
 import { trainingCardDescription, trainingCardImage } from "@/lib/residentialCamp"
 import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
+import { useEmblaAutoplay } from "@/lib/emblaAutoplay"
 
-type VisibleSlots = 1 | 2 | 6
+type VisibleSlots = 1 | 2 | 4
 
 function useTrainingVisibleSlots(): VisibleSlots {
-  const [slots, setSlots] = useState<VisibleSlots>(6)
+  const [slots, setSlots] = useState<VisibleSlots>(4)
 
   useEffect(() => {
     const update = () => {
       const w = window.innerWidth
       if (w < 640) setSlots(1)
-      else if (w < 1100) setSlots(2)
-      else setSlots(6)
+      else if (w < 1024) setSlots(2)
+      else setSlots(4)
     }
     update()
     window.addEventListener("resize", update)
@@ -74,11 +75,16 @@ function TrainingCarousel({
   cards: CampTrainingCard[]
   slots: VisibleSlots
 }) {
-  const [emblaRef, emblaApi] = useEmblaCarousel({
-    align: "start",
-    containScroll: "trimSnaps",
-    slidesToScroll: 1,
-  })
+  const autoplay = useEmblaAutoplay({ delay: 4200 })
+  const [emblaRef, emblaApi] = useEmblaCarousel(
+    {
+      align: "start",
+      loop: cards.length > slots,
+      containScroll: "trimSnaps",
+      slidesToScroll: 1,
+    },
+    [autoplay]
+  )
   const [canPrev, setCanPrev] = useState(false)
   const [canNext, setCanNext] = useState(false)
   const [selected, setSelected] = useState(0)
@@ -108,7 +114,11 @@ function TrainingCarousel({
   }, [emblaApi, slots, cards.length])
 
   const slideBasis =
-    slots === 6 ? "calc((100% - 60px) / 6)" : slots === 2 ? "calc((100% - 18px) / 2)" : "100%"
+    slots === 4
+      ? "calc((100% - 60px) / 4)"
+      : slots === 2
+        ? "calc((100% - 18px) / 2)"
+        : "100%"
 
   return (
     <div className="training-program-slider">

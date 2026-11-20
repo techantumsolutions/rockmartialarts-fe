@@ -69,7 +69,7 @@ const INITIAL: FormState = {
 
 function getBranchName(b: Record<string, unknown>): string {
   const nested = b.branch as { name?: string } | undefined
-  return nested?.name || (b.name as string) || (b.code as string) || "Branch"
+  return nested?.name || (b.name as string) || (b.code as string) || "Academy"
 }
 
 function formatInr(n?: number | null) {

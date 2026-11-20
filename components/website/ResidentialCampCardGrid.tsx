@@ -2,6 +2,7 @@
 
 import { Children, useCallback, useEffect, useState } from "react"
 import useEmblaCarousel from "embla-carousel-react"
+import { useEmblaAutoplay } from "@/lib/emblaAutoplay"
 
 export function ResidentialCampCardGrid({ children }: { children: React.ReactNode }) {
   const items = Children.toArray(children)
@@ -24,11 +25,16 @@ function Chevron({ dir }: { dir: "prev" | "next" }) {
 }
 
 function CampCardSlider({ items }: { items: ReturnType<typeof Children.toArray> }) {
-  const [emblaRef, emblaApi] = useEmblaCarousel({
-    align: "start",
-    containScroll: "trimSnaps",
-    slidesToScroll: 1,
-  })
+  const autoplay = useEmblaAutoplay({ delay: 4200 })
+  const [emblaRef, emblaApi] = useEmblaCarousel(
+    {
+      align: "start",
+      loop: items.length > 3,
+      containScroll: "trimSnaps",
+      slidesToScroll: 1,
+    },
+    [autoplay]
+  )
   const [canPrev, setCanPrev] = useState(false)
   const [canNext, setCanNext] = useState(false)
   const [selected, setSelected] = useState(0)

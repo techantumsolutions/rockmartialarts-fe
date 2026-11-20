@@ -54,6 +54,11 @@ export type StudentPromotion = {
     course_count?: number
     group_count?: number
   }
+  partner_org_id?: string | null
+  partner_org_name?: string | null
+  posted_by_academy?: string | null
+  owner_type?: "rock" | "partner" | "academy" | string
+  source_branch_names?: string[]
   created_at?: string
   updated_at?: string
 }

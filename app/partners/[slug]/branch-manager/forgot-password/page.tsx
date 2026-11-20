@@ -43,7 +43,7 @@ export default function PartnerBranchManagerForgotPasswordPage() {
         setSuccess(true)
         toast({
           title: "Reset Link Sent",
-          description: "If a branch admin account exists with this email, you'll receive reset instructions.",
+          description: "If an academy admin account exists with this email, you'll receive reset instructions.",
         })
       } else {
         const errorData = await response.json().catch(() => ({}))
@@ -68,7 +68,7 @@ export default function PartnerBranchManagerForgotPasswordPage() {
           <CardTitle className="text-xl text-[#1a2332]">
             {loadingMeta ? "Loading…" : `Reset password — ${partnerName || "Partner"}`}
           </CardTitle>
-          <p className="text-sm text-muted-foreground">Branch admin password reset</p>
+          <p className="text-sm text-muted-foreground">Academy admin password reset</p>
         </CardHeader>
         <CardContent>
           {loadingMeta ? (
@@ -82,7 +82,7 @@ export default function PartnerBranchManagerForgotPasswordPage() {
           ) : success ? (
             <div className="space-y-4 text-sm text-gray-700">
               <p>
-                If a branch admin account exists with <strong>{email}</strong>, you&apos;ll receive
+                If an branch admin account exists with <strong>{email}</strong>, you&apos;ll receive
                 password reset instructions shortly.
               </p>
               <Link href={`/partners/${slug}/branch-manager/login`}>

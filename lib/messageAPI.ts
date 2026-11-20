@@ -362,7 +362,7 @@ class MessageAPI extends BaseAPI {
   }
 
   /**
-   * Get messageable students (for coaches, branch managers, superadmin)
+   * Get messageable students (for coaches, academy managers, superadmin)
    */
   async getMessageableStudents(branchId?: string): Promise<{ students: MessageRecipient[]; total_count: number }> {
     const params = branchId ? `?branch_id=${branchId}` : ''
@@ -373,7 +373,7 @@ class MessageAPI extends BaseAPI {
   }
 
   /**
-   * Get messageable coaches (for students, branch managers, superadmin)
+   * Get messageable coaches (for students, academy managers, superadmin)
    */
   async getMessageableCoaches(branchId?: string): Promise<{ coaches: MessageRecipient[]; total_count: number }> {
     const params = branchId ? `?branch_id=${branchId}` : ''
@@ -384,7 +384,7 @@ class MessageAPI extends BaseAPI {
   }
 
   /**
-   * Get messageable branch managers (for students, coaches, superadmin)
+   * Get messageable academy managers (for students, coaches, superadmin)
    */
   async getMessageableBranchManagers(): Promise<{ branch_managers: MessageRecipient[]; total_count: number }> {
     return await this.makeRequest('/api/messages/branch-managers', {
@@ -394,7 +394,7 @@ class MessageAPI extends BaseAPI {
   }
 
   /**
-   * Get messageable superadmins (for students, coaches, branch managers)
+   * Get messageable superadmins (for students, coaches, academy managers)
    */
   async getMessageableSuperadmins(): Promise<{ superadmins: MessageRecipient[]; total_count: number }> {
     return await this.makeRequest('/api/messages/superadmins', {

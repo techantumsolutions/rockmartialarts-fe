@@ -51,7 +51,7 @@ export default function PaymentPage() {
   useEffect(() => {
     const fetchPaymentInfo = async () => {
       if (!registrationData.course_id || !registrationData.branch_id || !registrationData.duration) {
-        setError("Missing course or branch information. Please go back and complete your selection.")
+        setError("Missing course or academy information. Please go back and complete your selection.")
         setLoading(false)
         return
       }
@@ -77,7 +77,7 @@ export default function PaymentPage() {
             course_id: registrationData.course_id || "unknown",
             course_name: "Selected Course",
             category_name: "Martial Arts",
-            branch_name: "Selected Branch",
+            branch_name: "Selected Academy",
             duration: registrationData.duration || "3-months",
             pricing: {
               course_fee: 15000,
@@ -95,7 +95,7 @@ export default function PaymentPage() {
           course_id: registrationData.course_id || "unknown",
           course_name: "Selected Course",
           category_name: "Martial Arts",
-          branch_name: "Selected Branch",
+          branch_name: "Selected Academy",
           duration: registrationData.duration || "3-months",
           pricing: {
             course_fee: 15000,
@@ -320,7 +320,7 @@ export default function PaymentPage() {
           <form onSubmit={handleProceedToPay}>
             <Button
               type="submit"
-              className="w-full bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-4 px-6 rounded-xl text-sm h-14 transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl mt-6"
+              className="w-full  font-bold py-4 px-6 rounded-xl text-sm h-14 transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl mt-6"
             >
               <div className="flex items-center justify-center space-x-2">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

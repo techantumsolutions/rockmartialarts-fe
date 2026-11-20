@@ -291,7 +291,7 @@ export default function CoachRegistrationPublicForm() {
       return
     }
     if (form.service_location_ids.length === 0) {
-      setError("Select at least one service location (branch)")
+      setError("Select at least one service location (academy)")
       return
     }
     if (!form.training_mode) {

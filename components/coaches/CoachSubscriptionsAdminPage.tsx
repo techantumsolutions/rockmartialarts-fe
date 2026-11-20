@@ -23,6 +23,7 @@ import {
   type CoachSubscription,
   type CoachSubscriptionPlan,
 } from "@/lib/coachSubscriptionAPI"
+import { ADMIN_LIST_PAGE_SIZE } from "@/lib/adminListConfig"
 import {
   AdminPageShell,
   AdminPageHeader,
@@ -30,6 +31,7 @@ import {
   AdminFilterBar,
   AdminTableShell,
   AdminStatusPill,
+  adminFilterSearchClass,
 } from "@/components/dashboard/AdminPageShell"
 
 const subscriptionPillStatus = (
@@ -66,7 +68,7 @@ export default function CoachSubscriptionsAdminPage() {
   const [grantCoachId, setGrantCoachId] = useState("")
   const [grantPlanId, setGrantPlanId] = useState("")
   const [granting, setGranting] = useState(false)
-  const limit = 25
+  const limit = ADMIN_LIST_PAGE_SIZE
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -231,20 +233,20 @@ export default function CoachSubscriptionsAdminPage() {
 
       <AdminFilterBar>
         <form
-          className="flex w-full flex-col flex-wrap gap-2 sm:flex-row sm:items-center"
+          className="contents"
           onSubmit={(e) => {
             e.preventDefault()
             setSkip(0)
             setSearch(searchInput)
           }}
         >
-          <div className="relative min-w-0 flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <div className={adminFilterSearchClass}>
+            <Search className="absolute left-3 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 text-gray-400" />
             <Input
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Name, email, id…"
-              className="h-11 pl-10"
+              className="pl-10"
             />
           </div>
           <Select

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
-import { useParams, useRouter, usePathname } from "next/navigation"
+import { useParams, useRouter, usePathname, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -45,8 +45,18 @@ import {
   operationalColumns,
   paymentTransactionId,
 } from "@/lib/categoryReportExport"
+import {
+  academySlugFromBranch,
+  filtersFromSearchParams,
+  readReportHubFilters,
+  reportHubQueryString,
+  resolveBranchIdFromAcademyParam,
+  REPORT_DURATION_OPTIONS,
+  writeReportHubFilters,
+} from "@/lib/reportHubFilters"
+import { isBranchId } from "@/lib/branch-slug"
 
-// Branch interface (same as branches page)
+// Branch interface (same as academies page)
 interface Branch {
   id: string
   branch: {
@@ -123,7 +133,7 @@ function buildPageList(current: number, total: number): (number | "ellipsis")[] 
   return pages
 }
 
-// Courses are collected per branch, so the same course can appear once per branch.
+// Courses are collected per academy, so the same course can appear once per branch.
 function uniqueCoursesById(courses: any[]): any[] {
   const seen = new Set<string>()
   return courses.filter((course) => {
@@ -181,23 +191,23 @@ const REPORT_CATEGORIES = [
       { id: "coach-course-load", name: "Coach Course Load", icon: FileText },
       { id: "coach-feedback-report", name: "Coach Feedback Report", icon: FileText },
       { id: "coach-productivity-metrics", name: "Coach Productivity Metrics", icon: TrendingUp },
-      { id: "coach-branch-distribution", name: "Coach Branch Distribution", icon: FileText }
+      { id: "coach-academy-distribution", name: "Coach Academy Distribution", icon: FileText }
     ]
   },
   {
     id: "branch",
-    name: "Branch Reports",
-    description: "Branch-wise analytics, performance, and operational reports",
+    name: "Academy Reports",
+    description: "Academy-wise analytics, performance, and operational reports",
     icon: TrendingUp,
     reports: [
-      { id: "branch-performance-overview", name: "Branch Performance Overview", icon: TrendingUp },
-      { id: "branch-enrollment-statistics", name: "Branch Enrollment Statistics", icon: FileText },
-      { id: "branch-revenue-analysis", name: "Branch Revenue Analysis", icon: TrendingUp },
-      { id: "branch-capacity-utilization", name: "Branch Capacity Utilization", icon: FileText },
-      { id: "branch-staff-allocation", name: "Branch Staff Allocation", icon: FileText },
-      { id: "branch-operational-hours", name: "Branch Operational Hours", icon: FileText },
-      { id: "branch-comparison-report", name: "Branch Comparison Report", icon: TrendingUp },
-      { id: "branch-growth-trends", name: "Branch Growth Trends", icon: TrendingUp }
+      { id: "academy-performance-overview", name: "Academy Performance Overview", icon: TrendingUp },
+      { id: "academy-enrollment-statistics", name: "Academy Enrollment Statistics", icon: FileText },
+      { id: "academy-revenue-analysis", name: "Academy Revenue Analysis", icon: TrendingUp },
+      { id: "academy-capacity-utilization", name: "Academy Capacity Utilization", icon: FileText },
+      { id: "academy-staff-allocation", name: "Academy Staff Allocation", icon: FileText },
+      { id: "academy-operational-hours", name: "Academy Operational Hours", icon: FileText },
+      { id: "academy-comparison-report", name: "Academy Comparison Report", icon: TrendingUp },
+      { id: "academy-growth-trends", name: "Academy Growth Trends", icon: TrendingUp }
     ]
   },
   {
@@ -223,12 +233,15 @@ function CategoryReportsPageContent() {
   const params = useParams()
   const router = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const basePath = useDashboardBasePath()
   const { user } = useAuth()
 
   const categoryId = params.categoryId as string
   const isBranchAdminRoute =
     typeof pathname === "string" && pathname.startsWith("/branch-admin/dashboard")
+  const hubFiltersApplied = useRef(false)
+  const [hubFiltersReady, setHubFiltersReady] = useState(false)
 
   // Authentication check
   useEffect(() => {
@@ -287,7 +300,7 @@ function CategoryReportsPageContent() {
   const [financialTotal, setFinancialTotal] = useState(0)
   const [financialPage, setFinancialPage] = useState(1)
 
-  // Branch search specific state
+  // Academy search specific state
   const [branchResults, setBranchResults] = useState<any[]>([])
 
   // Coach search specific state
@@ -305,9 +318,10 @@ function CategoryReportsPageContent() {
 
   // Coach search specific state
 
-  // Branch state (same as branches page)
+  // Academy state (same as academies page)
   const [branches, setBranches] = useState<Branch[]>([])
   const [branchesLoading, setBranchesLoading] = useState(false)
+  const [branchesLoaded, setBranchesLoaded] = useState(false)
   const [branchesError, setBranchesError] = useState<string | null>(null)
 
   // Courses state for dynamic filtering
@@ -334,7 +348,81 @@ function CategoryReportsPageContent() {
     search: ""
   })
 
-  // Branch Admin: scope financial + student reports to their managed branch
+  // Preselect academy + duration from Reports hub (pretty academy slug / duration).
+  // Wait until academies are loaded so we can resolve slug → id for API calls.
+  useEffect(() => {
+    if (hubFiltersApplied.current) return
+    if (!branchesLoaded) return
+
+    hubFiltersApplied.current = true
+    const fromQuery = filtersFromSearchParams(searchParams)
+    const fromSession = readReportHubFilters()
+    const academyParam =
+      fromQuery.academy ||
+      fromQuery.branch_id ||
+      fromSession.academy ||
+      fromSession.branch_id ||
+      ""
+    const date_range = fromQuery.date_range || fromSession.date_range || ""
+
+    const branchList = branches.map((b) => ({
+      id: b.id,
+      name: b.branch?.name || (b as any).name,
+      slug: (b as any).slug,
+    }))
+    const resolvedId = resolveBranchIdFromAcademyParam(academyParam, branchList)
+    const resolvedBranchId =
+      resolvedId && resolvedId !== "all"
+        ? resolvedId
+        : fromSession.branch_id && fromSession.branch_id !== "all" && isBranchId(fromSession.branch_id)
+          ? fromSession.branch_id
+          : ""
+
+    setFilters((prev) => ({
+      ...prev,
+      ...(resolvedBranchId ? { branch_id: resolvedBranchId } : {}),
+      ...(date_range ? { date_range: date_range === "all" ? "" : date_range } : {}),
+    }))
+
+    const match = branchList.find((b) => b.id === resolvedBranchId)
+    const academySlug = match
+      ? academySlugFromBranch(match)
+      : academyParam && !isBranchId(String(academyParam))
+        ? String(academyParam)
+        : "all"
+    writeReportHubFilters({
+      branch_id: resolvedBranchId || "all",
+      academy: academySlug,
+      date_range: date_range || "last-30-days",
+    })
+
+    // Replace UUID query with pretty academy/duration params
+    try {
+      const pretty = reportHubQueryString({
+        branch_id: resolvedBranchId || "all",
+        academy: academySlug,
+        date_range: date_range || "last-30-days",
+      })
+      if (typeof window !== "undefined" && window.location.search !== pretty) {
+        router.replace(`${pathname}${pretty}`, { scroll: false })
+      }
+    } catch {
+      /* ignore */
+    }
+
+    if (date_range === "last-30-days") {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - 30)
+      const toInput = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+      setOperationalStartDate(toInput(start))
+      setOperationalEndDate(toInput(end))
+    }
+    setHubFiltersReady(true)
+  }, [searchParams, branches, branchesLoaded, pathname, router])
+
+  // Academy Admin: scope financial + student reports to their managed academy
   useEffect(() => {
     if (!isBranchAdminRoute || (categoryId !== "financial" && categoryId !== "student")) return
     let cancelled = false
@@ -417,7 +505,7 @@ function CategoryReportsPageContent() {
     }
   }, [error, lastError])
 
-  // Fetch branches with courses for dynamic filtering
+  // Fetch academies with courses for dynamic filtering
   useEffect(() => {
     const fetchBranchesWithCourses = async () => {
       try {
@@ -429,7 +517,7 @@ function CategoryReportsPageContent() {
           throw new Error("Authentication token not found. Please login again.")
         }
 
-        // Use the backend API endpoint for branches with courses
+        // Use the backend API endpoint for academies with courses
         const response = await fetch(`/api/branches-with-courses`, {
           method: 'GET',
           headers: {
@@ -440,34 +528,40 @@ function CategoryReportsPageContent() {
 
         if (!response.ok) {
           const errorData = await response.json()
-          throw new Error(errorData.detail || errorData.message || `Failed to fetch branches with courses (${response.status})`)
+          throw new Error(errorData.detail || errorData.message || `Failed to fetch academies with courses (${response.status})`)
         }
 
         const data = await response.json()
-        console.log("Branches with courses fetched successfully for reports:", data)
+        console.log("Academies with courses fetched successfully for reports:", data)
 
         const branchesData = data.branches || []
 
-        // Store branches with courses for dynamic filtering
+        // Store academies with courses for dynamic filtering
         setBranchesWithCourses(branchesData)
 
-        // Extract branches for dropdown (maintain compatibility)
+        // Extract academies for dropdown (maintain compatibility)
         const branchesForDropdown = branchesData.map((branch: any) => ({
           id: branch.id,
-          branch: branch.branch
+          branch: branch.branch,
+          slug: branch.slug || academySlugFromBranch({
+            id: branch.id,
+            name: branch.branch?.name || branch.name,
+            slug: branch.slug,
+          }),
+          name: branch.branch?.name || branch.name,
         }))
         setBranches(branchesForDropdown)
 
-        // Extract all courses from all branches
+        // Extract all courses from all academies
         const allCoursesFromBranches: any[] = []
         branchesData.forEach((branch: any) => {
           if (branch.courses && Array.isArray(branch.courses)) {
             branch.courses.forEach((course: any) => {
-              // Add branch info to course for reference
+              // Add academy info to course for reference
               const courseWithBranch = {
                 ...course,
                 branch_id: branch.id,
-                branch_name: branch.branch?.name || 'Unknown Branch'
+                branch_name: branch.branch?.name || 'Unknown Academy'
               }
               allCoursesFromBranches.push(courseWithBranch)
             })
@@ -479,21 +573,24 @@ function CategoryReportsPageContent() {
         setFilteredCourses(uniqueCoursesById(allCoursesFromBranches)) // Initially show all courses
 
       } catch (error) {
-        console.error('Error fetching branches with courses for reports:', error)
-        setBranchesError(error instanceof Error ? error.message : 'Failed to fetch branches with courses')
-        toast.error('Failed to load branches and courses for filtering')
+        console.error('Error fetching academies with courses for reports:', error)
+        setBranchesError(error instanceof Error ? error.message : 'Failed to fetch academies with courses')
+        toast.error('Failed to load academyes and courses for filtering')
       } finally {
         setBranchesLoading(false)
+        setBranchesLoaded(true)
       }
     }
 
-    // Fetch branches with courses for all report categories that have branch dropdowns
+    // Fetch academies with courses for all report categories that have academy dropdowns
     if (categoryId && (['student', 'financial', 'branch', 'coach', 'course', 'coach'].includes(categoryId) || isOperationalReportType(categoryId))) {
       fetchBranchesWithCourses()
+    } else {
+      setBranchesLoaded(true)
     }
   }, [categoryId])
 
-  // Load branch report filters when on branch category
+  // Load academy report filters when on academy category
   useEffect(() => {
     const loadBranchReportFilters = async () => {
       if (categoryId !== 'branch') return
@@ -504,7 +601,7 @@ function CategoryReportsPageContent() {
 
         const response = await reportsAPI.getBranchReportFilters(token)
 
-        // Update filter options with branch-specific data
+        // Update filter options with academy-specific data
         setFilterOptions(prev => ({
           ...prev,
           branches: response.filters.branches,
@@ -513,7 +610,7 @@ function CategoryReportsPageContent() {
           statuses: response.filters.statuses
         }))
       } catch (error) {
-        console.error('Error loading branch report filters:', error)
+        console.error('Error loading academy report filters:', error)
       }
     }
 
@@ -558,17 +655,17 @@ function CategoryReportsPageContent() {
     loadFinancialReportFilters()
   }, [categoryId])
 
-  // Dynamic course filtering based on selected branch
+  // Dynamic course filtering based on selected academy
   useEffect(() => {
     if (!allCourses.length) return
 
     const selectedBranchId = filters.branch_id
 
     if (!selectedBranchId || selectedBranchId === 'all') {
-      // Show all courses when no branch is selected or "All Branches" is selected
+      // Show all courses when no academy is selected or "All Academies" is selected
       setFilteredCourses(uniqueCoursesById(allCourses))
     } else {
-      // Filter courses for the selected branch
+      // Filter courses for the selected academy
       const coursesForBranch = uniqueCoursesById(
         allCourses.filter(course =>
           isBranchAdminRoute
@@ -578,7 +675,7 @@ function CategoryReportsPageContent() {
       )
       setFilteredCourses(coursesForBranch)
 
-      // Clear course selection if the currently selected course is not available in the new branch
+      // Clear course selection if the currently selected course is not available in the new academy
       if (filters.course_id && filters.course_id !== 'all') {
         const isCourseAvailable = coursesForBranch.some(course => course.id === filters.course_id)
         if (!isCourseAvailable) {
@@ -605,6 +702,7 @@ function CategoryReportsPageContent() {
 
   useEffect(() => {
     if (categoryId !== 'student') return
+    if (!hubFiltersReady) return
     if (filters.date_range === 'custom' && !customStartDate && !customEndDate) return
     const timer = setTimeout(() => {
       // Do not wipe filtered results while the user is actively searching
@@ -614,7 +712,7 @@ function CategoryReportsPageContent() {
     }, 0)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoryId, studentAutoFilterKey])
+  }, [categoryId, studentAutoFilterKey, hubFiltersReady])
 
   // Other categories: load all records as soon as the category page opens.
   const categorySearchRef = useRef<((options?: { silent?: boolean }) => void) | null>(null)
@@ -705,6 +803,12 @@ function CategoryReportsPageContent() {
       let endDate: Date | null = null
 
       switch (filters.date_range) {
+        case "last-30-days": {
+          endDate = new Date(today)
+          startDate = new Date(today)
+          startDate.setDate(startDate.getDate() - 30)
+          break
+        }
         case 'current-month':
           startDate = new Date(today.getFullYear(), today.getMonth(), 1)
           endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0)
@@ -825,9 +929,10 @@ function CategoryReportsPageContent() {
   }
 
   const handleFilterChange = (key: string, value: string) => {
+    const nextValue = value === "all" ? "" : value
     setFilters(prev => ({
       ...prev,
-      [key]: value === "all" ? "" : value
+      [key]: nextValue
     }))
 
     // Handle custom date range visibility
@@ -836,6 +941,35 @@ function CategoryReportsPageContent() {
       if (value !== 'custom') {
         setCustomStartDate("")
         setCustomEndDate("")
+      }
+    }
+
+    // Keep URL pretty (academy slug + duration) when filters change
+    if (key === "branch_id" || key === "date_range") {
+      const nextBranchId = key === "branch_id" ? nextValue : filters.branch_id
+      const nextDate = key === "date_range" ? nextValue : filters.date_range
+      const match = branches.find((b) => b.id === nextBranchId)
+      const academy = match
+        ? academySlugFromBranch({
+            id: match.id,
+            name: match.branch?.name || (match as any).name,
+            slug: (match as any).slug,
+          })
+        : "all"
+      writeReportHubFilters({
+        branch_id: nextBranchId || "all",
+        academy,
+        date_range: nextDate || "all",
+      })
+      try {
+        const pretty = reportHubQueryString({
+          branch_id: nextBranchId || "all",
+          academy,
+          date_range: nextDate || "all",
+        })
+        router.replace(`${pathname}${pretty}`, { scroll: false })
+      } catch {
+        /* ignore */
       }
     }
   }
@@ -1028,7 +1162,7 @@ function CategoryReportsPageContent() {
   }
 
 
-  // Branch Reports Handler
+  // Academy Reports Handler
   const handleBranchSearch = async (options?: { silent?: boolean }) => {
     const silent = options?.silent === true
     const token = TokenManager.getToken() || BranchManagerAuth.getToken()
@@ -1054,7 +1188,7 @@ function CategoryReportsPageContent() {
       // Transform data to match expected format
       const transformedResults = response.branches.map(branch => ({
         id: branch.id,
-        name: branch.branch_name || 'Unknown Branch',
+        name: branch.branch_name || 'Unknown Academy',
         student_count: branch.active_enrollments,
         revenue: branch.total_revenue,
         status: branch.status,
@@ -1062,10 +1196,10 @@ function CategoryReportsPageContent() {
       }))
 
       setBranchResults(transformedResults)
-      if (!silent) toast.success(`Found ${transformedResults.length} branch${transformedResults.length !== 1 ? 'es' : ''}`)
+      if (!silent) toast.success(`Found ${transformedResults.length} academy${transformedResults.length !== 1 ? 'es' : ''}`)
     } catch (error) {
-      console.error('Error searching branch reports:', error)
-      toast.error('Failed to load branch reports. Please try again.')
+      console.error('Error searching academy reports:', error)
+      toast.error('Failed to load academy reports. Please try again.')
       setBranchResults([])
     } finally {
       setSearchLoading(false)
@@ -1219,7 +1353,7 @@ function CategoryReportsPageContent() {
               <span>Filter</span>
             </Button>
             <Button
-              className="bg-yellow-400 hover:bg-yellow-500 text-white flex items-center space-x-2"
+              className=" flex items-center space-x-2"
               onClick={handleDownloadReport}
               disabled={!isKnownCategory || exportLoading || (categoryId === 'student' && searchLoading)}
             >
@@ -1289,7 +1423,7 @@ function CategoryReportsPageContent() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     {/* Branch Dropdown */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Academy</label>
                       <BranchSelectionField readOnly={isBranchAdminRoute}>
                       <Select
                         value={filters.branch_id || "all"}
@@ -1297,10 +1431,10 @@ function CategoryReportsPageContent() {
                         disabled={branchesLoading}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder={branchesLoading ? "Loading branches..." : "Select Branch"} />
+                          <SelectValue placeholder={branchesLoading ? "Loading academies..." : "Select Academy"} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">All Branches</SelectItem>
+                          <SelectItem value="all">All Academies</SelectItem>
                           {branches.filter(branch => branch.id && branch.branch?.name).map((branch) => (
                             <SelectItem key={branch.id} value={branch.id}>
                               {branch.branch?.name || 'N/A'} ({branch.branch?.code || branch.id})
@@ -1421,7 +1555,7 @@ function CategoryReportsPageContent() {
                                 disabled={searchLoading}
                                 className={
                                   operationalPage === page
-                                    ? "bg-yellow-400 hover:bg-yellow-500 text-black"
+                                    ? ""
                                     : "bg-transparent"
                                 }
                                 variant={operationalPage === page ? "default" : "outline"}
@@ -1469,7 +1603,7 @@ function CategoryReportsPageContent() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
                   {/* Branch Dropdown */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Academy</label>
                     <BranchSelectionField readOnly={isBranchAdminRoute}>
                     <Select
                       value={filters.branch_id || "all"}
@@ -1477,10 +1611,10 @@ function CategoryReportsPageContent() {
                       disabled={loading}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder={loading ? "Loading..." : "Select Branch"} />
+                        <SelectValue placeholder={loading ? "Loading..." : "Select Academy"} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Branches</SelectItem>
+                        <SelectItem value="all">All Academies</SelectItem>
                         {filterOptions?.branches?.map((branch) => (
                           <SelectItem key={branch.id} value={branch.id}>
                             {branch.name}
@@ -1566,7 +1700,13 @@ function CategoryReportsPageContent() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Time</SelectItem>
-                        {filterOptions?.date_ranges?.map((range) => (
+                        {(filterOptions?.date_ranges?.length
+                          ? [
+                              { id: "last-30-days", name: "Last 30 Days" },
+                              ...filterOptions.date_ranges.filter((r) => r.id !== "last-30-days"),
+                            ]
+                          : REPORT_DURATION_OPTIONS.filter((r) => r.id !== "all")
+                        ).map((range) => (
                           <SelectItem key={range.id} value={range.id}>
                             {range.name}
                           </SelectItem>
@@ -1581,7 +1721,7 @@ function CategoryReportsPageContent() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
                   <Input
                     type="text"
-                    placeholder="Search by transaction ID, course, branch, or notes..."
+                    placeholder="Search by transaction ID, course, academy, or notes..."
                     value={filters.search || ""}
                     onChange={(e) => handleFilterChange('search', e.target.value)}
                     className="w-full"
@@ -1639,7 +1779,7 @@ function CategoryReportsPageContent() {
                           <tr className="border-b border-gray-200 bg-gray-50">
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">Transaction ID</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden sm:table-cell">Amount</th>
-                            <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden md:table-cell">Branch</th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden md:table-cell">Academy</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden lg:table-cell">Course</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">Status</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden xl:table-cell">Method</th>
@@ -1712,7 +1852,7 @@ function CategoryReportsPageContent() {
                                 disabled={searchLoading}
                                 className={
                                   financialPage === page
-                                    ? "bg-yellow-400 hover:bg-yellow-500 text-black"
+                                    ? ""
                                     : "bg-transparent"
                                 }
                                 variant={financialPage === page ? "default" : "outline"}
@@ -1750,19 +1890,19 @@ function CategoryReportsPageContent() {
           </>
         )}
 
-        {/* Branch Reports Search/Filter Card - Only show for branch category */}
+        {/* Academy Reports Search/Filter Card - Only show for branch category */}
         {categoryId === 'branch' && (
           <>
             {/* Search/Filter Card */}
             <Card className="mb-6">
               <CardHeader>
-                <CardTitle className="text-lg font-semibold text-gray-900">Search Branch Reports</CardTitle>
+                <CardTitle className="text-lg font-semibold text-gray-900">Search Academy Reports</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                   {/* Branch Dropdown */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Academy</label>
                     <BranchSelectionField readOnly={isBranchAdminRoute}>
                     <Select
                       value={filters.branch_id || "all"}
@@ -1770,10 +1910,10 @@ function CategoryReportsPageContent() {
                       disabled={branchesLoading}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder={branchesLoading ? "Loading branches..." : "Select Branch"} />
+                        <SelectValue placeholder={branchesLoading ? "Loading academies..." : "Select Academy"} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Branches</SelectItem>
+                        <SelectItem value="all">All Academies</SelectItem>
                         {branches.filter(branch => branch.id && branch.branch?.name).map((branch) => (
                           <SelectItem key={branch.id} value={branch.id}>
                             {branch.branch?.name || 'N/A'} ({branch.branch?.code || branch.id})
@@ -1806,6 +1946,7 @@ function CategoryReportsPageContent() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Time</SelectItem>
+                        <SelectItem value="last-30-days">Last 30 Days</SelectItem>
                         <SelectItem value="current-month">Current Month</SelectItem>
                         <SelectItem value="last-month">Last Month</SelectItem>
                         <SelectItem value="current-quarter">Current Quarter</SelectItem>
@@ -1816,9 +1957,9 @@ function CategoryReportsPageContent() {
                     </Select>
                   </div>
 
-                  {/* Branch Status */}
+                  {/* Academy Status */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Branch Status</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Academy Status</label>
                     <Select
                       value={filters.status || "all"}
                       onValueChange={(value) => handleFilterChange('status', value)}
@@ -1852,7 +1993,7 @@ function CategoryReportsPageContent() {
                     ) : (
                       <>
                         <Search className="w-4 h-4 mr-2" />
-                        Search Branch Reports
+                        Search Academy Reports
                       </>
                     )}
                   </Button>
@@ -1863,7 +2004,7 @@ function CategoryReportsPageContent() {
             {/* Results Table */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg font-semibold text-gray-900">Branch Reports Results</CardTitle>
+                <CardTitle className="text-lg font-semibold text-gray-900">Academy Reports Results</CardTitle>
                 {branchResults.length > 0 && (
                   <p className="text-sm text-gray-600">
                     Found {branchResults.length} branch{branchResults.length !== 1 ? 'es' : ''}
@@ -1884,7 +2025,7 @@ function CategoryReportsPageContent() {
                       <table className="min-w-full border-collapse">
                         <thead>
                           <tr className="border-b border-gray-200 bg-gray-50">
-                            <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">Branch Name</th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">Academy Name</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden sm:table-cell">Students</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden md:table-cell">Revenue</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">Status</th>
@@ -1918,7 +2059,7 @@ function CategoryReportsPageContent() {
                   <div className="text-center py-12">
                     <div className="text-center">
                       <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-lg font-medium text-gray-900 mb-2">No Branch Reports Found</p>
+                      <p className="text-lg font-medium text-gray-900 mb-2">No Academy Reports Found</p>
                       <p className="text-gray-600">
                         No branch reports match your search criteria. Try adjusting your filters.
                       </p>
@@ -1942,7 +2083,7 @@ function CategoryReportsPageContent() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                   {/* Branch Dropdown */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Academy</label>
                     <BranchSelectionField readOnly={isBranchAdminRoute}>
                     <Select
                       value={filters.branch_id || "all"}
@@ -1950,10 +2091,10 @@ function CategoryReportsPageContent() {
                       disabled={branchesLoading}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder={branchesLoading ? "Loading branches..." : "Select Branch"} />
+                        <SelectValue placeholder={branchesLoading ? "Loading academies..." : "Select Academy"} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Branches</SelectItem>
+                        <SelectItem value="all">All Academies</SelectItem>
                         {branches.filter(branch => branch.id && branch.branch?.name).map((branch) => (
                           <SelectItem key={branch.id} value={branch.id}>
                             {branch.branch?.name || 'N/A'} ({branch.branch?.code || branch.id})
@@ -2085,7 +2226,7 @@ function CategoryReportsPageContent() {
                         <thead>
                           <tr className="border-b border-gray-200 bg-gray-50">
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">Coach Name</th>
-                            <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden sm:table-cell">Branch</th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden sm:table-cell">Academy</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden md:table-cell">Experience</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">Status</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden lg:table-cell">Rating</th>
@@ -2184,7 +2325,7 @@ function CategoryReportsPageContent() {
 
                   {/* Branch Dropdown */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Academy</label>
                     <BranchSelectionField readOnly={isBranchAdminRoute}>
                     <Select
                       value={filters.branch_id || "all"}
@@ -2192,10 +2333,10 @@ function CategoryReportsPageContent() {
                       disabled={branchesLoading}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder={branchesLoading ? "Loading branches..." : "Select Branch"} />
+                        <SelectValue placeholder={branchesLoading ? "Loading academies..." : "Select Academy"} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Branches</SelectItem>
+                        <SelectItem value="all">All Academies</SelectItem>
                         {branches.filter(branch => branch.id && branch.branch?.name).map((branch) => (
                           <SelectItem key={branch.id} value={branch.id}>
                             {branch.branch?.name || 'N/A'} ({branch.branch?.code || branch.id})
@@ -2365,7 +2506,7 @@ function CategoryReportsPageContent() {
 
                   {/* Branch Scope */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Branch Scope</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Academy Scope</label>
                     <BranchSelectionField readOnly={isBranchAdminRoute}>
                     <Select
                       value={filters.branch_id || "all"}
@@ -2373,10 +2514,10 @@ function CategoryReportsPageContent() {
                       disabled={branchesLoading}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder={branchesLoading ? "Loading branches..." : "Select Scope"} />
+                        <SelectValue placeholder={branchesLoading ? "Loading academies..." : "Select Scope"} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Branches</SelectItem>
+                        <SelectItem value="all">All Academies</SelectItem>
                         {branches.filter(branch => branch.id && branch.branch?.name).map((branch) => (
                           <SelectItem key={branch.id} value={branch.id}>
                             {branch.branch?.name || 'N/A'} ({branch.branch?.code || branch.id})
@@ -2409,6 +2550,7 @@ function CategoryReportsPageContent() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Time</SelectItem>
+                        <SelectItem value="last-30-days">Last 30 Days</SelectItem>
                         <SelectItem value="current-month">Current Month</SelectItem>
                         <SelectItem value="last-month">Last Month</SelectItem>
                         <SelectItem value="current-quarter">Current Quarter</SelectItem>
@@ -2570,7 +2712,7 @@ function CategoryReportsPageContent() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                   {/* Branch Dropdown */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Academy</label>
                     {(() => {
                       const managedBranchIds = getBranchAdminManagedBranchIds()
                       const studentBranchOptions =
@@ -2598,11 +2740,11 @@ function CategoryReportsPageContent() {
                             disabled={branchesLoading || (managedBranchIds.length === 1)}
                           >
                             <SelectTrigger>
-                              <SelectValue placeholder={branchesLoading ? "Loading branches..." : "Select Branch"} />
+                              <SelectValue placeholder={branchesLoading ? "Loading academies..." : "Select Academy"} />
                             </SelectTrigger>
                             <SelectContent>
                               {managedBranchIds.length === 0 && (
-                                <SelectItem value="all">All Branches</SelectItem>
+                                <SelectItem value="all">All Academies</SelectItem>
                               )}
                               {studentBranchOptions.map((branch) => (
                                 <SelectItem key={branch.id} value={branch.id}>
@@ -2614,7 +2756,7 @@ function CategoryReportsPageContent() {
                                 branchSelectValue &&
                                 branchSelectValue !== "all" && (
                                   <SelectItem value={branchSelectValue}>
-                                    {BranchManagerAuth.getCurrentUser()?.branch_name || "Your branch"}
+                                    {BranchManagerAuth.getCurrentUser()?.branch_name || "Your academy"}
                                   </SelectItem>
                                 )}
                               {branchesError && (
@@ -2678,6 +2820,7 @@ function CategoryReportsPageContent() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Time</SelectItem>
+                        <SelectItem value="last-30-days">Last 30 Days</SelectItem>
                         <SelectItem value="current-month">Current Month</SelectItem>
                         <SelectItem value="last-month">Last Month</SelectItem>
                         <SelectItem value="current-quarter">Current Quarter</SelectItem>
@@ -2827,7 +2970,7 @@ function CategoryReportsPageContent() {
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">Student Details</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden sm:table-cell">Contact</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden md:table-cell">Courses</th>
-                            <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden lg:table-cell">Branch</th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden lg:table-cell">Academy</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">Status</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm hidden xl:table-cell">Registration</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">Actions</th>
@@ -2902,7 +3045,7 @@ function CategoryReportsPageContent() {
                                     <div className="space-y-1">
                                       {student.branches.map((branch: any, idx: number) => (
                                         <div key={branch.id || idx}>
-                                          <p className="text-gray-900 truncate">{branch.name || 'Unknown Branch'}</p>
+                                          <p className="text-gray-900 truncate">{branch.name || 'Unknown Academy'}</p>
                                           {branch.code && (
                                             <p className="text-xs text-gray-500">({branch.code})</p>
                                           )}
@@ -2997,7 +3140,7 @@ function CategoryReportsPageContent() {
                                 disabled={searchLoading}
                                 className={
                                   studentPage === page
-                                    ? "bg-yellow-400 hover:bg-yellow-500 text-black"
+                                    ? ""
                                     : "bg-transparent"
                                 }
                                 variant={studentPage === page ? "default" : "outline"}

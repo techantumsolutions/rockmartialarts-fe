@@ -107,10 +107,10 @@ export default function BranchManagerBranchDetailPage() {
         throw new Error("Authentication token not found. Please login again.")
       }
 
-      console.log('🔍 Fetching branch details for ID:', branchId)
+      console.log('🔍 Fetching academy details for ID:', branchId)
 
       // Call the new backend API endpoint
-      const response = await fetch(getBackendApiUrl(`branch-details/${branchId}`), {
+      const response = await fetch(getBackendApiUrl(`academy-details/${branchId}`), {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -119,19 +119,19 @@ export default function BranchManagerBranchDetailPage() {
 
       if (!response.ok) {
         if (response.status === 404) {
-          throw new Error("Branch not found")
+          throw new Error("Academy not found")
         } else if (response.status === 403) {
-          throw new Error("You don't have permission to access this branch")
+          throw new Error("You don't have permission to access this academy")
         } else if (response.status === 401) {
           throw new Error("Authentication failed. Please login again.")
         }
 
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.detail || errorData.message || `Failed to fetch branch details (${response.status})`)
+        throw new Error(errorData.detail || errorData.message || `Failed to fetch academy details (${response.status})`)
       }
 
       const data = await response.json()
-      console.log('✅ Branch details received:', data)
+      console.log('✅ Academy details received:', data)
 
       // Map the API response to our component state
       if (data.branch) {
@@ -147,8 +147,8 @@ export default function BranchManagerBranchDetailPage() {
       }
 
     } catch (err: any) {
-      console.error("❌ Error fetching branch details:", err)
-      setError(err.message || "Failed to fetch branch details")
+      console.error("❌ Error fetching academy details:", err)
+      setError(err.message || "Failed to fetch academy details")
 
       // If authentication error, redirect to login
       if (err.message.includes("Authentication") || err.message.includes("login")) {
@@ -179,7 +179,7 @@ export default function BranchManagerBranchDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header title="Branch Details" role="branch_admin" />
+        <Header title="Academy Details" role="branch_admin" />
         <main className="w-full p-4 lg:py-4 px-19">
           <div className="mx-auto">
             <div className="animate-pulse space-y-6">
@@ -205,16 +205,16 @@ export default function BranchManagerBranchDetailPage() {
   if (error || !branch) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header title="Branch Details" role="branch_admin" />
+        <Header title="Academy Details" role="branch_admin" />
         <main className="w-full p-4 lg:py-4 px-19">
           <div className="mx-auto">
             <div className="text-center py-8">
-              <p className="text-red-600">{error || "Branch not found"}</p>
+              <p className="text-red-600">{error || "Academy not found"}</p>
               <Button 
                 onClick={() => router.push("/branch-manager-dashboard/branches")}
                 className="mt-4"
               >
-                Back to Branches
+                Back to Academies
               </Button>
             </div>
           </div>
@@ -225,7 +225,7 @@ export default function BranchManagerBranchDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header title="Branch Details" role="branch_admin" />
+      <Header title="Academy Details" role="branch_admin" />
       
       <main className="w-full p-4 lg:py-4 px-19">
         <div className="mx-auto">
@@ -239,11 +239,11 @@ export default function BranchManagerBranchDetailPage() {
                 className="flex items-center space-x-2"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>Back to Branches</span>
+                <span>Back to Academies</span>
               </Button>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">{branch.branch.name}</h1>
-                <p className="text-sm text-gray-500">Branch Details</p>
+                <p className="text-sm text-gray-500">Academy Details</p>
               </div>
             </div>
             <div className="flex space-x-3">
@@ -318,12 +318,12 @@ export default function BranchManagerBranchDetailPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Branch Information */}
+            {/* Academy Information */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Building2 className="w-5 h-5 text-blue-600" />
-                  <span>Branch Information</span>
+                  <span>Academy Information</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">

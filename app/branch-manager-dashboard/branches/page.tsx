@@ -13,6 +13,7 @@ import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
 interface Branch {
   id: string
+  slug?: string | null
   branch: {
     name: string
     code: string
@@ -89,7 +90,7 @@ export default function BranchManagerBranchInfo() {
     }
   }, [router])
 
-  // Load branch data from real API
+  // Load academy data from real API
   useEffect(() => {
     const fetchBranchData = async () => {
       try {
@@ -103,7 +104,7 @@ export default function BranchManagerBranchInfo() {
           throw new Error("Authentication required. Please login again.")
         }
 
-        console.log('Loading branches for branch manager:', currentUser.full_name)
+        console.log('Loading academies for academy manager:', currentUser.full_name)
 
         // Call real backend API (via proxy to avoid 405 / CORS)
         const response = await fetch(getBackendApiUrl('branches?limit=100'), {
@@ -115,42 +116,42 @@ export default function BranchManagerBranchInfo() {
 
         if (!response.ok) {
           const errorText = await response.text()
-          console.error('Branches API error:', response.status, errorText)
+          console.error('Academies API error:', response.status, errorText)
 
           if (response.status === 401) {
             throw new Error("Authentication failed. Please login again.")
           } else if (response.status === 403) {
-            throw new Error("You don't have permission to access branch information.")
+            throw new Error("You don't have permission to access academy information.")
           } else {
-            throw new Error(`Failed to load branches: ${response.status} - ${errorText}`)
+            throw new Error(`Failed to load academyes: ${response.status} - ${errorText}`)
           }
         }
 
         const data = await response.json()
-        console.log('✅ Branches API response:', data)
+        console.log('✅ Academies API response:', data)
 
         const branchesData = data.branches || []
 
-        // Debug: Show branch IDs for cross-reference with coaches page
-        console.log('🏢 BRANCHES PAGE - Branch IDs that should be used for coach filtering:')
+        // Debug: Show academy IDs for cross-reference with coaches page
+        console.log('🏢 BRANCHES PAGE - Academy IDs that should be used for coach filtering:')
         const branchIds = branchesData.map((branch: any) => branch.id)
-        console.log('🏢 Branch IDs:', branchIds)
+        console.log('🏢 Academy IDs:', branchIds)
         branchesData.forEach((branch: any, index: number) => {
-          console.log(`   Branch ${index + 1}: ${branch.branch?.name || 'Unknown'} (ID: ${branch.id}) - Manager ID: ${branch.manager_id}`)
+          console.log(`   Academy ${index + 1}: ${branch.branch?.name || 'Unknown'} (ID: ${branch.id}) - Manager ID: ${branch.manager_id}`)
         })
 
         if (branchesData.length === 0) {
-          console.log('No branches found for branch manager')
-          setError("No branches assigned to you. Please contact your administrator to assign branches to your account.")
+          console.log('No academies found for academy manager')
+          setError("No academies assigned to you. Please contact your administrator to assign academies to your account.")
         } else {
-          console.log(`✅ Loaded ${branchesData.length} branch(es) for ${currentUser.full_name}`)
-          console.log('🔗 These branch IDs should match the coaches filtering on the coaches page')
+          console.log(`✅ Loaded ${branchesData.length} academy(ies) for ${currentUser.full_name}`)
+          console.log('🔗 These academy IDs should match the coaches filtering on the coaches page')
         }
 
         setBranches(branchesData)
       } catch (err: any) {
-        console.error('Error loading branch data:', err)
-        setError(err.message || 'Failed to load branch information')
+        console.error('Error loading academy data:', err)
+        setError(err.message || 'Failed to load academy information')
       } finally {
         setLoading(false)
       }
@@ -161,7 +162,7 @@ export default function BranchManagerBranchInfo() {
     }
   }, [])
 
-  // Filter branches based on search term (for branch manager, this would be just their branch)
+  // Filter academies based on search term (for academy manager, this would be just their academy)
   const filteredBranches = branches.filter(branch =>
     branch.branch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     branch.branch.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -174,12 +175,17 @@ export default function BranchManagerBranchInfo() {
   const endIndex = startIndex + itemsPerPage
   const currentBranches = filteredBranches.slice(startIndex, endIndex)
 
-  const handleViewBranch = (branchId: string) => {
-    router.push(`/branch-manager-dashboard/branches/${branchId}`)
+  const branchPathKey = (branch?: Branch | null) => {
+    if (!branch) return ""
+    return encodeURIComponent((branch.slug || branch.id || "").trim() || branch.id)
   }
 
-  const handleEditBranch = (branchId: string) => {
-    router.push(`/branch-manager-dashboard/branches/edit/${branchId}`)
+  const handleViewBranch = (branch: Branch) => {
+    router.push(`/branch-manager-dashboard/branches/${branchPathKey(branch)}`)
+  }
+
+  const handleEditBranch = (branch: Branch) => {
+    router.push(`/branch-manager-dashboard/branches/edit/${branchPathKey(branch)}`)
   }
 
   const toggleBranchStatus = (branchId: string) => {
@@ -192,7 +198,7 @@ export default function BranchManagerBranchInfo() {
 
   return (
     <>
-      <Header title="Branch Info" role="branch_admin" />
+      <Header title="Academy Info" role="branch_admin" />
       <div className="flex flex-col lg:flex-row justify-between items-start py-4 mb-4 lg:items-center gap-4">
         <div>
           <p className="text-sm text-gray-500 mt-1">Manage your branch details and settings</p>
@@ -200,7 +206,7 @@ export default function BranchManagerBranchInfo() {
           <div className="flex flex-wrap gap-2 lg:gap-3">
             {branches.length > 0 && (
               <Button
-                onClick={() => handleEditBranch(branches[0]?.id)}
+                onClick={() => branches[0] && handleEditBranch(branches[0])}
                 className="text-white"
               >
                 Edit Branch
@@ -227,7 +233,7 @@ export default function BranchManagerBranchInfo() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
                   type="text"
-                  placeholder="Search branch information..."
+                  placeholder="Search academy information..."
                   className="pl-10"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -237,7 +243,7 @@ export default function BranchManagerBranchInfo() {
           </div>
         </div>
 
-        {/* Branch Information */}
+        {/* Academy Information */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="p-6">
             <div className="flex justify-between items-center mb-4">
@@ -267,7 +273,7 @@ export default function BranchManagerBranchInfo() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
                       </svg>
                     </div>
-                    <h3 className="text-lg font-medium text-red-800 mb-2">Unable to Load Branches</h3>
+                    <h3 className="text-lg font-medium text-red-800 mb-2">Unable to Load Academies</h3>
                     <p className="text-red-700 mb-4">{error}</p>
                     <Button
                       onClick={() => window.location.reload()}
@@ -288,11 +294,11 @@ export default function BranchManagerBranchInfo() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-5 0H9m0 0H5m0 0h2M7 7h10M7 11h10M7 15h10" />
                       </svg>
                     </div>
-                    <h3 className="text-lg font-medium text-yellow-800 mb-2">No Branches Assigned</h3>
+                    <h3 className="text-lg font-medium text-yellow-800 mb-2">No Academies Assigned</h3>
                     <p className="text-yellow-700 mb-4">
                       {searchTerm
-                        ? `No branches match your search "${searchTerm}"`
-                        : "You don't have any branches assigned to manage yet."
+                        ? `No academies match your search "${searchTerm}"`
+                        : "You don't have any academies assigned to manage yet."
                       }
                     </p>
                     {!searchTerm && (
@@ -346,7 +352,7 @@ export default function BranchManagerBranchInfo() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleViewBranch(branch.id)}
+                          onClick={() => handleViewBranch(branch)}
                         >
                           <Eye className="w-4 h-4 mr-2" />
                           View Details
@@ -354,7 +360,7 @@ export default function BranchManagerBranchInfo() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleEditBranch(branch.id)}
+                          onClick={() => handleEditBranch(branch)}
                         >
                           <Edit className="w-4 h-4 mr-2" />
                           Edit

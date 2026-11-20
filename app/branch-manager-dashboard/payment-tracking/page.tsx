@@ -63,7 +63,7 @@ export default function BranchManagerPaymentTrackingPage() {
     }
   }, [router])
 
-  // Load payment data for branch manager from API
+  // Load payment data for academy manager from API
   useEffect(() => {
     const loadPaymentData = async () => {
       try {
@@ -81,11 +81,11 @@ export default function BranchManagerPaymentTrackingPage() {
         console.log('🔍 PAYMENT DEBUG: Token (first 50 chars):', token?.substring(0, 50))
         console.log('🔍 PAYMENT DEBUG: User role:', currentUser.role)
 
-        console.log('Loading payments for branch manager:', currentUser.full_name)
-        console.log('Branch manager branch assignment:', currentUser.branch_assignment)
+        console.log('Loading payments for academy manager:', currentUser.full_name)
+        console.log('Academy manager academy assignment:', currentUser.branch_assignment)
         
-        // First, let's get the branches this manager manages to understand the filtering
-        console.log('🔍 DEBUGGING: Fetching branches first to understand filtering...')
+        // First, let's get the academyes this manager manages to understand the filtering
+        console.log('🔍 DEBUGGING: Fetching academies first to understand filtering...')
         const branchesResponse = await fetch(getBackendApiUrl('branches?limit=100'), {
           headers: {
             'Content-Type': 'application/json',
@@ -97,10 +97,10 @@ export default function BranchManagerPaymentTrackingPage() {
           const branchesData = await branchesResponse.json()
           const managedBranches = branchesData.branches || []
           const branchIds = managedBranches.map((branch: any) => branch.id)
-          console.log('🏢 Branches managed by this branch manager:', managedBranches.length)
-          console.log('🏢 Branch IDs:', branchIds)
+          console.log('🏢 Academies managed by this academy manager:', managedBranches.length)
+          console.log('🏢 Academy IDs:', branchIds)
           managedBranches.forEach((branch: any, index: number) => {
-            console.log(`   Branch ${index + 1}: ${branch.branch?.name || 'Unknown'} (ID: ${branch.id})`)
+            console.log(`   Academy ${index + 1}: ${branch.branch?.name || 'Unknown'} (ID: ${branch.id})`)
           })
         }
 
@@ -151,21 +151,21 @@ export default function BranchManagerPaymentTrackingPage() {
 
         const branchPayments = paymentsData.payments || []
         
-        // Debug: Show payment data and branch associations
+        // Debug: Show payment data and academy associations
         console.log('💰 Processing payments:', branchPayments.length)
         branchPayments.forEach((payment: any, index: number) => {
           const branchName = payment.branch_name || 'Unknown'
           const studentName = payment.student_name || 'Unknown'
           const amount = payment.amount || 0
-          console.log(`   Payment ${index + 1}: ${studentName} - ₹${amount} - Branch: ${branchName}`)
+          console.log(`   Payment ${index + 1}: ${studentName} - ₹${amount} - Academy: ${branchName}`)
         })
 
         setStats(statsData)
         setPayments(branchPayments)
 
         if (branchPayments.length === 0) {
-          console.log('No payments found for branch manager')
-          setError("No payments found for your branches. This could mean no payments have been processed yet for students at your managed branches.")
+          console.log('No payments found for academy manager')
+          setError("No payments found for your academies. This could mean no payments have been processed yet for students at your managed academies.")
         } else {
           console.log(`✅ Loaded ${branchPayments.length} payment(s) for ${currentUser.full_name}`)
         }
@@ -205,7 +205,7 @@ export default function BranchManagerPaymentTrackingPage() {
         return
       }
 
-      // Fetch fresh payment data - backend handles filtering by managed branches
+      // Fetch fresh payment data - backend handles filtering by managed academies
       console.log('🔄 Refreshing payment data...')
       const [statsResponse, paymentsResponse] = await Promise.all([
         fetch(getBackendApiUrl('payments/stats'), {
@@ -282,7 +282,7 @@ export default function BranchManagerPaymentTrackingPage() {
         description: "Your payment report is being generated.",
       })
 
-      // Use branch manager token for authentication
+      // Use academy manager token for authentication
       const token = BranchManagerAuth.getToken()
       await paymentAPI.exportPayments({
         status: statusFilter,
@@ -482,7 +482,7 @@ export default function BranchManagerPaymentTrackingPage() {
                     <p className="text-yellow-700 mb-4">
                       {searchQuery
                         ? `No payments match your search "${searchQuery}"`
-                        : "You don't have any payment records for your branches yet."
+                        : "You don't have any payment records for your academies yet."
                       }
                     </p>
                     {!searchQuery && (
@@ -526,7 +526,7 @@ export default function BranchManagerPaymentTrackingPage() {
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branch</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Academy</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>

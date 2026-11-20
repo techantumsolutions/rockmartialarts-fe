@@ -352,7 +352,7 @@ export default function AdminCoachAvailabilityPage() {
                 <div className="flex items-center gap-2 text-sm text-[#4F5077]">
                   <MapPin className="h-4 w-4 text-violet-500" />
                   <div>
-                    <p className="text-xs text-gray-500">Home Branch</p>
+                    <p className="text-xs text-gray-500">Home Academy</p>
                     <p className="font-medium">{selectedCoach.branch_name}</p>
                   </div>
                 </div>
@@ -498,10 +498,10 @@ export default function AdminCoachAvailabilityPage() {
             }}
           >
             <SelectTrigger className="h-11 w-full bg-white sm:w-[180px]">
-              <SelectValue placeholder="Branch" />
+              <SelectValue placeholder="Academy" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Branches</SelectItem>
+              <SelectItem value="all">All Academies</SelectItem>
               {branchOptions.map((b) => (
                 <SelectItem key={b} value={b}>
                   {b}
@@ -565,7 +565,7 @@ export default function AdminCoachAvailabilityPage() {
                   <th>#</th>
                   <th>Coach</th>
                   <th>Contact</th>
-                  <th>Branch</th>
+                  <th>Academy</th>
                   <th>Approval Status</th>
                   <th>Availability</th>
                   <th>Last Updated</th>

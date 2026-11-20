@@ -105,7 +105,7 @@ export default function CoachReportsPage() {
         })
       })
 
-      // 2. Fetch all students under this branch/coach
+      // 2. Fetch all students under this academy/coach
       const studentMap = new Map<string, any>()
       const mergeStudent = (st: any, isFromCoachEndpoint = false) => {
         const sid = st.id || st.student_id
@@ -165,7 +165,7 @@ export default function CoachReportsPage() {
         console.warn("Could not fetch students from coach endpoint:", e)
       }
 
-      // Try branch search
+      // Try academy search
       if (branchId) {
         try {
           const res = await fetch(
@@ -178,12 +178,12 @@ export default function CoachReportsPage() {
             list.forEach((s) => mergeStudent(s, false))
           }
         } catch (e) {
-          console.warn("Could not fetch students from branch search:", e)
+          console.warn("Could not fetch students from academy search:", e)
         }
       }
 
       const allMerged = Array.from(studentMap.values())
-      // Filter strictly to students who belong to this coach's assigned courses and batches in this branch!
+      // Filter strictly to students who belong to this coach's assigned courses and batches in this academy!
       const assignedStudents = filterStudentsForCoach(allMerged, coachAssignments)
       const assignedStudentIdSet = new Set(
         assignedStudents.map((s) => String(s.id || s.student_id || "").trim()).filter(Boolean)

@@ -4,8 +4,6 @@ import Link from "next/link"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { motion, useReducedMotion } from "framer-motion"
 import { Play } from "lucide-react"
-import { sanitizeRichHtmlClient } from "@/lib/sanitizeClientHtml"
-import { ScrollZoomContinuous } from "@/components/ScrollZoomContinuous"
 import {
   AnimatedSection,
   AnimatedStaggerGrid,
@@ -25,11 +23,14 @@ import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import CoursesShowcaseDualScroll, { type CourseShowcaseItem } from "@/components/website/CoursesShowcaseDualScroll"
 import { BranchDistanceControls } from "@/components/website/BranchDistanceLabel"
 import {
-  NearbyAcademyCard,
   NearbyAcademiesSection,
   type NearbyAcademyCardData,
 } from "@/components/website/NearbyAcademyCard"
+import { AcademyCardsCarousel } from "@/components/website/AcademyCardsCarousel"
+import { ClassCardsCarousel } from "@/components/website/ClassCardsCarousel"
+import { OurMembersSection } from "@/components/website/OurMembersSection"
 import { useVisitorBranchDistances } from "@/hooks/useVisitorBranchDistances"
+import { PUBLIC_SECTION_FALLBACKS } from "@/lib/cmsContentFallback"
 /* ---------- Types (mirror server data shape; no API change) ---------- */
 
 export interface HomePageViewProps {
@@ -324,10 +325,10 @@ export default function HomePageView({
   ctaSubtitle,
   bottomCtaTitle,
   bottomCtaSubtitle,
-  aboutTitle,
-  aboutSubtitle,
-  aboutContentHtml = "",
-  aboutImage = "",
+  aboutTitle: _aboutTitle,
+  aboutSubtitle: _aboutSubtitle,
+  aboutContentHtml: _aboutContentHtml = "",
+  aboutImage: _aboutImage = "",
   coursesTitle,
   coursesSubtitle,
   mediaSectionTitle = "",
@@ -338,8 +339,8 @@ export default function HomePageView({
   testimonialsEnabled,
   classCards,
   branches = [],
-  physicalBenefits,
-  mentalBenefits,
+  physicalBenefits: _physicalBenefits,
+  mentalBenefits: _mentalBenefits,
   trainers,
   testimonials,
   defaultTestimonialQuote,
@@ -351,7 +352,6 @@ export default function HomePageView({
   showcaseCourses = [],
 }: HomePageViewProps) {
   const shouldReduceMotion = useReducedMotion()
-  const [safeAboutHtml, setSafeAboutHtml] = useState("")
   const branchIds = useMemo(() => branches.map((b) => b.id).filter(Boolean), [branches])
   const branchDistances = useVisitorBranchDistances({ branchIds, autoRequest: true })
   const orderedBranches = useMemo(() => {
@@ -369,10 +369,6 @@ export default function HomePageView({
     })
     return list
   }, [branches, branchDistances.byId])
-
-  useEffect(() => {
-    setSafeAboutHtml(sanitizeRichHtmlClient(aboutContentHtml || ""))
-  }, [aboutContentHtml])
 
   const resolveUploadUrl = (url?: string): string => resolvePublicAssetUrl(url)
 
@@ -473,7 +469,7 @@ export default function HomePageView({
         </div>
       </AnimatedSection>
 
-      {/* Our Classes - Section 3: each card zooms individually (in view = scale 1, scroll past = scale 0) */}
+      {/* Our Training Program / Our Classes — 4 visible; carousel + arrows + autoscroll when more */}
       <section
         id="courses"
         className="py-14 md:py-20 scroll-mt-24 relative z-10 bg-[#171A26]"
@@ -486,38 +482,7 @@ export default function HomePageView({
             </p>
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white">{coursesTitle}</h2>
           </AnimatedSection>
-          <AnimatedStaggerGrid
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8"
-            staggerDelay={0.12}
-            childClassName="text-center group"
-            amount="some"
-          >
-            {classCards.map((c) => (
-              <ScrollZoomContinuous key={c.id ?? c.name}>
-                <Link
-                  href={c.href}
-                  className="group h-full flex flex-col rounded-2xl border border-[#383D4D] bg-[#292E40] p-4 shadow-[0_8px_24px_rgba(0,0,0,0.25)] transition-all duration-300 ease-out hover:-translate-y-2 hover:border-[#FFB70F]/50 hover:shadow-[0_18px_40px_rgba(255,183,15,0.18)]"
-                >
-                  <div className="relative mb-4 overflow-hidden rounded-xl aspect-[4/3] bg-[#222635] border border-[#383D4D]/70">
-                    <SafeImage
-                      src={c.img}
-                      alt={c.name}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-full object-cover"
-                      wrapperClassName="transition-transform duration-700 ease-out group-hover:scale-110"
-                    />
-                  </div>
-                  <h3 className="text-lg sm:text-xl font-bold text-white group-hover:text-[#FFB70F] transition-colors duration-300 mb-4">{c.name}</h3>
-                  <span
-                    className="mt-auto inline-flex items-center justify-center rounded-lg bg-[#FFB70F] px-5 py-2.5 text-sm font-semibold text-[#171A26] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:brightness-110 hover:shadow-[0_10px_28px_rgba(255,183,15,0.35)]"
-                  >
-                    Explore More
-                  </span>
-                </Link>
-              </ScrollZoomContinuous>
-            ))}
-          </AnimatedStaggerGrid>
+          <ClassCardsCarousel cards={classCards} />
         </div>
       </section>
 
@@ -529,37 +494,46 @@ export default function HomePageView({
         courses={showcaseCourses}
       />
 
-      {/* Nearby Academies / Branches */}
+      {/* Nearby Academies — 4 visible; carousel + autoscroll; Show All Academies */}
       {branches.length > 0 ? (
         <NearbyAcademiesSection
+          title="Nearby Academies"
+          subtitle="Explore the best training centres near you."
           controls={
             <BranchDistanceControls
               supported={branchDistances.supported}
               status={branchDistances.status}
               loading={branchDistances.loading}
-              hasCoords={Boolean(branchDistances.coords)}
               errorMessage={branchDistances.errorMessage}
-              onRequest={branchDistances.requestLocation}
-              onRefresh={branchDistances.refreshLocation}
             />
           }
         >
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-6">
-            {orderedBranches.map((b) => (
-              <NearbyAcademyCard
-                key={b.id}
-                branch={b}
-                distance={branchDistances.byId[b.id]}
-                distanceLoading={
-                  !branchDistances.byId[b.id]?.distance_label &&
-                  (branchDistances.loading ||
-                    branchDistances.status === "prompting" ||
-                    branchDistances.status === "idle")
-                }
-                isNearest={branchDistances.nearestBranchId === b.id}
-              />
-            ))}
-          </div>
+          <AcademyCardsCarousel
+            academies={orderedBranches}
+            distances={branchDistances.byId}
+            distanceLoading={
+              branchDistances.loading ||
+              branchDistances.status === "prompting" ||
+              branchDistances.status === "idle"
+            }
+            nearestBranchId={branchDistances.nearestBranchId}
+            viewAllHref="/branches"
+            viewAllLabel="Show All Academies"
+          />
+        </NearbyAcademiesSection>
+      ) : null}
+
+      {/* Our Academies — 4-up autoscroll carousel + All Academies CTA */}
+      {branches.length > 0 ? (
+        <NearbyAcademiesSection
+          title="Our Academies"
+          subtitle="Train at Rock Martial Arts academies across the city."
+        >
+          <AcademyCardsCarousel
+            academies={branches}
+            viewAllHref="/branches"
+            viewAllLabel="Show All Academies"
+          />
         </NearbyAcademiesSection>
       ) : null}
 
@@ -615,128 +589,14 @@ export default function HomePageView({
         </section>
       ) : null}
 
-      {/* About: image (left); title, subtitle, rich text (right). Mobile: image first. Fallback benefits when no HTML. */}
-      <AnimatedSection
-        variant="fadeSlideUp"
-        className="py-14 md:py-20 relative z-10 border-y border-[#383D4D] bg-[#222635]/40"
-      >
-        <div className="site-content px-0 sm:px-1">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start lg:items-center">
-            <div className="group overflow-hidden rounded-2xl border border-[#383D4D] bg-[#292E40] shadow-[0_0_24px_2px_rgba(255,183,15,0.16)] transition-all duration-500 ease-out hover:-translate-y-1.5 hover:border-[#FFB70F]/50 hover:shadow-[0_18px_40px_rgba(255,183,15,0.22)]">
-              <SafeImage
-                src={
-                  aboutImage
-                    ? resolveUploadUrl(aboutImage)
-                    : "/assets/img/courses/tr_yourself.png"
-                }
-                alt={aboutTitle || "About"}
-                resolveUrl={false}
-                className="w-full h-auto object-cover"
-                wrapperClassName="block w-full transition-transform duration-700 ease-out group-hover:scale-105"
-              />
-            </div>
-            <div>
-                <p className="text-[#FFB70F] font-semibold uppercase tracking-[0.2em] text-xs mb-2">Discover</p>
-                <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white mb-4">{aboutTitle || "About us"}</h2>
-                {aboutSubtitle ? <p className="text-[#AEB4C2] mb-6">{aboutSubtitle}</p> : null}
-                {safeAboutHtml ? (
-                  <div
-                    className="max-w-none text-[#AEB4C2] space-y-4 leading-relaxed [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-[#FFB70F] [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-[#FFB70F] [&_h3]:text-lg [&_h3]:text-[#FFB70F] [&_p]:text-[#AEB4C2] [&_a]:text-[#FFB70F] [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5 [&_strong]:text-white"
-                    dangerouslySetInnerHTML={{ __html: safeAboutHtml }}
-                  />
-                ) : physicalBenefits.length || mentalBenefits.length ? (
-                  <div className="space-y-6">
-                    {physicalBenefits.length > 0 ? (
-                      <div className="flex gap-4 rounded-xl border border-[#383D4D]/70 bg-[#292E40]/50 p-4 transition-all duration-300 hover:-translate-y-1 hover:border-[#FFB70F]/40 hover:bg-[#292E40]">
-                        <img
-                          src="/assets/img/courses/icon1.png"
-                          alt=""
-                          className="w-12 h-12 flex-shrink-0"
-                        />
-                        <ul className="list-disc list-inside text-[#AEB4C2] space-y-2">
-                          {physicalBenefits.map((b) => (
-                            <li key={b}>{b}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
-                    {mentalBenefits.length > 0 ? (
-                      <div className="rounded-xl border border-[#383D4D]/70 bg-[#292E40]/50 p-4 transition-all duration-300 hover:-translate-y-1 hover:border-[#FFB70F]/40 hover:bg-[#292E40]">
-                        <div className="flex gap-4 items-center mb-3">
-                          <img
-                            src="/assets/img/courses/icon2.png"
-                            alt=""
-                            className="w-12 h-12 flex-shrink-0"
-                          />
-                          <h3 className="text-xl sm:text-2xl font-bold text-[#FFB70F]">Mental Benefits</h3>
-                        </div>
-                        <ul className="list-disc list-inside text-[#AEB4C2] space-y-2 ml-16">
-                          {mentalBenefits.map((b) => (
-                            <li key={b}>{b}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-          </div>
-        </div>
-      </AnimatedSection>
+      {/* Discover / About section removed from Home — reused as About Founder on Branch Detail */}
 
-      {/* Our Expert Masters — up to 8 coaches; desktop 4 / tablet 2 / mobile 1 */}
-      <LazySection className="py-16 md:py-20 relative z-10 bg-[#171A26]" minHeight={420} rootMargin="280px">
-      <section>
-        <div className="site-content px-0 sm:px-1">
-          <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
-            <div className="w-16 h-1 rounded-full bg-[#FFB70F] mx-auto mb-4" />
-            <p className="text-[#FFB70F] font-semibold uppercase tracking-[0.2em] text-xs mb-2">Our Members</p>
-            <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white">Our Expert Masters</h2>
-          </AnimatedSection>
-          <AnimatedStaggerGrid
-            className={
-              trainers.length
-                ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 md:gap-8 w-full"
-                : "grid grid-cols-1 gap-6 w-full"
-            }
-            staggerDelay={0.12}
-            childClassName="h-full w-full"
-          >
-            {trainers.length === 0 ? (
-              <p className="text-center text-[#AEB4C2] text-sm col-span-full py-8">
-                Coach profiles from admin will appear here. Set display order and photos in Coaches Management.
-              </p>
-            ) : null}
-            {trainers.map((t, idx) => (
-              <div
-                key={`${t.name}-${idx}`}
-                className="group bg-[#292E40] rounded-2xl p-6 border border-[#383D4D] shadow-[0_8px_24px_rgba(0,0,0,0.25)] h-full flex flex-col items-center text-center transition-all duration-300 ease-out hover:-translate-y-2 hover:border-[#FFB70F]/50 hover:shadow-[0_18px_40px_rgba(255,183,15,0.18)]"
-              >
-                <div className="w-[180px] h-[200px] max-w-full shrink-0 rounded-xl overflow-hidden border-2 border-[#FFB70F]/40 mb-4 bg-[#222635] transition-colors duration-300 group-hover:border-[#FFB70F]">
-                  <SafeImage
-                    src={t.img || DEFAULT_IMAGE_PLACEHOLDER}
-                    alt={t.name}
-                    loading="lazy"
-                    decoding="async"
-                    width={180}
-                    height={200}
-                    className="w-full h-full object-cover object-top"
-                    wrapperClassName="transition-transform duration-700 ease-out group-hover:scale-110"
-                  />
-                </div>
-                <h3 className="text-lg sm:text-xl font-bold text-white transition-colors duration-300 group-hover:text-[#FFB70F] mb-1 line-clamp-2">{t.name}</h3>
-                <p className="text-[#FFB70F] font-semibold text-sm mb-3 line-clamp-2">{t.role}</p>
-                <p className="text-[#AEB4C2] text-sm leading-relaxed line-clamp-4 flex-1 w-full">
-                  {t.about?.trim()
-                    ? t.about
-                    : "Experienced instructor dedicated to helping every student grow with discipline and skill."}
-                </p>
-              </div>
-            ))}
-          </AnimatedStaggerGrid>
-        </div>
-      </section>
-      </LazySection>
+      <OurMembersSection
+        members={trainers}
+        eyebrow={PUBLIC_SECTION_FALLBACKS.membersEyebrow}
+        title={PUBLIC_SECTION_FALLBACKS.membersTitle}
+        emptyMessage="Coach profiles from admin will appear here. Set display order and photos in Coaches Management."
+      />
 
       {/* Student testimonials (MongoDB marketing) — carousel, max 6 */}
       {testimonialsEnabled && (

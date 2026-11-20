@@ -1,17 +1,33 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
+import {
+  ArrowLeft,
+  CheckCircle2,
+  ChevronDown,
+  Download,
+  FileText,
+  Loader2,
+  Mail,
+  MessageCircle,
+  Send,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, CreditCard, User, BookOpen, Download, Mail, Loader2 } from "lucide-react"
-import { TokenManager } from "@/lib/tokenManager"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { useToast } from "@/hooks/use-toast"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { paymentAPI } from "@/lib/paymentAPI"
-import { invoicesAPI } from "@/lib/invoicesAPI"
+import { invoicesAPI, type InvoiceDetail } from "@/lib/invoicesAPI"
+import { TokenManager } from "@/lib/tokenManager"
 import { getBackendApiUrl } from "@/lib/config"
-import { useToast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
+import { AdminStickyFormActions } from "@/components/dashboard/AdminStickyFormActions"
 
 interface PaymentDetails {
   id: string
@@ -22,6 +38,7 @@ interface PaymentDetails {
   amount?: number
   payment_type?: string
   payment_method?: string
+  gateway_payment_label?: string
   payment_status: string
   transaction_id?: string
   payment_date?: string
@@ -31,6 +48,87 @@ interface PaymentDetails {
   branch_id?: string
   created_at?: string
   enrollment_id?: string
+  partner_org_id?: string
+  partner_org_name?: string
+  invoice_id?: string
+  invoice_number?: string
+}
+
+function formatCurrency(amount?: number | null) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: 2,
+  }).format(Number(amount) || 0)
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "—"
+  const d = new Date(value)
+  if (!Number.isFinite(d.getTime())) return "—"
+  return d.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  })
+}
+
+function StatusPill({
+  status,
+  onDark,
+}: {
+  status: string
+  onDark?: boolean
+}) {
+  const s = String(status || "").toLowerCase()
+  const paid = s === "paid" || s === "completed"
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
+        onDark
+          ? paid
+            ? "admin-status-pill-on-dark admin-status-pill-on-dark--paid"
+            : "admin-status-pill-on-dark admin-status-pill-on-dark--pending"
+          : paid
+            ? "bg-emerald-50 text-emerald-700"
+            : "bg-amber-50 text-amber-800"
+      )}
+    >
+      {paid ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
+      {paid ? "Paid" : status || "—"}
+    </span>
+  )
+}
+
+function DetailCard({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-[#E8ECF4] bg-white shadow-sm">
+      <div className="flex items-center gap-2 border-b border-[#F1F5F9] px-5 py-4">
+        <span className="h-5 w-1 rounded-full bg-[#F5C518]" />
+        <h3 className="text-base font-semibold text-[#171A26]">{title}</h3>
+      </div>
+      <div className="space-y-4 px-5 py-5">{children}</div>
+    </div>
+  )
+}
+
+function Field({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <span className="text-sm text-[#6B7A99]">{label}</span>
+      <span className="max-w-[65%] text-right text-sm font-medium text-[#171A26]">{value}</span>
+    </div>
+  )
 }
 
 export default function PaymentDetailPage() {
@@ -41,17 +139,16 @@ export default function PaymentDetailPage() {
   const paymentId = params.id as string
 
   const [payment, setPayment] = useState<PaymentDetails | null>(null)
-  const [invoiceId, setInvoiceId] = useState<string | null>(null)
+  const [invoice, setInvoice] = useState<InvoiceDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
-  const [sendingEmail, setSendingEmail] = useState(false)
+  const [sending, setSending] = useState<"email" | "whatsapp" | null>(null)
 
   const fetchPaymentDetails = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
-
       const token = TokenManager.getToken()
       if (!token) {
         setError("Authentication required. Please login again.")
@@ -65,50 +162,53 @@ export default function PaymentDetailPage() {
         data = null
       }
 
-      let invoice = null as Awaited<ReturnType<typeof invoicesAPI.getByPayment>> | null
+      let inv: InvoiceDetail | null = null
       try {
-        invoice = await invoicesAPI.getByPayment(paymentId, token)
+        inv = await invoicesAPI.getByPayment(paymentId, token)
       } catch {
-        invoice = null
+        inv = null
       }
 
-      if (!data && !invoice) {
+      if (!data && !inv) {
         setError("Payment not found")
         setPayment(null)
-        setInvoiceId(null)
+        setInvoice(null)
         return
       }
 
-      if (invoice?.id) setInvoiceId(invoice.id)
-      else setInvoiceId(null)
-
-      const line = invoice?.line_items?.[0]
+      setInvoice(inv)
+      const line = inv?.line_items?.[0]
       setPayment({
         id: data?.id || paymentId,
         student_id: data?.student_id,
-        student_name: data?.student_name || invoice?.customer?.name,
-        student_email: data?.student_email || invoice?.customer?.email,
-        student_phone: data?.student_phone || invoice?.customer?.phone,
-        amount: data?.amount ?? invoice?.total_amount,
-        payment_type: data?.payment_type || invoice?.source,
+        student_name: data?.student_name || inv?.customer?.name,
+        student_email: data?.student_email || inv?.customer?.email,
+        student_phone: data?.student_phone || inv?.customer?.phone,
+        amount: data?.amount ?? inv?.total_amount,
+        payment_type: data?.payment_type || inv?.source,
         payment_method:
+          data?.gateway_payment_label ||
           data?.payment_method ||
-          invoice?.payment_gateway_label ||
-          invoice?.payment_method ||
+          inv?.payment_gateway_label ||
+          inv?.payment_method ||
           undefined,
-        payment_status: data?.payment_status || "paid",
-        transaction_id: data?.transaction_id || invoice?.payment_reference || undefined,
-        payment_date: data?.payment_date || invoice?.paid_at || invoice?.created_at || undefined,
+        gateway_payment_label: data?.gateway_payment_label || inv?.payment_gateway_label || undefined,
+        payment_status: data?.payment_status || inv?.status || "paid",
+        transaction_id: data?.transaction_id || inv?.payment_reference || undefined,
+        payment_date: data?.payment_date || inv?.paid_at || inv?.created_at || undefined,
         course_name: data?.course_name || line?.course_name,
         course_id: data?.course_id,
         branch_name: data?.branch_name || line?.branch_name,
         branch_id: data?.branch_id,
-        created_at: data?.created_at || invoice?.created_at || undefined,
+        created_at: data?.created_at || inv?.created_at || undefined,
         enrollment_id: data?.enrollment_id,
+        partner_org_id: data?.partner_org_id,
+        partner_org_name: data?.partner_org_name,
+        invoice_id: data?.invoice_id || inv?.id,
+        invoice_number: data?.invoice_number || inv?.invoice_number,
       })
     } catch (err: any) {
-      console.error("Error fetching payment details:", err)
-      setError(err.message || "Failed to fetch payment details")
+      setError(err?.message || "Failed to fetch payment details")
     } finally {
       setLoading(false)
     }
@@ -119,21 +219,22 @@ export default function PaymentDetailPage() {
   }, [fetchPaymentDetails])
 
   const resolveInvoiceId = async (): Promise<string> => {
-    if (invoiceId) return invoiceId
-    const invoice = await invoicesAPI.getByPayment(paymentId)
-    if (!invoice?.id) throw new Error("No invoice found for this payment.")
-    setInvoiceId(invoice.id)
-    return invoice.id
+    if (invoice?.id) return invoice.id
+    if (payment?.invoice_id) return payment.invoice_id
+    const inv = await invoicesAPI.getByPayment(paymentId)
+    if (!inv?.id) throw new Error("No invoice found for this payment.")
+    setInvoice(inv)
+    return inv.id
   }
 
-  const handleDownloadReceipt = async () => {
+  const handleDownloadInvoice = async () => {
     setDownloading(true)
     try {
       const id = await resolveInvoiceId()
       await invoicesAPI.openPrintableDocument(id)
     } catch (err: any) {
       toast({
-        title: "Could not download receipt",
+        title: "Could not download invoice",
         description: err?.message || "Please try again.",
         variant: "destructive",
       })
@@ -142,46 +243,49 @@ export default function PaymentDetailPage() {
     }
   }
 
-  const handleSendEmail = async () => {
-    if (!payment?.student_email) {
+  const handleSendInvoiceEmail = async () => {
+    const email = payment?.student_email
+    if (!email) {
       toast({
-        title: "No student email",
-        description: "This payment has no student email on file.",
+        title: "No email on file",
+        description: "This transaction has no customer email.",
         variant: "destructive",
       })
       return
     }
-
-    setSendingEmail(true)
+    const token = TokenManager.getToken()
+    if (!token) {
+      toast({
+        title: "Not authenticated",
+        description: "Please sign in again, then retry Send Invoice.",
+        variant: "destructive",
+      })
+      return
+    }
+    setSending("email")
     try {
       const id = await resolveInvoiceId()
-      const token = TokenManager.getToken()
       const docRes = await fetch(getBackendApiUrl(`invoices/${encodeURIComponent(id)}/document`), {
         headers: {
           Accept: "text/html,application/xhtml+xml",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          Authorization: `Bearer ${token}`,
         },
         cache: "no-store",
       })
-      if (!docRes.ok) {
-        throw new Error("Could not load invoice document for email.")
-      }
+      if (!docRes.ok) throw new Error("Could not load invoice document.")
       const html = await docRes.text()
       if (!html.trim()) throw new Error("Invoice document was empty.")
 
-      const amountLabel =
-        typeof payment.amount === "number"
-          ? new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(
-              payment.amount
-            )
-          : "your payment"
-      const subject = `Payment Receipt${payment.transaction_id ? ` — ${payment.transaction_id}` : ""}`
+      const amountLabel = formatCurrency(payment?.amount)
+      const subject = `Invoice${payment?.invoice_number ? ` ${payment.invoice_number}` : ""}${
+        payment?.transaction_id ? ` — ${payment.transaction_id}` : ""
+      }`
       const textBody = [
-        `Hello ${payment.student_name || "Student"},`,
+        `Hello ${payment?.student_name || payment?.partner_org_name || "Customer"},`,
         "",
-        `Please find your payment receipt for ${amountLabel}.`,
-        payment.course_name ? `Course: ${payment.course_name}` : null,
-        payment.transaction_id ? `Reference: ${payment.transaction_id}` : null,
+        `Please find your invoice for ${amountLabel}.`,
+        payment?.course_name ? `Course: ${payment.course_name}` : null,
+        payment?.transaction_id ? `Reference: ${payment.transaction_id}` : null,
         "",
         "Thank you,",
         "Rock Martial Arts Academy",
@@ -191,9 +295,12 @@ export default function PaymentDetailPage() {
 
       const emailRes = await fetch(getBackendApiUrl("email/send-email"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
-          to_email: payment.student_email,
+          to_email: email,
           subject,
           message: textBody,
           html_message: html,
@@ -202,79 +309,109 @@ export default function PaymentDetailPage() {
       const emailBody = await emailRes.json().catch(() => ({}))
       if (!emailRes.ok) {
         const detail = emailBody?.detail
-        const detailMsg =
+        throw new Error(
           typeof detail === "string"
             ? detail
-            : Array.isArray(detail)
-              ? detail.map((d: any) => d?.msg || String(d)).join(", ")
-              : emailBody?.message
-        throw new Error(detailMsg || `Failed to send email (${emailRes.status})`)
+            : emailBody?.message || `Failed to send email (${emailRes.status})`
+        )
       }
-
       toast({
-        title: "Email sent successfully",
-        description: `Receipt emailed to ${payment.student_email}`,
+        title: "Invoice emailed",
+        description: `Sent to ${email}`,
       })
     } catch (err: any) {
       toast({
-        title: "Could not send email",
+        title: "Could not send invoice",
         description: err?.message || "Please try again.",
         variant: "destructive",
       })
     } finally {
-      setSendingEmail(false)
+      setSending(null)
     }
   }
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      paid: { color: "bg-green-100 text-green-800", label: "Paid" },
-      completed: { color: "bg-green-100 text-green-800", label: "Paid" },
-      pending: { color: "bg-yellow-100 text-yellow-800", label: "Pending" },
-      failed: { color: "bg-red-100 text-red-800", label: "Failed" },
-      refunded: { color: "bg-gray-100 text-gray-800", label: "Refunded" },
-      cancelled: { color: "bg-gray-100 text-gray-800", label: "Cancelled" },
-      canceled: { color: "bg-gray-100 text-gray-800", label: "Cancelled" },
+  const handleSendInvoiceWhatsApp = async () => {
+    const phone = payment?.student_phone
+    if (!phone) {
+      toast({
+        title: "No phone on file",
+        description: "This transaction has no customer mobile number for WhatsApp.",
+        variant: "destructive",
+      })
+      return
     }
-
-    const key = String(status || "").toLowerCase() as keyof typeof statusConfig
-    const config = statusConfig[key] || statusConfig.pending
-    return (
-      <Badge className={`${config.color} border-0`}>
-        {config.label}
-      </Badge>
-    )
+    const token = TokenManager.getToken()
+    if (!token) {
+      toast({
+        title: "Not authenticated",
+        description: "Please sign in again, then retry Send Invoice.",
+        variant: "destructive",
+      })
+      return
+    }
+    setSending("whatsapp")
+    try {
+      const id = await resolveInvoiceId()
+      const result = await invoicesAPI.resendWhatsApp(id, { token })
+      toast({
+        title: "Invoice sent on WhatsApp",
+        description: result.phone_masked
+          ? `Sent to ${result.phone_masked}`
+          : result.message || `Sent to ${phone}`,
+      })
+    } catch (err: any) {
+      toast({
+        title: "Could not send WhatsApp invoice",
+        description: err?.message || "Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setSending(null)
+    }
   }
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-    }).format(amount)
-  }
+  const isPartnerPayment = Boolean(payment?.partner_org_id && !payment?.student_id)
+  const payerName = isPartnerPayment
+    ? payment?.partner_org_name || payment?.student_name || "Partner"
+    : payment?.student_name || "—"
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-IN", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-  }
+  const lineItems = useMemo(() => {
+    if (invoice?.line_items?.length) return invoice.line_items
+    if (!payment) return []
+    return [
+      {
+        description: payment.course_name
+          ? `${payment.course_name} enrollment`
+          : isPartnerPayment
+            ? "Partner registration fee"
+            : "Payment",
+        line_total: payment.amount || 0,
+        course_fee: payment.amount || 0,
+        admission_fee: 0,
+        discount_amount: 0,
+      },
+    ]
+  }, [invoice, payment, isPartnerPayment])
+
+  const subtotal =
+    invoice?.subtotal_amount ??
+    lineItems.reduce((sum, l) => sum + Number(l.course_fee ?? l.line_total ?? 0), 0)
+  const admission = invoice?.admission_total ?? 0
+  const discount = invoice?.discount_total ?? 0
+  const total = invoice?.total_amount ?? payment?.amount ?? 0
+  const methodLabel =
+    payment?.gateway_payment_label || payment?.payment_method || invoice?.payment_gateway_label || "—"
+  const paidLabel = `Paid on ${formatDateTime(payment?.payment_date || payment?.created_at)}`
 
   if (loading) {
     return (
-      <div className="w-full p-4 lg:px-8 space-y-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
-            <div className="space-y-3">
-              <div className="h-4 bg-gray-200 rounded w-full"></div>
-              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-            </div>
+      <div className="w-full space-y-6 p-4 lg:px-8 lg:py-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 w-64 rounded bg-slate-200" />
+          <div className="h-28 rounded-2xl bg-slate-200" />
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="h-56 rounded-2xl bg-slate-200" />
+            <div className="h-56 rounded-2xl bg-slate-200" />
           </div>
         </div>
       </div>
@@ -283,164 +420,203 @@ export default function PaymentDetailPage() {
 
   if (error || !payment) {
     return (
-      <div className="w-full p-4 lg:px-8 space-y-6">
-        <div className="text-center">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-            <h3 className="text-lg font-medium text-red-800 mb-2">Payment Not Found</h3>
-            <p className="text-red-600 mb-4">{error || "The requested payment could not be found."}</p>
-            <Button onClick={() => router.push(`${basePath}/payment-tracking`)}>
-              Back to Payment Tracking
-            </Button>
-          </div>
+      <div className="w-full p-4 lg:px-8 lg:py-6">
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center">
+          <h3 className="mb-2 text-lg font-semibold text-rose-800">Transaction not found</h3>
+          <p className="mb-4 text-rose-600">{error || "The requested transaction could not be found."}</p>
+          <Button onClick={() => router.push(`${basePath}/payment-tracking`)}>
+            Back to Payment Tracking
+          </Button>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="w-full p-4 lg:px-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="outline"
-              onClick={() => router.push(`${basePath}/payment-tracking`)}
-              className="flex items-center space-x-2"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Back to Payment Tracking</span>
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Payment Details</h1>
-              <p className="text-gray-600">Transaction ID: {payment.transaction_id || "—"}</p>
+    <div className="admin-page-with-sticky-actions w-full space-y-6 p-4 lg:px-8 lg:py-6">
+      <div>
+        <button
+          type="button"
+          onClick={() => router.push(`${basePath}/payment-tracking`)}
+          className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-[#4F5077] hover:text-[#171A26]"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Payment Tracking
+        </button>
+        <h1 className="text-2xl font-bold tracking-tight text-[#171A26] sm:text-3xl">
+          Transaction Details
+        </h1>
+        <p className="mt-1 text-sm text-[#6B7A99]">
+          Transaction ID: {payment.transaction_id || payment.id}
+        </p>
+      </div>
+
+      <div className="admin-dark-surface flex flex-col gap-4 rounded-2xl bg-[#171A26] px-5 py-5 text-white sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div className="flex min-w-0 items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#F5C518] text-[#171A26]">
+            <FileText className="h-6 w-6" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-semibold text-white">
+                Invoice {payment.invoice_number || "—"}
+              </h2>
+              <StatusPill status={payment.payment_status} onDark />
+            </div>
+            <p className="mt-1 text-sm text-slate-200">
+              {paidLabel}
+              <span className="mx-2 text-slate-300">•</span>
+              Source: {methodLabel}
+            </p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+            {formatCurrency(total)}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <DetailCard title={isPartnerPayment ? "Partner Information" : "Student Information"}>
+          <Field label="Name" value={payerName} />
+          {!isPartnerPayment ? (
+            <Field label="Student ID" value={payment.student_id || "—"} />
+          ) : (
+            <Field label="Partner ID" value={payment.partner_org_id || "—"} />
+          )}
+          <Field label="Email" value={payment.student_email || "—"} />
+          <Field label="Phone" value={payment.student_phone || "—"} />
+        </DetailCard>
+
+        <DetailCard title={isPartnerPayment ? "Payment Context" : "Course & Academy Details"}>
+          {!isPartnerPayment ? (
+            <>
+              <Field label="Course" value={payment.course_name || "—"} />
+              <Field label="Academy" value={payment.branch_name || "—"} />
+              <Field label="Enrollment ID" value={payment.enrollment_id || "—"} />
+            </>
+          ) : (
+            <>
+              <Field
+                label="Payment Type"
+                value={(payment.payment_type || "registration_fee").replace(/_/g, " ")}
+              />
+              <Field label="Academy" value={payment.branch_name || "—"} />
+              <Field label="Organization" value={payment.partner_org_name || "—"} />
+            </>
+          )}
+        </DetailCard>
+
+        <DetailCard title="Payment Details">
+          <Field label="Payment Method" value={methodLabel} />
+          <Field
+            label="Payment Type"
+            value={(payment.payment_type || "course_fee").replace(/_/g, " ")}
+          />
+          <Field
+            label="Transaction Date"
+            value={formatDateTime(payment.payment_date || payment.created_at)}
+          />
+          <Field label="Payment ID" value={payment.transaction_id || payment.id} />
+          <Field label="Status" value={<StatusPill status={payment.payment_status} />} />
+        </DetailCard>
+
+        <DetailCard title="Invoice Summary">
+          <div className="overflow-hidden rounded-xl border border-[#E8ECF4]">
+            <div className="grid grid-cols-[1fr_auto] gap-3 border-b border-[#F1F5F9] bg-[#F8FAFC] px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-[#6B7A99]">
+              <span>Description</span>
+              <span>Amount</span>
+            </div>
+            <div className="divide-y divide-[#F1F5F9]">
+              {lineItems.map((line, i) => (
+                <div
+                  key={line.id || i}
+                  className="grid grid-cols-[1fr_auto] gap-3 px-4 py-3 text-sm"
+                >
+                  <span className="text-[#171A26]">
+                    {line.description ||
+                      (line.course_name ? `${line.course_name} enrollment` : "Line item")}
+                  </span>
+                  <span className="font-medium text-[#171A26]">
+                    {formatCurrency(line.line_total ?? line.course_fee ?? 0)}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-2 border-t border-[#F1F5F9] px-4 py-3 text-sm">
+              <div className="flex justify-between text-[#6B7A99]">
+                <span>Subtotal</span>
+                <span>{formatCurrency(subtotal)}</span>
+              </div>
+              <div className="flex justify-between text-[#6B7A99]">
+                <span>Admission</span>
+                <span>{formatCurrency(admission)}</span>
+              </div>
+              <div className="flex justify-between text-[#6B7A99]">
+                <span>Discount</span>
+                <span>-{formatCurrency(discount)}</span>
+              </div>
+            </div>
+            <div className="flex items-center justify-between bg-[#F5C518] px-4 py-3 text-sm font-bold text-[#171A26]">
+              <span>Total Paid</span>
+              <span>{formatCurrency(total)}</span>
             </div>
           </div>
-          <div className="flex space-x-2">
+        </DetailCard>
+      </div>
+
+      <AdminStickyFormActions>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 rounded-xl border-[#171A26] bg-white px-4 font-semibold text-[#171A26]"
+          disabled={downloading || !!sending}
+          onClick={() => void handleDownloadInvoice()}
+        >
+          {downloading ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="mr-2 h-4 w-4" />
+          )}
+          Download Invoice
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <Button
-              variant="outline"
-              className="flex items-center space-x-2"
-              disabled={downloading}
-              onClick={() => void handleDownloadReceipt()}
+              type="button"
+              className="h-11 rounded-xl bg-[#E1BB33] px-4 font-semibold text-[#171A26] hover:bg-[#d4ae2a]"
+              disabled={!!sending || downloading}
             >
-              {downloading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+              {sending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                <Download className="w-4 h-4" />
+                <Send className="mr-2 h-4 w-4" />
               )}
-              <span>Download Receipt</span>
+              Send Invoice
+              <ChevronDown className="ml-2 h-4 w-4" />
             </Button>
-            <Button
-              variant="outline"
-              className="flex items-center space-x-2"
-              disabled={sendingEmail}
-              onClick={() => void handleSendEmail()}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuItem
+              disabled={!!sending}
+              onClick={() => void handleSendInvoiceEmail()}
+              className="cursor-pointer gap-2"
             >
-              {sendingEmail ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Mail className="w-4 h-4" />
-              )}
-              <span>Send Email</span>
-            </Button>
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <CreditCard className="w-5 h-5 text-blue-600" />
-                <span>Payment Overview</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Amount</span>
-                <span className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(payment.amount || 0)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Status</span>
-                {getStatusBadge(payment.payment_status)}
-              </div>
-              {["failed", "cancelled", "canceled"].includes(
-                String(payment.payment_status || "").toLowerCase()
-              ) ? (
-                <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-                  This checkout did not complete. Ask the student to open{" "}
-                  <strong>Student Dashboard → Payments</strong> and use <strong>Retry payment</strong>{" "}
-                  (same Razorpay create-order flow).
-                </p>
-              ) : null}
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Payment Method</span>
-                <span className="text-gray-900">{payment.payment_method || "N/A"}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Payment Type</span>
-                <span className="text-gray-900">{payment.payment_type || "N/A"}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Payment Date</span>
-                <span className="text-gray-900">
-                  {payment.payment_date ? formatDate(payment.payment_date) : "N/A"}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <User className="w-5 h-5 text-green-600" />
-                <span>Student Information</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Name</span>
-                <span className="text-gray-900">{payment.student_name || "N/A"}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Email</span>
-                <span className="text-gray-900">{payment.student_email || "N/A"}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Phone</span>
-                <span className="text-gray-900">{payment.student_phone || "N/A"}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Student ID</span>
-                <span className="text-gray-900 font-mono text-sm">{payment.student_id || "N/A"}</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <BookOpen className="w-5 h-5 text-purple-600" />
-                <span>Course & Branch Details</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Course</span>
-                <span className="text-gray-900">{payment.course_name || "N/A"}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Branch</span>
-                <span className="text-gray-900">{payment.branch_name || "N/A"}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Enrollment ID</span>
-                <span className="text-gray-900 font-mono text-sm">
-                  {payment.enrollment_id || "N/A"}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              <Mail className="h-4 w-4 text-[#C9971A]" />
+              Send Email
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={!!sending}
+              onClick={() => void handleSendInvoiceWhatsApp()}
+              className="cursor-pointer gap-2"
+            >
+              <MessageCircle className="h-4 w-4 text-[#25D366]" />
+              Send WhatsApp
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </AdminStickyFormActions>
     </div>
   )
 }

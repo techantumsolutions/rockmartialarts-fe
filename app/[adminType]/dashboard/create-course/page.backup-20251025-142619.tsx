@@ -153,7 +153,7 @@ export default function CreateCoursePage() {
 
         if (res.ok) {
           const data = await res.json()
-          console.log("Branches API response:", data)
+          console.log("Academies API response:", data)
           
           // Handle different response structures
           let branchList = []
@@ -166,7 +166,7 @@ export default function CreateCoursePage() {
           }
           
           // Filter only active branches
-          const activeBranches = branchList.filter(branch => branch.is_active !== false)
+          const activeAcademies = branchList.filter(branch => branch.is_active !== false)
           console.log("Active branches:", activeBranches)
           setBranches(activeBranches)
         }
@@ -813,7 +813,7 @@ export default function CreateCoursePage() {
                     <div className="flex space-x-4">
                       <Button 
                         type="submit" 
-                        className="bg-yellow-400 hover:bg-yellow-500 text-white px-8"
+                        className=" px-8"
                         disabled={isSubmitting}
                       >
                         {isSubmitting ? (
@@ -875,7 +875,7 @@ export default function CreateCoursePage() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="branchSpecificPricing">Branch-specific pricing</Label>
+                  <Label htmlFor="branchSpecificPricing">Academy-specific pricing</Label>
                   <Switch
                     id="branchSpecificPricing"
                     checked={formData.branchSpecificPricing}
@@ -921,7 +921,7 @@ export default function CreateCoursePage() {
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                           <div className="md:col-span-2">
-                            <Label>Branch</Label>
+                            <Label>Academy</Label>
                             <Select
                               value={branchPrice.branch_id ? String(branchPrice.branch_id) : ''}
                               onValueChange={(value) => {
@@ -934,9 +934,9 @@ export default function CreateCoursePage() {
                                 <SelectValue placeholder="Select branch" />
                               </SelectTrigger>
                               <SelectContent>
-                                {loadingBranches ? (
+                                {loadingAcademies ? (
                                   <SelectItem value="loading" disabled>
-                                    Loading branches...
+                                    Loading academies...
                                   </SelectItem>
                                 ) : branches.length > 0 ? (
                                   branches.map((branch) => (
@@ -946,7 +946,7 @@ export default function CreateCoursePage() {
                                   ))
                                 ) : (
                                   <SelectItem value="none" disabled>
-                                    No branches available
+                                    No academies available
                                   </SelectItem>
                                 )}
                               </SelectContent>
@@ -1046,7 +1046,7 @@ export default function CreateCoursePage() {
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Course Created Successfully!</h3>
               <p className="text-gray-600 mb-6">Your course has been created and added to the system.</p>
               <div className="flex space-x-3">
-                <Button onClick={handleSuccessOk} className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black">
+                <Button onClick={handleSuccessOk} className="flex-1 ">
                   OK
                 </Button>
                 <Button onClick={handleSuccessOk} variant="outline" className="flex-1 bg-transparent">

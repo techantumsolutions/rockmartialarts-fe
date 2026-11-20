@@ -162,14 +162,26 @@ export const CategoryPageSkeleton = () => (
 // Loading overlay for specific sections
 export const LoadingOverlay = ({ 
   message = "Loading...", 
-  className = "" 
+  className = "",
+  /** When true, pins overlay to the visible viewport instead of the parent box */
+  viewportFixed = false,
 }: { 
   message?: string
-  className?: string 
+  className?: string
+  viewportFixed?: boolean
 }) => (
-  <div className={`absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 ${className}`}>
+  <div
+    className={`${
+      viewportFixed
+        ? "fixed inset-0 h-[100dvh] w-screen overflow-hidden grid place-items-center"
+        : "absolute inset-0 flex items-center justify-center"
+    } bg-white/75 z-[9999] ${className}`}
+    role="status"
+    aria-live="polite"
+    aria-label={message}
+  >
     <div className="text-center">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#E1BB33] mx-auto mb-2" />
       <p className="text-sm text-gray-600">{message}</p>
     </div>
   </div>

@@ -154,7 +154,7 @@ export default function PartnerBrandingPage() {
         getBackendApiUrl("collaboration-partners/partner-branches?limit=200"),
         { headers: authHeaders() }
       )
-      if (!res.ok) throw new Error("Failed to load partner branches")
+      if (!res.ok) throw new Error("Failed to load partner academies")
       const data = await res.json()
       setPartners(data.partners || [])
     } catch (e: any) {
@@ -180,7 +180,7 @@ export default function PartnerBrandingPage() {
         if (res.status === 403) {
           toast({
             title: "Not a collaboration partner",
-            description: "Enable Is Collaboration Partner on the branch first.",
+            description: "Enable Is Collaboration Partner on the academy first.",
             variant: "destructive",
           })
           setBranchId("")
@@ -279,8 +279,8 @@ export default function PartnerBrandingPage() {
   async function handleSave() {
     if (!branchId) {
       toast({
-        title: "Select a partner branch",
-        description: "Choose a collaboration partner branch first.",
+        title: "Select a partner academy",
+        description: "Choose a collaboration partner academy first.",
         variant: "destructive",
       })
       return
@@ -337,7 +337,7 @@ export default function PartnerBrandingPage() {
       if (res.status === 403) {
         toast({
           title: "Partner features disabled",
-          description: "This branch is not marked as a collaboration partner.",
+          description: "This academy is not marked as a collaboration partner.",
           variant: "destructive",
         })
         return
@@ -350,7 +350,7 @@ export default function PartnerBrandingPage() {
       setHasBranding(true)
       toast({
         title: "Saved",
-        description: data.message || "Partner branding saved for this branch only.",
+        description: data.message || "Partner branding saved for this academy only.",
       })
       await loadPartners()
     } catch (e: any) {
@@ -419,7 +419,7 @@ export default function PartnerBrandingPage() {
                   size="sm"
                   onClick={() => router.push(`${basePath}/branches`)}
                 >
-                  Go to Branches
+                  Go to Academies
                 </Button>
               </div>
             </div>
@@ -428,12 +428,12 @@ export default function PartnerBrandingPage() {
               <Label>Select partner branch</Label>
               <Select value={branchId || undefined} onValueChange={setBranchId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose a partner branch" />
+                  <SelectValue placeholder="Choose a partner academy" />
                 </SelectTrigger>
                 <SelectContent>
                   {partners.map((p) => (
                     <SelectItem key={p.branch_id} value={p.branch_id}>
-                      {p.branch_name || "Branch"}
+                      {p.branch_name || "Academy"}
                       {p.branch_code ? ` (${p.branch_code})` : ""}
                       {p.has_branding ? "" : " — branding pending"}
                     </SelectItem>
@@ -443,7 +443,7 @@ export default function PartnerBrandingPage() {
               {branchId && branchName && (
                 <p className="text-xs text-gray-500">
                   Editing branding for <span className="font-medium">{branchName}</span>
-                  {hasBranding ? "" : " (new — first save creates branding for this branch only)"}
+                  {hasBranding ? "" : " (new — first save creates branding for this academy only)"}
                 </p>
               )}
             </div>
@@ -591,7 +591,7 @@ export default function PartnerBrandingPage() {
                     rows={4}
                     value={aboutContent}
                     onChange={(e) => setAboutContent(e.target.value)}
-                    placeholder="Longer about text for this partner branch"
+                    placeholder="Longer about text for this partner academy"
                   />
                 </div>
               </CardContent>

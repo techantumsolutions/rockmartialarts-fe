@@ -1,78 +1,83 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { usePathname, useRouter } from "next/navigation"
-import { ExternalLink } from "lucide-react"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { X } from "lucide-react"
 import {
   studentPromotionAPI,
   type StudentPromotion,
 } from "@/lib/studentPromotionAPI"
 import { TokenManager } from "@/lib/tokenManager"
-
-const SESSION_KEY = "rma_promo_popup_session_shown"
-
-function sessionAlreadyShown(promotionId: string) {
-  try {
-    const raw = sessionStorage.getItem(SESSION_KEY)
-    if (!raw) return false
-    const map = JSON.parse(raw) as Record<string, boolean>
-    return !!map[promotionId]
-  } catch {
-    return false
-  }
-}
-
-function markSessionShown(promotionId: string) {
-  try {
-    const raw = sessionStorage.getItem(SESSION_KEY)
-    const map = raw ? (JSON.parse(raw) as Record<string, boolean>) : {}
-    map[promotionId] = true
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(map))
-  } catch {
-    /* ignore */
-  }
-}
+import { StudentPromoPopupCard } from "@/components/promotions/StudentPromoPopupCard"
+import {
+  STUDENT_PROMO_LOGIN_QUERY,
+  clearStudentPromoPendingAfterLogin,
+  peekStudentPromoPendingAfterLogin,
+} from "@/lib/studentPromoLoginFlag"
 
 /**
- * M19-S03 — shows the highest-priority live eligible promotion once per session
- * (until dismissed server-side). Mounted from student-dashboard layout only.
+ * Shows eligible promotion only right after a successful student login.
+ * Detects sessionStorage flag and/or ?login_promo=1. Refresh without those will not re-open.
  */
 export default function StudentPromotionPopup() {
   const router = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [promo, setPromo] = useState<StudentPromotion | null>(null)
   const [open, setOpen] = useState(false)
   const viewedRef = useRef<string | null>(null)
   const loadingRef = useRef(false)
+  const doneRef = useRef(false)
 
-  const load = useCallback(async () => {
-    if (loadingRef.current) return
+  const stripLoginPromoQuery = useCallback(() => {
+    if (typeof window === "undefined") return
+    const url = new URL(window.location.href)
+    if (!url.searchParams.has(STUDENT_PROMO_LOGIN_QUERY)) return
+    url.searchParams.delete(STUDENT_PROMO_LOGIN_QUERY)
+    const next = `${url.pathname}${url.search}${url.hash}`
+    router.replace(next, { scroll: false })
+  }, [router])
+
+  const loadAfterLogin = useCallback(async () => {
+    if (loadingRef.current || doneRef.current) return
+    if (typeof window === "undefined") return
+
+    const fromQuery = searchParams?.get(STUDENT_PROMO_LOGIN_QUERY) === "1"
+    const fromFlag = peekStudentPromoPendingAfterLogin()
+    if (!fromQuery && !fromFlag) return
+
+    // Wait briefly for token to be readable after soft navigations
     if (!TokenManager.isAuthenticated()) return
-    // Avoid competing with payment success / fullscreen flows
+
+    const role = String(TokenManager.getUser()?.role || "")
+      .toLowerCase()
+      .replace(/-/g, "_")
+    if (role && role !== "student") {
+      clearStudentPromoPendingAfterLogin()
+      doneRef.current = true
+      stripLoginPromoQuery()
+      return
+    }
+
     if (
       pathname?.includes("/payment-success") ||
       (pathname?.includes("/syllabus/") && pathname?.includes("/view"))
     ) {
       return
     }
+
     loadingRef.current = true
+    clearStudentPromoPendingAfterLogin()
+    stripLoginPromoQuery()
+
     try {
+      // Every login should surface a live promo; Close/Skip only ends this login's display
       const data = await studentPromotionAPI.myEligible({
-        exclude_dismissed: true,
+        exclude_dismissed: false,
         limit: 5,
       })
-      const list = data.promotions || []
-      const next =
-        list.find((p) => p.id && !sessionAlreadyShown(p.id)) || null
+      const next = (data.promotions || []).find((p) => p.id) || null
+      doneRef.current = true
       if (!next?.id) {
         setPromo(null)
         setOpen(false)
@@ -80,20 +85,39 @@ export default function StudentPromotionPopup() {
       }
       setPromo(next)
       setOpen(true)
-      markSessionShown(next.id)
-    } catch {
-      /* silent — never block dashboard */
+    } catch (err) {
+      console.warn("[StudentPromotionPopup] eligible fetch failed", err)
+      // Allow one more retry on next effect if query/flag somehow remains
     } finally {
       loadingRef.current = false
     }
-  }, [pathname])
+  }, [pathname, searchParams, stripLoginPromoQuery])
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      void load()
-    }, 800)
-    return () => clearTimeout(t)
-  }, [load])
+    let cancelled = false
+    let attempts = 0
+    const maxAttempts = 8
+
+    const tick = () => {
+      if (cancelled || doneRef.current) return
+      attempts += 1
+      void loadAfterLogin().then(() => {
+        if (cancelled || doneRef.current) return
+        const stillPending =
+          peekStudentPromoPendingAfterLogin() ||
+          searchParams?.get(STUDENT_PROMO_LOGIN_QUERY) === "1"
+        if (stillPending && attempts < maxAttempts) {
+          window.setTimeout(tick, 350)
+        }
+      })
+    }
+
+    const t = window.setTimeout(tick, 250)
+    return () => {
+      cancelled = true
+      window.clearTimeout(t)
+    }
+  }, [loadAfterLogin, searchParams])
 
   useEffect(() => {
     if (!open || !promo?.id) return
@@ -105,32 +129,48 @@ export default function StudentPromotionPopup() {
         event_type: "view",
         meta: { path: pathname || "/student-dashboard" },
       })
-      .catch(() => {
-        /* non-blocking */
-      })
+      .catch(() => {})
   }, [open, promo?.id, pathname])
 
-  const handleDismiss = async () => {
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    document.documentElement.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+      document.documentElement.style.overflow = ""
+    }
+  }, [open])
+
+  const handleSkip = () => {
     setOpen(false)
-    if (!promo?.id) return
+    setPromo(null)
+  }
+
+  const handleClose = async () => {
+    setOpen(false)
+    const id = promo?.id
+    setPromo(null)
+    if (!id) return
     try {
       await studentPromotionAPI.recordMyEvent({
-        promotion_id: promo.id,
+        promotion_id: id,
         event_type: "dismiss",
       })
     } catch {
       /* ignore */
     }
-    setPromo(null)
   }
 
   const handleCta = async () => {
     if (!promo?.id) return
     const ctaType = promo.cta_type || "none"
     const ctaUrl = (promo.cta_url || "").trim()
+    const id = promo.id
     try {
       await studentPromotionAPI.recordMyEvent({
-        promotion_id: promo.id,
+        promotion_id: id,
         event_type: "cta",
         meta: { cta_type: ctaType, cta_url: ctaUrl },
       })
@@ -138,106 +178,64 @@ export default function StudentPromotionPopup() {
       /* still navigate */
     }
     setOpen(false)
-    // Also dismiss so it does not reappear after CTA
+    setPromo(null)
     try {
       await studentPromotionAPI.recordMyEvent({
-        promotion_id: promo.id,
+        promotion_id: id,
         event_type: "dismiss",
       })
     } catch {
       /* ignore */
     }
     if (ctaType === "path" && ctaUrl) {
-      const path = ctaUrl.startsWith("/") ? ctaUrl : `/${ctaUrl}`
-      router.push(path)
+      router.push(ctaUrl.startsWith("/") ? ctaUrl : `/${ctaUrl}`)
     } else if (ctaType === "url" && ctaUrl) {
       window.open(ctaUrl, "_blank", "noopener,noreferrer")
     }
-    setPromo(null)
   }
 
-  if (!promo) return null
-
-  const hasCta =
-    (promo.cta_type === "url" || promo.cta_type === "path") &&
-    !!(promo.cta_url || "").trim()
+  if (!promo || !open) return null
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) void handleDismiss()
-      }}
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center overflow-hidden p-2 sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={promo.title || "Promotion"}
     >
-      <DialogContent
-        className="sm:max-w-md p-0 overflow-hidden gap-0"
-        showCloseButton
-        aria-describedby="student-promo-desc"
+      <button
+        type="button"
+        className="absolute inset-0 cursor-default bg-[#0f172a]/55 backdrop-blur-[3px]"
+        aria-label="Close overlay"
+        onClick={handleSkip}
+      />
+
+      <div
+        className="relative z-[1] flex max-h-[80vh] max-w-[80vw] flex-col overflow-hidden rounded-[1.25rem] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.32)]"
+        onClick={(e) => e.stopPropagation()}
       >
-        {promo.banner_url ? (
-          <div className="w-full bg-gray-100 max-h-52 overflow-hidden">
-            {promo.banner_media_type === "video" ? (
-              <video
-                src={promo.banner_url}
-                className="w-full max-h-52 object-cover"
-                controls
-                playsInline
-              />
-            ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={promo.banner_url}
-                alt=""
-                className="w-full max-h-52 object-cover"
-              />
-            )}
-          </div>
-        ) : null}
+        <button
+          type="button"
+          className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white transition hover:bg-black/50 sm:right-4 sm:top-4"
+          onClick={() => void handleClose()}
+          aria-label="Close"
+        >
+          <X className="h-4 w-4" />
+        </button>
 
-        <div className="p-6 space-y-3">
-          <DialogHeader className="space-y-2 text-left">
-            <DialogTitle className="text-xl text-[#171A26] pr-6">
-              {promo.title}
-            </DialogTitle>
-            {(promo.short_description || promo.description) && (
-              <DialogDescription
-                id="student-promo-desc"
-                className="text-sm text-gray-600 whitespace-pre-line"
-              >
-                {promo.short_description || promo.description}
-              </DialogDescription>
-            )}
-          </DialogHeader>
-
-          {promo.short_description && promo.description ? (
-            <p className="text-sm text-gray-500 whitespace-pre-line line-clamp-4">
-              {promo.description}
-            </p>
-          ) : null}
-
-          <DialogFooter className="flex-col sm:flex-col gap-2 pt-2">
-            {hasCta ? (
-              <Button
-                className="w-full gap-2 bg-[#FFB70F] hover:bg-[#e0a00d] text-black"
-                onClick={() => void handleCta()}
-              >
-                {promo.cta_label || "Learn more"}
-                {promo.cta_type === "url" ? (
-                  <ExternalLink className="w-4 h-4" />
-                ) : null}
-              </Button>
-            ) : null}
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-full text-gray-600"
-              onClick={() => void handleDismiss()}
-            >
-              Maybe later
-            </Button>
-          </DialogFooter>
-        </div>
-      </DialogContent>
-    </Dialog>
+        <StudentPromoPopupCard
+          title={promo.title}
+          short_description={promo.short_description}
+          description={promo.description}
+          banner_url={promo.banner_url}
+          banner_media_type={promo.banner_media_type}
+          cta_type={promo.cta_type}
+          cta_label={promo.cta_label}
+          cta_url={promo.cta_url}
+          onCta={() => void handleCta()}
+          onMaybeLater={handleSkip}
+        />
+      </div>
+    </div>
   )
 }

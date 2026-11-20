@@ -26,6 +26,10 @@ interface BranchOption {
 /** Only set after OTP-verified lead submit. Legacy "1" / skip markers are ignored. */
 const STORAGE_KEY = "rock_visitor_otp_verified_v2"
 const SKIP_STORAGE_KEY = "rock_visitor_otp_skipped_v1"
+/** Suppress re-open across refreshes for 1 day after first show / skip / submit. */
+const SEEN_STORAGE_KEY = "rock_visitor_popup_seen_v1"
+const SESSION_SEEN_KEY = "rock_visitor_popup_session_seen_v1"
+const ONE_DAY_MS = 24 * 60 * 60 * 1000
 const LEGACY_SKIP_KEYS = ["rock_lead_captured"]
 
 function readVerifiedVisitorMarker(): string | null {
@@ -39,11 +43,58 @@ function readVerifiedVisitorMarker(): string | null {
   return raw
 }
 
-function readSkipMarker(): boolean {
+function readExpiryMarker(key: string, prefix: string): boolean {
   if (typeof window === "undefined") return false
-  const raw = window.localStorage.getItem(SKIP_STORAGE_KEY)
-  if (!raw) return false
-  return raw.startsWith("skipped|")
+  try {
+    const raw = window.localStorage.getItem(key)
+    if (!raw || !raw.startsWith(`${prefix}|`)) return false
+    const expiresAt = Date.parse(raw.slice(prefix.length + 1))
+    if (!Number.isFinite(expiresAt)) {
+      window.localStorage.removeItem(key)
+      return false
+    }
+    if (Date.now() >= expiresAt) {
+      window.localStorage.removeItem(key)
+      return false
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+function writeExpiryMarker(key: string, prefix: string, ttlMs: number = ONE_DAY_MS) {
+  if (typeof window === "undefined") return
+  try {
+    const expiresAt = new Date(Date.now() + ttlMs).toISOString()
+    window.localStorage.setItem(key, `${prefix}|${expiresAt}`)
+  } catch {
+    /* ignore */
+  }
+}
+
+function readSkipMarker(): boolean {
+  return readExpiryMarker(SKIP_STORAGE_KEY, "skipped")
+}
+
+function readSeenMarker(): boolean {
+  if (typeof window === "undefined") return false
+  try {
+    if (window.sessionStorage.getItem(SESSION_SEEN_KEY) === "1") return true
+  } catch {
+    /* ignore */
+  }
+  return readExpiryMarker(SEEN_STORAGE_KEY, "seen")
+}
+
+function markPopupSeenForSessionAndDay() {
+  if (typeof window === "undefined") return
+  try {
+    window.sessionStorage.setItem(SESSION_SEEN_KEY, "1")
+  } catch {
+    /* ignore */
+  }
+  writeExpiryMarker(SEEN_STORAGE_KEY, "seen", ONE_DAY_MS)
 }
 
 export function LeadCaptureModal() {
@@ -95,7 +146,10 @@ export function LeadCaptureModal() {
     }
     const alreadyVerified = readVerifiedVisitorMarker()
     const alreadySkipped = popup.skip_enabled && readSkipMarker()
-    if (!alreadyVerified && !alreadySkipped) {
+    const alreadySeenThisSessionOrDay = readSeenMarker()
+    if (!alreadyVerified && !alreadySkipped && !alreadySeenThisSessionOrDay) {
+      // Mark immediately so refresh / client navigations do not re-open within 1 day.
+      markPopupSeenForSessionAndDay()
       setOpen(true)
       if (popup.branch_enabled) fetchBranches()
     } else {
@@ -105,11 +159,8 @@ export function LeadCaptureModal() {
 
   function handleSkip() {
     if (!popup.skip_enabled) return
-    try {
-      window.localStorage.setItem(SKIP_STORAGE_KEY, `skipped|${new Date().toISOString()}`)
-    } catch {
-      /* ignore */
-    }
+    writeExpiryMarker(SKIP_STORAGE_KEY, "skipped", ONE_DAY_MS)
+    markPopupSeenForSessionAndDay()
     setOpen(false)
   }
 
@@ -123,11 +174,11 @@ export function LeadCaptureModal() {
       const list = Array.isArray(data.branches) ? data.branches : []
       const options: BranchOption[] = list.map((b: any) => ({
         id: b.id ?? b._id ?? "",
-        name: b.branch?.name ?? b.name ?? b.branch?.code ?? "Branch",
+        name: b.branch?.name ?? b.name ?? b.branch?.code ?? "Academy",
       })).filter((b) => b.id && b.name)
       setBranches(options)
     } catch {
-      // ignore, modal will still render without branches
+      // ignore, modal will still render without academies
     }
   }
 
@@ -191,6 +242,7 @@ export function LeadCaptureModal() {
           STORAGE_KEY,
           `verified|${phoneDigits}|${new Date().toISOString()}`
         )
+        markPopupSeenForSessionAndDay()
         for (const k of LEGACY_SKIP_KEYS) {
           window.localStorage.removeItem(k)
         }
@@ -309,7 +361,7 @@ export function LeadCaptureModal() {
           ) : null}
           {popup.branch_enabled ? (
             <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-800">Select branch</label>
+              <label className="text-sm font-medium text-gray-800">Select academy</label>
               <Select
                 value={branchId}
                 onValueChange={(v) => {
@@ -318,7 +370,7 @@ export function LeadCaptureModal() {
                 }}
               >
                 <SelectTrigger className="border-gray-200 bg-white text-gray-900">
-                  <SelectValue placeholder="Choose a branch" />
+                  <SelectValue placeholder="Choose an academy" />
                 </SelectTrigger>
                 <SelectContent className="border-gray-200 bg-white text-gray-900">
                   {branches.map((b) => (

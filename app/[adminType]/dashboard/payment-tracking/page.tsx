@@ -1,59 +1,34 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import {
-  AdminCard,
-  AdminFilterBar,
-  AdminKpiCard,
-  AdminKpiGrid,
-  AdminPageHeader,
-  AdminPageShell,
-  AdminStatusPill,
-  AdminTableShell,
-} from "@/components/dashboard/AdminPageShell"
-import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import {
   Calendar,
   CheckCircle2,
+  Clock3,
   CreditCard,
-  Download,
   Eye,
-  Plus,
-  RotateCcw,
+  FileText,
+  GraduationCap,
+  Search,
+  Users,
   XCircle,
 } from "lucide-react"
-import { Textarea } from "@/components/ui/textarea"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import paymentAPI from "@/lib/paymentAPI"
-import { getBackendApiUrl } from "@/lib/config"
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { getActiveBranchId } from "@/lib/activeBranch"
-import BranchSelectionField from "@/components/layout/BranchSelectionField"
+import { getBackendApiUrl } from "@/lib/config"
+import { cn } from "@/lib/utils"
 
-interface Payment {
+type PayerTab = "student" | "partner"
+
+interface PaymentRow {
   id: string
   student_id?: string
   student_name?: string | null
@@ -71,109 +46,123 @@ interface Payment {
   partner_org_name?: string | null
   created_at?: string | null
   enrollment_id?: string | null
+  invoice_number?: string | null
+  invoice_id?: string | null
 }
-
-type PartnerOption = { id: string; name: string }
 
 interface PaymentStats {
   total_collected: number
   pending_payments: number
-  total_students: number
-  this_month_collection: number
-  payment_count?: number
+  failed_payments?: number
   failed_count?: number
-  cancelled_count?: number
+  transaction_count?: number
+  payment_count?: number
+  this_month_collection?: number
 }
 
-const STUDENT_AVATAR_PALETTE = [
-  "bg-[#E8F1FF] text-[#2563EB]",
-  "bg-[#F1EBFF] text-[#6D28D9]",
-  "bg-[#EAF8F0] text-[#1F9D57]",
-  "bg-[#FFF8E1] text-[#C9971A]",
-  "bg-[#FFE8E8] text-[#E11D48]",
-]
+type BranchOption = { id: string; name: string }
+type CourseOption = { id: string; name: string }
 
-function studentInitials(name?: string | null) {
-  const trimmed = (name || "Unknown").trim()
-  const parts = trimmed.split(/\s+/).filter(Boolean)
-  if (parts.length >= 2) {
-    return `${parts[0][0] || ""}${parts[parts.length - 1][0] || ""}`.toUpperCase()
-  }
-  return trimmed.slice(0, 2).toUpperCase()
+function formatCurrency(amount?: number | null) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: 2,
+  }).format(Number(amount) || 0)
 }
 
-function paymentStatusPill(
-  status: string
-): "paid" | "pending" | "cancelled" | "rejected" | undefined {
-  const s = status.toLowerCase()
-  if (s === "paid" || s === "completed") return "paid"
-  if (s === "pending") return "pending"
-  if (s === "cancelled" || s === "canceled") return "cancelled"
-  if (s === "failed") return "rejected"
-  return undefined
+function formatDateTime(value?: string | null) {
+  if (!value) return "—"
+  const d = new Date(value)
+  if (!Number.isFinite(d.getTime())) return "—"
+  return d.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  })
 }
 
-interface BranchOption {
-  id: string
-  name: string
+function toInputDate(d: Date) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${day}`
 }
 
-type BranchRevenueRow = {
-  branch_id: string
-  branch_name: string
-  total_revenue: number
-  transactions: number
+function defaultMonthRange() {
+  const now = new Date()
+  const start = new Date(now.getFullYear(), now.getMonth(), 1)
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+  return { start: toInputDate(start), end: toInputDate(end) }
 }
 
-type RecoveryAction = "restore_checkout" | "mark_received" | "waive"
+function paymentMethodLabel(p: PaymentRow) {
+  const label = (p.gateway_payment_label || p.payment_method || "").trim()
+  if (!label) return "—"
+  return label
+}
+
+function StatusPill({ status }: { status: string }) {
+  const s = String(status || "").toLowerCase()
+  const paid = s === "paid" || s === "completed"
+  const pending = s === "pending" || s === "processing"
+  const failed = s === "failed" || s === "cancelled" || s === "canceled"
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
+        paid && "bg-emerald-50 text-emerald-700",
+        pending && "bg-amber-50 text-amber-800",
+        failed && "bg-rose-50 text-rose-700",
+        !paid && !pending && !failed && "bg-slate-100 text-slate-600"
+      )}
+    >
+      {paid ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
+      {pending ? <Clock3 className="h-3.5 w-3.5" /> : null}
+      {failed ? <XCircle className="h-3.5 w-3.5" /> : null}
+      {paid ? "Paid" : pending ? "Pending" : failed ? (s.startsWith("cancel") ? "Cancelled" : "Failed") : status || "—"}
+    </span>
+  )
+}
 
 export default function PaymentTrackingPage() {
   const params = useParams<{ adminType: string }>()
   const router = useRouter()
   const basePath = useDashboardBasePath()
   const { toast } = useToast()
-  const [payments, setPayments] = useState<Payment[]>([])
-  const [stats, setStats] = useState<PaymentStats>({
-    total_collected: 0,
-    pending_payments: 0,
-    total_students: 0,
-    this_month_collection: 0
-  })
-  const [loading, setLoading] = useState(true)
-  const [branchesLoading, setBranchesLoading] = useState(true)
-  const [branchOptions, setBranchOptions] = useState<BranchOption[]>([])
-  const [branchFilter, setBranchFilter] = useState<string>("all")
-  /** Rock SA: all | rock | partners | specific partner org id */
-  const [partnerFilter, setPartnerFilter] = useState<string>("all")
-  const [partnerOptions, setPartnerOptions] = useState<PartnerOption[]>([])
-  const [partnersLoading, setPartnersLoading] = useState(false)
-  const [exporting, setExporting] = useState(false)
-  const [cancellingId, setCancellingId] = useState<string | null>(null)
-  const [recoveringId, setRecoveringId] = useState<string | null>(null)
-  const [recoverOpen, setRecoverOpen] = useState(false)
-  const [recoverTarget, setRecoverTarget] = useState<Payment | null>(null)
-  const [recoverAction, setRecoverAction] = useState<RecoveryAction | null>(null)
-  const [recoverNote, setRecoverNote] = useState("")
-  const [recoverBlocked, setRecoverBlocked] = useState(false)
-  /** Cancelled payment ids that still have a course registration (enrollment) to recover */
-  const [recoverablePaymentIds, setRecoverablePaymentIds] = useState<Record<string, boolean>>({})
-  const [page, setPage] = useState(1)
-  const [totalPayments, setTotalPayments] = useState(0)
-  const pageSize = 20
-  const [periodStart, setPeriodStart] = useState<string>("")
-  const [periodEnd, setPeriodEnd] = useState<string>("")
-  const [periodRevenue, setPeriodRevenue] = useState<number | null>(null)
-  const [branchRevenue, setBranchRevenue] = useState<BranchRevenueRow[]>([])
-  const [analyticsLoading, setAnalyticsLoading] = useState(false)
-  const [studentSearch, setStudentSearch] = useState<string>("")
-  const [debouncedStudentSearch, setDebouncedStudentSearch] = useState<string>("")
-  const filtersReadyRef = useRef(true)
-
   const adminType = String(params?.adminType || "super-admin").toLowerCase()
   const isSuperAdmin = adminType === "super-admin"
   const isPartnerAdmin = adminType === "partner-admin" || adminType === "partners"
-  /** Super admin and partner admin pick a branch. Branch managers stay on the header branch. */
   const canPickBranch = isSuperAdmin || isPartnerAdmin
+  const showPartnerTab = isSuperAdmin
+
+  const initialRange = useMemo(() => defaultMonthRange(), [])
+  const [tab, setTab] = useState<PayerTab>("student")
+  const [payments, setPayments] = useState<PaymentRow[]>([])
+  const [stats, setStats] = useState<PaymentStats>({
+    total_collected: 0,
+    pending_payments: 0,
+    failed_payments: 0,
+    transaction_count: 0,
+  })
+  const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const pageSize = 20
+  const [search, setSearch] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
+  const [courseFilter, setCourseFilter] = useState("all")
+  const [branchFilter, setBranchFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [periodStart, setPeriodStart] = useState(initialRange.start)
+  const [periodEnd, setPeriodEnd] = useState(initialRange.end)
+  const [branches, setBranches] = useState<BranchOption[]>([])
+  const [courses, setCourses] = useState<CourseOption[]>([])
+
   const branchManager = BranchManagerAuth.getCurrentUser()
   const headerBranchId =
     getActiveBranchId() ||
@@ -181,1004 +170,421 @@ export default function PaymentTrackingPage() {
     branchManager?.managed_branches?.[0] ||
     ""
   const effectiveBranchFilter = canPickBranch ? branchFilter : headerBranchId || branchFilter
-  const partnerQuery = useMemo(() => {
-    if (!isSuperAdmin || partnerFilter === "all") return {} as { partner_org_id?: string; partner_scope?: string }
-    if (partnerFilter === "rock") return { partner_scope: "rock" }
-    if (partnerFilter === "partners") return { partner_scope: "partners" }
-    return { partner_org_id: partnerFilter }
-  }, [isSuperAdmin, partnerFilter])
 
   useEffect(() => {
-    if (typeof window === "undefined") return
-    const sp = new URLSearchParams(window.location.search)
-    const start = sp.get("start_date")
-    const end = sp.get("end_date")
-    const branchId = sp.get("branch_id")
-    if (start) setPeriodStart(start)
-    if (end) setPeriodEnd(end)
-    if (branchId && canPickBranch) setBranchFilter(branchId)
-  }, [canPickBranch])
+    const t = window.setTimeout(() => setDebouncedSearch(search.trim()), 350)
+    return () => window.clearTimeout(t)
+  }, [search])
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setDebouncedStudentSearch(studentSearch.trim())
-    }, 400)
-    return () => window.clearTimeout(timer)
-  }, [studentSearch])
+    setPage(1)
+  }, [tab, debouncedSearch, courseFilter, branchFilter, statusFilter, periodStart, periodEnd])
 
-  const fetchPayments = useCallback(async () => {
+  useEffect(() => {
+    const loadMeta = async () => {
+      try {
+        const token = TokenManager.getToken()
+        const headers: HeadersInit = {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        }
+        const [bRes, cRes] = await Promise.all([
+          fetch(getBackendApiUrl(`branches?skip=0&limit=200&_ts=${Date.now()}`), {
+            cache: "no-store",
+            headers,
+          }),
+          fetch(getBackendApiUrl(`courses?limit=200&_ts=${Date.now()}`), {
+            cache: "no-store",
+            headers,
+          }),
+        ])
+        if (bRes.ok) {
+          const data = await bRes.json()
+          const raw = data.branches || []
+          setBranches(
+            raw.map((b: { id: string; branch?: { name?: string }; name?: string }) => ({
+              id: b.id,
+              name: b.branch?.name || b.name || "Academy",
+            }))
+          )
+        }
+        if (cRes.ok) {
+          const data = await cRes.json()
+          const raw = data.courses || data || []
+          setCourses(
+            (Array.isArray(raw) ? raw : []).map((c: { id: string; title?: string; name?: string }) => ({
+              id: c.id,
+              name: c.title || c.name || "Course",
+            }))
+          )
+        }
+      } catch (e) {
+        console.error(e)
+      }
+    }
+    void loadMeta()
+  }, [])
+
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true)
       const token = TokenManager.getToken() || undefined
-      const data = await paymentAPI.getPayments(
-        {
-          skip: (page - 1) * pageSize,
-          limit: pageSize,
-          ...(periodStart ? { start_date: periodStart } : {}),
-          ...(periodEnd ? { end_date: periodEnd } : {}),
-          ...(debouncedStudentSearch ? { search: debouncedStudentSearch } : {}),
-          ...(effectiveBranchFilter !== "all" ? { branch_id: effectiveBranchFilter } : {}),
-          ...partnerQuery,
-        },
-        token
-      )
-      const list = (data.payments || []) as Payment[]
-      setPayments(list)
-      setTotalPayments(Number(data.total) || 0)
-
-      // Show Recover only when the cancelled payment still has a course registration.
-      if (isSuperAdmin) {
-        const cancelled = list.filter((p) => {
-          const s = String(p.payment_status || "").toLowerCase()
-          return s === "cancelled" || s === "canceled"
-        })
-        const checks = await Promise.all(
-          cancelled.map(async (payment) => {
-            try {
-              const detail = (await paymentAPI.getPaymentById(payment.id, token)) as Payment & {
-                enrollment_id?: string | null
-              }
-              const enrollmentId = String(detail.enrollment_id || payment.enrollment_id || "").trim()
-              if (!enrollmentId) return [payment.id, false] as const
-
-              const studentId = String(detail.student_id || payment.student_id || "").trim()
-              if (!studentId) {
-                // Enrollment id present but cannot verify student list — allow Recover.
-                return [payment.id, true] as const
-              }
-
-              const enrRes = await fetch(
-                getBackendApiUrl(`enrollments/students/${encodeURIComponent(studentId)}`),
-                {
-                  cache: "no-store",
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json",
-                  },
-                }
-              )
-              if (!enrRes.ok) return [payment.id, false] as const
-              const enrBody = await enrRes.json().catch(() => ({}))
-              const enrollments = Array.isArray(enrBody)
-                ? enrBody
-                : Array.isArray(enrBody?.enrollments)
-                  ? enrBody.enrollments
-                  : Array.isArray(enrBody?.data)
-                    ? enrBody.data
-                    : []
-              const exists = enrollments.some(
-                (e: { id?: string; enrollment_id?: string }) =>
-                  String(e?.id || e?.enrollment_id || "") === enrollmentId
-              )
-              return [payment.id, exists] as const
-            } catch {
-              return [payment.id, false] as const
-            }
-          })
-        )
-        setRecoverablePaymentIds(Object.fromEntries(checks))
-      } else {
-        setRecoverablePaymentIds({})
+      const payerCategory = showPartnerTab ? tab : "student"
+      const common = {
+        ...(periodStart ? { start_date: periodStart } : {}),
+        ...(periodEnd ? { end_date: periodEnd } : {}),
+        ...(debouncedSearch ? { search: debouncedSearch } : {}),
+        ...(effectiveBranchFilter && effectiveBranchFilter !== "all"
+          ? { branch_id: effectiveBranchFilter }
+          : {}),
+        ...(courseFilter !== "all" ? { course_id: courseFilter } : {}),
+        ...(statusFilter !== "all" ? { status: statusFilter } : {}),
+        payer_category: payerCategory,
       }
+
+      const [list, statsData] = await Promise.all([
+        paymentAPI.getPayments(
+          {
+            skip: (page - 1) * pageSize,
+            limit: pageSize,
+            ...common,
+          },
+          token
+        ),
+        paymentAPI.getPaymentStats(token, common),
+      ])
+
+      setPayments((list.payments || []) as PaymentRow[])
+      setTotal(Number(list.total) || 0)
+      setStats({
+        total_collected: Number(statsData.total_collected) || 0,
+        pending_payments: Number(statsData.pending_payments) || 0,
+        failed_payments: Number((statsData as PaymentStats).failed_payments) || 0,
+        failed_count: Number((statsData as PaymentStats).failed_count) || 0,
+        transaction_count: Number((statsData as PaymentStats).transaction_count) || Number(list.total) || 0,
+        payment_count: Number(statsData.payment_count) || 0,
+        this_month_collection: Number(statsData.this_month_collection) || 0,
+      })
     } catch (error) {
-      console.error("Error fetching payments:", error)
+      console.error(error)
+      toast({
+        title: "Could not load transactions",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, periodStart, periodEnd, debouncedStudentSearch, effectiveBranchFilter, isSuperAdmin, partnerQuery])
-
-  const fetchStats = useCallback(async () => {
-    try {
-      const token = TokenManager.getToken()
-      const qsScoped = new URLSearchParams()
-      if (periodStart) qsScoped.set("start_date", periodStart)
-      if (periodEnd) qsScoped.set("end_date", periodEnd)
-      if (effectiveBranchFilter !== "all") qsScoped.set("branch_id", effectiveBranchFilter)
-      if (partnerQuery.partner_org_id) qsScoped.set("partner_org_id", partnerQuery.partner_org_id)
-      if (partnerQuery.partner_scope) qsScoped.set("partner_scope", partnerQuery.partner_scope)
-      qsScoped.set("_ts", String(Date.now()))
-
-      const headers: HeadersInit = {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        "Cache-Control": "no-cache",
-        Pragma: "no-cache",
-      }
-
-      const gQs = new URLSearchParams()
-      gQs.set("_ts", String(Date.now()))
-
-      // When Rock SA filters by partner, use scoped totals so they see that partner's amount.
-      const useGlobalTotal = isSuperAdmin && partnerFilter === "all"
-
-      const [scopedRes, globalRes] = await Promise.all([
-        fetch(getBackendApiUrl(`payments/stats?${qsScoped.toString()}`), {
-          cache: "no-store",
-          headers,
-        }),
-        useGlobalTotal
-          ? fetch(getBackendApiUrl(`payments/stats?${gQs.toString()}`), {
-              cache: "no-store",
-              headers,
-            })
-          : Promise.resolve(null),
-      ])
-
-      if (!scopedRes.ok) return
-
-      const scopedData = await scopedRes.json()
-
-      if (globalRes?.ok) {
-        const globalData = await globalRes.json()
-        const total = Number(globalData.total_collected)
-        setStats({
-          ...scopedData,
-          total_collected: Number.isFinite(total) ? total : 0,
-        })
-        return
-      }
-
-      setStats(scopedData)
-    } catch (error) {
-      console.error("Error fetching payment stats:", error)
-    }
-  }, [periodStart, periodEnd, effectiveBranchFilter, isSuperAdmin, partnerFilter, partnerQuery])
-
-  const fetchAnalytics = useCallback(async () => {
-    try {
-      setAnalyticsLoading(true)
-      const token = TokenManager.getToken() || ""
-
-      const analyticsHeaders: HeadersInit = {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        "Cache-Control": "no-cache",
-        Pragma: "no-cache",
-      }
-
-      const periodQs = new URLSearchParams()
-      if (periodStart) periodQs.set("start_date", periodStart)
-      if (periodEnd) periodQs.set("end_date", periodEnd)
-      if (effectiveBranchFilter !== "all") periodQs.set("branch_id", effectiveBranchFilter)
-      if (partnerQuery.partner_org_id) periodQs.set("partner_org_id", partnerQuery.partner_org_id)
-      if (partnerQuery.partner_scope) periodQs.set("partner_scope", partnerQuery.partner_scope)
-      periodQs.set("_ts", String(Date.now()))
-
-      const [statsRes, revRes] = await Promise.all([
-        periodStart || periodEnd
-          ? fetch(getBackendApiUrl(`payments/stats?${periodQs.toString()}`), {
-              cache: "no-store",
-              headers: analyticsHeaders,
-            })
-          : Promise.resolve(null),
-        // Branch revenue endpoint is Rock-wide; skip when focusing a single partner filter.
-        partnerFilter === "all"
-          ? fetch(getBackendApiUrl(`payments/revenue/by-branch?${periodQs.toString()}`), {
-              cache: "no-store",
-              headers: analyticsHeaders,
-            })
-          : Promise.resolve({ ok: false } as Response),
-      ])
-
-      if (statsRes) {
-        if (statsRes.ok) {
-          const s = await statsRes.json()
-          const v = Number(s?.this_month_collection)
-          setPeriodRevenue(Number.isFinite(v) ? v : 0)
-        } else {
-          setPeriodRevenue(null)
-        }
-      } else {
-        setPeriodRevenue(null)
-      }
-
-      if (revRes.ok) {
-        const js = await revRes.json().catch(() => ({}))
-        const rows: BranchRevenueRow[] = Array.isArray(js?.branches) ? js.branches : []
-        setBranchRevenue(rows)
-      } else {
-        setBranchRevenue([])
-      }
-    } catch (e) {
-      console.error("analytics fetch failed", e)
-      setBranchRevenue([])
-      setPeriodRevenue(null)
-    } finally {
-      setAnalyticsLoading(false)
-    }
-  }, [periodStart, periodEnd, effectiveBranchFilter, partnerFilter, partnerQuery])
+  }, [
+    page,
+    pageSize,
+    periodStart,
+    periodEnd,
+    debouncedSearch,
+    effectiveBranchFilter,
+    courseFilter,
+    statusFilter,
+    tab,
+    showPartnerTab,
+    toast,
+  ])
 
   useEffect(() => {
-    const loadBranches = async () => {
-      try {
-        setBranchesLoading(true)
-        const token = TokenManager.getToken()
-        const res = await fetch(getBackendApiUrl(`branches?skip=0&limit=200&_ts=${Date.now()}`), {
-          cache: "no-store",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache",
-            Pragma: "no-cache",
-          },
-        })
-        if (!res.ok) return
-        const data = await res.json()
-        const raw = data.branches || []
-        const opts: BranchOption[] = raw.map((b: { id: string; branch?: { name?: string }; name?: string }) => ({
-          id: b.id,
-          name: b.branch?.name || b.name || "Branch",
-        }))
-        setBranchOptions(opts)
-      } catch (e) {
-        console.error("Error fetching branches:", e)
-      } finally {
-        setBranchesLoading(false)
-      }
-    }
-    void loadBranches()
-  }, [])
+    void fetchData()
+  }, [fetchData])
 
-  useEffect(() => {
-    if (!isSuperAdmin) return
-    const loadPartners = async () => {
-      try {
-        setPartnersLoading(true)
-        const token = TokenManager.getToken()
-        const res = await fetch(
-          getBackendApiUrl(`partner-organizations?skip=0&limit=200&_ts=${Date.now()}`),
-          {
-            cache: "no-store",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-          }
-        )
-        if (!res.ok) return
-        const data = await res.json()
-        const raw = Array.isArray(data.partners) ? data.partners : Array.isArray(data) ? data : []
-        setPartnerOptions(
-          raw
-            .map((p: { id?: string; partner_org_id?: string; name?: string }) => ({
-              id: String(p.id || p.partner_org_id || ""),
-              name: String(p.name || "Partner"),
-            }))
-            .filter((p: PartnerOption) => !!p.id)
-        )
-      } catch (e) {
-        console.error("Error fetching partners:", e)
-      } finally {
-        setPartnersLoading(false)
-      }
-    }
-    void loadPartners()
-  }, [isSuperAdmin])
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const showingFrom = total === 0 ? 0 : (page - 1) * pageSize + 1
+  const showingTo = Math.min(page * pageSize, total)
 
-  useEffect(() => {
-    if (!filtersReadyRef.current) return
-    void Promise.all([fetchPayments(), fetchStats(), fetchAnalytics()])
-  }, [page, effectiveBranchFilter, partnerFilter, periodStart, periodEnd, debouncedStudentSearch, fetchPayments, fetchStats, fetchAnalytics])
+  const pageButtons = useMemo(() => {
+    const maxButtons = 5
+    let start = Math.max(1, page - Math.floor(maxButtons / 2))
+    let end = Math.min(totalPages, start + maxButtons - 1)
+    start = Math.max(1, end - maxButtons + 1)
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i)
+  }, [page, totalPages])
 
-  useEffect(() => {
-    if (!filtersReadyRef.current) return
-    setPage(1)
-  }, [effectiveBranchFilter, partnerFilter, periodStart, periodEnd, debouncedStudentSearch])
-
-  const formatCurrency = (amount: number) => {
-    const v = Number(amount)
-    if (!Number.isFinite(v)) return "₹0"
-    return `₹${Math.round(v).toLocaleString("en-IN")}`
-  }
-
-  // Server-side pagination (20 per page).
-  const totalPages = Math.max(1, Math.ceil((totalPayments || 0) / pageSize))
-  const safePage = Math.min(Math.max(1, page), totalPages)
-  const startIdx = (safePage - 1) * pageSize
-  const endIdx = startIdx + payments.length
-  const pagedPayments = payments
-
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return "N/A"
-    try {
-      return new Date(dateString).toLocaleDateString("en-IN", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      })
-    } catch {
-      return "Invalid Date"
-    }
-  }
-
-  const formatDateTime = (dateString: string | null | undefined) => {
-    if (!dateString) return "N/A"
-    try {
-      return new Date(dateString).toLocaleString("en-IN", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    } catch {
-      return "Invalid Date"
-    }
-  }
-
-  const describePaymentSource = (payment: Payment) => {
-    return paymentAPI.formatPaymentSource(payment)
-  }
-
-  const handleExport = async () => {
-    if (exporting) return
-
-    setExporting(true)
-    try {
-      toast({
-        title: "Exporting payments...",
-        description: "Your payment report is being generated.",
-      })
-
-      await paymentAPI.exportPayments({
-        format: "csv",
-        ...(effectiveBranchFilter && effectiveBranchFilter !== "all" && effectiveBranchFilter !== "unassigned"
-          ? { branch_id: effectiveBranchFilter }
-          : {}),
-      })
-
-      toast({
-        title: "Export successful",
-        description: "Payment report has been downloaded.",
-      })
-    } catch (error) {
-      console.error("Export error:", error)
-      toast({
-        title: "Export failed",
-        description: error instanceof Error ? error.message : "Failed to export payment report",
-        variant: "destructive",
-      })
-    } finally {
-      setExporting(false)
-    }
-  }
-
-  const handleCancelPayment = async (payment: Payment) => {
-    if (cancellingId || !payment.id) return
-    const status = String(payment.payment_status || "").toLowerCase()
-    if (status === "paid" || status === "completed") {
-      toast({
-        title: "Cannot cancel paid transaction",
-        description: "Only pending/failed/mistaken attempts can be cancelled.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    try {
-      setCancellingId(payment.id)
-      await paymentAPI.cancelPayment(payment.id)
-      toast({
-        title: "Transaction cancelled",
-        description: "The payment attempt was cancelled and removed from student pending dues.",
-      })
-      await fetchPayments()
-      await fetchStats()
-    } catch (error) {
-      toast({
-        title: "Cancellation failed",
-        description: error instanceof Error ? error.message : "Could not cancel this payment attempt",
-        variant: "destructive",
-      })
-    } finally {
-      setCancellingId(null)
-    }
-  }
-
-  const recoveryCopy: Record<RecoveryAction, { title: string; description: string }> = {
-    restore_checkout: {
-      title: "Restore pending checkout?",
-      description:
-        "The enrollment returns to pending so the student can pay online again. Previous Razorpay order data on this row is cleared.",
-    },
-    mark_received: {
-      title: "Mark payment as received?",
-      description:
-        "Use when fees were collected outside the gateway (cash, bank transfer, etc.). The enrollment becomes active and paid.",
-    },
-    waive: {
-      title: "Waive / comp this course?",
-      description:
-        "Grant access without collecting payment. The enrollment becomes active and paid as complimentary.",
-    },
-  }
-
-  const openRecoverDialog = (payment: Payment, action: RecoveryAction) => {
-    if (!recoverablePaymentIds[payment.id]) return
-    setRecoverTarget(payment)
-    setRecoverNote("")
-    setRecoverBlocked(false)
-    setRecoverAction(action)
-    setRecoverOpen(true)
-  }
-
-  const handleConfirmRecover = async () => {
-    if (!recoverTarget?.id || !recoverAction || recoverBlocked) return
-    try {
-      setRecoveringId(recoverTarget.id)
-      const res = await paymentAPI.recoverCancelledPayment(recoverTarget.id, {
-        action: recoverAction,
-        ...(recoverNote.trim() ? { note: recoverNote.trim() } : {}),
-      })
-      toast({
-        title: "Updated",
-        description: res.message,
-      })
-      setRecoverOpen(false)
-      setRecoverTarget(null)
-      setRecoverAction(null)
-      setRecoverBlocked(false)
-      await fetchPayments()
-      await fetchStats()
-    } catch (error) {
-      const raw = error instanceof Error ? error.message : "Could not update this enrollment"
-      const enrollmentMissing = /enrollment not found/i.test(raw)
-      toast({
-        title: enrollmentMissing ? "Cannot recover this payment" : "Recovery failed",
-        description: enrollmentMissing
-          ? "This student’s course registration for this payment is missing, so recovery cannot be completed. Please contact support or re-add the course for the student, then try Recover again."
-          : raw,
-        variant: "destructive",
-      })
-    } finally {
-      setRecoveringId(null)
-    }
-  }
-
-  const showPartnerColumn = isSuperAdmin || isPartnerAdmin
-  const tableColSpan = 7 + (showPartnerColumn ? 1 : 0)
-  const selectedPartnerLabel =
-    partnerFilter === "all"
-      ? null
-      : partnerFilter === "rock"
-        ? "Rock (non-partner)"
-        : partnerFilter === "partners"
-          ? "All partners"
-          : partnerOptions.find((p) => p.id === partnerFilter)?.name || "Partner"
-
-  const maxBranchRevenue = useMemo(
-    () => Math.max(1, ...branchRevenue.map((r) => r.total_revenue)),
-    [branchRevenue]
-  )
-
-  const paidTransactions =
-    typeof stats.payment_count === "number" ? stats.payment_count : "—"
-
-  const cancelledOrFailed =
-    Number(stats.cancelled_count ?? 0) + Number(stats.failed_count ?? 0) > 0
-      ? Number(stats.cancelled_count ?? 0) + Number(stats.failed_count ?? 0)
-      : stats.pending_payments
-
-  const periodRevenueLabel =
-    periodStart || periodEnd
-      ? periodRevenue != null
-        ? formatCurrency(periodRevenue)
-        : "—"
-      : formatCurrency(Number(stats.this_month_collection) || 0)
+  const nameColumnLabel = tab === "partner" ? "Partner Name" : "Student Name"
+  const searchPlaceholder =
+    tab === "partner"
+      ? "Search by partner, invoice no..."
+      : "Search by student, enrollment ID, invoice no..."
 
   return (
-    <AdminPageShell>
-      <AdminPageHeader
-        icon={CreditCard}
-        title="Payment Tracking"
-        subtitle="Track revenue, payment status, and transactions across branches."
-        actions={
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              className="btn-admin-outline h-10"
-              disabled={exporting}
-              onClick={() => void handleExport()}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              {exporting ? "Exporting…" : "Export Report"}
-            </Button>
-            <Button
-              type="button"
-              className="btn-admin-primary h-10"
-              onClick={() => router.push(`${basePath}/create-student`)}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Record Payment
-            </Button>
-          </>
-        }
-      />
+    <div className="w-full space-y-6 p-4 lg:px-8 lg:py-6">
+      <div className="space-y-1">
+        <p className="text-sm text-[#6B7A99]">
+          Finance &amp; Billing <span className="mx-1 text-[#CBD5E1]">&gt;</span> Transactions
+          (Payments &amp; Invoices)
+        </p>
+        <h1 className="text-2xl font-bold tracking-tight text-[#171A26] sm:text-3xl">
+          Transactions (Payments &amp; Invoices)
+        </h1>
+        <p className="text-sm text-[#6B7A99]">
+          Track and manage all payments and invoices for students and partners.
+        </p>
+      </div>
 
-      {isPartnerAdmin ? (
-        <>
-          <AdminCard className="border-amber-200/80 bg-[#FFFBEB] text-sm text-amber-950">
-            Student course payments are collected on Rock&apos;s payment gateway. This list shows every
-            transaction for your organization (student, branch, course, amount) so you can reconcile
-            settlement with Rock Super Admin offline.
-          </AdminCard>
-          <AdminKpiGrid cols={4}>
-            <AdminKpiCard
-              icon={CreditCard}
-              label="Your org — collected (all time)"
-              value={formatCurrency(stats.total_collected)}
-              tone="amber"
-            />
-            <AdminKpiCard
-              icon={Calendar}
-              label="Selected period"
-              value={formatCurrency(Number(stats.this_month_collection) || 0)}
-              tone="blue"
-              hint="Uses date filters below when set"
-            />
-          </AdminKpiGrid>
-        </>
-      ) : null}
-
-      {isSuperAdmin ? (
-        <div
-          className={
-            partnerFilter === "all" && branchRevenue.length > 0
-              ? "grid grid-cols-1 gap-4 xl:grid-cols-[1fr_minmax(0,17rem)]"
-              : ""
-          }
-        >
-          <AdminKpiGrid cols={4}>
-            <AdminKpiCard
-              icon={CreditCard}
-              label={
-                selectedPartnerLabel ? `Revenue — ${selectedPartnerLabel}` : "Total Revenue (All time)"
-              }
-              value={formatCurrency(stats.total_collected)}
-              tone="amber"
-            />
-            <AdminKpiCard
-              icon={CheckCircle2}
-              label="Paid Transactions"
-              value={paidTransactions}
-              tone="green"
-            />
-            <AdminKpiCard
-              icon={XCircle}
-              label="Cancelled / Failed"
-              value={cancelledOrFailed}
-              tone="rose"
-            />
-            <AdminKpiCard
-              icon={Calendar}
-              label={periodStart || periodEnd ? "Selected Period Revenue" : "This Month Revenue"}
-              value={periodRevenueLabel}
-              tone="blue"
-            />
-          </AdminKpiGrid>
-
-          {partnerFilter === "all" && branchRevenue.length > 0 ? (
-            <AdminCard>
-              <h3 className="mb-3 text-sm font-semibold text-[#4F5077]">Branch-wise Revenue</h3>
-              <div
-                className={
-                  branchRevenue.length > 5
-                    ? "max-h-48 space-y-3 overflow-y-auto pr-1"
-                    : "space-y-3"
-                }
-              >
-                {branchRevenue.map((r) => (
-                  <div key={r.branch_id}>
-                    <div className="mb-1 flex items-center justify-between gap-2 text-xs">
-                      <span className="truncate text-[#6B7A99]">{r.branch_name}</span>
-                      <span className="shrink-0 font-semibold text-[#4F5077]">
-                        {formatCurrency(r.total_revenue)}
-                      </span>
-                    </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
-                      <div
-                        className="h-full rounded-full bg-[#6D28D9]"
-                        style={{ width: `${(r.total_revenue / maxBranchRevenue) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </AdminCard>
-          ) : null}
+      {showPartnerTab ? (
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => setTab("student")}
+            className={cn(
+              "inline-flex h-11 items-center gap-2 rounded-xl px-5 text-sm font-semibold transition-colors",
+              tab === "student"
+                ? "bg-[#F5C518] text-[#171A26] shadow-sm"
+                : "border border-[#E2E8F0] bg-white text-[#4F5077] hover:bg-[#F8FAFC]"
+            )}
+          >
+            <GraduationCap className="h-4 w-4" />
+            Student Payments
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("partner")}
+            className={cn(
+              "inline-flex h-11 items-center gap-2 rounded-xl px-5 text-sm font-semibold transition-colors",
+              tab === "partner"
+                ? "bg-[#F5C518] text-[#171A26] shadow-sm"
+                : "border border-[#E2E8F0] bg-white text-[#4F5077] hover:bg-[#F8FAFC]"
+            )}
+          >
+            <Users className="h-4 w-4" />
+            Partner Payments
+          </button>
         </div>
       ) : null}
 
-      <AdminFilterBar className="items-end">
-        <div className="flex min-w-[160px] flex-col gap-1">
-          <span className="text-xs font-medium text-[#6B7A99]">Branch</span>
-          {canPickBranch ? (
-            <Select value={branchFilter} onValueChange={setBranchFilter} disabled={branchesLoading}>
-              <SelectTrigger className="h-11 w-full min-w-[160px] bg-white sm:w-48">
-                <SelectValue placeholder={branchesLoading ? "Loading…" : "All branches"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All branches</SelectItem>
-                {!isPartnerAdmin ? <SelectItem value="unassigned">No branch on record</SelectItem> : null}
-                {branchOptions.map((b) => (
-                  <SelectItem key={b.id} value={b.id}>
-                    {b.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <BranchSelectionField />
-          )}
-        </div>
-
-        {isSuperAdmin ? (
-          <div className="flex min-w-[160px] flex-col gap-1">
-            <span className="text-xs font-medium text-[#6B7A99]">Partner</span>
-            <Select value={partnerFilter} onValueChange={setPartnerFilter} disabled={partnersLoading}>
-              <SelectTrigger className="h-11 w-full min-w-[160px] bg-white sm:w-52">
-                <SelectValue placeholder={partnersLoading ? "Loading…" : "All Rock + partners"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All (Rock + partners)</SelectItem>
-                <SelectItem value="rock">Rock only</SelectItem>
-                <SelectItem value="partners">All partners</SelectItem>
-                {partnerOptions.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-2xl border border-[#E8ECF4] bg-white p-5 shadow-sm">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[#EEF2FF] text-[#4F46E5]">
+            <FileText className="h-5 w-5" />
           </div>
-        ) : null}
+          <p className="text-2xl font-bold text-[#171A26]">
+            {Number(stats.transaction_count || total).toLocaleString("en-IN")}
+          </p>
+          <p className="mt-1 text-sm text-[#6B7A99]">Total Transactions</p>
+        </div>
+        <div className="rounded-2xl border border-[#E8ECF4] bg-white p-5 shadow-sm">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+            <CreditCard className="h-5 w-5" />
+          </div>
+          <p className="text-2xl font-bold text-[#171A26]">{formatCurrency(stats.total_collected)}</p>
+          <p className="mt-1 text-sm text-[#6B7A99]">Total Collected</p>
+        </div>
+        <div className="rounded-2xl border border-[#E8ECF4] bg-white p-5 shadow-sm">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+            <Clock3 className="h-5 w-5" />
+          </div>
+          <p className="text-2xl font-bold text-[#171A26]">
+            {formatCurrency(stats.pending_payments)}
+          </p>
+          <p className="mt-1 text-sm text-[#6B7A99]">Pending</p>
+        </div>
+        <div className="rounded-2xl border border-[#E8ECF4] bg-white p-5 shadow-sm">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+            <XCircle className="h-5 w-5" />
+          </div>
+          <p className="text-2xl font-bold text-[#171A26]">
+            {formatCurrency(stats.failed_payments)}
+          </p>
+          <p className="mt-1 text-sm text-[#6B7A99]">Failed</p>
+        </div>
+      </div>
 
-        <div className="flex min-w-[130px] flex-col gap-1">
-          <span className="text-xs font-medium text-[#6B7A99]">Start Date</span>
+      <div className="flex flex-col gap-3 rounded-2xl border border-[#E8ECF4] bg-white p-4 shadow-sm lg:flex-row lg:items-center">
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={searchPlaceholder}
+            className="h-11 rounded-xl border-[#E2E8F0] bg-[#F8FAFC] pl-10"
+          />
+        </div>
+        {tab === "student" ? (
+          <Select value={courseFilter} onValueChange={setCourseFilter}>
+            <SelectTrigger className="h-11 w-full rounded-xl bg-white lg:w-44">
+              <SelectValue placeholder="All Courses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Courses</SelectItem>
+              {courses.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
+        {canPickBranch ? (
+          <Select value={branchFilter} onValueChange={setBranchFilter}>
+            <SelectTrigger className="h-11 w-full rounded-xl bg-white lg:w-44">
+              <SelectValue placeholder="All Academies" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Academies</SelectItem>
+              {branches.map((b) => (
+                <SelectItem key={b.id} value={b.id}>
+                  {b.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="h-11 w-full rounded-xl bg-white lg:w-40">
+            <SelectValue placeholder="All Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="paid">Paid</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="failed">Failed</SelectItem>
+          </SelectContent>
+        </Select>
+        <div className="flex h-11 items-center gap-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#4F5077]">
+          <Calendar className="h-4 w-4 text-[#94A3B8]" />
           <Input
             type="date"
             value={periodStart}
             onChange={(e) => setPeriodStart(e.target.value)}
-            className="h-11 w-full min-w-[130px] bg-white sm:w-[150px]"
+            className="h-8 w-[118px] border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0"
           />
-        </div>
-        <div className="flex min-w-[130px] flex-col gap-1">
-          <span className="text-xs font-medium text-[#6B7A99]">End Date</span>
+          <span className="text-[#94A3B8]">-</span>
           <Input
             type="date"
             value={periodEnd}
             onChange={(e) => setPeriodEnd(e.target.value)}
-            className="h-11 w-full min-w-[130px] bg-white sm:w-[150px]"
+            className="h-8 w-[118px] border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0"
           />
         </div>
+      </div>
 
-        <div className="flex min-w-[200px] flex-1 flex-col gap-1">
-          <span className="text-xs font-medium text-[#6B7A99]">Student</span>
-          <Input
-            value={studentSearch}
-            onChange={(e) => setStudentSearch(e.target.value)}
-            placeholder="Search name / phone / email"
-            className="h-11 w-full bg-white"
-          />
-        </div>
-
-        <Button
-          type="button"
-          variant="outline"
-          className="btn-admin-outline h-11 shrink-0"
-          disabled={analyticsLoading}
-          onClick={() => {
-            setBranchFilter("all")
-            setPartnerFilter("all")
-            setPeriodStart("")
-            setPeriodEnd("")
-            setStudentSearch("")
-            setPeriodRevenue(null)
-          }}
-        >
-          <RotateCcw className="mr-2 h-4 w-4" />
-          Reset Filters
-        </Button>
-      </AdminFilterBar>
-
-      <AdminCard padding={false}>
-        <div className="border-b border-gray-100 px-5 py-4">
-          <div className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5 text-[#6D28D9]" />
-            <h2 className="text-[15px] font-semibold text-[#4F5077]">Payment Transactions</h2>
-          </div>
-        </div>
-        <AdminTableShell
-          footer={
-            !loading && totalPayments > 0 ? (
-              <>
-                <span>
-                  Showing {startIdx + 1}–{endIdx} of {totalPayments}
-                </span>
-                <nav className="admin-pagination flex items-center gap-2" aria-label="Pagination">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="btn-admin-outline h-8"
-                    disabled={safePage <= 1}
-                    onClick={() => {
-                      setPage((p) => Math.max(1, p - 1))
-                      window.scrollTo({ top: 0, behavior: "smooth" })
-                    }}
-                  >
-                    Prev
-                  </Button>
-                  <span
-                    className="inline-flex h-8 min-w-8 items-center justify-center rounded-lg bg-[#E1BB33] px-2 text-sm font-semibold text-[#3d3e5c]"
-                    aria-current="page"
-                  >
-                    {safePage}
-                  </span>
-                  <span className="text-xs text-[#6B7A99]">
-                    / {totalPages}
-                  </span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="btn-admin-outline h-8"
-                    disabled={safePage >= totalPages}
-                    onClick={() => {
-                      setPage((p) => Math.min(totalPages, p + 1))
-                      window.scrollTo({ top: 0, behavior: "smooth" })
-                    }}
-                  >
-                    Next
-                  </Button>
-                </nav>
-              </>
-            ) : undefined
-          }
-        >
-          <table>
+      <div className="overflow-hidden rounded-2xl border border-[#E8ECF4] bg-white shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[980px] text-sm">
             <thead>
-              <tr>
-                <th>Student</th>
-                <th>Course Enrolled</th>
-                {showPartnerColumn ? <th>Branch / Partner</th> : null}
-                <th>Payment Details</th>
-                <th>Date &amp; Time</th>
-                <th>Status</th>
-                <th>Actions</th>
+              <tr className="bg-[#4F5077] text-left text-white">
+                <th className="px-4 py-3.5 font-semibold">#</th>
+                <th className="px-4 py-3.5 font-semibold">Invoice No</th>
+                <th className="px-4 py-3.5 font-semibold">{nameColumnLabel}</th>
+                <th className="px-4 py-3.5 font-semibold">{tab === "partner" ? "Type" : "Course"}</th>
+                <th className="px-4 py-3.5 font-semibold">Academy</th>
+                <th className="px-4 py-3.5 font-semibold">Payment Method</th>
+                <th className="px-4 py-3.5 font-semibold">Amount</th>
+                <th className="px-4 py-3.5 font-semibold">Date &amp; Time</th>
+                <th className="px-4 py-3.5 font-semibold">Status</th>
+                <th className="px-4 py-3.5 font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={tableColSpan} className="py-12 text-center text-[#6B7A99]">
-                    Loading payments…
+                  <td colSpan={10} className="px-4 py-16 text-center text-[#6B7A99]">
+                    Loading transactions…
                   </td>
                 </tr>
-              ) : pagedPayments.length === 0 ? (
+              ) : payments.length === 0 ? (
                 <tr>
-                  <td colSpan={tableColSpan} className="py-12 text-center text-[#6B7A99]">
-                    No payments found
+                  <td colSpan={10} className="px-4 py-16 text-center text-[#6B7A99]">
+                    No transactions found for the selected filters.
                   </td>
                 </tr>
               ) : (
-                pagedPayments.map((payment, idx) => {
-                  const paymentStatus = String(payment.payment_status || "").toLowerCase()
-                  const statusLabel =
-                    paymentStatus === "paid"
-                      ? "Paid"
-                      : paymentStatus === "pending"
-                        ? "Pending"
-                        : paymentStatus === "cancelled" || paymentStatus === "canceled"
-                          ? "Cancelled"
-                          : "Failed"
-                  return (
-                    <tr key={payment.id}>
-                      <td>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-9 w-9">
-                            <AvatarFallback
-                              className={`text-xs font-semibold ${STUDENT_AVATAR_PALETTE[idx % STUDENT_AVATAR_PALETTE.length]}`}
-                            >
-                              {studentInitials(payment.student_name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0">
-                            {payment.student_id ? (
-                              <Link
-                                href={`/${adminType}/dashboard/students/${payment.student_id}`}
-                                className="font-medium text-[#4F5077] hover:underline"
-                              >
-                                {payment.student_name || "Unknown Student"}
-                              </Link>
-                            ) : (
-                              <span className="font-medium text-[#4F5077]">
-                                {payment.student_name || "Unknown Student"}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="font-medium text-[#4F5077]">{payment.course_name || "N/A"}</div>
-                        {payment.branch_name && !showPartnerColumn ? (
-                          <div className="mt-0.5 text-xs text-[#6B7A99]">{payment.branch_name}</div>
-                        ) : null}
-                      </td>
-                      {showPartnerColumn ? (
-                        <td>
-                          <div className="font-medium text-[#4F5077]">
-                            {payment.partner_org_name || (payment.partner_org_id ? "Partner" : "Rock")}
-                          </div>
-                          {payment.branch_name ? (
-                            <div className="mt-0.5 text-xs text-[#6B7A99]">{payment.branch_name}</div>
-                          ) : null}
-                        </td>
-                      ) : null}
-                      <td>
-                        <div className="font-semibold text-[#4F5077]">
-                          {formatCurrency(Number(payment.amount) || 0)}
-                        </div>
-                        <div className="mt-0.5 text-xs text-[#6B7A99]">{describePaymentSource(payment)}</div>
-                        {payment.transaction_id ? (
-                          <div className="mt-0.5 text-xs text-[#9593A8]">{payment.transaction_id}</div>
-                        ) : null}
-                      </td>
-                      <td className="whitespace-nowrap text-sm text-[#6B7A99]">
-                        {formatDateTime(payment.payment_date || payment.created_at)}
-                      </td>
-                      <td>
-                        <AdminStatusPill status={paymentStatusPill(paymentStatus)}>{statusLabel}</AdminStatusPill>
-                      </td>
-                      <td>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="btn-admin-outline h-8"
-                            onClick={() => router.push(`${basePath}/payments/${payment.id}`)}
-                          >
-                            <Eye className="mr-1 h-3.5 w-3.5" />
-                            View
-                          </Button>
-                          {isSuperAdmin ? (
-                            paymentStatus === "cancelled" || paymentStatus === "canceled" ? (
-                              recoverablePaymentIds[payment.id] ? (
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      disabled={recoveringId === payment.id}
-                                      className="btn-admin-outline h-8 text-emerald-800"
-                                    >
-                                      <RotateCcw className="mr-1 h-3.5 w-3.5" />
-                                      {recoveringId === payment.id ? "Working…" : "Recover"}
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" className="w-56">
-                                    <DropdownMenuItem
-                                      onClick={() => openRecoverDialog(payment, "restore_checkout")}
-                                    >
-                                      Restore checkout (student pays online)
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onClick={() => openRecoverDialog(payment, "mark_received")}
-                                    >
-                                      Mark payment received (offline)
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => openRecoverDialog(payment, "waive")}>
-                                      Waive / complimentary access
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              ) : null
-                            ) : (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => void handleCancelPayment(payment)}
-                                disabled={
-                                  cancellingId === payment.id ||
-                                  ["paid", "completed", "cancelled", "canceled"].includes(paymentStatus)
-                                }
-                                className="btn-admin-outline h-8 text-red-700 hover:bg-red-50"
-                              >
-                                Cancel
-                              </Button>
-                            )
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })
+                payments.map((p, idx) => (
+                  <tr key={p.id} className="border-b border-[#F1F5F9] last:border-0 hover:bg-[#FAFBFC]">
+                    <td className="px-4 py-4 text-[#6B7A99]">{(page - 1) * pageSize + idx + 1}</td>
+                    <td className="px-4 py-4 font-medium text-[#171A26]">
+                      {p.invoice_number || "—"}
+                    </td>
+                    <td className="px-4 py-4 font-medium text-[#171A26]">
+                      {tab === "partner"
+                        ? p.partner_org_name || p.student_name || "Partner"
+                        : p.student_name || "—"}
+                    </td>
+                    <td className="px-4 py-4 text-[#4F5077]">
+                      {tab === "partner"
+                        ? p.payment_type?.replace(/_/g, " ") || "Registration fee"
+                        : p.course_name || "—"}
+                    </td>
+                    <td className="px-4 py-4 text-[#4F5077]">{p.branch_name || "—"}</td>
+                    <td className="px-4 py-4 text-[#4F5077]">{paymentMethodLabel(p)}</td>
+                    <td className="px-4 py-4 font-semibold text-[#171A26]">
+                      {formatCurrency(p.amount)}
+                    </td>
+                    <td className="px-4 py-4 text-[#4F5077]">
+                      {formatDateTime(p.payment_date || p.created_at)}
+                    </td>
+                    <td className="px-4 py-4">
+                      <StatusPill status={p.payment_status} />
+                    </td>
+                    <td className="px-4 py-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-9 rounded-lg border-[#E2E8F0] bg-white px-3 text-[#4F5077] hover:bg-[#F8FAFC]"
+                        onClick={() => router.push(`${basePath}/payments/${p.id}`)}
+                      >
+                        <Eye className="mr-1.5 h-4 w-4" />
+                        Details
+                      </Button>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
-        </AdminTableShell>
-      </AdminCard>
+        </div>
 
-      <AlertDialog
-          open={recoverOpen}
-          onOpenChange={(open) => {
-            setRecoverOpen(open)
-            if (!open) {
-              setRecoverTarget(null)
-              setRecoverAction(null)
-              setRecoverNote("")
-              setRecoverBlocked(false)
-            }
-          }}
-        >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                {recoverBlocked
-                  ? "Cannot recover this payment"
-                  : recoverAction
-                    ? recoveryCopy[recoverAction].title
-                    : "Recover enrollment"}
-              </AlertDialogTitle>
-              <AlertDialogDescription className="text-sm text-gray-600">
-                {recoverBlocked
-                  ? "This student’s course registration for this payment is missing, so recovery cannot be completed. Please contact support or re-add the course for the student, then try Recover again."
-                  : recoverAction
-                    ? recoveryCopy[recoverAction].description
-                    : ""}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            {!recoverBlocked && (
-              <div className="px-6 pb-2 space-y-2">
-                <label className="text-xs text-gray-500 block">Optional note (stored on payment record)</label>
-                <Textarea
-                  value={recoverNote}
-                  onChange={(e) => setRecoverNote(e.target.value)}
-                  placeholder="e.g. Cash collected at front desk"
-                  className="min-h-[72px] text-gray-900"
-                />
-              </div>
-            )}
-            <AlertDialogFooter>
-              <AlertDialogCancel>{recoverBlocked ? "Close" : "Back"}</AlertDialogCancel>
-              {!recoverBlocked && (
-                <AlertDialogAction
-                  onClick={(e) => {
-                    e.preventDefault()
-                    void handleConfirmRecover()
-                  }}
-                  disabled={recoveringId !== null}
-                  className="bg-emerald-700 hover:bg-emerald-800"
-                >
-                  {recoveringId ? "Please wait…" : "Confirm"}
-                </AlertDialogAction>
-              )}
-            </AlertDialogFooter>
-          </AlertDialogContent>
-      </AlertDialog>
-    </AdminPageShell>
+        <div className="flex flex-col gap-3 border-t border-[#F1F5F9] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-[#6B7A99]">
+            Showing {showingFrom} – {showingTo} of {total.toLocaleString("en-IN")} transactions
+          </p>
+          <div className="flex items-center gap-1.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 w-9 rounded-lg p-0"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              ‹
+            </Button>
+            {pageButtons.map((n) => (
+              <Button
+                key={n}
+                type="button"
+                size="sm"
+                className={cn(
+                  "h-9 w-9 rounded-lg p-0",
+                  n === page
+                    ? "bg-[#F5C518] text-[#171A26] hover:bg-[#E6B800]"
+                    : "border border-[#E2E8F0] bg-white text-[#4F5077] hover:bg-[#F8FAFC]"
+                )}
+                variant={n === page ? "default" : "outline"}
+                onClick={() => setPage(n)}
+              >
+                {n}
+              </Button>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 w-9 rounded-lg p-0"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            >
+              ›
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }

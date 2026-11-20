@@ -387,7 +387,7 @@ export default function BranchManagerStudentDetailPage() {
 
     const getErrorDescription = () => {
       if (error.includes("permission") || error.includes("403")) {
-        return "You don't have permission to view this student. This student may not be enrolled in any branches you manage."
+        return "You don't have permission to view this student. This student may not be enrolled in any academies you manage."
       }
       if (error.includes("not found") || error.includes("404")) {
         return "The student you're looking for doesn't exist or may have been removed."

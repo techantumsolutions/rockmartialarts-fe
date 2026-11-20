@@ -139,14 +139,14 @@ export function BeautifiedModal({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-5"
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden p-4 sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-label={title}
     >
       <button
         type="button"
-        className="absolute inset-0 bg-[#0f172a]/55 backdrop-blur-[3px] transition-opacity"
+        className="absolute inset-0 overflow-hidden bg-[#0f172a]/55 backdrop-blur-[2px] transition-opacity"
         aria-label="Close dialog overlay"
         disabled={closeDisabled}
         onClick={() => {

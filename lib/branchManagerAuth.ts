@@ -1,4 +1,4 @@
-// Branch Manager Authentication utility
+// Academy Manager Authentication utility
 import { getBackendApiUrl } from "@/lib/config"
 import { isTokenExpired } from "@/lib/sessionAuth"
 import { clearActiveBranch, getActiveBranchId } from "@/lib/activeBranch"
@@ -11,7 +11,7 @@ export interface BranchManagerUser {
   role: 'branch_manager'
   branch_id?: string
   branch_name?: string
-  managed_branches?: string[]  // Array of branch IDs managed by this branch manager
+  managed_branches?: string[]  // Array of branch IDs managed by this academy manager
   partner_org_id?: string
 }
 
@@ -29,7 +29,7 @@ export interface BranchManagerLoginResponse {
   }
 }
 
-// Branch Manager Authentication Functions (mirroring SuperAdmin pattern)
+// Academy Manager Authentication Functions (mirroring SuperAdmin pattern)
 export const BranchManagerAuth = {
   // Store login data in localStorage
   storeLoginData: (loginResponse: any) => {
@@ -91,7 +91,7 @@ export const BranchManagerAuth = {
       const user = JSON.parse(userStr) as BranchManagerUser
       return user.role === "branch_manager" ? user : null
     } catch (error) {
-      console.error("Error parsing branch manager data:", error)
+      console.error("Error parsing academy manager data:", error)
       return null
     }
   },
@@ -105,7 +105,7 @@ export const BranchManagerAuth = {
       localStorage.setItem("branch_manager", JSON.stringify(userData))
       localStorage.setItem("user", JSON.stringify(userData)) // For compatibility
     } catch (error) {
-      console.error("Error storing branch manager data:", error)
+      console.error("Error storing academy manager data:", error)
     }
   },
 
@@ -159,7 +159,7 @@ export const BranchManagerAuth = {
     clearActiveBranch()
   },
 
-  // Check if user is authenticated branch manager
+  // Check if user is authenticated academy manager
   isAuthenticated: (): boolean => {
     const user = BranchManagerAuth.getCurrentUser()
     const tokenValid = BranchManagerAuth.isTokenValid()
@@ -167,7 +167,7 @@ export const BranchManagerAuth = {
     return !!(user && user.role === "branch_manager" && tokenValid)
   },
 
-  // Fetch and update managed branches for the current branch manager
+  // Fetch and update managed academies for the current academy manager
   fetchManagedBranches: async (): Promise<string[]> => {
     try {
       const token = BranchManagerAuth.getToken()
@@ -178,7 +178,7 @@ export const BranchManagerAuth = {
         return []
       }
 
-      // Fetch branches using the branch manager's token
+      // Fetch academies using the academy manager's token
       const response = await fetch(getBackendApiUrl('branches'), {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -187,7 +187,7 @@ export const BranchManagerAuth = {
       })
 
       if (!response.ok) {
-        console.error('Failed to fetch branches:', response.status)
+        console.error('Failed to fetch academies:', response.status)
         return []
       }
 
@@ -195,13 +195,13 @@ export const BranchManagerAuth = {
       const branches = data.branches || []
       const managedBranchIds = branches.map((branch: any) => branch.id)
 
-      // Update the stored user data with managed branches
+      // Update the stored user data with managed academies
       const updatedUser = { ...user, managed_branches: managedBranchIds }
       BranchManagerAuth.setCurrentUser(updatedUser)
 
       return managedBranchIds
     } catch (error) {
-      console.error('Error fetching managed branches:', error)
+      console.error('Error fetching managed academies:', error)
       return []
     }
   },
@@ -274,7 +274,7 @@ export function requireBranchManagerAuth(redirectPath: string = '/branch-manager
 }
 
 /**
- * Hook-like function for branch manager authentication in React components
+ * Hook-like function for academy manager authentication in React components
  */
 export function useBranchManagerAuth() {
   const authResult = checkBranchManagerAuth()

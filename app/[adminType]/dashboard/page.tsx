@@ -106,7 +106,7 @@ export default function SuperAdminDashboard() {
   const [paymentsLoading, setPaymentsLoading] = useState(true)
   const [paymentsError, setPaymentsError] = useState<string | null>(null)
 
-  // Branch filter state
+  // Academy filter state
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([])
   const [selectedBranch, setSelectedBranch] = useState<string>("all-branches")
 
@@ -120,7 +120,7 @@ export default function SuperAdminDashboard() {
     if (branchId) setSelectedBranch(branchId)
   }, [role])
 
-  // Get token from either TokenManager (superadmin) or BranchManagerAuth (branch admin)
+  // Get token from either TokenManager (superadmin) or BranchManagerAuth (academy admin)
   const getAuthToken = useCallback(() => {
     return TokenManager.getToken() || BranchManagerAuth.getToken() || null
   }, [])
@@ -194,7 +194,7 @@ export default function SuperAdminDashboard() {
     fetchDashboardStats()
   }, [dateRange, branchFilterId, getAuthToken])
 
-  // Fetch branches (only on mount)
+  // Fetch academies (only on mount)
   useEffect(() => {
     const fetchBranches = async () => {
       try {
@@ -204,11 +204,11 @@ export default function SuperAdminDashboard() {
         const response = await branchAPI.getBranches(token)
         const allBranches = (response.branches || []).map((b: any) => ({
           id: b.id,
-          name: b.branch?.name || b.name || 'Unknown Branch',
+          name: b.branch?.name || b.name || 'Unknown Academy',
         }))
         setBranches(allBranches)
       } catch (err) {
-        console.error("Error fetching branches:", err)
+        console.error("Error fetching academies:", err)
       }
     }
 
@@ -243,7 +243,7 @@ export default function SuperAdminDashboard() {
     [courseNameById]
   )
 
-  // Fetch coaches list — re-runs when branch filter changes
+  // Fetch coaches list — re-runs when academy filter changes
   useEffect(() => {
     const fetchCoaches = async () => {
       try {
@@ -279,7 +279,7 @@ export default function SuperAdminDashboard() {
 
           setCoaches(allCoaches)
         } else {
-          // Super-admin: branch filter + course name map (for courses display)
+          // Super-admin: academy filter + course name map (for courses display)
           const coachParams: {
             limit: number
             active_only: boolean
@@ -436,7 +436,7 @@ export default function SuperAdminDashboard() {
           return
         }
 
-        // Fetch payment stats and recent payments filtered by date range and branch
+        // Fetch payment stats and recent payments filtered by date range and academy
         const [statsResponse, paymentsResponse, monthSeries] = await Promise.all([
           paymentAPI.getPaymentStats(token, {
             ...dateRange,
@@ -542,13 +542,13 @@ export default function SuperAdminDashboard() {
       href: `${basePath}/coaches?status=active`,
     },
     {
-      label: "Branches",
+      label: "Academies",
       value: dashboardStats?.active_branches ?? dashboardStats?.total_branches ?? branches.length,
       trend: "Locations",
       icon: Building2,
       tone: "bg-[#F1EBFF] border-[#DDD2FF]",
       iconWrap: "bg-[#DDD0FF] text-[#6D28D9]",
-      href: role === "branch_admin" ? `${basePath}/branch-courses` : `${basePath}/branches`,
+      href: role === "branch_admin" ? `${basePath}/academy-courses` : `${basePath}/branches`,
     },
   ]
 
@@ -790,7 +790,7 @@ export default function SuperAdminDashboard() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all-branches">All Branches</SelectItem>
+                  <SelectItem value="all-branches">All Academies</SelectItem>
                   {branches.map((branch) => (
                     <SelectItem key={branch.id} value={branch.id}>
                       {branch.name}
@@ -911,10 +911,10 @@ export default function SuperAdminDashboard() {
                   data-no-action-overlay
                   className="h-8 w-[132px] rounded-lg border-[#E8E8EE] bg-[#F7F7F9] text-xs"
                 >
-                  <SelectValue placeholder="Branch" />
+                  <SelectValue placeholder="Academy" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Branches</SelectItem>
+                  <SelectItem value="all">All Academies</SelectItem>
                   {branches.map((branch) => (
                     <SelectItem key={branch.id} value={branch.id}>
                       {branch.name}
@@ -973,7 +973,7 @@ export default function SuperAdminDashboard() {
                           {coach.full_name}
                         </p>
                         <p className="truncate text-[11px] text-[#9593A8]">
-                          {branchName || (coach.branch_id ? "Assigned branch" : "Unassigned")}
+                          {branchName || (coach.branch_id ? "Assigned academy" : "Unassigned")}
                         </p>
                       </div>
                     </div>

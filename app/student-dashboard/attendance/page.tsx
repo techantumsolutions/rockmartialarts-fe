@@ -403,7 +403,7 @@ export default function StudentAttendancePage() {
                   <tr className="border-b">
                     <th className="text-left py-3 px-4 font-semibold text-gray-700">Date</th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-700">Course</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Branch</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Academy</th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-700">Check In</th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-700">Check Out</th>

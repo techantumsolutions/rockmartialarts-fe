@@ -292,7 +292,7 @@ export default function CoachLeadAssignmentsPage() {
                     <div className="flex flex-wrap gap-2 pt-1">
                       <Button
                         type="button"
-                        className="bg-yellow-400 hover:bg-yellow-500 text-black"
+                        className=""
                         disabled={actingId === row.id}
                         onClick={() => openConfirm(row, "accept")}
                       >
@@ -382,7 +382,7 @@ export default function CoachLeadAssignmentsPage() {
                       <div className="flex flex-wrap gap-2">
                         <Button
                           type="button"
-                          className="bg-yellow-400 hover:bg-yellow-500 text-black"
+                          className=""
                           disabled={actingId === row.id}
                           onClick={() => void logFollowUp(row)}
                         >
@@ -493,7 +493,7 @@ export default function CoachLeadAssignmentsPage() {
               className={
                 confirm?.action === "decline"
                   ? ""
-                  : "bg-yellow-400 hover:bg-yellow-500 text-black"
+                  : ""
               }
               variant={confirm?.action === "decline" ? "outline" : "default"}
               disabled={actingId !== null}

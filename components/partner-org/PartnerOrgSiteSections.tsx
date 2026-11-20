@@ -77,7 +77,7 @@ export type PartnerOrgAchievementItem = ShowcaseAchievementItem & {
 }
 
 function getBranchName(b: PartnerOrgBranchCard): string {
-  return b.branch?.name || b.name || b.code || "Branch"
+  return b.branch?.name || b.name || b.code || "Academy"
 }
 
 function formatAddress(addr: PartnerOrgBranchCard["address"]): string {
@@ -136,7 +136,7 @@ type Props = {
   /** Admin preview uses light cards; public uses dark Rock website look */
   variant?: "public" | "admin"
   loading?: boolean
-  /** When set on public pages, branch cards navigate to a dedicated courses page */
+  /** When set on public pages, academy cards navigate to a dedicated courses page */
   orgSlug?: string
 }
 
@@ -162,7 +162,7 @@ export function PartnerOrgSiteSections({
   const reduceMotion = useReducedMotion()
 
   const isPublic = variant === "public"
-  const navigateBranches = isPublic && !!orgSlug
+  const navigateAcademies = isPublic && !!orgSlug
   const sectionBg = isPublic ? "bg-[#171A26] text-white" : "bg-white text-[#1a2332]"
   const cardClass = isPublic
     ? "rounded-xl border border-gray-800 bg-gray-900/40 hover:border-[#FFB70F]/50 transition-colors"
@@ -204,7 +204,7 @@ export function PartnerOrgSiteSections({
 
   return (
     <div className="space-y-12">
-      {navigateBranches && courseGroups.length > 0 ? (
+      {navigateAcademies && courseGroups.length > 0 ? (
         <section className={sectionBg}>
           <div className="container mx-auto max-w-7xl px-4 py-12">
             <div className="text-center mb-8">
@@ -255,16 +255,16 @@ export function PartnerOrgSiteSections({
         </section>
       ) : null}
 
-      {/* Branches */}
+      {/* Academies */}
       <section className={sectionBg}>
         <div className={isPublic ? "container mx-auto max-w-7xl px-4 py-12" : ""}>
           <div className="text-center mb-8">
             {isPublic ? <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" /> : null}
-            <h2 className={titleClass}>Our Branches</h2>
+            <h2 className={titleClass}>Our Academies</h2>
             <p className={`mt-2 text-sm ${muted}`}>
-              {navigateBranches
-                ? "Open a branch to view courses available there"
-                : "Select a branch to view courses available there"}
+              {navigateAcademies
+                ? "Open an academy to view courses available there"
+                : "Select an academy to view courses available there"}
             </p>
           </div>
 
@@ -277,7 +277,7 @@ export function PartnerOrgSiteSections({
             >
               {branches.map((b) => {
                 const addr = b.branch?.address || b.address
-                const active = !navigateBranches && selectedBranchId === b.id
+                const active = !navigateAcademies && selectedBranchId === b.id
                 const courseCount = Array.isArray(b.courses) ? b.courses.length : 0
                 const inner = (
                   <>
@@ -290,7 +290,7 @@ export function PartnerOrgSiteSections({
                           {getBranchName(b)}
                         </h3>
                       </div>
-                      {!navigateBranches ? (
+                      {!navigateAcademies ? (
                         <ChevronDown
                           className={`w-4 h-4 transition-transform ${active ? "rotate-180" : ""} ${muted}`}
                         />
@@ -325,7 +325,7 @@ export function PartnerOrgSiteSections({
                   </>
                 )
 
-                if (navigateBranches) {
+                if (navigateAcademies) {
                   const key = branchPathKey(b)
                   return (
                     <motion.div key={b.id} {...hoverCardProps}>
@@ -356,8 +356,8 @@ export function PartnerOrgSiteSections({
         </div>
       </section>
 
-      {/* Courses for selected branch (admin / inline preview only) */}
-      {!navigateBranches && selectedBranch ? (
+      {/* Courses for selected academy (admin / inline preview only) */}
+      {!navigateAcademies && selectedBranch ? (
         <section className={isPublic ? "bg-[#171A26] text-white pb-12" : ""}>
           <div className={isPublic ? "container mx-auto max-w-7xl px-4" : ""}>
             <CourseInfoModal

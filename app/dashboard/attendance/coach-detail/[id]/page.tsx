@@ -73,7 +73,7 @@ export default function CoachAttendanceDetailPage() {
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
           <h1 className="text-2xl font-bold text-[#0A1629]">Coach Attendance</h1>
           <div className="flex flex-wrap gap-2 lg:gap-3">
-            <Button className="bg-yellow-400 hover:bg-yellow-500 text-white text-sm">Send Alerts</Button>
+            <Button className="text-sm">Send Alerts</Button>
             <Button variant="outline" className="text-sm bg-transparent text-[#5A6ACF]">
               View Report
             </Button>
@@ -120,7 +120,7 @@ export default function CoachAttendanceDetailPage() {
                   className="w-full h-72 object-cover rounded-lg"
                 />
                 <div className="absolute bottom-4 left-10 flex gap-2">
-                  <Badge className="bg-green-500 text-white font-semibold px-3 py-1">Branch Admin</Badge>
+                  <Badge className="bg-green-500 text-white font-semibold px-3 py-1">Academy Admin</Badge>
                   <Badge className="bg-gray-800 text-white font-semibold px-3 py-1">Full Time</Badge>
                 </div>
               </div>
@@ -169,7 +169,7 @@ export default function CoachAttendanceDetailPage() {
                     <span>{coachData.designation}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Branch</span>
+                    <span className="text-gray-600">Academy</span>
                     <span>{coachData.branch}</span>
                   </div>
                 </div>
@@ -223,7 +223,7 @@ export default function CoachAttendanceDetailPage() {
                   onClick={() => setActiveTab("attendance")}
                   className={
                     activeTab === "attendance"
-                      ? "bg-yellow-400 hover:bg-yellow-500 text-black"
+                      ? ""
                       : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                   }
                 >
@@ -233,7 +233,7 @@ export default function CoachAttendanceDetailPage() {
                   onClick={() => setActiveTab("leaves")}
                   className={
                     activeTab === "leaves"
-                      ? "bg-yellow-400 hover:bg-yellow-500 text-black"
+                      ? ""
                       : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                   }
                 >

@@ -100,7 +100,7 @@ const fetchCategoryData = async (category: string) => {
 
   switch (category) {
     case 'branch':
-      // Fetch real branch data from API
+      // Fetch real academy data from API
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branches?limit=100`, {
         headers: {
           'Content-Type': 'application/json',
@@ -110,29 +110,29 @@ const fetchCategoryData = async (category: string) => {
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.error('Branches API error:', response.status, errorText)
+        console.error('Academies API error:', response.status, errorText)
 
         if (response.status === 401) {
           throw new Error("Authentication failed. Please login again.")
         } else if (response.status === 403) {
-          throw new Error("You don't have permission to access branch information.")
+          throw new Error("You don't have permission to access academy information.")
         } else {
-          throw new Error(`Failed to load branches: ${response.status} - ${errorText}`)
+          throw new Error(`Failed to load academyes: ${response.status} - ${errorText}`)
         }
       }
 
       const branchData = await response.json()
-      console.log('✅ Branch Reports API response:', branchData)
+      console.log('✅ Academy Reports API response:', branchData)
 
       const branchesData = branchData.branches || []
 
-      // Transform branch data to match the expected format for the table
+      // Transform academy data to match the expected format for the table
       return branchesData.map((branch: Branch) => ({
         id: branch.id,
         name: branch.branch.name,
         location: `${branch.branch.address.city}, ${branch.branch.address.state}`,
         address: `${branch.branch.address.line1}, ${branch.branch.address.area}, ${branch.branch.address.city}`,
-        manager_name: 'Branch Manager', // We don't have manager name in the response
+        manager_name: 'Academy Manager', // We don't have manager name in the response
         student_count: branch.statistics?.student_count || 0,
         coach_count: branch.statistics?.coach_count || 0,
         course_count: branch.statistics?.course_count || 0,
@@ -144,14 +144,14 @@ const fetchCategoryData = async (category: string) => {
       }))
 
     case 'course':
-      // Get the branch manager's branch ID
+      // Get the academy manager's academy ID
       const branchManagerBranchId = currentUser.branch_id || currentUser.managed_branches?.[0]
 
       if (!branchManagerBranchId) {
-        throw new Error("Branch manager is not assigned to any branch.")
+        throw new Error("Academy manager is not assigned to any branch.")
       }
 
-      console.log('🔍 Fetching courses for branch:', branchManagerBranchId)
+      console.log('🔍 Fetching courses for academy:', branchManagerBranchId)
 
       // Fetch real course data from API
       const courseResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/courses/by-branch/${branchManagerBranchId}`, {
@@ -168,12 +168,12 @@ const fetchCategoryData = async (category: string) => {
         if (courseResponse.status === 401) {
           throw new Error("Authentication failed. Please login again.")
         } else if (courseResponse.status === 403) {
-          console.warn('Branch manager access restricted - returning empty course list')
-          // Return empty array for 403 errors (branch manager can only see their own branch courses)
+          console.warn('Academy manager access restricted - returning empty course list')
+          // Return empty array for 403 errors (academy manager can only see their own academy courses)
           return []
         } else if (courseResponse.status === 404) {
-          console.info('No courses found for branch - returning empty course list')
-          // Return empty array for 404 errors (no courses assigned to branch)
+          console.info('No courses found for academy - returning empty course list')
+          // Return empty array for 404 errors (no courses assigned to academy)
           return []
         } else {
           throw new Error(`Failed to load courses: ${courseResponse.status} - ${errorText}`)
@@ -210,16 +210,16 @@ const fetchCategoryData = async (category: string) => {
       }))
 
     case 'financial':
-      // Get the branch manager's branch ID for filtering
+      // Get the academy manager's academy ID for filtering
       const managerBranchId = currentUser.branch_id || currentUser.managed_branches?.[0]
 
       if (!managerBranchId) {
-        throw new Error("Branch manager is not assigned to any branch.")
+        throw new Error("Academy manager is not assigned to any branch.")
       }
 
-      console.log('🔍 Fetching financial data for branch:', managerBranchId)
+      console.log('🔍 Fetching financial data for academy:', managerBranchId)
 
-      // Fetch financial reports from API with branch filtering
+      // Fetch financial reports from API with academy filtering
       const financialResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/reports/financial?branch_id=${managerBranchId}&limit=100`, {
         headers: {
           'Content-Type': 'application/json',
@@ -251,7 +251,7 @@ const fetchCategoryData = async (category: string) => {
         transaction_id: payment.transaction_id,
         student_name: payment.student_details?.full_name || payment.student_name || 'Unknown Student',
         course_name: payment.course_details?.course_name || payment.course_name || 'Unknown Course',
-        branch_name: payment.branch_details?.branch_name || payment.branch_name || 'Unknown Branch',
+        branch_name: payment.branch_details?.branch_name || payment.branch_name || 'Unknown Academy',
         amount: payment.amount || 0,
         payment_method: payment.payment_method || 'Unknown',
         payment_type: payment.payment_type || 'Unknown',
@@ -331,7 +331,7 @@ export default function BranchManagerCategoryReportsPage() {
         setLoading(true)
         setError(null)
 
-        console.log(`Loading ${categoryId} data for branch manager reports...`)
+        console.log(`Loading ${categoryId} data for academy manager reports...`)
         const data = await fetchCategoryData(categoryId)
 
         console.log(`✅ Loaded ${data.length} ${categoryId} records`)
@@ -463,7 +463,7 @@ export default function BranchManagerCategoryReportsPage() {
         transaction_id: payment.transaction_id,
         student_name: payment.student_details?.full_name || payment.student_name || 'Unknown Student',
         course_name: payment.course_details?.course_name || payment.course_name || 'Unknown Course',
-        branch_name: payment.branch_details?.branch_name || payment.branch_name || 'Unknown Branch',
+        branch_name: payment.branch_details?.branch_name || payment.branch_name || 'Unknown Academy',
         amount: payment.amount || 0,
         payment_method: payment.payment_method || 'Unknown',
         payment_type: payment.payment_type || 'Unknown',
@@ -516,7 +516,7 @@ export default function BranchManagerCategoryReportsPage() {
                 {categoryId.charAt(0).toUpperCase() + categoryId.slice(1)} Reports
               </h1>
               <p className="text-gray-600">
-                {categoryId === 'branch' ? 'Branch performance and analytics' :
+                {categoryId === 'branch' ? 'Academy performance and analytics' :
                  categoryId === 'student' ? 'Student enrollment and performance' :
                  categoryId === 'course' ? 'Course popularity and completion' :
                  categoryId === 'financial' ? 'Revenue and payment analytics' :
@@ -555,7 +555,7 @@ export default function BranchManagerCategoryReportsPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Total {categoryId === 'branch' ? 'Branches' :
+                Total {categoryId === 'branch' ? 'Academies' :
                        categoryId === 'student' ? 'Students' :
                        categoryId === 'course' ? 'Courses' :
                        categoryId === 'financial' ? 'Revenue' :
@@ -585,7 +585,7 @@ export default function BranchManagerCategoryReportsPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Active {categoryId === 'branch' ? 'Branches' :
+                Active {categoryId === 'branch' ? 'Academies' :
                         categoryId === 'student' ? 'Students' :
                         categoryId === 'course' ? 'Courses' :
                         categoryId === 'financial' ? 'Payments' :
@@ -616,7 +616,7 @@ export default function BranchManagerCategoryReportsPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                {categoryId === 'financial' ? 'Pending' : 'Inactive'} {categoryId === 'branch' ? 'Branches' :
+                {categoryId === 'financial' ? 'Pending' : 'Inactive'} {categoryId === 'branch' ? 'Academies' :
                                                                         categoryId === 'student' ? 'Students' :
                                                                         categoryId === 'course' ? 'Courses' :
                                                                         categoryId === 'financial' ? 'Payments' :
@@ -897,7 +897,7 @@ export default function BranchManagerCategoryReportsPage() {
                           <th className="text-left py-3 px-4 font-medium text-gray-900">Transaction ID</th>
                           <th className="text-left py-3 px-4 font-medium text-gray-900">Student</th>
                           <th className="text-left py-3 px-4 font-medium text-gray-900">Course</th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">Branch</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Academy</th>
                           <th className="text-left py-3 px-4 font-medium text-gray-900">Amount</th>
                           <th className="text-left py-3 px-4 font-medium text-gray-900">Method</th>
                           <th className="text-left py-3 px-4 font-medium text-gray-900">Status</th>
@@ -905,7 +905,7 @@ export default function BranchManagerCategoryReportsPage() {
                         </>
                       ) : categoryId === 'branch' ? (
                         <>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">Branch Name</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Academy Name</th>
                           <th className="text-left py-3 px-4 font-medium text-gray-900">Location</th>
                           <th className="text-left py-3 px-4 font-medium text-gray-900">Students</th>
                           <th className="text-left py-3 px-4 font-medium text-gray-900">Coaches</th>

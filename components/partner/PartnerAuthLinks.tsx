@@ -14,7 +14,7 @@ const ROLE_PATHS: Record<PartnerAuthRole, string> = {
 
 const ROLE_LABELS: Record<PartnerAuthRole, string> = {
   admin: "Admin Login",
-  branch_manager: "Branch Admin",
+  branch_manager: "Academy Admin",
   coach: "Coach Login",
   student: "Student Login",
 }

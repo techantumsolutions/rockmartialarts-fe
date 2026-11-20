@@ -27,7 +27,6 @@ import {
   MonitorPlay,
   Handshake,
   ImageIcon,
-  Award,
   UserCog,
   Tags,
   Globe2,
@@ -81,6 +80,8 @@ const ROCK_ONLY_NAV_LABELS = new Set([
   "Store Management",
   "Products",
   "Orders",
+  "Settings",
+  "CMS",
 ])
 
 const ROCK_ONLY_PATH_SUFFIXES = [
@@ -121,19 +122,19 @@ function filterPartnerNavChildren(children: NavChild[] | undefined): NavChild[] 
 function partnerSuperAdminMenu(basePath: string = PARTNER_ADMIN_BASE): NavItem[] {
   const menu = remapNavBase(SUPER_ADMIN_MENU, SUPER_ADMIN_BASE, basePath)
 
-  const academy = menu.find((i) => i.label === "Academy Management")
-  if (academy?.children?.length) {
-    academy.children = academy.children.filter((c) => c.label !== "Partners")
-    const coachesIdx = academy.children.findIndex((c) => c.label === "Coaches")
+  const branch = menu.find((i) => i.label === "Academy Management")
+  if (branch?.children?.length) {
+    branch.children = branch.children.filter((c) => c.label !== "Partners")
+    const coachesIdx = branch.children.findIndex((c) => c.label === "Coaches")
     const branchManagersItem: NavChild = {
       id: "branch-managers",
-      label: "Branch Managers",
+      label: "Academy Managers",
       path: `${basePath}/branch-managers`,
       icon: UserCog,
       permissionId: "branches",
     }
-    if (coachesIdx >= 0) academy.children.splice(coachesIdx, 0, branchManagersItem)
-    else academy.children.push(branchManagersItem)
+    if (coachesIdx >= 0) branch.children.splice(coachesIdx, 0, branchManagersItem)
+    else branch.children.push(branchManagersItem)
   }
 
   const courses = menu.find((i) => i.label === "Courses & Learning")
@@ -188,6 +189,8 @@ export interface NavChild {
   expandable?: boolean
   permissionId?: string
   enabled?: boolean
+  /** Open path in a new browser tab (e.g. public website pages). */
+  openInNewTab?: boolean
 }
 
 export interface NavItem {
@@ -204,6 +207,8 @@ export interface NavItem {
   permissionId?: string
   /** When false, hide from nav (default true) */
   enabled?: boolean
+  /** Open path in a new browser tab (e.g. public website pages). */
+  openInNewTab?: boolean
 }
 
 export interface HeaderAction {
@@ -225,7 +230,7 @@ const SUPER_ADMIN_MENU: NavItem[] = [
     permissionId: "dashboard",
   },
   {
-    id: "academy-management",
+    id: "branch-management",
     label: "Academy Management",
     path: `${SUPER_ADMIN_BASE}/branches`,
     icon: School,
@@ -233,7 +238,7 @@ const SUPER_ADMIN_MENU: NavItem[] = [
     children: [
       {
         id: "branches",
-        label: "Branches",
+        label: "Academies",
         path: `${SUPER_ADMIN_BASE}/branches`,
         icon: Building,
         expandable: true,
@@ -241,14 +246,14 @@ const SUPER_ADMIN_MENU: NavItem[] = [
         children: [
           {
             id: "all-branches",
-            label: "All Branches",
+            label: "All Academies",
             path: `${SUPER_ADMIN_BASE}/branches`,
             icon: Building,
             permissionId: "branches",
           },
           {
             id: "branch-courses",
-            label: "Branch–Course Assignment",
+            label: "Academy–Course Assignment",
             path: `${SUPER_ADMIN_BASE}/branch-courses`,
             icon: BookOpen,
             permissionId: "branches",
@@ -552,13 +557,6 @@ const SUPER_ADMIN_MENU: NavItem[] = [
         permissionId: "payments",
       },
       {
-        id: "invoices",
-        label: "Invoices",
-        path: `${SUPER_ADMIN_BASE}/invoices`,
-        icon: FileText,
-        permissionId: "payments",
-      },
-      {
         id: "billing-cycles",
         label: "Billing Cycles",
         path: `${SUPER_ADMIN_BASE}/billing-cycles`,
@@ -578,13 +576,7 @@ const SUPER_ADMIN_MENU: NavItem[] = [
         id: "promotions",
         label: "Promotions",
         path: `${SUPER_ADMIN_BASE}/promotions`,
-        icon: Trophy,
-      },
-      {
-        id: "champions",
-        label: "Champions",
-        path: `${SUPER_ADMIN_BASE}/champions`,
-        icon: Award,
+        icon: Megaphone,
       },
       {
         id: "testimonials",
@@ -634,9 +626,14 @@ const SUPER_ADMIN_MENU: NavItem[] = [
     path: `${SUPER_ADMIN_BASE}/settings`,
     icon: Settings,
     permissionId: "settings",
-    overflowOnly: true,
+    expandable: true,
     children: [
       { label: "General Settings", path: `${SUPER_ADMIN_BASE}/settings`, permissionId: "settings" },
+      {
+        label: "Platform Branding",
+        path: `${SUPER_ADMIN_BASE}/settings/platform-branding`,
+        permissionId: "settings",
+      },
       {
         label: "Dropdown Settings",
         path: `${SUPER_ADMIN_BASE}/settings/dropdown-settings`,
@@ -660,6 +657,13 @@ const SUPER_ADMIN_MENU: NavItem[] = [
         permissionId: "settings",
       },
     ],
+  },
+  {
+    id: "cms",
+    label: "CMS",
+    path: `${SUPER_ADMIN_BASE}/cms`,
+    icon: Globe2,
+    permissionId: "settings",
   },
 ]
 
@@ -689,7 +693,7 @@ const BRANCH_ADMIN_MENU: NavItem[] = [
     children: [
       { label: "Course Catalog", path: `${BRANCH_ADMIN_BASE}/courses`, icon: BookOpen, permissionId: "courses" },
       {
-        label: "Branch–Course Assignments",
+        label: "Academy–Course Assignments",
         path: `${BRANCH_ADMIN_BASE}/branch-courses`,
         icon: BookOpen,
         permissionId: "courses",
@@ -709,18 +713,83 @@ const BRANCH_ADMIN_MENU: NavItem[] = [
       { label: "Biometric Mapping", path: `${BRANCH_ADMIN_BASE}/attendance/biometric-mapping`, icon: Fingerprint, permissionId: "attendance" },
     ],
   },
+  {
+    label: "Admissions & CRM",
+    path: `${BRANCH_ADMIN_BASE}/leads`,
+    icon: UserPlus,
+    expandable: true,
+    permissionId: "crm",
+    children: [
+      { label: "Leads", path: `${BRANCH_ADMIN_BASE}/leads`, icon: UserPlus, permissionId: "crm" },
+      { label: "Demo Bookings", path: `${BRANCH_ADMIN_BASE}/demo-bookings`, icon: CalendarCheck, permissionId: "crm" },
+      {
+        label: "Registration Forms",
+        path: `${BRANCH_ADMIN_BASE}/registration-forms`,
+        icon: ClipboardList,
+        permissionId: "crm",
+      },
+    ],
+  },
+  {
+    label: "Events & Camps",
+    path: `${BRANCH_ADMIN_BASE}/events`,
+    icon: CalendarClock,
+    expandable: true,
+    permissionId: "events",
+    children: [
+      { label: "Events", path: `${BRANCH_ADMIN_BASE}/events`, icon: CalendarClock, permissionId: "events" },
+      {
+        label: "Event Registrations",
+        path: `${BRANCH_ADMIN_BASE}/event-registrations`,
+        icon: ClipboardList,
+        permissionId: "events",
+      },
+    ],
+  },
+  {
+    label: "Finance & Billing",
+    path: `${BRANCH_ADMIN_BASE}/payment-tracking`,
+    icon: CreditCard,
+    expandable: true,
+    permissionId: "payments",
+    children: [
+      {
+        label: "Payment Tracking",
+        path: `${BRANCH_ADMIN_BASE}/payment-tracking`,
+        icon: CreditCard,
+        permissionId: "payments",
+      },
+      {
+        label: "Billing Cycles",
+        path: `${BRANCH_ADMIN_BASE}/billing-cycles`,
+        icon: CalendarCheck,
+        permissionId: "payments",
+      },
+    ],
+  },
+  {
+    label: "Marketing & Content",
+    path: `${BRANCH_ADMIN_BASE}/promotions`,
+    icon: Megaphone,
+    expandable: true,
+    children: [
+      { label: "Promotions", path: `${BRANCH_ADMIN_BASE}/promotions`, icon: Megaphone },
+      { label: "Testimonials", path: `${BRANCH_ADMIN_BASE}/testimonials`, icon: MessageSquare },
+    ],
+  },
   { label: "Reports", path: `${BRANCH_ADMIN_BASE}/reports`, icon: BarChart, permissionId: "reports" },
-  { label: "Leads", path: `${BRANCH_ADMIN_BASE}/leads`, icon: UserPlus, overflowOnly: true, permissionId: "crm" },
-  { label: "Demo Bookings", path: `${BRANCH_ADMIN_BASE}/demo-bookings`, icon: CalendarCheck, overflowOnly: true, permissionId: "crm" },
-  { label: "Invoices", path: `${BRANCH_ADMIN_BASE}/invoices`, icon: FileText, overflowOnly: true, permissionId: "payments" },
-  { label: "Testimonials", path: `${BRANCH_ADMIN_BASE}/testimonials`, icon: MessageSquare, overflowOnly: true },
-  { label: "Champions", path: `${BRANCH_ADMIN_BASE}/champions`, icon: Trophy, overflowOnly: true },
-  { label: "Events", path: `${BRANCH_ADMIN_BASE}/events`, icon: CalendarClock, overflowOnly: true, permissionId: "events" },
 ]
 
 const STUDENT_MENU: NavItem[] = [
   { id: "dashboard", label: "Dashboard", path: "/student-dashboard", icon: LayoutDashboard, permissionId: "dashboard" },
   { id: "courses", label: "My Courses", path: "/student-dashboard/courses", icon: BookOpen, permissionId: "courses" },
+  {
+    id: "online-learning",
+    label: "Online Learning",
+    path: "/student-dashboard/online-learning",
+    icon: MonitorPlay,
+  },
+  { id: "events", label: "Events", path: "/events", icon: CalendarClock, openInNewTab: true },
   { id: "store", label: "Store", path: "/student-dashboard/store", icon: ShoppingBag },
   { id: "attendance", label: "Attendance", path: "/student-dashboard/attendance", icon: CalendarCheck, permissionId: "attendance" },
   { id: "performance", label: "Performance", path: "/student-dashboard/performance", icon: Trophy, permissionId: "performance" },
@@ -730,6 +799,8 @@ const STUDENT_MENU: NavItem[] = [
   { id: "invoices", label: "Invoices", path: "/student-dashboard/invoices", icon: FileText, permissionId: "payments" },
   { id: "billing", label: "Billing", path: "/student-dashboard/billing", icon: Wallet, permissionId: "payments" },
   { id: "registration-forms", label: "Registration Forms", path: "/student-dashboard/registration-forms", icon: ClipboardList, permissionId: "registration_forms" },
+  { id: "add-student", label: "Add Student", path: "/student-dashboard/add-student", icon: UserPlus },
+  { id: "settings", label: "Settings", path: "/student-dashboard/settings", icon: Settings },
 ]
 
 function filterNavChildrenByPermission(
@@ -794,7 +865,7 @@ const PARTNER_BRANCH_MANAGER_HIDDEN_LABELS = new Set([
   "Training Requests",
 ])
 
-/** True when the signed-in branch manager belongs to a white-label partner. */
+/** True when the signed-in academy manager belongs to a white-label partner. */
 export function isPartnerBranchManagerNav(): boolean {
   if (typeof window === "undefined") return false
   if (localStorage.getItem("partner_bm_session") === "1") return true
@@ -805,7 +876,7 @@ export function isPartnerBranchManagerNav(): boolean {
     const role = String(user.role || "").toLowerCase()
     if (role !== "branch_manager" && role !== "branch_admin") return false
     if (String(user.partner_org_id || "").trim()) return true
-    // Partner branch-manager login stores this; Rock login clears it.
+    // Partner academy-manager login stores this; Rock login clears it.
     return !!localStorage.getItem("partner_slug")
   } catch {
     return false
@@ -862,10 +933,18 @@ export function getMenuForRole(
   switch (role) {
     case "super_admin":
       return SUPER_ADMIN_MENU
-    case "branch_admin":
-      return options?.partnerBranchManager
-        ? BRANCH_ADMIN_MENU.filter((item) => !PARTNER_BRANCH_MANAGER_HIDDEN_LABELS.has(item.label))
-        : BRANCH_ADMIN_MENU
+    case "branch_admin": {
+      if (!options?.partnerBranchManager) return BRANCH_ADMIN_MENU
+      const hideNested = (children: NavChild[] | undefined): NavChild[] | undefined => {
+        if (!children?.length) return children
+        return children
+          .filter((c) => !PARTNER_BRANCH_MANAGER_HIDDEN_LABELS.has(c.label))
+          .map((c) => ({ ...c, children: hideNested(c.children) }))
+      }
+      return BRANCH_ADMIN_MENU.filter((item) => !PARTNER_BRANCH_MANAGER_HIDDEN_LABELS.has(item.label)).map(
+        (item) => ({ ...item, children: hideNested(item.children) })
+      )
+    }
     case "student": {
       const isPartner = options?.partnerStudent ?? isPartnerStudentNav()
       if (isPartner) {
@@ -896,7 +975,7 @@ export function getOverflowNavItems(
   return getMenuForRole(role, basePathOverride, options).filter((i) => i.overflowOnly)
 }
 
-/** Header action buttons (Add Course, Add Coach, etc.) - super_admin only gets Add Branch Manager / Add New Branch */
+/** Header action buttons (Add Course, Add Coach, etc.) - super_admin only gets Add Academy Manager / Add New Academy */
 export function getHeaderActionsForRole(role: DashboardRole, basePathOverride?: string): HeaderAction[] {
   const base =
     basePathOverride ||
@@ -912,12 +991,12 @@ export function getHeaderActionsForRole(role: DashboardRole, basePathOverride?: 
       return [
         { label: "Add Course", shortLabel: "Course", path: `${base}/create-course` },
         { label: "Add Coach", shortLabel: "Coach", path: `${base}/add-coach` },
-        { label: "Add Branch Manager", shortLabel: "Manager", path: `${base}/branch-managers/create` },
-        { label: "Add New Branch", shortLabel: "Branch", path: `${base}/create-branch` },
+        { label: "Add Academy Manager", shortLabel: "Manager", path: `${base}/branch-managers/create` },
+        { label: "Add New Academy", shortLabel: "Academy", path: `${base}/create-branch` },
       ]
     case "partner_super_admin":
-      // Partners cannot create branches. Course create requires SA-granted permission
-      // (filtered in Header). Branch Manager assignment is Super Admin only.
+      // Partners cannot create academies. Course create requires SA-granted permission
+      // (filtered in Header). Academy Manager assignment is Super Admin only.
       return [
         { label: "Add Course", shortLabel: "Course", path: `${base}/create-course` },
         { label: "Add Coach", shortLabel: "Coach", path: `${base}/add-coach` },
@@ -937,9 +1016,9 @@ export function getHeaderActionsForRole(role: DashboardRole, basePathOverride?: 
 export function getRoleLabel(role: DashboardRole): string {
   switch (role) {
     case "super_admin":
-      return "Super admin"
+      return "Super Admin"
     case "branch_admin":
-      return "Branch Admin"
+      return "Academy Admin"
     case "student":
       return "Student"
     case "partner_super_admin":
@@ -957,9 +1036,25 @@ export function getRoleLabel(role: DashboardRole): string {
           /* ignore */
         }
       }
-      return "Partner admin"
+      return "Partner Admin"
     default:
       return "User"
+  }
+}
+
+/** Portal badge / document identity for each dashboard role. */
+export function getPortalIdentityLabel(role: DashboardRole): string {
+  switch (role) {
+    case "super_admin":
+      return "Super Admin Portal"
+    case "branch_admin":
+      return "Academy Admin Portal"
+    case "partner_super_admin":
+      return "Partner Admin Portal"
+    case "student":
+      return "Student Portal"
+    default:
+      return "Portal"
   }
 }
 
@@ -992,8 +1087,8 @@ function collectLeafPaths(children: NavChild[] | undefined, out: string[]) {
 
 /** Paths used by QA / role matrix checks — Partner Profiles under Academy Management → Partners. */
 export function getSuperAdminPartnerChildPaths(): string[] {
-  const academy = SUPER_ADMIN_MENU.find((i) => i.label === "Academy Management")
-  const partners = academy?.children?.find((c) => c.label === "Partners")
+  const branch = SUPER_ADMIN_MENU.find((i) => i.label === "Academy Management")
+  const partners = branch?.children?.find((c) => c.label === "Partners")
   const out: string[] = []
   if (partners?.children?.length) collectLeafPaths(partners.children, out)
   else if (partners) out.push(partners.path)

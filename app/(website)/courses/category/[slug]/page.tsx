@@ -125,7 +125,7 @@ export default function CategoryLandingPage() {
         className="relative py-20 md:py-28 bg-cover bg-center"
         style={{ backgroundImage: "url(/assets/img/banner.jpg)" }}
       >
-        <div className="absolute inset-0 bg-black/60" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#171A26]/50 via-[#171A26]/15 to-black/10" />
         <div className="site-content relative z-10 px-0 sm:px-1">
           <div className="flex flex-wrap items-center gap-2 text-sm text-gray-300 mb-4">
             <Link href="/courses" className="hover:text-[#FFB70F]">

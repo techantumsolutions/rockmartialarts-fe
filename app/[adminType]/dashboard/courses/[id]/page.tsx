@@ -149,7 +149,7 @@ export default function CourseDetailPage() {
   const uniqueBranches = useMemo(() => {
     const names = new Set<string>()
     for (const row of enrolledStudents) {
-      if (row.branch_name && row.branch_name !== "Unknown branch") names.add(row.branch_name)
+      if (row.branch_name && row.branch_name !== "Unknown academy") names.add(row.branch_name)
     }
     return Array.from(names).sort((a, b) => a.localeCompare(b))
   }, [enrolledStudents])
@@ -556,10 +556,10 @@ export default function CourseDetailPage() {
                   </Select>
                   <Select value={enrollmentBranchFilter} onValueChange={setEnrollmentBranchFilter}>
                     <SelectTrigger className="h-10 rounded-xl">
-                      <SelectValue placeholder="All Branches" />
+                      <SelectValue placeholder="All Academies" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Branches</SelectItem>
+                      <SelectItem value="all">All Academies</SelectItem>
                       {uniqueBranches.map((name) => (
                         <SelectItem key={name} value={name}>
                           {name}
@@ -617,7 +617,7 @@ export default function CourseDetailPage() {
                         <tr className="border-b bg-[#FAFBFC] text-left text-xs uppercase tracking-wide text-gray-400">
                           <th className="px-5 py-3 font-semibold">Student</th>
                           <th className="px-5 py-3 font-semibold">Enrollment Date</th>
-                          <th className="px-5 py-3 font-semibold">Branch</th>
+                          <th className="px-5 py-3 font-semibold">Academy</th>
                           <th className="px-5 py-3 font-semibold">Progress</th>
                           <th className="px-5 py-3 font-semibold">Status</th>
                         </tr>
@@ -641,7 +641,7 @@ export default function CourseDetailPage() {
                             <td className="px-5 py-3.5">
                               <span className="inline-flex items-center gap-1.5 text-sm text-[#4F5077]">
                                 <Building2 className="h-3.5 w-3.5 text-sky-500" />
-                                {student.branch_name && student.branch_name !== "Unknown branch"
+                                {student.branch_name && student.branch_name !== "Unknown academy"
                                   ? student.branch_name
                                   : "—"}
                               </span>
@@ -807,9 +807,9 @@ export default function CourseDetailPage() {
                     </span>,
                   ],
                   [
-                    "Branch Availability",
+                    "Academy Availability",
                     <span key="br" className="font-medium text-sky-700">
-                      {branchAvailability} {branchAvailability === 1 ? "Branch" : "Branches"}
+                      {branchAvailability} {branchAvailability === 1 ? "Academy" : "Academies"}
                     </span>,
                   ],
                   [

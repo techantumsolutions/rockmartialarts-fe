@@ -8,30 +8,34 @@ import type { BranchDistanceResult } from "@/lib/branchDistance"
 
 export type NearbyAcademyCardData = {
   id: string
+  /** Combined / legacy card title (e.g. "SJML Kakatiya Nagar") */
   name: string
+  /** Brand line: partner name or academy place name */
+  brandName?: string
+  /** Small line: "powered by {Platform}" */
+  poweredByLine?: string
+  /** Place / locality under the brand */
+  locationName?: string
   location: string
   address?: string
   phone?: string
   href: string
   img?: string | null
+  logoUrl?: string | null
   tags?: string[]
   rating?: number | null
   reviewCount?: number | null
   area?: string
 }
 
-function displayRating(id: string, rating?: number | null): number {
-  if (typeof rating === "number" && rating > 0) return Math.round(rating * 10) / 10
-  let hash = 0
-  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0
-  return Math.round((4.5 + (hash % 40) / 100) * 10) / 10
+function realRating(rating?: number | null): number | null {
+  if (typeof rating !== "number" || Number.isNaN(rating) || rating <= 0) return null
+  return Math.round(rating * 10) / 10
 }
 
-function displayReviews(id: string, count?: number | null): number {
-  if (typeof count === "number" && count >= 0) return count
-  let hash = 0
-  for (let i = 0; i < id.length; i++) hash = (hash * 17 + id.charCodeAt(i)) >>> 0
-  return 80 + (hash % 280)
+function realReviewCount(count?: number | null): number | null {
+  if (typeof count !== "number" || Number.isNaN(count) || count < 0) return null
+  return Math.floor(count)
 }
 
 function distanceBadgeText(result?: BranchDistanceResult | null, loading?: boolean): string | null {
@@ -50,12 +54,14 @@ type Props = {
 }
 
 export function NearbyAcademyCard({ branch, distance, distanceLoading, isNearest }: Props) {
+  const title = branch.brandName || branch.name
+  const place =
+    branch.locationName || branch.area || branch.location || ""
   const cover = branch.img || realisticPlaceholder(branch.id || branch.name)
-  const rating = displayRating(branch.id, branch.rating)
-  const reviews = displayReviews(branch.id, branch.reviewCount)
+  const rating = realRating(branch.rating)
+  const reviews = realReviewCount(branch.reviewCount)
   const badge = distanceBadgeText(distance, distanceLoading)
   const tags = (branch.tags || []).filter(Boolean).slice(0, 3)
-  const place = branch.area || branch.location || ""
 
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-[#383D4D] bg-[#1B1E2B] shadow-[0_8px_24px_rgba(0,0,0,0.28)] transition-all duration-300 hover:-translate-y-1.5 hover:border-[#FFB70F]/45 hover:shadow-[0_18px_40px_rgba(255,183,15,0.16)]">
@@ -93,14 +99,25 @@ export function NearbyAcademyCard({ branch, distance, distanceLoading, isNearest
       </div>
 
       <div className="flex flex-1 flex-col p-4 sm:p-5">
-        <h3 className="text-base sm:text-lg font-bold text-white leading-snug line-clamp-2 mb-2">
-          {branch.name}
+        <h3 className="text-base sm:text-lg font-bold text-white leading-snug line-clamp-2 mb-0.5">
+          {title}
         </h3>
-        <p className="flex items-center gap-1.5 text-sm text-[#FFB70F] mb-2">
-          <Star className="h-3.5 w-3.5 fill-[#FFB70F] text-[#FFB70F] shrink-0" />
-          <span className="font-semibold">{rating.toFixed(1)}</span>
-          <span className="text-[#AEB4C2] font-normal">({reviews} reviews)</span>
-        </p>
+        {branch.poweredByLine ? (
+          <p className="text-[11px] text-[#AEB4C2] normal-case tracking-normal mb-1.5 truncate">
+            {branch.poweredByLine}
+          </p>
+        ) : null}
+        {rating != null ? (
+          <p className="flex items-center gap-1.5 text-sm text-[#FFB70F] mb-2">
+            <Star className="h-3.5 w-3.5 fill-[#FFB70F] text-[#FFB70F] shrink-0" />
+            <span className="font-semibold">{rating.toFixed(1)}</span>
+            {reviews != null ? (
+              <span className="text-[#AEB4C2] font-normal">
+                ({reviews} {reviews === 1 ? "review" : "reviews"})
+              </span>
+            ) : null}
+          </p>
+        ) : null}
         {place ? (
           <p className="flex items-start gap-1.5 text-sm text-[#AEB4C2] mb-3 min-w-0">
             <MapPin className="h-3.5 w-3.5 text-[#FFB70F] shrink-0 mt-0.5" />
@@ -139,7 +156,6 @@ export function NearbyAcademyCard({ branch, distance, distanceLoading, isNearest
 type SectionProps = {
   title?: string
   subtitle?: string
-  viewAllHref?: string
   children: React.ReactNode
   controls?: React.ReactNode
 }
@@ -147,41 +163,33 @@ type SectionProps = {
 export function NearbyAcademiesSection({
   title = "Nearby Academies",
   subtitle = "Explore the best training centres in your area.",
-  viewAllHref = "/branches",
   children,
   controls,
 }: SectionProps) {
   const parts = title.trim().split(/\s+/)
   const last = parts.pop() || ""
   const head = parts.join(" ")
+  const sectionId =
+    title.toLowerCase().includes("nearby") ? "branches" : "our-academies"
 
   return (
     <section
-      id="branches"
+      id={sectionId}
       className="py-14 md:py-20 scroll-mt-24 relative z-10 border-t border-[#383D4D] bg-[#171A26]"
     >
       <div className="site-content px-0 sm:px-1">
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8 md:mb-10">
-          <div>
-            <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white uppercase">
-              {head ? (
-                <>
-                  {head} <span className="text-[#FFB70F]">{last}</span>
-                </>
-              ) : (
-                <span className="text-[#FFB70F]">{last}</span>
-              )}
-            </h2>
-            {subtitle ? <p className="mt-2 text-[#AEB4C2] text-sm sm:text-base max-w-xl">{subtitle}</p> : null}
-          </div>
-          {viewAllHref ? (
-            <Link
-              href={viewAllHref}
-              className="inline-flex items-center gap-2 text-sm font-semibold text-[#FFB70F] hover:text-white transition-colors shrink-0"
-            >
-              View All Academies
-              <span aria-hidden>→</span>
-            </Link>
+        <div className="mb-8 md:mb-10">
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white uppercase">
+            {head ? (
+              <>
+                {head} <span className="text-[#FFB70F]">{last}</span>
+              </>
+            ) : (
+              <span className="text-[#FFB70F]">{last}</span>
+            )}
+          </h2>
+          {subtitle ? (
+            <p className="mt-2 max-w-xl text-sm text-[#AEB4C2] sm:text-base">{subtitle}</p>
           ) : null}
         </div>
         {controls}

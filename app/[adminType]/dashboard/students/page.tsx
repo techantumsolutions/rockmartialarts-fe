@@ -55,6 +55,7 @@ import {
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { AppModal } from "@/components/ui/AppModal"
 
 function formatEnrollmentDate(iso: string | null | undefined): string {
   return formatRegisteredDateOnly(iso)
@@ -164,7 +165,7 @@ interface Student {
     location_id?: string
     branch_id?: string
     branch_name?: string
-    /** All distinct active-enrollment branch names (multi-branch students). */
+    /** All distinct active-enrollment academy names (multi-branch students). */
     branch_names?: string[]
   } | null
   has_credentials?: boolean
@@ -212,7 +213,7 @@ export default function StudentList() {
   const [assignStudentSearch, setAssignStudentSearch] = useState("")
   const [assignStudentDropdownOpen, setAssignStudentDropdownOpen] = useState(false)
   const [listViewFilter, setListViewFilter] = useState<'all' | 'unassigned'>(initialFilters.view)
-  /** Super-admin list filter: branch id or "all" */
+  /** Super-admin list filter: academy id or "all" */
   const [listBranchFilter, setListBranchFilter] = useState<string>(initialFilters.branch)
   const [accountStatusFilter, setAccountStatusFilter] = useState<StudentAccountStatusFilter>(
     initialFilters.status
@@ -226,7 +227,7 @@ export default function StudentList() {
   const [statusSaving, setStatusSaving] = useState(false)
 // Pagination state
 const [currentPage, setCurrentPage] = useState(initialFilters.page)
-const itemsPerPage = 15
+const itemsPerPage = 20
   const [refreshKey, setRefreshKey] = useState(0)
   const isBranchAdmin = (params?.adminType as string) === "branch-admin" ||
     (typeof pathname === "string" && pathname.startsWith("/branch-admin"))
@@ -327,7 +328,7 @@ const itemsPerPage = 15
           end_date: student.end_date ?? null,
           // Add fallback course info from user model if available
           course_info: student.course || null,
-          // Prefer API branch_info (has branch_name); fallback to legacy student.branch
+          // Prefer API branch_info (has branch_name); fallback to legacy student.academy
           branch_info: student.branch_info || student.branch || null,
           branch_id: student.branch_id || student.branch_info?.branch_id,
           student_level: student.student_level ?? null,
@@ -352,13 +353,13 @@ const itemsPerPage = 15
     fetchStudents()
   }, [refreshKey, pathname, adminType])
 
-  // Fetch branches and courses for the assignment modal
+  // Fetch academies and courses for the assignment modal
   const fetchBranchesAndCourses = async (includeCourses = true) => {
     try {
       const token = TokenManager.getToken()
       if (!token) return
 
-      // Fetch branches
+      // Fetch academies
       const branchesResponse = await fetch(getBackendApiUrl('branches?skip=0&limit=200&include_stats=false'), {
         headers: { 'Authorization': `Bearer ${token}` }
       })
@@ -378,7 +379,7 @@ const itemsPerPage = 15
         setCourses(coursesData.courses || coursesData || [])
       }
     } catch (error) {
-      console.error("Error fetching branches and courses:", error)
+      console.error("Error fetching academies and courses:", error)
     }
   }
 
@@ -461,11 +462,11 @@ const itemsPerPage = 15
     setCurrentPage(1)
   }
 
-  /** Primary branch id used by super-admin branch filter (unchanged). */
+  /** Primary academy id used by super-admin academy filter (unchanged). */
   const getStudentDisplayBranchId = (student: Student): string | null =>
     student.branch_info?.branch_id ?? student.branch_id ?? null
 
-  /** Branch column label — show every active-enrollment branch for multi-branch students. */
+  /** Academy column label — show every active-enrollment academy for multi-academy students. */
   const getStudentBranchColumnLabel = (student: Student): string => {
     const fromApi = (student.branch_info?.branch_names || [])
       .map((n) => (typeof n === "string" ? n.trim() : ""))
@@ -492,7 +493,7 @@ const itemsPerPage = 15
   const handleAssignConfirm = async () => {
     const branchId = isBranchAdmin ? getActiveBranchId() || selectedBranch : selectedBranch
     if (!selectedStudent || !branchId || selectedCourses.length === 0) {
-      setAssignmentError("Please select a student, branch, and at least one course")
+      setAssignmentError("Please select a student, academy, and at least one course")
       return
     }
 
@@ -505,7 +506,7 @@ const itemsPerPage = 15
         throw new Error("Authentication token not found. Please login again.")
       }
 
-      // Update student with branch and course assignments
+      // Update student with academy and course assignments
       const response = await fetch(getBackendApiUrl(`users/${selectedStudent}`), {
         method: 'PUT',
         headers: {
@@ -732,7 +733,7 @@ const itemsPerPage = 15
       const link = data.link || ""
       if (link && navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(link)
-        alert("Onboard link copied to clipboard. Send it to the student so they can set their password and complete their profile (course, branch, duration, joining date).")
+        alert("Onboard link copied to clipboard. Send it to the student so they can set their password and complete their profile (course, academy, duration, joining date).")
       } else {
         prompt("Copy this link and send it to the student:", link)
       }
@@ -939,59 +940,54 @@ const paginatedStudents = filteredStudents.slice(
         </AdminKpiGrid>
       )}
 
-      <AdminFilterBar className="items-stretch sm:items-center">
-        <div className="flex flex-1 flex-wrap items-center gap-2">
-          <Select
-            value={listViewFilter}
-            onValueChange={(v) => handleListViewFilterChange(v as "all" | "unassigned")}
-          >
-            <SelectTrigger className="w-full sm:w-[170px]">
-              <SelectValue placeholder="All Students" />
+      <AdminFilterBar>
+        <Select
+          value={listViewFilter}
+          onValueChange={(v) => handleListViewFilterChange(v as "all" | "unassigned")}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="All Students" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Students</SelectItem>
+            <SelectItem value="unassigned">Unassigned only</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select
+          value={accountStatusFilter}
+          onValueChange={(v) => {
+            setAccountStatusFilter(v as StudentAccountStatusFilter)
+            setCurrentPage(1)
+          }}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="All Statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="inactive">Inactive</SelectItem>
+          </SelectContent>
+        </Select>
+        {adminType === "super-admin" && (
+          <Select value={listBranchFilter} onValueChange={handleListBranchFilterChange}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="All Academies" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Students</SelectItem>
-              <SelectItem value="unassigned">Unassigned only</SelectItem>
+              <SelectItem value="all">All Academies</SelectItem>
+              {branches
+                .filter((b: { id?: string }) => Boolean(b?.id))
+                .map((b: { id: string; name?: string; branch?: { name?: string } }) => (
+                  <SelectItem key={b.id} value={b.id}>
+                    {b.branch?.name || b.name || "Academy"}
+                  </SelectItem>
+                ))}
             </SelectContent>
           </Select>
-          <Select
-            value={accountStatusFilter}
-            onValueChange={(v) => {
-              setAccountStatusFilter(v as StudentAccountStatusFilter)
-              setCurrentPage(1)
-            }}
-          >
-            <SelectTrigger className="w-full sm:w-[160px]">
-              <SelectValue placeholder="All Statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
-            </SelectContent>
-          </Select>
-          {adminType === "super-admin" && (
-            <Select value={listBranchFilter} onValueChange={handleListBranchFilterChange}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="All Branches" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Branches</SelectItem>
-                {branches
-                  .filter((b: { id?: string }) => Boolean(b?.id))
-                  .map((b: { id: string; name?: string; branch?: { name?: string } }) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      {b.branch?.name || b.name || "Branch"}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          )}
-          {listViewFilter === "unassigned" && unassignedStudentsLoading && (
-            <span className="text-sm text-[#6B7A99]">Loading unassigned…</span>
-          )}
-        </div>
-        <div className="relative w-full sm:ml-auto sm:w-72 lg:w-96">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7A99]" />
+        )}
+        <div className="relative min-w-0 w-full lg:col-span-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 text-[#6B7A99]" />
           <Input
             placeholder="Search by name, phone, email or course…"
             className="pl-10 text-[#6B7A99]"
@@ -1002,6 +998,9 @@ const paginatedStudents = filteredStudents.slice(
             }}
           />
         </div>
+        {listViewFilter === "unassigned" && unassignedStudentsLoading ? (
+          <span className="self-center text-sm text-[#6B7A99]">Loading unassigned…</span>
+        ) : null}
       </AdminFilterBar>
 
       <AdminTableShell
@@ -1075,7 +1074,7 @@ const paginatedStudents = filteredStudents.slice(
                   <th className="lg:w-[19%]">Student</th>
                   <th className="lg:w-[20%]">Courses &amp; Registered</th>
                   <th className="lg:w-[14%]">Duration</th>
-                  <th className="lg:w-[10.5%]">Branch</th>
+                  <th className="lg:w-[10.5%]">Academy</th>
                   <th className="lg:w-[9.5%]">Status</th>
                   <th className="lg:w-[21.5%] text-right">Actions</th>
                 </tr>
@@ -1293,7 +1292,7 @@ const paginatedStudents = filteredStudents.slice(
                               onClick={() => handleSendOnboardLink(student.id)}
                               disabled={onboardLinkLoading === student.id}
                               className={actionIconClass}
-                              title="Send onboard link (set password & course/branch/duration)"
+                              title="Send onboard link (set password & course/academy/duration)"
                             >
                               {onboardLinkLoading === student.id ? (
                                 <span className="text-[10px]">…</span>
@@ -1326,25 +1325,31 @@ const paginatedStudents = filteredStudents.slice(
             </table>
       </AdminTableShell>
 
-      {/* Assign Popup */}
-      {showAssignPopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Assign Student to Branch & Course</h3>
-              <Button variant="ghost" size="sm" onClick={() => {
-                setShowAssignPopup(false)
-                setAssignmentError(null)
-                setSelectedStudent("")
-                setSelectedBranch("")
-                setSelectedCourses([])
-                setAssignStudentSearch("")
-                setAssignStudentDropdownOpen(false)
-              }} className="p-1">
-                ×
-              </Button>
-            </div>
-
+      <AppModal
+        open={showAssignPopup}
+        onClose={() => {
+          if (assignmentLoading) return
+          setShowAssignPopup(false)
+          setAssignmentError(null)
+          setSelectedStudent("")
+          setSelectedBranch("")
+          setSelectedCourses([])
+          setAssignStudentSearch("")
+          setAssignStudentDropdownOpen(false)
+        }}
+        title="Assign Student to Academy & Course"
+        size="lg"
+        closeDisabled={assignmentLoading}
+        footer={
+          <Button
+            onClick={handleAssignConfirm}
+            disabled={assignmentLoading}
+            className="w-full bg-[#E1BB33] text-[#171A26] hover:bg-[#d4a82a] sm:w-auto sm:ml-auto"
+          >
+            {assignmentLoading ? "Assigning..." : "Assign Now"}
+          </Button>
+        }
+      >
             {assignmentError && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
                 <p className="text-sm text-red-600">{assignmentError}</p>
@@ -1436,13 +1441,13 @@ const paginatedStudents = filteredStudents.slice(
 
               {/* Branch Dropdown */}
               <div>
-                <label className="block text-sm font-medium mb-2">Select Branch</label>
+                <label className="block text-sm font-medium mb-2">Select Academy</label>
                 {isBranchAdmin ? (
                   <BranchSelectionField readOnly />
                 ) : (
                   <Select value={selectedBranch} onValueChange={setSelectedBranch}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Choose a branch..." />
+                      <SelectValue placeholder="Choose an branch..." />
                     </SelectTrigger>
                     <SelectContent>
                       {branches.map((branch) => {
@@ -1494,37 +1499,32 @@ const paginatedStudents = filteredStudents.slice(
                 )}
               </div>
             </div>
+      </AppModal>
 
+      <AppModal
+        open={showDeletePopup}
+        onClose={handleDeleteCancel}
+        title="Delete Student"
+        size="sm"
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
-              onClick={handleAssignConfirm}
-              disabled={assignmentLoading}
-              className="w-full mt-6 text-white disabled:opacity-50"
+              onClick={handleDeleteCancel}
+              variant="outline"
+              className="w-full border-[#D1D5DB] text-[#4F5077] sm:w-auto"
             >
-              {assignmentLoading ? "Assigning..." : "Assign Now"}
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm} className="w-full sm:w-auto">
+              Delete
             </Button>
           </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Popup */}
-      {showDeletePopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">Delete Student</h3>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete this student? This action cannot be undone.
-            </p>
-            <div className="flex space-x-3">
-              <Button onClick={handleDeleteCancel} variant="outline" className="flex-1 bg-transparent">
-                Cancel
-              </Button>
-              <Button onClick={handleDeleteConfirm} className="flex-1 bg-red-600 hover:bg-red-700 text-white">
-                Delete
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+        }
+      >
+        <p className="text-sm leading-relaxed text-[#6B7280]">
+          Are you sure you want to delete this student? This action cannot be undone.
+        </p>
+      </AppModal>
 
       {/* M08-S01 status change with reason */}
       <Dialog

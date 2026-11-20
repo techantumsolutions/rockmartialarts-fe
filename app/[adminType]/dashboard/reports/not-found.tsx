@@ -152,7 +152,7 @@ export default function ReportsNotFound() {
               { name: 'Financial Reports', href: '/dashboard/reports/financial' },
               { name: 'Course Reports', href: '/dashboard/reports/course' },
               { name: 'Coach Reports', href: '/dashboard/reports/coach' },
-              { name: 'Branch Reports', href: '/dashboard/reports/branch' },
+              { name: 'Academy Reports', href: '/dashboard/reports/branch' },
               { name: 'Coach Reports', href: '/dashboard/reports/coach' }
             ].map((category) => (
               <Link key={category.name} href={category.href}>

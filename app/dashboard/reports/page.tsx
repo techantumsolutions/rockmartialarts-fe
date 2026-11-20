@@ -89,23 +89,23 @@ const REPORT_CATEGORIES = [
       { id: "coach-course-load", name: "Coach Course Load", icon: FileText },
       { id: "coach-feedback-report", name: "Coach Feedback Report", icon: FileText },
       { id: "coach-productivity-metrics", name: "Coach Productivity Metrics", icon: TrendingUp },
-      { id: "coach-branch-distribution", name: "Coach Branch Distribution", icon: FileText }
+      { id: "coach-academy-distribution", name: "Coach Academy Distribution", icon: FileText }
     ]
   },
   {
     id: "branch",
-    name: "Branch Reports",
-    description: "Branch-wise analytics, performance, and operational reports",
+    name: "Academy Reports",
+    description: "Academy-wise analytics, performance, and operational reports",
     icon: TrendingUp,
     reports: [
-      { id: "branch-performance-overview", name: "Branch Performance Overview", icon: TrendingUp },
-      { id: "branch-enrollment-statistics", name: "Branch Enrollment Statistics", icon: FileText },
-      { id: "branch-revenue-analysis", name: "Branch Revenue Analysis", icon: TrendingUp },
-      { id: "branch-capacity-utilization", name: "Branch Capacity Utilization", icon: FileText },
-      { id: "branch-staff-allocation", name: "Branch Staff Allocation", icon: FileText },
-      { id: "branch-operational-hours", name: "Branch Operational Hours", icon: FileText },
-      { id: "branch-comparison-report", name: "Branch Comparison Report", icon: TrendingUp },
-      { id: "branch-growth-trends", name: "Branch Growth Trends", icon: TrendingUp }
+      { id: "academy-performance-overview", name: "Academy Performance Overview", icon: TrendingUp },
+      { id: "academy-enrollment-statistics", name: "Academy Enrollment Statistics", icon: FileText },
+      { id: "academy-revenue-analysis", name: "Academy Revenue Analysis", icon: TrendingUp },
+      { id: "academy-capacity-utilization", name: "Academy Capacity Utilization", icon: FileText },
+      { id: "academy-staff-allocation", name: "Academy Staff Allocation", icon: FileText },
+      { id: "academy-operational-hours", name: "Academy Operational Hours", icon: FileText },
+      { id: "academy-comparison-report", name: "Academy Comparison Report", icon: TrendingUp },
+      { id: "academy-growth-trends", name: "Academy Growth Trends", icon: TrendingUp }
     ]
   },
   {
@@ -337,7 +337,7 @@ function ReportsPageContent() {
               <span>Filter</span>
             </Button>
             <Button
-              className="bg-yellow-400 hover:bg-yellow-500 text-white flex items-center space-x-2"
+              className=" flex items-center space-x-2"
               onClick={handleDownloadReport}
               disabled={loading || categoryLoading !== null}
             >
@@ -463,7 +463,7 @@ function ReportsPageContent() {
                   <div className="space-y-2 text-sm text-gray-500">
                     <p>Try searching for:</p>
                     <ul className="list-disc list-inside space-y-1">
-                      <li>Student, Course, Coach, Branch, or Financial</li>
+                      <li>Student, Course, Coach, Academy, or Financial</li>
                       <li>Report types like "enrollment" or "revenue"</li>
                       <li>Shorter or more general terms</li>
                     </ul>

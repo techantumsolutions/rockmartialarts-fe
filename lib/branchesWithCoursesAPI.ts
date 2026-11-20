@@ -135,7 +135,7 @@ export async function fetchBranchesWithCourses(
     throw new Error(
       errorData.message || 
       errorData.error || 
-      `Failed to fetch branches with courses (${response.status})`
+      `Failed to fetch academies with courses (${response.status})`
     )
   }
 
@@ -143,7 +143,7 @@ export async function fetchBranchesWithCourses(
 }
 
 /**
- * Extracts just the branches data for dropdown usage
+ * Extracts just the academyes data for dropdown usage
  */
 export function extractBranchesForDropdown(data: BranchesWithCoursesResponse) {
   return data.branches.map(branch => ({
@@ -155,7 +155,7 @@ export function extractBranchesForDropdown(data: BranchesWithCoursesResponse) {
 }
 
 /**
- * Extracts all courses from all branches for dropdown usage
+ * Extracts all courses from all academies for dropdown usage
  */
 export function extractCoursesForDropdown(data: BranchesWithCoursesResponse) {
   const allCourses: Array<{
@@ -224,7 +224,7 @@ export async function useBranchesWithCourses(filters: BranchesWithCoursesFilters
  * const data = await fetchBranchesWithCourses()
  * 
  * // Fetch specific branch
- * const branchData = await fetchBranchesWithCourses({ branch_id: 'branch-1' })
+ * const branchData = await fetchBranchesWithCourses({ branch_id: 'academy-1' })
  * 
  * // Fetch including inactive branches
  * const allData = await fetchBranchesWithCourses({ include_inactive: true })
